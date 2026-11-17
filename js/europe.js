@@ -55,6 +55,11 @@ function foreignSummer() {
   for (const id of G.foreign || []) {
     const c = CL(id); c.lvl = clamp(c.lvl + normal() * 1.2, 66, 90); c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98);
     foreignSquad(c);
+    // Now and then a foreign club buys a player from an English club below its standard.
+    if (R() < .25) {
+      const t = Object.values(G.players).find(p => p.club >= 0 && !p.loan && !p.acad && p.age <= 29 && p.ovr >= c.lvl - 3 && p.ovr <= c.lvl + 5 && !CL(p.club).gone && !isMine(CL(p.club)) && CL(p.club).lvl < p.ovr && R() < .02);
+      if (t) { const from = CL(t.club); moveTo(t, c); t.wage = wageFor(t.ovr); t.yrs = ri(2, 4); aiSquadCheck(from, true); if (from.lg === (my() || {}).lg) news(`${t.name} leaves ${from.name} for ${c.name} in ${COUNTRY[c.country].name}.`); }
+    }
   }
 }
 const countryOf = c => c.abroad ? COUNTRY[c.country].name : "England";

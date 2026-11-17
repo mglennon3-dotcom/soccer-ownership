@@ -123,6 +123,11 @@ function release(p, byOwner) {
   news(`${p.name} is released${releaseCost(p) ? `, with ${money(releaseCost(p))} paid up` : ""}${byOwner ? " (your decision)" : ""}.`);
 }
 
+/* Clubs that can bid: every English club still going and every foreign club. */
+const bidders = () => G.clubs.filter(x => (!x.gone || x.abroad) && !isMine(x));
+// Foreign clubs like bringing their own countrymen home.
+const bidWeight = (x, p, c) => (1 + Math.max(0, c.tier - x.tier) * 1.5) * (x.abroad ? (x.country === p.nat ? .9 : .2) : 1);  // abroad: a minority of bids, more for their own countrymen
+const clubLabel = x => x.abroad ? `${x.name} (${COUNTRY[x.country].name})` : x.name;
 /* ---------- offers for your players ----------
    Real offers only, and only in a window. Clubs bid for players you've transfer-listed (usually below their value:
    everyone knows you want to sell), and the bigger clubs come in for your stars whether they're listed or not. */
@@ -132,9 +137,9 @@ function bidsWeek(c) {
     let buyer = null, amt = 0;
     if (p.list) {
       if (R() > .35) continue;
-      const want = G.clubs.filter(x => !x.gone && !isMine(x) && x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 && p.age <= 33);
+      const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 && p.age <= 33);
       if (!want.length) continue;
-      buyer = pick(want); amt = Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000;
+      buyer = wpick(want, x => bidWeight(x, p, c)); amt = Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000;
     } else {
       // Unlisted players draw bids too: anyone who'd be a regular somewhere, more often the better he is for your
       // level, and at or above his value, since the club has to tempt you.
@@ -144,14 +149,14 @@ function bidsWeek(c) {
       const form = Math.max(0, seasonForm(p));
       const chance = .025 + (star ? .1 : 0) + Math.max(0, p.ovr - TIER_LVL[c.tier]) * .006 + form * .07;
       if (R() > chance) continue;
-      const h = hostileOf(c), want = G.clubs.filter(x => !x.gone && !isMine(x) && x.lvl >= p.ovr - 3 && x.lvl <= p.ovr + 7 + form * 4 && x.tier <= c.tier + 1);
-      buyer = h && star && R() < .4 ? h : want.length ? wpick(want, x => 1 + Math.max(0, c.tier - x.tier) * 1.5) : null;
+      const h = hostileOf(c), want = bidders().filter(x => x.lvl >= p.ovr - 3 && x.lvl <= p.ovr + 7 + form * 4 && x.tier <= c.tier + 1);
+      buyer = h && star && R() < .4 ? h : want.length ? wpick(want, x => bidWeight(x, p, c)) : null;
       if (!buyer) continue;
       amt = Math.round(valueOf(p) * rf(.9, 1.45) * (1 + form * .2) * (buyer.own ? 1 + OWNER_STYLES[buyer.own.style].poach * .3 : 1) / 1000) * 1000;
     }
     if (amt < 1000) amt = 1000;
     const fw = formWord(seasonForm(p)), keen = buyer.tier < c.tier || buyer.rep > c.rep + 8 || (p.list && R() < .7);
-    addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${buyer.name} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
+    addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
 }
 function headAdvice(p, amt) {
@@ -186,7 +191,7 @@ function answerBid(m, accept, auto) {
     const starter = pickXI(my()).some(o => o.p === p);
     if (starter && !auto) trust("manager", -6, `didn't want to lose ${p.name}.`);
     leaveClub(p); moveTo(p, buyer); p.wage = wageFor(p.ovr); earn("sales", m.amt);
-    news(`${p.name} joins ${buyer.name} for ${money(m.amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
+    news(`${p.name} joins ${clubLabel(buyer)} for ${money(m.amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
   } else if (auto) news(`A ${money(m.amt)} bid from ${buyer.name} for ${p.name} is turned down.`);
 }
 

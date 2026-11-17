@@ -100,7 +100,7 @@ don't play domestic leagues; their strength drifts each summer):
 
 Eight groups of four, home and away (weeks 5-25), then two-legged knockout rounds and a final at a neutral ground.
 Prize money for taking part, every group win and draw, and each round reached; home European nights draw bigger
-crowds at higher prices. Players at foreign clubs can be signed too.
+crowds at higher prices. Players at foreign clubs can be signed too, and foreign clubs bid for yours (about a quarter of the offers a top-flight or second-tier club gets, more for players from their own country).
 
 ## The boardroom
 
