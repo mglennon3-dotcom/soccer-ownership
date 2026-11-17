@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: "", min: 0, int: "" };
+let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, min: 0, int: "", lg: "", off: [] };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString("en-GB"));
 // Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
 const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
@@ -25,7 +25,7 @@ function sortTable(id, cols, rows, opt = {}) {
   if (st) { const col = cols.find(c => c.k === st.k); if (col && col.v) rows = rows.map(r => [col.v(r), r]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0) * st.d).map(x => x[1]); }
   const total = rows.length; if (opt.limit) rows = rows.slice(0, opt.limit);
   return `<div class="tbl-wrap"><table class="sq"><thead><tr>${cols.map(c => `<th${c.left ? ' style="text-align:left"' : ""} ${st && st.k === c.k ? `aria-sort="${st.d > 0 ? "ascending" : "descending"}"` : ""}>${c.v ? `<button data-act="sort" data-v="${id}|${c.k}">${c.l}${st && st.k === c.k ? (st.d > 0 ? " ▲" : " ▼") : ""}</button>` : c.l}</th>`).join("")}</tr></thead><tbody>
-    ${rows.map(r => `<tr${opt.row ? " " + opt.row(r) : ""}>${cols.map(c => `<td class="${c.r ? "num" : ""}"${c.left ? ' style="text-align:left"' : ""}>${c.f(r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted">${opt.empty || "Nothing to show."}</td></tr>`}</tbody></table></div>${opt.limit && total > opt.limit ? `<p class="small muted" style="margin-top:6px">Showing ${opt.limit} of ${total.toLocaleString("en-GB")}. Narrow the filters or sort to see others.</p>` : ""}`;
+    ${rows.map(r => `<tr${opt.row ? " " + opt.row(r) : ""}>${cols.map(c => `<td class="${c.r ? "num" : ""}"${c.left ? ' style="text-align:left"' : ""}>${c.f(r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted">${opt.empty || "Nothing to show."}</td></tr>`}</tbody></table></div>${opt.limit && total > opt.limit && !opt.quiet ? `<p class="small muted" style="margin-top:6px">Showing ${opt.limit} of ${total.toLocaleString("en-GB")}. Narrow the filters or sort to see others.</p>` : ""}`;
 }
 const SORT_UP = ["name", "pos", "club", "nat"];  // columns that start A-Z (or by position)
 const archChip = p => { const a = archetypeOf(p); return a ? `<span class="chip hg" title="${esc(a[0] + ": " + a[2])}">${a[3]}</span>` : ""; };
@@ -374,12 +374,17 @@ function interestOf(p) {
 // Loan targets: young players a club would lend (not in its first team), from English or foreign clubs.
 const loanable = p => p.club >= 0 && p.club !== G.club && !p.loan && !p.acad && p.age <= 23 && (!CL(p.club).gone || CL(p.club).abroad);
 const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
+// Where a player plays (or, for a free agent, where he's from): the country chips on the market filter.
+const MKT_COUNTRIES = ["ENG", "ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "ROW"];
+const playerCountry = p => p.club >= 0 ? (CL(p.club).abroad ? CL(p.club).country : "ENG") : MKT_COUNTRIES.includes(p.nat) ? p.nat : "ROW";
 function pgMarket() {
-  const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c), xiCache = {};
+  const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c), xiCache = {}, off = new Set(F.off || []);
   const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"]];
-  let base = F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (CL(p.club).tier >= c.tier - 2 || (F.tab === "loans" && CL(p.club).abroad)));
+  let base = F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
   if (F.tab === "listed") base = base.filter(p => p.list || p.req);
   if (F.tab === "loans") base = base.filter(p => loanable(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
+  if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
+  if (F.lg) base = base.filter(p => p.club >= 0 && (F.lg === "ABROAD" ? CL(p.club).abroad : CL(p.club).lg === F.lg));
   // Cheap filters first; then each club's first team is worked out once for the asking prices.
   let pool = base.filter(p => (!F.pos || p.pos === F.pos) && p.age <= F.age && (!F.arch || (archetypeOf(p) || [])[0] === F.arch))
     .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
@@ -388,29 +393,34 @@ function pgMarket() {
   if (F.int) pool = pool.filter(x => F.int === "sign" ? x.i.k !== "no" : F.int === "open" ? x.i.k === "open" || x.i.k === "keen" : x.i.k === F.int);
   const archOpts = (F.pos ? [F.pos] : POS).map(r => `<optgroup label="${POS_NAME[r]}">${ARCHETYPES[r].map(a => `<option value="${esc(a[0])}" ${F.arch === a[0] ? "selected" : ""}>${a[0]}</option>`).join("")}</optgroup>`).join("");
   const sel = (k, opts) => `<select data-act="mf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
-  return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Transfer market</h2><span class="small ${windowOpen() ? "good" : "muted"}">${windowOpen() ? "Window open" : "Window closed: free agents only"}</span></div>
-    <div class="seg" style="margin-bottom:10px">${TABS.map(([k, l]) => `<button data-act="mtab" data-k="${k}" aria-pressed="${F.tab === k}">${l}</button>`).join("")}</div>
-    <p class="small muted" style="margin-bottom:10px">${F.tab === "loans" ? "Young players who aren't in their club's first team. Ask to borrow one from his card: you pay half his wages until the end of the season." : "Buying a player yourself goes over your head of recruitment's head."} Interest is how open he is to joining you: the money, playing time, your club's standing, facilities and more. Ratings are ${s ? `${esc(s.name)}'s estimates` : "guesses: you have no recruitment staff"}.</p>
-    <div class="row filters" style="margin-bottom:10px">
-      <label class="small">Position ${sel("pos", [["", "Any"], ...POS.map(r => [r, POS_NAME[r]])])}</label>
-      <label class="small">Type <select data-act="mf" data-k="arch"><option value="">Any</option>${archOpts}</select></label>
-      <label class="small">Max age ${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
-      <label class="small">Min rating ${sel("min", [[0, "Any"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
-      <label class="small">Interest ${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign"], ["no", "Not interested"]])}</label>
-      ${F.tab === "loans" ? "" : `<label class="small">Max fee <input type="text" inputmode="decimal" class="num-in" data-act="mf" data-k="fee" value="${F.fee ? fmtNum(F.fee) : ""}" placeholder="any"></label>`}</div>
+  const FEES = [0, 50e3, 100e3, 250e3, 500e3, 1e6, 2.5e6, 5e6, 10e6, 25e6, 50e6, 100e6];
+  const wageUse = c.budget.wages ? Math.round(wageBill(c) / c.budget.wages * 100) : 0;
+  return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Search the market</h2></div>
+    <p style="margin-bottom:12px">${windowOpen() ? `<b class="good">Window open</b>` : `<b class="muted">Window closed: free agents only</b>`} · Cash <b class="num">${money(c.cash)}</b> · Wage bill <b class="num">${wageUse}%</b> of budget</p>
+    <div class="chips" style="margin-bottom:12px">${TABS.map(([k, l]) => `<button data-act="mtab" data-k="${k}" aria-pressed="${F.tab === k}">${l}</button>`).join("")}</div>
+    <div class="filters">
+      <label class="f">Position${sel("pos", [["", "Any"], ...POS.map(r => [r, POS_NAME[r]])])}</label>
+      <label class="f">Type<select data-act="mf" data-k="arch"><option value="">Any</option>${archOpts}</select></label>
+      <label class="f">Max age${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
+      <label class="f">Min rating${sel("min", [[0, "Any"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
+      <label class="f">Interest${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign (not Not interested)"], ["no", "Not interested"]])}</label>
+      ${F.tab === "loans" ? "" : `<label class="f">Max fee${sel("fee", FEES.map(v => [v, v ? money(v) : "Any"]))}</label>`}
+      <label class="f">League${sel("lg", [["", "All leagues"], ...LG_KEYS.map(k => [k, LEAGUES[k].name]), ["ABROAD", "Clubs abroad"]])}</label></div>
+    <div class="cty-tog" role="group" aria-label="Countries to search"><span class="small muted">Countries</span>${MKT_COUNTRIES.map(k => { const on = !off.has(k); return `<button class="cty ${on ? "on" : ""}" data-act="mcty" data-k="${k}" aria-pressed="${on}">${k === "ROW" ? "Rest of world" : esc(COUNTRY[k].name)}</button>`; }).join("")}
+      <span class="cty-all small"><button class="lnk" data-act="mctyall" data-v="1" ${off.size ? "" : "disabled"}>Select all</button> · <button class="lnk" data-act="mctyall" data-v="0" ${off.size === MKT_COUNTRIES.length ? "disabled" : ""}>Unselect all</button></span></div>
+    <p class="small muted" style="margin-bottom:8px">${pool.length.toLocaleString("en-GB")} player${pool.length === 1 ? "" : "s"} match${pool.length === 1 ? "es" : ""}${pool.length > 200 ? ": showing the first 200 in the order you sort by" : ""}.${F.tab === "loans" ? " Young players out of their club's first team: ask to borrow one from his card, and you pay half his wages to the end of the season." : ""}</p>
     ${sortTable("market-" + F.tab, [
+      { k: "name", l: "Player", left: true, v: x => x.p.name, f: x => `<button class="lnk" data-act="player" data-id="${x.p.id}">${esc(x.p.name)}</button>${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}<br><span class="small muted">${esc((archetypeOf(x.p) || [""])[0])}</span>` },
       { k: "pos", l: "Pos", v: x => POS.indexOf(x.p.pos), f: x => `<span class="pos">${x.p.pos}</span>` },
-      { k: "name", l: "Name", left: true, v: x => x.p.name, f: x => `${esc(x.p.name)}${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}` },
-      { k: "type", l: "Type", v: x => (archetypeOf(x.p) || [""])[0], f: x => archChip(x.p) },
       { k: "age", l: "Age", r: true, v: x => x.p.age, f: x => x.p.age },
-      { k: "club", l: "Club", left: true, v: x => fromName(x.p), f: x => `<span class="small">${esc(fromName(x.p))}</span>` },
       { k: "ovr", l: "Rating", v: x => x.e[0] + x.e[1], f: x => range(x.e) },
       { k: "pot", l: "Potential", v: x => x.pe[0] + x.pe[1], f: x => range(x.pe) },
       { k: "int", l: "Interest", v: x => ({ keen: 3, open: 2, sign: 1, no: 0 })[x.i.k], f: x => `<span class="small ${x.i.cls}">${x.i.w}</span>` },
+      { k: "club", l: "Club", left: true, v: x => fromName(x.p), f: x => `<span class="small">${esc(fromName(x.p))}</span>` },
       { k: "fee", l: F.tab === "loans" ? "Value" : "Fee", r: true, v: x => x.fee, f: x => F.tab === "loans" ? money(valueOf(x.p)) : x.fee ? money(x.fee) : "Free" },
-      { k: "wage", l: "Wage now", r: true, v: x => x.p.wage, f: x => money(x.p.wage) },
+      { k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => money(x.p.wage) },
       { k: "ask", l: F.tab === "loans" ? "You'd pay" : "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => F.tab === "loans" ? money(x.p.wage / 2) : x.i.ask != null ? money(x.i.ask) : "—" },
-    ], pool, { sort: { k: "ovr", d: -1 }, limit: 100, row: x => `class="click" data-act="player" data-id="${x.p.id}"`, empty: "Nobody matches these filters." })}</section></div>
+    ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section></div></div>`;
