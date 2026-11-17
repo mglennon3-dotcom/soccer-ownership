@@ -59,7 +59,7 @@ function renderStart(saves) {
 }
 
 /* ---------- masthead ---------- */
-const PAGES = [["home", "Office"], ["squad", "Squad"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["rivals", "Rivals"], ["hist", "History"]];
+const PAGES = [["home", "Office"], ["squad", "Squad"], ["tactics", "Tactics"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["rivals", "Rivals"], ["hist", "History"]];
 function phaseText() {
   if (G.phase === "summer") return `${seasonLabel(G.year)} pre-season · week ${G.week + 1} of ${SUMMER_WEEKS} · transfer window open`;
   if (G.phase === "playoffs") return `${seasonLabel(G.year)} · play-offs`;
@@ -80,7 +80,7 @@ function mast() {
 function render() {
   if (!G) return;
   if (G.club == null) { $("#app").innerHTML = buyScreen(); return; }
-  const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals }[PAGE]();
+  const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals, tactics: pgTactics }[PAGE]();
   if (G.ended) { $("#app").innerHTML = endScreen(); return; }
   // The section tabs keep their sideways scroll across redraws, so tapping a tab doesn't snap the bar back to the start.
   // (Only a visible bar records it: iOS reports 0 while the compact masthead hides it.)

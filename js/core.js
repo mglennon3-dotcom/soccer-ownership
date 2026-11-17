@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.11.1";
+const VERSION = "0.12.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -20,7 +20,7 @@ const rh = v => Math.round(v * 2) / 2;
    3-7, Third Division 5-9, Second 6-10, First 9-13, Premier Division 12-20 (stars 18-19, 20 generational). Foreign
    clubs are their countries' top flights and read like the Premier Division.
    Points: [internal (0-100), shown (1-20)], straight lines between them. */
-const R20_PTS = [[0, 1], [36, 1], [44, 2.5], [50, 3.5], [55, 5], [60, 7], [65, 8.2], [71, 11], [79, 15], [90, 18.5], [97.5, 20], [100, 20]];
+const R20_PTS = [[0, 1], [28, 1], [44, 2.5], [50, 3.5], [55, 5], [60, 7], [65, 8.2], [71, 11], [79, 15], [90, 18.5], [97.5, 20], [100, 20]];
 function to20(v) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a || 1); } return 20; }
 function from20(d) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (d <= y && y > x) return a + (b - a) * (d - x) / (y - x); } return 100; }
 const r20 = v => clamp(Math.round(to20(v)), 1, 20);

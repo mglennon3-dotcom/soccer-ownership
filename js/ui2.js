@@ -182,3 +182,53 @@ function contHTML(k) {
   return `<div class="grid2"><div class="stack">${K.win != null ? `<section class="card summary"><h2>🏆 ${esc(CL(K.win).name)}</h2></section>` : ""}${ko}
     <p class="small muted">Group games in weeks ${CONT_GROUP_WEEKS.map(w => w + 1).join(", ")}.</p>${myGroup >= 0 ? groups[myGroup] : ""}${groups.filter((_, i) => i !== myGroup).join("")}</div><div class="stack">${info}</div></div>`;
 }
+
+/* ---------- Tactics: how your manager sets the team up (you watch; he decides) ---------- */
+// Where each slot sits on the pitch, per formation: [x 0-100 left to right, y 0-100 attacking end to own goal].
+const FORM_XY = {"4-4-2": [[50, 92], [13, 72], [37, 77], [63, 77], [87, 72], [13, 45], [37, 50], [63, 50], [87, 45], [37, 19], [63, 19]], "4-3-3": [[50, 92], [13, 72], [37, 77], [63, 77], [87, 72], [50, 59], [29, 44], [71, 44], [15, 22], [50, 15], [85, 22]], "4-2-3-1": [[50, 92], [13, 72], [37, 77], [63, 77], [87, 72], [35, 58], [65, 58], [15, 34], [50, 36], [85, 34], [50, 14]], "4-1-2-1-2": [[50, 92], [13, 72], [37, 77], [63, 77], [87, 72], [50, 60], [29, 47], [71, 47], [50, 34], [37, 17], [63, 17]], "3-5-2": [[50, 92], [27, 77], [50, 79], [73, 77], [9, 50], [50, 59], [31, 43], [69, 43], [91, 50], [37, 18], [63, 18]], "3-4-3": [[50, 92], [27, 77], [50, 79], [73, 77], [9, 48], [36, 52], [64, 52], [91, 48], [15, 21], [50, 15], [85, 21]], "5-3-2": [[50, 92], [8, 66], [29, 77], [50, 79], [71, 77], [92, 66], [27, 47], [50, 55], [73, 47], [37, 20], [63, 20]]};
+const PITCH_LINES = `<svg class="lines" viewBox="0 0 68 96" preserveAspectRatio="none" aria-hidden="true" fill="none" stroke="var(--chalk)" stroke-width=".4"><rect x="2" y="2" width="64" height="92"/><line x1="2" y1="48" x2="66" y2="48"/><circle cx="34" cy="48" r="7"/><rect x="16" y="2" width="36" height="14"/><rect x="26" y="2" width="16" height="5"/><rect x="16" y="80" width="36" height="14"/><rect x="26" y="89" width="16" height="5"/></svg>`;
+// Attack, midfield and defence of a side as the match engine weighs them (before morale and tactics).
+function lineStrength(xi) {
+  let a = 0, m = 0, d = 0, wa = 0, wm = 0, wd = 0;
+  for (const { p, slot } of xi) { const r = roleRating(p, slot), w = SLOT_W[slot]; a += r * w[0]; m += r * w[1]; d += r * w[2]; wa += w[0]; wm += w[1]; wd += w[2]; }
+  return { a: a / (wa || 1), m: m / (wm || 1), d: d / (wd || 1) };
+}
+function pgTactics() {
+  const c = my(), M = mgr(), hired = !!staffOf("manager"), form = M.form || "4-4-2", xi = pickXI(c), st = STYLES[M.phil], fit = styleFit(xi, M.phil);
+  const pos = FORM_XY[form] || FORM_XY["4-4-2"];
+  const slots = xi.map(({ p, slot, i }) => { const [x, y] = pos[i], r = r20(roleRating(p, slot)), oop = p.pos !== slot;
+    return `<button class="slot${oop ? " oop" : ""}" style="left:${x}%;top:${y}%" data-act="player" data-id="${p.id}" title="${esc(p.name)}: ${POS_NAME[slot]}${oop ? ` (normally ${POS_NAME[p.pos].toLowerCase()})` : ""}"><span class="disc">${r}</span><span class="nm">${esc(p.name.split(" ").slice(1).join(" ") || p.name)}</span><span class="rl">${slot}</span></button>`; }).join("");
+  const missing = 11 - xi.length;
+  // The style's four attributes across the outfield XI, against their own average.
+  const outf = xi.filter(o => o.p.pos !== "GK").map(o => o.p), allAvg = avg(outf.map(p => avg(OUT_KEYS.map(k => p.at[k]))));
+  const keyRows = st.keys.map(k => { const v = avg(outf.map(p => p.at[k])), d = v - allAvg; return `<div><div class="attr-r"><span>${ATTR[k]}</span>${attr20(v)}</div><p class="small ${d > 1.5 ? "good" : d < -1.5 ? "bad" : "muted"}">${d > 1.5 ? "A strength of this side" : d < -1.5 ? "A weakness of this side" : "About average for this side"}</p></div>`; }).join("");
+  const styles = Object.entries(STYLES).map(([k, S]) => [k, S, styleFit(xi, k)]).sort((a, b) => b[2] - a[2]);
+  // Against the rest of the division
+  const L = lineStrength(xi), div = G.leagues[c.lg].clubs.filter(id => id !== c.id).map(id => lineStrength(pickXI(CL(id))));
+  const dv = k => avg(div.map(x => x[k])), line = (l, k) => { const me = L[k], them = dv(k), diff = r20(me) - r20(them);
+    return `<div class="row between" style="padding:3px 0"><span>${l}</span><span>${rating(me)} <span class="small ${diff > 0 ? "good" : diff < 0 ? "bad" : "muted"}">${diff > 0 ? "+" + diff : diff < 0 ? diff : "level"} on the division average (${r20(them)})</span></span></div>`; };
+  const inXI = new Set(xi.map(o => o.p.id)), avail = c.squad.map(P).filter(p => !inXI.has(p.id) && !p.inj && (!p.acad || p.age >= 17));
+  const bench = avail.sort((a, b) => b.ovr - a.ovr).slice(0, 7), out2 = c.squad.map(P).filter(p => p.inj || p.unsettled > 0);
+  const nf = nextFixture(), opp = nf ? CL(nf.h === c.id ? nf.a : nf.h) : null, oxi = opp ? pickXI(opp) : null;
+  const focusTxt = { youth: "Gives young players a chance: he picks promising youngsters over slightly better senior players.", results: "Picks his strongest side every week.", balanced: "Balances results and bringing players through." }[M.focus];
+  return `<div class="grid2"><div class="stack">
+    <section class="card"><div class="card-h"><h2>${form}</h2><span class="small muted">${hired ? esc(M.name) + "'s side" : "Picked by the club captain: there's no manager"}</span></div>
+      <div class="pitch" style="--club:${c.color};max-width:420px;margin:0 auto">${PITCH_LINES}${slots}</div>
+      ${missing > 0 ? `<p class="small bad" style="margin-top:8px">${missing} place${missing > 1 ? "s" : ""} empty: not enough fit players.</p>` : ""}
+      <p class="small muted" style="margin-top:8px">The number is each player's rating in that position (out of 20). A dashed ring means he's playing out of position. Tap a player for his card.</p></section>
+    <section class="card"><div class="card-h"><h3>Substitutes</h3></div>${bench.length ? bench.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span><span>${rating(p.ovr)}</span></div>`).join("") : "<p class='small muted'>Nobody else is fit.</p>"}
+      ${out2.length ? `<h3 style="margin:12px 0 6px">Unavailable or unsettled</h3>${out2.map(p => `<p class="small">${esc(p.name)} (${p.pos}): ${p.inj ? `injured, ${p.inj} week${p.inj > 1 ? "s" : ""}` : "unsettled, playing below his best"}</p>`).join("")}` : ""}</section>
+  </div><div class="stack">
+    <section class="card"><div class="card-h"><h2>How we play</h2></div>
+      <p class="lead"><b>${st.l}.</b> ${esc(st.d)}</p>
+      <p class="small" style="margin:6px 0">${esc(focusTxt || "")}</p>
+      <dl class="ledger"><dt>Formation</dt><dd>${form}</dd><dt>Squad suits the style</dt><dd>${fitText(fit)}</dd>${hired ? `<dt>Tactics</dt><dd>${s20(M.at.tac)}/20</dd><dt>Motivation</dt><dd>${s20(M.at.mot)}/20</dd>` : ""}<dt>Team morale</dt><dd>${Math.round(c.morale)}</dd></dl>
+      <h3 style="margin:14px 0 6px">What the style needs</h3><div class="stack" style="gap:6px">${keyRows}</div></section>
+    <section class="card"><div class="card-h"><h3>Strength against the division</h3></div>${line("Attack", "a")}${line("Midfield", "m")}${line("Defence", "d")}
+      <p class="small muted" style="margin-top:6px">This eleven's ratings in their positions, as the match engine weighs them, against the average side in the ${LEAGUES[c.lg].name}. Morale, the manager's tactics and how well the squad suits his style come on top.</p></section>
+    <section class="card"><div class="card-h"><h3>Styles this squad would suit</h3></div>${styles.map(([k, S, f]) => `<div class="row between small" style="padding:3px 0"><span>${S.l}${k === M.phil ? ' <span class="chip xi">CURRENT</span>' : ""}</span><span>${fitText(f)}</span></div>`).join("")}
+      <p class="small muted" style="margin-top:6px">Worth knowing when you choose a manager: his style works best with a squad built for it.</p></section>
+    ${opp ? `<section class="card"><div class="card-h"><h3>Next opponent</h3></div><p>${clubLink(opp)} <span class="muted small">${nf.h === c.id ? "home" : "away"} · week ${nf.w + 1}</span></p>
+      <dl class="ledger" style="margin-top:6px"><dt>They play</dt><dd>${STYLES[opp.coach.style].l}, ${opp.coach.form}</dd><dt>Their side</dt><dd>${rating(avg(oxi.map(o => roleRating(o.p, o.slot))))}</dd><dt>Ours</dt><dd>${rating(avg(xi.map(o => roleRating(o.p, o.slot))))}</dd></dl></section>` : ""}
+  </div></div>`;
+}

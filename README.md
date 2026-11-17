@@ -23,6 +23,10 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Set your vision** (Board page): how you want the team to play, how you want it to recruit, and ten points across
   six priorities (winning now, youth, sound finances, the supporters, commercial growth, facilities). Staff who share
   your vision are keener to join and grow happier; staff who don't slowly sour. Each point brings a small benefit too.
+- **Watch your team.** The Tactics page shows the manager's formation on a pitch with his first-choice eleven (each
+  player's rating in his position, out-of-position players marked), the bench and who's unavailable, his style and how
+  well the squad suits it, attack, midfield and defence against the division, which styles the squad would suit best
+  (worth knowing when you hire a manager), and the next opponent.
 - **Hire staff.** A manager (tactics, motivation, player development; a style of play, a formation, and a view on
   youth), a head of recruitment (judging ability, negotiation, contacts; a recruitment philosophy and a search area),
   and a youth manager (development, judging potential, youth scouting; a type of player, local or wide search).
