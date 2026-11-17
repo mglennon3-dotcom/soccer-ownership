@@ -162,6 +162,7 @@ function bidsWeek(c) {
 function headAdvice(p, amt) {
   const s = staffOf("recruit"), v = valueOf(p), starter = pickXI(my()).some(o => o.p === p);
   if (p.keep) return "reject";
+  if (my().squad.filter(id => !P(id).acad).length <= 16) return "reject";  // the squad is too thin to sell
   if (p.list) return amt >= v * (s && s.phil === "value" ? .75 : .6) ? "accept" : "reject";  // he wants him gone, at a fair price
   if (!s) return amt >= v * 1.4 ? "accept" : "reject";
   const r = { value: amt >= v * 1.15, potential: p.age >= 24 ? amt >= v : amt >= v * 1.6, proven: starter ? amt >= v * 1.8 : amt >= v, fit: amt >= v * 1.3 }[s.phil];

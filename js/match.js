@@ -46,9 +46,19 @@ function poisson(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= R
 function scorer(xi, kind) {
   const w = kind === "g" ? { ST: 5, W: 3, AM: 3, CM: 1.3, DM: .5, FB: .5, CB: .7, GK: 0 } : { ST: 1.5, W: 3, AM: 3.5, CM: 2.5, DM: 1, FB: 1.5, CB: .4, GK: .05 };
   const k = kind === "g" ? "fin" : "pas";
-  return wpick(xi, o => w[o.slot] * Math.pow((o.p.at[k] || 30) / 50, 2)).p;
+  const o = xi.length ? wpick(xi, o => w[o.slot] * Math.pow((o.p.at[k] || 30) / 50, 2)) : null;
+  return o ? o.p : null;
 }
-function playMatch(h, a, neutral, fr) {  // fr: a friendly, kept out of players' records
+/* A side that can't field eleven (everyone sold, injured or suspended) signs trialists from the free agents to make up
+   the numbers, so a match is never played a man short by accident. Only your club can end up here. */
+function emergencyXI(c) {
+  const need = 11 - pickXI(c).length; if (need <= 0) return;
+  const fa = G.fa.map(P).filter(p => p && p.age <= 34).sort((a, b) => a.wage - b.wage);
+  for (const p of fa.slice(0, need)) { moveTo(p, c); p.wage = Math.max(1000, Math.round(wageFor(p.ovr) * .5 / 100) * 100); p.yrs = 1; }
+  news(`${c.name} couldn't field eleven players: ${Math.min(need, fa.length)} trialist${need > 1 ? "s" : ""} from the free agents sign short contracts to make up the side.`, true);
+}
+function playMatch(h, a, neutral, fr) {
+  for (const id of [h, a]) if (isMine(CL(id))) emergencyXI(CL(id));  // fr: a friendly, kept out of players' records
   const H = CL(h), A = CL(a), xh = pickXI(H), xa = pickXI(A), ph = teamPower(H, xh), pa = teamPower(A, xa);
   const sh = STYLES[clubStyle(H)], sa = STYLES[clubStyle(A)], fh = styleFit(xh, clubStyle(H)), fa = styleFit(xa, clubStyle(A));
   const adv = neutral ? 0 : 2, wx = G.wx ? wxAt(H) : WX.clear;
@@ -63,7 +73,7 @@ function playMatch(h, a, neutral, fr) {  // fr: a friendly, kept out of players'
   const hg = poisson(clamp(lh, .1, 6)), ag = poisson(clamp(la, .1, 6));
   const ev = [];
   for (const [xi, n, side] of [[xh, hg, 0], [xa, ag, 1]]) for (let i = 0; i < n; i++) {
-    const g = scorer(xi, "g"); if (!fr) g.s.g++; let as = null;
+    const g = scorer(xi, "g"); if (!g) continue; if (!fr) g.s.g++; let as = null;
     if (R() < .7) { as = scorer(xi.filter(o => o.p !== g), "a"); if (as && !fr) as.s.a++; }
     ev.push({ m: ri(1, 90), side, g: g.name, a: as ? as.name : null });
   }
