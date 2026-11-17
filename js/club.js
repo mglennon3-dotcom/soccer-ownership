@@ -52,7 +52,8 @@ const TRAIN_DESC = ["Hired council pitches", "Basic grass pitches and a portacab
 const ACAD_DESC = ["No academy", "Evening sessions for local boys", "A small youth set-up", "A recognised academy", "A solid academy", "A good academy", "A category-two academy", "A strong category-two academy", "A category-one academy", "An elite academy", "World class"];
 
 function startBuild(kind, q) {
-  const c = my();
+  const c = my(), block = boardBlocks(q.cost); if (block) { news(block, true); return block; }
+  q = { ...q, cost: Math.round(q.cost * buildMult() / 1e4) * 1e4, weeks: Math.max(2, Math.round(q.weeks * (1 - dirSkill("ops") * .002))) };
   if (kind === "stadium") c.fac.stadium.build = { ...q, left: q.weeks, total: q.weeks };
   else c.fac[kind].build = { lvl: q.lvl, cost: q.cost, left: q.weeks, total: q.weeks };
   spend("build", q.cost);
@@ -64,6 +65,7 @@ function buildWeek(c) {
     const b = S.build; S.build = null;
     if (b.type === "new") { S.own = true; S.cap = b.cap; S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString()} capacity. ${c.name} have a home of their own.`, true); }
     else if (b.type === "expand") { S.cap += b.add; news(`The new stand is open. Capacity is now ${S.cap.toLocaleString()}.`, true); }
+    else if (b.type === "heat") { S.heat = true; news("Undersoil heating is installed: frost and snow won't stop games at home any more.", true); }
     else if (b.type === "suites") { S.suites = (S.suites || 0) + b.add; news(`${b.add} new executive suites are ready (${S.suites} in all).`, true); }
     else if (b.type === "amen") { S.amen = b.lvl; news(`Stadium facilities upgraded to level ${b.lvl}.`, true); }
     c.cap = capacity(c);
@@ -85,11 +87,12 @@ const moodWord = m => m >= 75 ? ["Buoyant", "good"] : m >= 58 ? ["Happy", "good"
    capped by the ground. A big or local opponent brings more. */
 function priceFactor(price, ref, el = 1.3) { return clamp(Math.pow(ref / Math.max(.5, price), el), 0, 1.35); }
 function crowdFor(c, opp, price = c.prices.ticket) {
-  const pf = priceFactor(price, REF_TICKET[c.tier]);
+  const pf = priceFactor(price * (G.sTrust && G.sTrust.u18 ? .93 : 1), REF_TICKET[c.tier]);
   const turn = clamp(.5 + c.mood / 250, .35, .92) * pf;
   const draw = opp ? clamp(.85 + (opp.rep - c.rep) / 60 + (opp.half === c.half ? .05 : 0), .8, 1.6) : 1;
   const away = opp ? Math.round(Math.min(opp.fans * .06, 1500 * (8 - c.tier))) : 0;
-  return Math.min(capacity(c), Math.round(c.fans * turn + c.fans * .35 * pf * draw + away));
+  const wx = G.wx ? wxAt(c).crowd : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp && isDerby(c, opp) ? 1.25 : 1;
+  return Math.min(capacity(c), Math.round((c.fans * turn + c.fans * .35 * pf * draw + away) * wx * protest * derby));
 }
 function concessionsFor(c, crowd, price = c.prices.conc) {
   const am = ground(c).amen, buy = clamp(1.6 * Math.pow(REF_CONC[c.tier] / Math.max(.3, price), 1.4), 0, 2.6) * (.65 + am * .12);
@@ -97,7 +100,7 @@ function concessionsFor(c, crowd, price = c.prices.conc) {
   return { gross, net: gross * .55 * cut };
 }
 function merchFor(c, price = c.prices.shirt) {  // per week
-  const units = c.fans * .007 * Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7) * (.8 + c.mood / 250) * merchMult(c);
+  const units = commMult() * c.fans * .007 * Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7) * (.8 + c.mood / 250) * merchMult(c);
   return units * price * .45;
 }
 /* Forecast for the finance page: a typical home game against an average side. */
@@ -115,7 +118,8 @@ const BRANDS = ["Apex", "Northwind", "Halcyon", "Brightline", "Vantage", "Crestm
 const BRAND_KIND = ["Insurance", "Motors", "Energy", "Bank", "Telecom", "Logistics", "Brewery", "Bet", "Homes", "Foods", "Air", "Digital", "Building Society", "Tyres"];
 const KIT_BRANDS = ["Strider", "Volta", "Kinetic", "Arcus", "Tempo", "Fieldcraft", "Nova Sport", "Pulse", "Sprintline", "Ridge"];
 const COMM_T = [0, 90e6, 7e6, 1.6e6, 700e3, 220e3, 80e3, 25e3];  // a typical club's commercial value by tier, per year
-function commercialValue(c) { return COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333); }
+const isDerby = (c, o) => o && c.region === o.region && c.lg === o.lg;
+function commercialValue(c) { return mediaMult(c) * commMult() * sponsorSqueeze(c) * COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333); }
 function makeOffers(slot) {
   const c = my(), base = commercialValue(c) * SLOTS[slot].share, out = [];
   for (let i = 0; i < 3; i++) {
@@ -144,10 +148,10 @@ const sponsorTotal = c => sum(c.deals, d => d.amt);
 /* ---------- the weekly accounts ---------- */
 const wageBill = c => sum(c.squad, id => P(id).wage);
 const staffBill = c => sum(Object.values(c.staff).filter(Boolean), s => s.wage);
-const upkeep = c => stadiumUpkeep(c) + ventureUpkeep(c) + facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl);
+const upkeep = c => upkeepMult() * (stadiumUpkeep(c) + (c.fac.stadium.heat ? heatQuote(c).upkeep : 0)) + ventureUpkeep(c) + facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl);
 function weeklyAccounts(c) {
-  spend("wages", wageBill(c) / 52);
-  spend("staff", staffBill(c) / 52);
+  spend("wages", (wageBill(c) + loanWageAdj(c)) / 52);
+  spend("staff", staffBill(c) / 52); spend("directors", dirWages() / 52);
   spend("fac", upkeep(c) / 52);
   spend("acad", c.budget.acad / 52);
   spend("scout", c.budget.scout / 52);
@@ -157,6 +161,7 @@ function weeklyAccounts(c) {
   if (G.phase === "season") earn("suites", suitesLet(c) * c.prices.suite / SEASON_WEEKS);
   if (G.phase === "season") earn("tv", TV[c.tier] / 46);
   if (c.cash < 0) spend("interest", -c.cash * .1 / 52);  // an overdraft at 10% a year
+  feedersWeek(); loansWeek(c);
 }
 function homeGameMoney(c, opp) {
   const crowd = crowdFor(c, opp), con = concessionsFor(c, crowd);
@@ -167,7 +172,7 @@ function homeGameMoney(c, opp) {
   return crowd;
 }
 const ledgerIncome = f => f.gate + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales;
-const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + f.acad + f.scout + f.buys + f.build + f.interest;
+const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
    reports suffer; well above it, they improve a little. */
@@ -196,7 +201,7 @@ function pitchWeek(c, homeGame) {
   const S = c.fac.stadium; if (!S.own) return;
   if (S.relay && --S.relay.left <= 0) { S.ptype = S.relay.type; S.pitch = 100; S.relay = null; news(`The new ${PITCH[S.ptype].l.toLowerCase()} pitch is laid.`, true); return; }
   const before = S.pitch;
-  if (homeGame) S.pitch -= PITCH[S.ptype || "grass"].wear * rf(.7, 1.4);
+  if (homeGame) S.pitch -= PITCH[S.ptype || "grass"].wear * rf(.7, 1.4) * (G.wx ? wxAt(c).wear : 1) * wearMult();
   S.pitch = clamp(S.pitch + (G.phase === "summer" ? 3 : .35), 5, 100);
   if (S.pitch < 40 && homeGame) moodHit(c, -.4);
   if (pitchWord(before)[0] !== pitchWord(S.pitch)[0] && S.pitch < before && S.pitch < 65) news(`The groundsman reports the pitch is now ${pitchWord(S.pitch)[0].toLowerCase()} (${Math.round(S.pitch)}/100).`, S.pitch < 50);

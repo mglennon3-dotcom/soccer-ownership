@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -12,6 +12,13 @@ const isMine = c => c && c.id === G.club;
 const normal = () => { let u = 0, v = 0; while (!u) u = R(); while (!v) v = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
 const avg = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0;
 const r1 = v => Math.round(v * 10) / 10;
+/* The scale. Attributes, ratings and potential are held in half-points on a 100 scale: 200 steps. Everything shown
+   is out of 20 (r20), and that's also all anyone in the game sees: your manager, your scouts and AI clubs pick and
+   judge players on the 20-point figures. Only matches and development use the exact values. */
+const rh = v => Math.round(v * 2) / 2;
+const r20 = v => clamp(Math.round(v / 5), 1, 20);
+const snap20 = v => clamp(Math.round(v / 5) * 5, 5, 100);
+const est20 = ([a, b]) => r20(a) === r20(b) ? `${r20(a)}` : `${r20(a)}–${r20(b)}`;
 
 /* ---------- the pyramid: Touchline Manager's six English tiers, plus a regional seventh tier where new clubs start ---------- */
 const LEAGUES = {
@@ -75,7 +82,7 @@ function roleRating(p, role) {
   let r = 0; for (const [k, w] of Object.entries(POS_W[role])) r += (p.at[k] ?? 30) * w;
   return p.pos === role ? r : r * (POS_LINE[p.pos] === POS_LINE[role] ? .96 : .9);
 }
-function setOvr(p) { p.ovr = clamp(Math.round(roleRating(p, p.pos)), 1, 100); if (p.ovr > (p.peak || 0)) p.peak = p.ovr; }
+function setOvr(p) { p.ovr = clamp(rh(roleRating(p, p.pos)), 1, 100); if (p.ovr > (p.peak || 0)) p.peak = p.ovr; }
 /* Attributes for a target rating: the position's key attributes sit above the player's other ones, each player has
    his own shape (noise), and the whole set is shifted so the position rating lands on the target. */
 function genAttrs(pos, target, lean) {
@@ -85,7 +92,7 @@ function genAttrs(pos, target, lean) {
     let r = 0; for (const [k, w] of Object.entries(W)) r += at[k] * w;
     const d = target - r; for (const k of keysOf(pos)) at[k] = clamp(at[k] + d, 1, 100);
   }
-  for (const k of keysOf(pos)) at[k] = r1(at[k]);
+  for (const k of keysOf(pos)) at[k] = rh(at[k]);
   return at;
 }
 /* Growth and decline move every attribute by about the same amount, so a player keeps his shape. Pace and stamina
@@ -96,7 +103,7 @@ function shiftPlayer(p, pts) {
     let d = pts * (1 + normal() * .25);
     if (pts < 0 && (k === "pac" || k === "sta")) d *= 1.6;
     if (pts < 0 && (k === "vis" || k === "cmp" || k === "pas")) d *= .5;
-    p.at[k] = clamp(r1(p.at[k] + d), 1, 100);
+    p.at[k] = clamp(rh(p.at[k] + d), 1, 100);
   }
   setOvr(p);
 }
@@ -113,8 +120,8 @@ function shiftPlayer(p, pts) {
    Every potential is capped at 94 outside the exceptional draw. */
 const EXC_RATE = .0005;
 function drawPotential(mean, excMult = 1) {
-  if (R() < EXC_RATE * excMult) return Math.min(100, 90 + Math.round(11 * Math.pow(R(), 3)));
-  return clamp(Math.round(mean + normal() * 10.5), 25, 94);
+  if (R() < EXC_RATE * excMult) return Math.min(100, rh(90 + 10.5 * Math.pow(R(), 3)));
+  return clamp(rh(mean + normal() * 10.5), 25, 94);
 }
 
 /* ---------- money ----------
@@ -146,7 +153,7 @@ function makePlayer(o) {
 }
 /* Potential for a senior player made at world creation or as an import: a little room to grow while young.
    Never exceptional: those come only through youth intakes. */
-function seniorPot(ovr, age) { return age >= 27 ? ovr : clamp(ovr + Math.round(Math.abs(normal()) * (27 - age) * 1.3), ovr, Math.max(ovr, 94)); }
+function seniorPot(ovr, age) { return age >= 27 ? ovr : clamp(ovr + rh(Math.abs(normal()) * (27 - age) * 1.3), ovr, Math.max(ovr, 94)); }
 
 /* ---------- staff knowledge of a player ----------
    Ratings of your own players are exact. Potential is never known: your staff estimate it, as a range whose width
@@ -156,14 +163,14 @@ function potEstimate(p) {
   let judge = 35;
   if (p.club === G.club) judge = p.acad ? staffAttr("youth", "judge", 35) : staffAttr("manager", "dev", 35);
   else judge = staffAttr("recruit", "judge", 25) + scoutBoost();
-  const sd = clamp((100 - judge) / 9, 1, 9), est = clamp(p.pot + p.pn * sd, p.ovr, 100), w = Math.max(1, Math.round(sd * 1.2));
-  return [clamp(Math.round(est - w), p.ovr, 100), clamp(Math.round(est + w), p.ovr, 100)];
+  const sd = clamp((100 - judge) / 9, 1, 9), est = clamp(p.pot + p.pn * sd, p.ovr, 100), w = Math.max(1, sd * 1.2);
+  return [snap20(Math.max(p.ovr, est - w)), snap20(Math.min(100, est + w))];
 }
 function ovrEstimate(p) {
-  if (p.club === G.club || (p.club >= 0 && CL(p.club).lg === my().lg)) return [p.ovr, p.ovr];
-  const sd = clamp((100 - staffAttr("recruit", "judge", 25) - scoutBoost()) / 18, .5, 5), w = Math.max(1, Math.round(sd));
+  if (p.club === G.club || (p.club >= 0 && CL(p.club).lg === my().lg)) return [snap20(p.ovr), snap20(p.ovr)];
+  const sd = clamp((100 - staffAttr("recruit", "judge", 25) - scoutBoost()) / 18, .5, 5), w = Math.max(1, sd);
   const est = p.ovr + p.pn * sd * .5;
-  return [clamp(Math.round(est - w), 1, 100), clamp(Math.round(est + w), 1, 100)];
+  return [snap20(est - w), snap20(est + w)];
 }
 
 /* ---------- development ----------
@@ -199,7 +206,7 @@ function develop(p, dt, teamGames) {
 
 /* ---------- AI clubs ---------- */
 const COACH_FIRST = ["Steve", "Gary", "Paul", "Mark", "Neil", "Darren", "Ian", "Graham", "Tony", "Kevin", "Lee", "Martin", "Simon", "Rob", "Chris"];
-function aiCoach(rep) { return { name: pick(COACH_FIRST) + " " + pick(NAMES.ENG[1]), style: pick(Object.keys(STYLES)), form: pick(FORM_KEYS), tac: clamp(Math.round(rep * .7 + 15 + normal() * 10), 10, 95), dev: clamp(Math.round(40 + normal() * 15), 10, 95) }; }
+function aiCoach(rep) { return { age: ri(34, 60), name: pick(COACH_FIRST) + " " + pick(NAMES.ENG[1]), style: pick(Object.keys(STYLES)), form: pick(FORM_KEYS), tac: clamp(Math.round(rep * .7 + 15 + normal() * 10), 10, 95), dev: clamp(Math.round(40 + normal() * 15), 10, 95) }; }
 function townName() {
   const K = COUNTRY.ENG;
   for (let g = 0; g < 500; g++) { let t = pick(K.pre) + pick(K.suf); t = t[0].toUpperCase() + t.slice(1); if (!TOWN_BLOCK.has(t) && !G.towns[t]) { G.towns[t] = 1; return t; } }
@@ -223,6 +230,7 @@ function newClub(lg, rank) {
     train: clamp(Math.round(9 - L.tier * 1.2 + spread * 1.5 + normal()), 0, 10), acadLvl: clamp(Math.round(8.5 - L.tier * 1.1 + normal() * 1.5), 0, 10),
     cap: Math.round(STADIUM_T[L.tier] * (1 + spread * .4) * rf(.8, 1.2) / 100) * 100,
     fans: Math.round(FAN_T[L.tier] * (1 + spread * .45) * rf(.8, 1.2)), gone: false, founded: G.year - ri(30, 140), trophies: [] };
+  c.own = newOwner(c);
   G.clubs.push(c);
   return c;
 }
@@ -272,8 +280,9 @@ function foundClub(o) {
   for (const id of out.squad.slice()) toFreeAgent(P(id));
   out.squad = []; out.gone = true; L.clubs = L.clubs.filter(id => id !== outId);
   const regions = COUNTRY.ENG.regions.filter(r => r[3] === o.half);
+  G.board = { own: 100, inv: [], dir: {}, offers: [] }; G.sTrust = { rel: 50, members: 0, seat: false }; G.net = { partner: null, feeders: [] }; G.loans = [];
   const c = { id: G.clubs.length, name: o.name, town: o.town || o.name.split(" ")[0], short: shortFor(o.short || o.name), half: o.half, region: o.region || pick(regions)[0],
-    lg, tier: 7, rep: 4, color: o.color || "#b42323", coach: null, squad: [], lvl: TIER_LVL[7] - 3, train: 0, acadLvl: 0, cap: 0, fans: 120, gone: false, founded: G.year, trophies: [],
+    lg, tier: 7, rep: 4, media: 8, color: o.color || "#b42323", coach: null, squad: [], lvl: TIER_LVL[7] - 3, train: 0, acadLvl: 0, cap: 0, fans: 120, gone: false, founded: G.year, trophies: [],
     cash: 0, mood: 60, morale: 55,
     prices: { ticket: 8, conc: 3, shirt: 40, suite: 2500 },
     budget: { wages: 300000, transfer: 60000, acad: 0, scout: 10000 },
@@ -293,4 +302,4 @@ function foundClub(o) {
   news(`${c.name} are founded. ${c.squad.length} players from an open trial day make up the first squad, and the club will play at ${HOSTS[0].name} while it has no ground of its own.`, true);
   return c;
 }
-function newLedger() { return { events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, acad: 0, scout: 0, buys: 0, build: 0, interest: 0, invest: 0 }; }
+function newLedger() { return { equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, acad: 0, scout: 0, buys: 0, build: 0, interest: 0, invest: 0 }; }

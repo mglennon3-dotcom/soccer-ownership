@@ -29,7 +29,7 @@ function staffWage(role, rep) { const w = 15000 * Math.pow(1.075, rep) * (role =
 function genStaff(role, rep) {
   const R0 = ROLES_STAFF[role], s = { role, name: pick(STAFF_FIRST) + " " + pick(pick([NAMES.ENG, NAMES.ENG, NAMES.ESP, NAMES.GER, NAMES.ITA, NAMES.NED, NAMES.SCA]).slice(1)[0]),
     age: ri(32, 64), rep, at: {}, phil: pick(Object.keys(R0.phil)), focus: pick(Object.keys(R0.focus)), trust: 60, yrs: 0, wage: 0 };
-  for (const k of Object.keys(R0.attrs)) s.at[k] = clamp(Math.round(rep * .75 + 18 + normal() * 11), 5, 99);
+  for (const k of Object.keys(R0.attrs)) s.at[k] = clamp(rh(rep * .75 + 18 + normal() * 11), 5, 99);
   if (role === "manager") s.form = pick(FORM_KEYS);
   s.demand = Math.round(staffWage(role, rep) * rf(.85, 1.2) / 1000) * 1000;
   return s;
@@ -84,3 +84,36 @@ const trustWord = t => t >= 75 ? ["Loyal", "good"] : t >= 55 ? ["Content", "good
 /* The caretaker: if you have no manager, the club captain picks the side. */
 const CARETAKER = { name: "Caretaker (club captain)", at: { tac: 20, mot: 30, dev: 15 }, phil: "direct", focus: "results", form: "4-4-2" };
 const mgr = () => staffOf("manager") || CARETAKER;
+
+/* ---------- staff careers ----------
+   Staff develop and decline like players. Each has a hidden ceiling. Under 40 they learn quickly, through their forties
+   they level off, and from their late fifties they slip. A better environment helps: the training ground for a manager,
+   the academy for a youth manager, the scouting budget for recruitment, and a higher division for everyone. From 60
+   they may retire; nobody works past 70. */
+function staffCeil(s) { return s.ceil ?? (s.ceil = clamp(rh(Math.max(...Object.values(s.at)) + Math.abs(normal()) * 12), 20, 99)); }
+function ageStaff(s, env) {
+  s.age++; s.prev = { ...s.at }; const ceil = staffCeil(s);
+  for (const k of Object.keys(s.at)) {
+    let d = s.age < 40 ? rf(.5, 3) : s.age < 50 ? rf(-.5, 1.5) : s.age < 57 ? rf(-1, .8) : -rf(.5, (s.age - 54) * .45);
+    if (d > 0) d *= clamp((ceil - s.at[k]) / 15, 0, 1.2) * (.7 + env * .6);
+    s.at[k] = clamp(rh(s.at[k] + d), 3, 99);
+  }
+  return s.age >= 70 || (s.age >= 60 && R() < (s.age - 59) * .1);
+}
+function staffSummer() {
+  const c = my();
+  for (const role of ["manager", "recruit", "youth"]) {
+    const s = c.staff[role]; if (!s) continue;
+    const env = role === "manager" ? c.fac.train.lvl / 10 : role === "youth" ? c.fac.acad.lvl / 10 : clamp(.5 + budgetFactor(c.budget.scout, scoutRef(c.tier)) / 6, 0, 1);
+    const up = (7 - c.tier) * .04;
+    if (ageStaff(s, clamp(env + up, 0, 1.2))) { c.staff[role] = null; news(`${s.name} retires as ${ROLES_STAFF[role].l.toLowerCase()} at ${s.age}. The job is vacant.`, true); continue; }
+    s.rep = clamp(Math.round(s.rep + ((G.history[0] || {}).up ? 3 : 0) + (staffAvg(s) - s.rep * .75 - 18) * .1), 1, 99);
+    const moved = Object.keys(s.at).map(k => s.at[k] - s.prev[k]).reduce((a, b) => a + b, 0);
+    if (Math.abs(moved) >= 4) news(`${s.name} has ${moved > 0 ? "improved" : "declined"} over the season (${ROLES_STAFF[role].l.toLowerCase()}).`);
+  }
+  for (const [k, d] of Object.entries((G.board || {}).dir || {})) { if (!d) continue; d.age = (d.age || ri(35, 55)) + 1; if (d.age >= 68 || (d.age >= 60 && R() < .12)) { G.board.dir[k] = null; news(`${d.name} retires as ${DIRECTORS[k].l.toLowerCase()}.`, true); } else d.skill = clamp(rh(d.skill + (d.age < 45 ? rf(0, 2) : d.age < 56 ? rf(-.5, 1) : -rf(.5, 2))), 5, 99); }
+  // Rival managers age and retire too.
+  for (const x of G.clubs) { if (x.gone || isMine(x) || !x.coach) continue; const co = x.coach; co.age = (co.age || ri(36, 62)) + 1;
+    co.tac = clamp(rh(co.tac + (co.age < 45 ? rf(0, 2) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2.5))), 5, 99); co.dev = clamp(rh(co.dev + (co.age < 45 ? rf(0, 1.5) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2))), 5, 99);
+    if (co.age >= 70 || (co.age >= 60 && R() < (co.age - 59) * .1)) { x.coach = aiCoach(x.rep); if (x.lg === c.lg) news(`${x.name}'s manager ${co.name} retires. ${x.coach.name} replaces him.`); } }
+}

@@ -47,19 +47,20 @@ Play-offs are one-off semi-finals at the higher seed and a final at a neutral gr
 ground is too small for the division above can't be promoted (2,000 for tier 6 up to 20,000 for the top flight); the
 next club in the table goes up instead.
 
-## Players: ratings out of 100
+## Ratings: shown out of 20, held at 200-step precision
 
-Every player has twelve attributes out of 100 (keepers five), and each position's rating is a weighted mix of them.
-A typical starter is about 44 in the regional leagues, 60 in the Third Division and 80 in the Premier Division; 90+
-is world class.
+Every player has twelve attributes (keepers five); each position's rating is a weighted mix of them. Attributes,
+ratings and potential are held in half-points on a 100 scale, which is 200 steps. Everything is shown out of 20, and
+that's also all anyone in the game sees: your manager picks his side, your scouts judge targets and AI clubs recruit on
+the 20-point figures. Only matches and development use the exact values underneath. Staff and director attributes work
+the same way. A typical starter is about 9 in the regional leagues, 12 in the Third Division and 16 in the Premier
+Division; 18–19 is world class, and 20 a once-in-a-generation player.
 
-**Potential is rare at the top.** Touchline Manager handed out too many youngsters with very high potential. Here,
-every youth intake draws potential from a bell curve whose centre an academy can move (from about 38 at a club with
-no facilities to about 57 at the best academy in the game), capped at 94. Separately, about one youngster in 2,000 is
-an exceptional talent (90–100), heavily skewed toward 90. Measured over 20 seasons and about 15,000 youth players
-across the whole world: 13 had potential of 90 or more, one 95 or more, and none reached 100. A potential of 100 is a
-once-in-a-generation player, and even he needs regular football, good coaching and facilities to get there. Potential is
-never shown exactly: your staff estimate it as a range, narrower the better they judge.
+**Potential is rare at the top.** Each youth intake draws potential from a bell curve whose centre an academy can move
+(about 38 of 100 with no facilities, about 57 at the best academy in the game), capped at 94. Separately, about one
+youngster in 2,000 is an exceptional talent (90–100), heavily skewed toward 90. Over 20 simulated seasons and about
+15,000 youth players across the whole world, 13 had potential of 90+ (18 out of 20), one had 95+, and none reached 100.
+Even a generational talent needs football, coaching and facilities to get there. Potential is only ever an estimate.
 
 ## Why people join
 
@@ -69,11 +70,51 @@ facilities, closeness to home and the project. Coaches weigh salary, prestige, f
 ambition and freedom to work. Money is only one factor. Some people won't come at any price, and the hiring and
 transfer dialogs show what each one is weighing up.
 
+## Competitions
+
+The league, plus three cups with one-off ties and penalties: the **National Cup** (every club; the big clubs get byes),
+the **League Cup** (tiers 1–4) and the **National Trophy** (tiers 5–7). Prize money for every round won; beating a club
+from a higher division delights the supporters.
+
+## The boardroom
+
+- **Objectives.** Set league, cup, finance and youth targets each pre-season. They're announced: ambitious targets lift
+  the fans now and hurt more if missed. The manager tells you if he thinks one is unrealistic.
+- **Investors.** Sell up to 49% of the club: silent partners, local consortiums, private equity (premium price, 4%
+  dividend, wants profits), celebrity investors (media profile). They judge you every summer; unhappy investors holding
+  a quarter of the club can block big projects and loans, and ones who want out sell to a rival owner unless you buy them out.
+- **Directors.** Finance (cheaper loans and upkeep), commercial (better sponsors) and operations (cheaper building, better pitch).
+- **Supporters' trust.** Members, relations, demands (price freezes, cheaper youth tickets, fan zones, open accounts, a
+  board seat, a 5% stake), and protests at home games when fans are angry and relations poor.
+- **Loans.** Bank loans against the club's value; rates rise with debt. Lend the club your own money interest-free.
+  Eight weeks over the overdraft limit means administration: ten points docked and the best players sold.
+
+## The network
+
+A **partner club** two or more divisions above offers young players on loan each window. Up to three **feeder clubs**
+below you take your funding (raising their standard and facilities), take your players on loan first, and give you first
+refusal on their best youngsters at a discount.
+
+## Media, weather and staff
+
+- **Media.** Your profile raises sponsorship. Every few weeks the press wants an answer (the manager's future, promotion
+  talk, ticket prices, a star's future, a documentary crew, a rival owner's jibes), and the answer moves fans, staff and investors.
+- **Weather.** Rain and snow cut crowds and chew up the pitch; frost and snow postpone games at grounds without undersoil heating.
+- **Staff careers.** Staff improve while young, level off, then decline; they retire from 60. Clubs that poach your staff
+  pay compensation: at least the rest of their contract, plus a premium.
+
+## Rival owners
+
+Every club has an owner with a style that drives it: lifelong fan, billionaire benefactor, asset stripper, data-driven
+investor, property developer, celebrity, multi-club group, absent owner, reckless gambler, supporter-owned, meddler,
+youth evangelist. Styles decide spending, building, how long managers last, administrations, poaching of your staff and
+players, and competition for local sponsors. Clubs change hands in takeovers, and someone may make an offer for yours.
+
 ## Code
 
 `js/names.js` (names, towns and helpers from Touchline Manager), `core.js` (pyramid, players, talent, development),
-`staff.js`, `club.js` (prices, attendance, sponsors, facilities, suites, pitch, ventures), `match.js`, `season.js`
-(calendar, play-offs, promotion, the summer), `market.js` (transfers and your recruitment head), `appeal.js` (why
-people join), `ui.js`, `main.js`.
+`staff.js`, `club.js` (prices, attendance, sponsors, facilities, suites, pitch, ventures), `weather.js`, `match.js`,
+`events.js` (decisions and media), `cups.js`, `owners.js` (rival owners), `board.js` (valuation, investors, directors,
+supporters' trust, loans, objectives), `partners.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
 
 `node tools/sim.js 20` plays 20 seasons headless and reports talent, ratings by tier and the test club's progress.

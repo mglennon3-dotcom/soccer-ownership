@@ -9,8 +9,10 @@ const crest = (c, s = 22) => `<svg class="crest" width="${s}" height="${Math.rou
 const clubLink = c => `<button class="lnk" data-act="club" data-id="${c.id}">${esc(c.name)}</button>`;
 const bar = (v, max = 100) => `<span class="bar"><i style="width:${clamp(v / max * 100, 0, 100)}%"></i></span>`;
 const rcls = v => v >= 80 ? "r-elite" : v >= 70 ? "r-high" : v >= 55 ? "r-mid" : v >= 40 ? "r-low" : "r-bad";
-const rating = v => `<span class="ovr ${rcls(v)}">${v}</span>`;
-const range = ([a, b]) => a === b ? rating(a) : `<span class="ovr ${rcls((a + b) / 2)}">${a}–${b}</span>`;
+// Everything is shown out of 20 (see r20 in core.js).
+const rating = v => `<span class="ovr ${rcls(v)}">${r20(v)}</span>`;
+const range = ([a, b]) => r20(a) === r20(b) ? rating(a) : `<span class="ovr ${rcls((a + b) / 2)}">${r20(a)}–${r20(b)}</span>`;
+const attr20 = v => `${bar(v)}<b class="num">${r20(v)}</b>`;
 const word = ([w, cls]) => `<span class="${cls}">${w}</span>`;
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2600); }
 
@@ -38,7 +40,7 @@ function renderStart(saves) {
 }
 
 /* ---------- masthead ---------- */
-const PAGES = [["home", "Office"], ["squad", "Squad"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["league", "League"], ["market", "Market"], ["hist", "History"]];
+const PAGES = [["home", "Office"], ["squad", "Squad"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["rivals", "Rivals"], ["hist", "History"]];
 function phaseText() {
   if (G.phase === "summer") return `${seasonLabel(G.year)} pre-season · week ${G.week + 1} of ${SUMMER_WEEKS} · transfer window open`;
   if (G.phase === "playoffs") return `${seasonLabel(G.year)} · play-offs`;
@@ -58,7 +60,8 @@ function mast() {
 }
 function render() {
   if (!G) return;
-  const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgLeague, market: pgMarket, hist: pgHist }[PAGE]();
+  const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals }[PAGE]();
+  if (G.ended) { $("#app").innerHTML = endScreen(); return; }
   const y = scrollY;
   $("#app").innerHTML = mast() + `<main class="wrap gut page">${body}</main>`;
   scrollTo(0, y);
@@ -85,9 +88,12 @@ function pgHome() {
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
   return `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h2>Next up</h2><span class="muted small">${esc(mgr().name)} · ${STYLES[mgr().phil].l} · ${mgr().form}</span></div>${fx}
-      <p class="small muted" style="margin-top:6px">Squad suits the manager's style: ${fitText(fit)} · Team rating ${Math.round(avg(xi.map(o => roleRating(o.p, o.slot))))} (division typical ${TIER_LVL[c.tier]}) · Morale ${Math.round(c.morale)}</p></section>
+      ${myCupTie().map(({ k, K, t }) => `<p>${CUP_DEF[k].name} ${K.name.toLowerCase()}: ${t.h === G.club ? "home to" : "away to"} ${clubLink(CL(t.h === G.club ? t.a : t.h))} <span class="muted small">· week ${CUP_DEF[k].weeks[K.round] + 1}</span></p>`).join("")}
+      ${weatherLine()}
+      <p class="small muted" style="margin-top:6px">Squad suits the manager's style: ${fitText(fit)} · Team rating ${r20(avg(xi.map(o => roleRating(o.p, o.slot))))} (division typical ${r20(TIER_LVL[c.tier])}) · Morale ${Math.round(c.morale)}</p></section>
     ${todo.length ? `<section class="card"><div class="card-h"><h2>Needs your attention</h2></div><ul class="todo">${todo.map(([t, p]) => `<li><button class="lnk" data-act="page" data-p="${p}">${esc(t)}</button></li>`).join("")}</ul></section>` : ""}
     ${inboxCard()}
+    ${G.phase === "summer" && !(G.obj && G.obj.y === G.year) ? objectivesCard() : ""}
     <section class="card"><div class="card-h"><h2>Results</h2><button class="lnk small" data-act="page" data-p="league">All results</button></div>${last.length ? resultsList(last) : `<p class="muted">No games yet.</p>`}</section>
     <section class="card"><div class="card-h"><h2>News</h2></div><ul class="news">${G.news.slice(0, 25).map(n => `<li class="${n.hi ? "hi" : ""}">${esc(n.t)}<small>${n.y} · ${n.w}</small></li>`).join("")}</ul></section>
   </div><div class="stack">
@@ -98,16 +104,18 @@ function pgHome() {
       <dt>Training ground</dt><dd>Level ${c.fac.train.lvl}</dd><dt>Academy</dt><dd>Level ${c.fac.acad.lvl}</dd>
       <dt>Wage bill</dt><dd>${money(wageBill(c))} / ${money(c.budget.wages)}</dd>
       <dt>Season so far</dt><dd class="${ledgerIncome(c.fin) - ledgerCosts(c.fin) < 0 ? "bad" : "good"}">${money(ledgerIncome(c.fin) - ledgerCosts(c.fin))}</dd></dl></section>
+    ${G.obj && G.obj.y === G.year ? `<section class="card"><div class="card-h"><h3>Targets</h3><button class="lnk small" data-act="page" data-p="board">Board</button></div>${Object.entries(OBJ).filter(([k]) => G.obj[k] !== "none").map(([k, D]) => `<p class="small">${D.l}: ${D.opts[G.obj[k]]}</p>`).join("") || "<p class='small muted'>None set.</p>"}</section>` : ""}
     <section class="card"><div class="card-h"><h3>Your staff</h3><button class="lnk small" data-act="page" data-p="staff">Staff</button></div>${["manager", "recruit", "youth"].map(r => { const s = staffOf(r); return `<div class="row between small" style="padding:4px 0"><span>${ROLES_STAFF[r].l}</span><span>${s ? `${esc(s.name)} · ${word(trustWord(s.trust))}` : `<span class="warn">Vacant</span>`}</span></div>`; }).join("")}</section>
   </div></div>`;
 }
 const fitText = f => f >= .35 ? `<span class="good">great</span>` : f >= .1 ? `<span class="good">good</span>` : f > -.1 ? "average" : f > -.35 ? `<span class="warn">poor</span>` : `<span class="bad">very poor</span>`;
 function inboxCard() {
-  const m = G.inbox.filter(x => !x.done && (x.type === "bid" || x.age < 4)).slice(0, 6);
+  const m = G.inbox.filter(x => !x.done && (x.type === "bid" || x.type === "choice" || x.age < 4)).slice(0, 8);
   if (!m.length) return "";
   return `<section class="card summary"><div class="card-h"><h2>Inbox</h2></div><div class="stack">${m.map(x => {
+    if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
-      return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(p.name)}: ${p.pos}, ${p.age}, rated ${p.ovr}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? "he" : "they"} will.</p>
+      return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(p.name)}: ${p.pos}, ${p.age}, rated ${r20(p.ovr)}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? "he" : "they"} will.</p>
         <div class="row" style="margin-top:6px"><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="1">Accept</button><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="0">Reject</button><button class="btn sm" data-act="player" data-id="${p.id}">View player</button></div></div>`; }
     return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(x.body || "")}</p>${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}" style="margin-top:6px">View</button>` : ""}</div>`;
   }).join("")}</div></section>`;
@@ -134,10 +142,11 @@ function pgSquad() {
   const ps = c.squad.map(P).filter(p => tab === "acad" ? p.acad : !p.acad).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
   return `<section class="card"><div class="card-h"><h2>Squad</h2><div class="seg"><button data-act="sub" data-k="squad" data-v="first" aria-pressed="${tab === "first"}">First team (${c.squad.filter(id => !P(id).acad).length})</button><button data-act="sub" data-k="squad" data-v="acad" aria-pressed="${tab === "acad"}">Academy (${c.squad.filter(id => P(id).acad).length})</button></div></div>
-    <p class="small muted" style="margin-bottom:10px">The manager picks the side; players marked XI are his current first choices. Ratings are out of 100: about ${TIER_LVL[c.tier]} is a typical starter in your division, 80 a Premier Division regular, 90+ world class, and 100 a once-in-a-generation player. Potential shows ${potJudge}. Tap a player to sell, release or protect him.</p>
+    <p class="small muted" style="margin-bottom:10px">The manager picks the side; players marked XI are his current first choices. Ratings are out of 20: about ${r20(TIER_LVL[c.tier])} is a typical starter in your division, 16 a Premier Division regular, 18–19 world class, and 20 a once-in-a-generation player. Potential shows ${potJudge}. Tap a player to sell, release or protect him.</p>
     ${ps.length ? `<div class="tbl-wrap"><table class="sq"><thead><tr><th>Pos</th><th style="text-align:left">Name</th><th>Age</th><th>Rating</th><th>Potential</th><th>Apps</th><th>Gls</th><th>Wage</th><th>Contract</th><th>Value</th></tr></thead><tbody>
-    ${ps.map(p => `<tr data-act="player" data-id="${p.id}" class="click"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)} ${xi.has(p.id) ? '<span class="chip xi">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.keep ? '<span class="chip list">KEEP</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}</td>
-      <td class="num">${p.age}</td><td>${rating(p.ovr)}</td><td>${range(potEstimate(p))}</td><td class="num">${p.s.app}</td><td class="num">${p.s.g}</td><td class="num">${money(p.wage)}</td><td class="num">${p.acad ? "Youth" : p.yrs + "y"}</td><td class="num">${money(valueOf(p))}</td></tr>`).join("")}</tbody></table></div>`
+    ${ps.map(p => `<tr data-act="player" data-id="${p.id}" class="click"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)} ${xi.has(p.id) ? '<span class="chip xi">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.keep ? '<span class="chip list">KEEP</span>' : ""}${p.loan ? '<span class="chip hg">LOAN</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}</td>
+      <td class="num">${p.age}</td><td>${rating(p.ovr)}</td><td>${range(potEstimate(p))}</td><td class="num">${p.s.app}</td><td class="num">${p.s.g}</td><td class="num">${money(p.wage)}</td><td class="num">${p.acad ? "Youth" : p.yrs + "y"}</td><td class="num">${money(valueOf(p))}</td></tr>`).join("")}</tbody></table></div>
+    ${tab === "first" && (G.loanList || []).some(id => G.players[id] && G.players[id].loan && G.players[id].loan.from === c.id) ? `<h3 style="margin:14px 0 6px">Out on loan</h3>${(G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id).map(p => `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> (${p.pos}, ${r20(p.ovr)}) at ${esc(CL(p.club).name)}: ${p.s.app} games</p>`).join("")}` : ""}`
     : `<p class="muted">${tab === "acad" ? (c.fac.acad.lvl ? "The academy's first intake arrives in the summer." : "No academy yet. Build one on the Facilities page.") : "No players."}</p>`}</section>`;
 }
 function playerModal(id) {
@@ -145,13 +154,13 @@ function playerModal(id) {
   const mine = p.club === G.club, c = p.club >= 0 ? CL(p.club) : null, est = ovrEstimate(p);
   const keys = keysOf(p.pos).slice().sort((a, b) => (POS_W[p.pos][b] || 0) - (POS_W[p.pos][a] || 0));
   const exact = mine || (c && c.lg === my().lg);
-  const attrs = keys.map(k => { const v = exact ? Math.round(p.at[k]) : null; return `<div class="attr-r"><span>${ATTR[k]}${POS_W[p.pos][k] ? " ★" : ""}</span>${exact ? `${bar(v)}<b class="num">${v}</b>` : `<span class="muted small">scout it</span>`}</div>`; }).join("");
+  const attrs = keys.map(k => `<div class="attr-r"><span>${ATTR[k]}${POS_W[p.pos][k] ? " ★" : ""}</span>${exact ? attr20(p.at[k]) : `<span class="muted small">not scouted</span>`}</div>`).join("");
   let acts = "";
   if (mine) {
     const sellQ = Math.round(valueOf(p) * .9 / 1000) * 1000;
     acts = `<div class="row"><button class="btn" data-act="keep" data-id="${p.id}">${p.keep ? "Remove protection" : "Protect (keep and renew)"}</button>
       ${p.acad ? `<button class="btn" data-act="promote" data-id="${p.id}">Offer a professional contract</button><button class="btn danger" data-act="release" data-id="${p.id}">Release from academy</button>` :
-      `<button class="btn" data-act="sell" data-id="${p.id}">Sell (about ${money(sellQ)})</button><button class="btn danger" data-act="release" data-id="${p.id}">Release (${money(releaseCost(p))})</button>`}</div>
+      `${net().feeders.length && !p.loan ? `<select data-act="loanout" data-id="${p.id}"><option value="">Loan to a feeder…</option>${net().feeders.map(f => `<option value="${f.id}">${esc(CL(f.id).name)}</option>`).join("")}</select>` : ""}${p.loan ? `<span class="small muted">On loan from ${esc(CL(p.loan.from).name)}</span>` : `<button class="btn" data-act="sell" data-id="${p.id}">Sell (about ${money(sellQ)})</button><button class="btn danger" data-act="release" data-id="${p.id}">Release (${money(releaseCost(p))})</button>`}`}</div>
       <p class="small muted">Selling or releasing a player is your call, but your head of recruitment won't like being bypassed, and the manager won't like losing a first-choice player. Protected players are never sold by your staff and are offered new contracts.</p>`;
   } else {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
@@ -172,7 +181,7 @@ function staffCard(role) {
   return `<section class="card"><div class="card-h"><h2>${R0.l}</h2><span>${word(trustWord(s.trust))} <span class="muted small">trust ${Math.round(s.trust)}</span></span></div>
     <p class="lead"><b>${esc(s.name)}</b>, ${s.age}</p>
     <p style="margin:6px 0"><span class="chip list">${esc(ph.l)}</span> ${esc(ph.d)}</p><p class="small"><b>Focus:</b> ${esc(R0.focus[s.focus])}${s.form ? ` · <b>Formation:</b> ${s.form}` : ""}</p>
-    <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${bar(s.at[k])}<b class="num">${s.at[k]}</b></div>`).join("")}</div>
+    <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? r20(s.at[k]) - r20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${attr20(s.at[k])}</div>`; }).join("")}</div>
     ${role === "manager" ? `<p class="small">His style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
     <p class="small muted">${money(s.wage)} a year · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing him costs ${money(payoff(s))}</p>
     <div class="row" style="margin-top:10px">${s.expiring ? `<button class="btn primary" data-act="renewstaff" data-r="${role}">Renew 3 years${staffAsk(s) != null ? ` (${money(Math.max(s.wage, staffAsk(s)))}/yr)` : ""}</button>` : ""}<button class="btn" data-act="cands" data-r="${role}">Look for a replacement</button><button class="btn danger" data-act="dismiss" data-r="${role}">Dismiss</button></div></section>`;
@@ -195,7 +204,7 @@ function candModal(role) {
     <div class="modal-b"><p class="small muted">Like players, coaches weigh up the whole job: the money, your club's standing, facilities, budgets, the squad, your ambition, and whether you let staff do their jobs. Each cares about some things more than others. The wage shown is the least that would get him to say yes; offer less and he'll probably refuse.</p>
     ${CANDS.list.map((s, i) => { const ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null; return `<div class="cand ${no ? "dim" : ""}"><div class="row between"><div><b>${esc(s.name)}</b>, ${s.age} <span class="muted small">reputation ${s.rep}</span></div><div class="num">${no ? `<span class="muted">Not interested at any price</span>` : "wants about " + money(ask) + "/yr"}</div></div>
       <p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""}</p>
-      <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${bar(s.at[k])}<b class="num">${s.at[k]}</b></div>`).join("")}</div>
+      <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${attr20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
       ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="number" class="num-in" id="cw${i}" value="${ask}" step="1000"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}</div>`);
@@ -223,11 +232,12 @@ function pgFin() {
     <section class="card"><div class="card-h"><h2>Accounts</h2><span class="muted small">this season · last season</span></div><div class="tbl-wrap"><table class="proj"><tbody>
       <tr class="sec"><td colspan="3">Income</td></tr>${row("gate", "Gate receipts")}${row("conc", "Food & drink")}${row("suites", "Executive suites")}${row("events", "Stadium ventures & events")}${row("merch", "Merchandise")}${row("spons", "Sponsorship")}${row("tv", "Central (TV) money")}${row("prize", "Prize money")}${row("sales", "Player sales")}
       <tr class="tot"><td style="text-align:left">Total income</td><td class="num">${money(ledgerIncome(c.fin))}</td><td class="num muted">${L ? money(ledgerIncome(L)) : "—"}</td></tr>
-      <tr class="sec"><td colspan="3">Costs</td></tr>${row("wages", "Player wages")}${row("staff", "Staff wages")}${row("buys", "Transfer fees")}${row("rent", "Ground rent")}${row("fac", "Facility upkeep")}${row("build", "Construction")}${row("acad", "Academy")}${row("scout", "Scouting")}${row("interest", "Interest")}
+      <tr class="sec"><td colspan="3">Costs</td></tr>${row("wages", "Player wages")}${row("staff", "Staff wages")}${row("buys", "Transfer fees")}${row("rent", "Ground rent")}${row("fac", "Facility upkeep")}${row("build", "Construction")}${row("acad", "Academy")}${row("scout", "Scouting")}${row("interest", "Interest")}${row("directors", "Directors")}${row("feeders", "Feeder funding")}${row("dividend", "Dividends")}
       <tr class="tot"><td style="text-align:left">Total costs</td><td class="num">${money(ledgerCosts(c.fin))}</td><td class="num muted">${L ? money(ledgerCosts(L)) : "—"}</td></tr>
+      <tr class="sec"><td colspan="3">Not counted above</td></tr>${row("equity", "Shares sold")}${row("borrow", "Borrowed")}${row("repay", "Loan repayments")}${row("invest", "Your investment")}
       <tr class="tot"><td style="text-align:left">Result</td><td class="num ${ledgerIncome(c.fin) - ledgerCosts(c.fin) < 0 ? "bad" : "good"}">${money(ledgerIncome(c.fin) - ledgerCosts(c.fin))}</td><td class="num muted">${L ? money(ledgerIncome(L) - ledgerCosts(L)) : "—"}</td></tr>
     </tbody></table></div></section>
-  </div><div class="stack">
+  </div><div class="stack">${loansCard()}
     <section class="card"><div class="card-h"><h2>Your money</h2></div><dl class="ledger"><dt>Club cash</dt><dd class="${c.cash < 0 ? "bad" : ""}">${money(c.cash)}</dd><dt>Your fortune</dt><dd>${money(G.owner.wealth)}</dd><dt>Put in so far</dt><dd>${money(G.owner.invested)}</dd></dl>
       <p class="small muted" style="margin:10px 0">An overdrawn club pays 10% a year interest.</p>
       <div class="row">${[1e5, 1e6, 1e7].map(v => `<button class="btn sm" data-act="invest" data-v="${v}" ${G.owner.wealth < v ? "disabled" : ""}>Put in ${money(v)}</button>`).join("")}</div>
@@ -268,6 +278,7 @@ function pgFac() {
   } else if (!S.build) {
     st += `<h3 style="margin:14px 0 6px">Expand</h3>${[1000, 3000, 8000, 15000].map(a => { const q = expandQuote(c, a); return `<div class="row between offer"><span>New stand: <b>+${a.toLocaleString()}</b><br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="expand" data-n="${a}">Build</button></div>`; }).join("")}`;
     const aq = amenQuote(c); if (aq) st += `<div class="row between offer"><span>Upgrade facilities to level ${aq.lvl}<br><span class="small muted">Concourses, bars, toilets: more spent per fan. ${money(aq.cost)} · ${aq.weeks} weeks</span></span><button class="btn sm" data-act="amen">Upgrade</button></div>`;
+    if (!S.heat) { const hq = heatQuote(c); st += `<div class="row between offer"><span>Undersoil heating<br><span class="small muted">Frost and snow won't postpone your home games. ${money(hq.cost)} · ${hq.weeks} weeks · upkeep ${money(hq.upkeep)}/yr</span></span><button class="btn sm" data-act="heat">Install</button></div>`; }
     const sq = suiteQuote(c); if (sq) st += `<div class="row between offer"><span>Add ${sq.add} executive suites<br><span class="small muted">Let to businesses by the season (demand about ${Math.round(suiteDemand(c))} at the going rate). ${money(sq.cost)} · ${sq.weeks} weeks</span></span><button class="btn sm" data-act="suites">Build</button></div>`;
   }
   if (S.own) st += S.relay ? `<p class="small" style="margin-top:10px">The pitch is being re-laid (${S.relay.left} week${S.relay.left > 1 ? "s" : ""} left).</p>` :
@@ -287,7 +298,7 @@ function pgFac() {
 }
 
 /* ---------- League ---------- */
-function pgLeague() {
+function pgLeagueInner() {
   const k = SUB.league || my().lg;
   const opts = LG_KEYS.map(x => `<option value="${x}" ${x === k ? "selected" : ""}>${LEAGUES[x].name}</option>`).join("");
   const scorers = Object.values(G.players).filter(p => p.club >= 0 && CL(p.club).lg === k && p.s.g > 0).sort((a, b) => b.s.g - a.s.g).slice(0, 8);
@@ -301,7 +312,7 @@ function pgLeague() {
 function clubModal(id) {
   const c = CL(id), ps = c.squad.map(P).filter(p => !p.acad).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   modal(`<div class="modal-h" style="--mc:${c.color}">${crest(c, 36)}<div><p class="eyebrow">${LEAGUES[c.lg].name} · founded ${c.founded}</p><h2>${esc(c.name)}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b">${isMine(c) ? "" : `<dl class="facts"><div><dt>Manager</dt><dd>${esc(c.coach.name)}</dd></div><div><dt>Style</dt><dd>${STYLES[c.coach.style].l}, ${c.coach.form}</dd></div><div><dt>Ground</dt><dd>${c.cap.toLocaleString()}</dd></div><div><dt>Honours</dt><dd>${c.trophies.length ? c.trophies.map(t => t[0] + " " + t[1]).join(", ") : "—"}</dd></div></dl>`}
+    <div class="modal-b">${isMine(c) ? "" : `<dl class="facts"><div><dt>Manager</dt><dd>${esc(c.coach.name)}</dd></div><div><dt>Style</dt><dd>${STYLES[c.coach.style].l}, ${c.coach.form}</dd></div><div><dt>Ground</dt><dd>${c.cap.toLocaleString()}</dd></div><div><dt>Owner</dt><dd>${esc(c.own.name)}<br><span class="small muted">${OWNER_STYLES[c.own.style].l}</span></dd></div><div><dt>Honours</dt><dd>${c.trophies.length ? c.trophies.map(t => t[0] + " " + t[1]).join(", ") : "—"}</dd></div></dl>`}
     <div class="tbl-wrap"><table><tbody>${ps.map(p => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td>${range(ovrEstimate(p))}</td></tr>`).join("")}</tbody></table></div></div>`);
 }
 
@@ -309,7 +320,7 @@ function clubModal(id) {
 function pgMarket() {
   const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c);
   const pool = Object.values(G.players).filter(p => p.club !== c.id && !p.acad && (!F.pos || p.pos === F.pos) && p.age <= F.age && (p.club < 0 || CL(p.club).tier >= c.tier - 2))
-    .map(p => ({ p, e: ovrEstimate(p), fee: askingFee(p) })).filter(x => (x.e[0] + x.e[1]) / 2 >= F.min && (!F.fee || x.fee <= F.fee)).sort((a, b) => b.e[1] - a.e[1]).slice(0, 60);
+    .map(p => ({ p, e: ovrEstimate(p), fee: askingFee(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min && (!F.fee || x.fee <= F.fee)).sort((a, b) => b.e[1] - a.e[1]).slice(0, 60);
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Transfer market</h2><span class="small ${windowOpen() ? "good" : "muted"}">${windowOpen() ? "Window open" : "Window closed: free agents only"}</span></div>
     <p class="small muted" style="margin-bottom:10px">Buying a player yourself goes over your head of recruitment's head. Players at clubs more than two divisions above won't come. Ratings are ${s ? `${esc(s.name)}'s estimates` : "guesses: you have no recruitment staff"}.</p>
     <div class="row filters"><select data-act="mf" data-k="pos"><option value="">All positions</option>${POS.map(x => `<option ${F.pos === x ? "selected" : ""}>${x}</option>`).join("")}</select>
@@ -317,7 +328,7 @@ function pgMarket() {
     <div class="tbl-wrap"><table class="sq"><thead><tr><th>Pos</th><th style="text-align:left">Name</th><th>Age</th><th style="text-align:left">Club</th><th>Rating</th><th>Potential</th><th>Fee</th></tr></thead><tbody>
     ${pool.map(({ p, e, fee }) => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td style="text-align:left" class="small">${esc(fromName(p))}</td><td>${range(e)}</td><td>${range(potEstimate(p))}</td><td class="num">${fee ? money(fee) : "Free"}</td></tr>`).join("")}</tbody></table></div></section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
-      ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${Math.round(n.weakest) || "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
+      ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section></div></div>`;
 }
 function buyModal(id) {
@@ -333,8 +344,8 @@ function buyModal(id) {
 /* ---------- History ---------- */
 function pgHist() {
   const c = my();
-  return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Seasons</h2></div>${G.history.length ? `<div class="tbl-wrap"><table><thead><tr><th>Season</th><th style="text-align:left">Division</th><th>Pos</th><th>Pts</th><th>Crowd</th><th>Income</th><th>Costs</th><th style="text-align:left">Manager</th></tr></thead><tbody>
-    ${G.history.map(h => `<tr><td>${seasonLabel(h.y)}</td><td style="text-align:left">${LEAGUES[h.lg].name}</td><td class="num">${ord(h.pos)}${h.up ? ' <span class="good">▲</span>' : h.down ? ' <span class="bad">▼</span>' : ""}</td><td class="num">${h.pts}</td><td class="num">${h.att.toLocaleString()}</td><td class="num">${money(h.inc)}</td><td class="num">${money(h.cost)}</td><td style="text-align:left" class="small">${esc(h.mgr)}</td></tr>`).join("")}</tbody></table></div>` : "<p class='muted'>Your first season is under way.</p>"}</section>
+  return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Seasons</h2></div>${G.history.length ? `<div class="tbl-wrap"><table><thead><tr><th>Season</th><th style="text-align:left">Division</th><th>Pos</th><th>Pts</th><th>Crowd</th><th>Income</th><th>Costs</th><th style="text-align:left">Manager</th><th style="text-align:left">Cups · targets</th></tr></thead><tbody>
+    ${G.history.map(h => `<tr><td>${seasonLabel(h.y)}</td><td style="text-align:left">${LEAGUES[h.lg].name}</td><td class="num">${ord(h.pos)}${h.up ? ' <span class="good">▲</span>' : h.down ? ' <span class="bad">▼</span>' : ""}</td><td class="num">${h.pts}</td><td class="num">${h.att.toLocaleString()}</td><td class="num">${money(h.inc)}</td><td class="num">${money(h.cost)}</td><td style="text-align:left" class="small">${esc(h.mgr)}</td><td style="text-align:left" class="small">${[...(h.cups || []), ...(h.obj || [])].map(esc).join("<br>")}</td></tr>`).join("")}</tbody></table></div>` : "<p class='muted'>Your first season is under way.</p>"}</section>
     <section class="card"><div class="card-h"><h3>Honours</h3></div>${c.trophies.length ? c.trophies.map(t => `<p>🏆 ${t[0]} ${esc(t[1])}</p>`).join("") : "<p class='muted'>None yet.</p>"}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Hall of fame</h3></div>${G.hof.length ? G.hof.slice(-15).reverse().map(h => `<p class="small">${esc(h.name)} (${h.pos}) · peak ${h.peak} · ${h.apps} apps, ${h.goals} goals · retired ${h.y}</p>`).join("") : "<p class='muted small'>Great players who retire are remembered here.</p>"}</section>
     <section class="card"><div class="card-h"><h3>Save</h3></div><div class="row"><button class="btn sm" data-act="export">Export save file</button><label class="btn sm">Import<input type="file" id="imp" accept=".json" hidden></label><button class="btn sm" data-act="quit">Back to start</button></div></section></div></div>`;

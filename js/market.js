@@ -71,7 +71,7 @@ function shortlist(c, need, max = 6) {
   const seeTier = c.tier - 1 - Math.floor((reach + scoutBoost() * 3) / 35);
   const pool = [];
   for (const q of Object.values(G.players)) {
-    if (q.pos !== need.pos || q.club === c.id || q.acad || q.club === -2) continue;
+    if (q.pos !== need.pos || q.club === c.id || q.acad || q.club === -2 || q.loan) continue;
     if (q.club >= 0 && (CL(q.club).tier < seeTier)) continue;
     pool.push(q);
   }
@@ -88,7 +88,7 @@ function signPlayer(p, fee, wage, byOwner) {
   moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4);
   spend("buys", fee); if (!byOwner) c.spentT += fee;
   if (seller && !seller.gone) aiSquadCheck(seller, true);
-  news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${p.ovr}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${money(wage)} a year.`, true);
+  news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${money(wage)} a year.`, true);
 }
 function headWeek(c) {
   const s = staffOf("recruit");
@@ -104,7 +104,7 @@ function headWeek(c) {
   let guard = 0;
   while (seniors().length > 26 && guard++ < 5) {
     const xi = new Set(pickXI(c).map(o => o.p.id));
-    const p = seniors().filter(q => !xi.has(q.id) && !q.keep).sort((a, b) => a.ovr - b.ovr)[0]; if (!p) break;
+    const p = seniors().filter(q => !xi.has(q.id) && !q.keep && !q.loan).sort((a, b) => a.ovr - b.ovr)[0]; if (!p) break;
     sellToAI(p, false);
   }
 }
@@ -126,12 +126,12 @@ function release(p, byOwner) {
 /* ---------- bids for your players ---------- */
 function bidsWeek(c) {
   for (const p of c.squad.map(P)) {
-    if (p.acad || p.age > 31) continue;
+    if (p.acad || p.age > 31 || p.loan) continue;
     const star = p.ovr >= TIER_LVL[c.tier] + 5 || (p.age <= 21 && p.pot >= TIER_LVL[c.tier] + 10);
     if (!star || R() > .12 || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
     const buyer = G.clubs.filter(x => !x.gone && !isMine(x) && x.tier < c.tier && x.lvl >= p.ovr - 3).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr))[0];
     if (!buyer) continue;
-    const amt = Math.round(valueOf(p) * rf(.85, 1.5) / 1000) * 1000;
+    const amt = Math.round(valueOf(p) * rf(.85, 1.5) * (buyer.own ? 1 + OWNER_STYLES[buyer.own.style].poach * .3 : 1) / 1000) * 1000;
     addMsg({ type: "bid", pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${buyer.name} bid ${money(amt)} for ${p.name}` });
   }
 }

@@ -22,6 +22,9 @@ function startSeason() {
     for (const id of L.clubs) L.tab[id] = { id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [] };
   }
   G.myRes = []; G.po = null;
+  for (const c of G.clubs) if (!c.gone && c.ded && G.leagues[c.lg].tab[c.id]) G.leagues[c.lg].tab[c.id].pts -= c.ded;  // administration
+  for (const k of LG_KEYS) G.leagues[k].pend = [];
+  startCups();
   for (const p of Object.values(G.players)) p.s = { app: 0, g: 0, a: 0 };
   const c = my(); c.att = []; c.morale = 55;
 }
@@ -47,6 +50,8 @@ function nextFixture() {
 /* ---------- a week ---------- */
 function advance() {
   const c = my();
+  if (G.ended) return;
+  weatherWeek();
   for (const p of Object.values(G.players)) if (p.inj) p.inj--;
   if (G.phase === "summer") summerWeek();
   else if (G.phase === "season") seasonWeek();
@@ -55,11 +60,13 @@ function advance() {
   for (const o of c.offers) o.exp--;
   c.offers = c.offers.filter(o => o.exp > 0);
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
+  mediaWeek(); trustWeek(c); poachWeek(); bidForMyClub();
   settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
 }
 function summerWeek() {
+  if (G.week === 1) partnerWindow();
   marketWeek();
   G.week++;
   if (G.week >= SUMMER_WEEKS) {
@@ -72,11 +79,16 @@ function seasonWeek() {
   const w = G.week;
   for (const k of LG_KEYS) {
     const L = G.leagues[k];
-    if (L.clubs.length === 20 && REST20.has(w)) continue;
-    if (L.next >= L.rounds.length) continue;
-    for (const [h, a] of L.rounds[L.next]) { const r = playMatch(h, a); tally(L, r); afterMatch(r, k); }
-    L.next++;
+    // Games postponed last week (frost, snow) are played first; some go off again.
+    const todo = (L.pend || []).splice(0);
+    if (L.next < L.rounds.length && !(L.clubs.length === 20 && REST20.has(w))) { todo.push(...L.rounds[L.next]); L.next++; }
+    for (const [h, a] of todo) {
+      if (postponed(h) && w < SEASON_WEEKS - 1) { L.pend.push([h, a]); if (h === G.club || a === G.club) news(`${CL(h).name} v ${CL(a).name} is postponed: ${wxAt(CL(h)).l.toLowerCase()} has left the pitch unplayable.`, true); continue; }
+      const r = playMatch(h, a); tally(L, r); afterMatch(r, k);
+    }
   }
+  cupWeek(w); ownersCheck(w);
+  if (w === JAN[0]) partnerWindow();
   if (JAN.includes(w)) marketWeek();
   if (w % 3 === 2) devTick(1 / 16);
   G.week++;
@@ -86,28 +98,23 @@ function afterMatch(r, k) {
   const c = my(); if (r.h !== c.id && r.a !== c.id) return;
   const home = r.h === c.id, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? r.a : r.h);
   let crowd = null; if (home) { crowd = homeGameMoney(c, opp); c._home = true; }
-  const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot;
+  const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = isDerby(c, opp) ? 2 : 1;
   c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 - c.morale) * .1, 20, 95);
-  moodHit(c, res === "W" ? 1.6 : res === "L" ? -1.6 : 0);
-  G.myRes.push({ w: G.week, comp: k, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
+  moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);
+  G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
 }
 
 /* ---------- play-offs: one-off semi-finals at the higher seed, a final at a neutral ground ---------- */
 function startPlayoffs() {
+  for (const k of LG_KEYS) { const L = G.leagues[k]; for (const [h, a] of (L.pend || []).splice(0)) { const r = playMatch(h, a); tally(L, r); afterMatch(r, k); } }
   G.phase = "playoffs"; G.week = 0; G.po = {};
   for (const k of LG_KEYS) { const po = LEAGUES[k].po; if (!po) continue; const t = table(k).slice(po[0] - 1, po[1]).map(r => r.id); G.po[k] = { semis: [[t[0], t[3]], [t[1], t[2]]], final: null, win: null, res: [] }; }
   const mine = Object.entries(G.po).find(([, x]) => x.semis.flat().includes(G.club));
   news(mine ? `${my().name} are in the ${LEAGUES[mine[0]].name} play-offs!` : "The regular season is over. The play-offs are next.", !!mine);
 }
 function koMatch(h, a, neutral, k) {
-  const r = playMatch(h, a, neutral); let w = r.hg > r.ag ? h : r.ag > r.hg ? a : null, pens = null;
-  if (w == null) { w = R() < .5 ? h : a; pens = true; }
-  if (h === G.club || a === G.club) {
-    const home = h === G.club, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg;
-    if (home && !neutral) homeGameMoney(my(), CL(a));
-    G.myRes.push({ w: SEASON_WEEKS + G.week, comp: "PO", home: home && !neutral, opp: home ? a : h, gf, ga, res: w === G.club ? "W" : "L", pens, ev: r.ev, fit: r.fit[home ? 0 : 1] });
-  }
-  G.po[k].res.push({ h, a, hg: r.hg, ag: r.ag, pens, w });
+  const { w, r } = playKO(h, a, neutral, "PO", neutral ? "Play-off final" : "Play-off semi-final");
+  G.po[k].res.push({ h, a, hg: r.hg, ag: r.ag, pens: r.pens, w });
   return w;
 }
 function playoffWeek() {
@@ -156,11 +163,14 @@ function endSeason() {
   const wentUp = moves.some(([id, to]) => id === G.club && to && to !== "OUT");
   const wentDown = moves.some(([id, to]) => id === G.club && to === null);
   if (wentUp) { const b = sum(mine.deals, d => d.bonus); if (b) { earn("spons", b); news(`Sponsors pay ${money(b)} in promotion bonuses.`); } }
+  judgeObjectives({ ...report, up: wentUp, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club) });
   // History
   const f = mine.fin;
-  G.history.unshift({ y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
+  G.history.unshift({ obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }).filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
     inc: ledgerIncome(f), cost: ledgerCosts(f), att: Math.round(avg(mine.att || [])), fans: mine.fans, cash: mine.cash, mgr: mgr().name,
     top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" });
+  investorsSummer({ up: wentUp, down: wentDown });
+  endLoans();
   G.meddle = (G.meddle || 0) * .6;
   mine.fac.stadium.held = 0;  // interference is slowly forgotten
   mine.finLast = mine.fin; mine.fin = newLedger(); mine.spentT = 0;
@@ -179,8 +189,13 @@ function endSeason() {
   balanceHalves("L6N", "L6S"); balanceHalves("L7N", "L7S");
   for (const k of ["L7N", "L7S"]) while (G.leagues[k].clubs.length < LEAGUES[k].size) { const c = newClub(k, LEAGUES[k].size - 1); c.half = LEAGUES[k].half; genSquad(c); G.leagues[k].clubs.push(c.id); c.founded = G.year; }
   // Standing: reputation drifts toward the club's division, plus a little for finishing high.
-  for (const k of LG_KEYS) { const ids = G.leagues[k].clubs, n = ids.length; ids.forEach(id => { const c = CL(id); const prev = table2(k, id, n); c.rep = clamp(Math.round(c.rep + (TIER_REP[c.tier] + prev - c.rep) * .3), 1, 99); if (!isMine(c)) c.lvl = TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7); }); }
+  for (const k of LG_KEYS) { const ids = G.leagues[k].clubs, n = ids.length; ids.forEach(id => { const c = CL(id); const prev = table2(k, id, n); c.rep = clamp(Math.round(c.rep + (TIER_REP[c.tier] + prev - c.rep) * .3), 1, 99); }); }
+  ownersSummer();
   yearTurnover();
+  feedersSummer();
+  staffSummer();
+  if (G.sTrust && G.sTrust.freeze === G.year) G.sTrust.freeze = 0;
+  G.cupsLast = G.cups;
   G.year++; G.phase = "summer"; G.week = 0; G.po = null;
   startSeason();
   refreshOffers(mine);
@@ -226,7 +241,7 @@ function yearTurnover() {
   for (const c of G.clubs) {
     if (c.gone) continue;
     for (const id of c.squad.slice()) { const p = P(id); if (!p.acad || p.age < 19) continue;
-      if (isMine(c)) { if (p.keep || p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4) { p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, demandWage(p, c)); news(`Academy graduate ${p.name} (${p.pos}, ${p.ovr}) signs a professional contract.`, true); } else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released by the academy.`); } }
+      if (isMine(c)) { if (p.keep || p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4) { p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, demandWage(p, c)); news(`Academy graduate ${p.name} (${p.pos}, ${r20(p.ovr)}) signs a professional contract.`, true); } else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released by the academy.`); } }
       else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = ri(2, 3); p.wage = wageFor(p.ovr); } else { leaveClub(p); toFreeAgent(p); } }
     youthIntake(c);
   }
@@ -234,7 +249,7 @@ function yearTurnover() {
   if (G.fa.length > 600) { const keep = G.fa.map(P).sort((a, b) => b.ovr - a.ovr); for (const p of keep.slice(600)) retire(p); }
   // Talent moves up: players far better than their club are bought by a club at their level.
   for (const p of Object.values(G.players)) {
-    if (p.club < 0 || p.acad || p.age > 30) continue; const c = CL(p.club); if (isMine(c)) continue;
+    if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
     if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { moveTo(p, buyer); p.wage = wageFor(p.ovr); p.yrs = ri(2, 4); } }
   }
   // Good free agents don't stay unemployed: a club at their level takes them on.
@@ -282,14 +297,14 @@ function youthIntake(c) {
   if (isMine(c)) {
     const best = got.slice().sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1])[0];
     const y = staffOf("youth");
-    addMsg({ type: "intake", title: `Youth intake: ${got.length} new player${got.length > 1 ? "s" : ""}`, body: best ? `${y ? y.name + " rates" : "The coaches rate"} ${best.name} (${best.pos}, ${best.age}) the pick of the group, potential ${potEstimate(best).join("–")}.` : "", pid: best && best.id });
+    addMsg({ type: "intake", title: `Youth intake: ${got.length} new player${got.length > 1 ? "s" : ""}`, body: best ? `${y ? y.name + " rates" : "The coaches rate"} ${best.name} (${best.pos}, ${best.age}) the pick of the group, potential ${est20(potEstimate(best))}.` : "", pid: best && best.id });
   }
 }
 function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 
 /* ---------- AI squads ---------- */
 function aiSquadCheck(c, light) {
-  const sq = () => c.squad.map(P).filter(p => !p.acad);
+  const sq = () => c.squad.map(P).filter(p => !p.acad && !p.loan);
   // Too many: release the weakest
   while (sq().length > 26) { const p = sq().sort((a, b) => valueOf(a) - valueOf(b))[0]; leaveClub(p); toFreeAgent(p); }
   // Too few at a position: sign
@@ -310,7 +325,7 @@ function aiSign(c, pos) {
   if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
   else if (R() < .5) {
     const lower = G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && x.tier <= c.tier + 2);
-    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
+    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     if (pool.length) p = pick(pool);
   }
   if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); }
@@ -319,8 +334,10 @@ function aiSign(c, pos) {
 
 /* ---------- inbox ---------- */
 function addMsg(m) { m.id = G.nextMsg++; m.y = G.year; m.w = whenLabel(); m.age = 0; G.inbox.unshift(m); if (G.inbox.length > 60) G.inbox.length = 60; return m; }
-const openDecisions = () => G.inbox.filter(m => m.type === "bid" && !m.done);
+const openDecisions = () => G.inbox.filter(m => (m.type === "bid" || m.type === "choice") && !m.done);
 /* Bids you don't answer within a week are decided by your head of recruitment. */
 function settleInbox() {
-  for (const m of G.inbox) { m.age++; if (m.type === "bid" && !m.done && m.age >= 2) answerBid(m, m.rec === "accept", true); }
+  for (const m of G.inbox.slice()) { m.age++; if (m.done) continue;
+    if (m.type === "bid" && m.age >= 2) answerBid(m, m.rec === "accept", true);
+    if (m.type === "choice" && m.age >= 3) answerChoice(m, m.dflt); }
 }

@@ -15,7 +15,8 @@ const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
 function pickXI(c) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false;
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 17 && p.ovr >= TIER_LVL[c.tier] - 6));
-  const score = (p, s) => roleRating(p, s) + (youth && p.age <= 21 ? Math.min(5, (p.pot - p.ovr) * .25) : 0);
+  // Managers see ratings out of 20, like everyone else: equal figures are split by the potential they see, then by chance.
+  const score = (p, s) => Math.round(roleRating(p, s) / 5) + (youth && p.age <= 21 ? Math.min(1, (p.pot - p.ovr) * .05) : 0) + r20(p.pot) * .01 + (p.id % 7) * .001;
   const out = Array(11).fill(null), used = new Set();
   const order = slots.map((s, i) => i).sort((a, b) => (slots[a] === "GK" ? -1 : 0) - (slots[b] === "GK" ? -1 : 0));
   for (const i of order) {
@@ -50,10 +51,12 @@ function scorer(xi, kind) {
 function playMatch(h, a, neutral) {
   const H = CL(h), A = CL(a), xh = pickXI(H), xa = pickXI(A), ph = teamPower(H, xh), pa = teamPower(A, xa);
   const sh = STYLES[clubStyle(H)], sa = STYLES[clubStyle(A)], fh = styleFit(xh, clubStyle(H)), fa = styleFit(xa, clubStyle(A));
-  const adv = neutral ? 0 : 2;
+  const adv = neutral ? 0 : 2, wx = G.wx ? wxAt(H) : WX.clear;
   let lh = 1.3 * Math.exp(.065 * (ph.atk - pa.def + adv)), la = 1.3 * Math.exp(.065 * (pa.atk - ph.def - adv));
   lh *= sh.for * (1 + .08 * fh) * sa.against * (1 - .06 * fa);
   la *= sa.for * (1 + .08 * fa) * sh.against * (1 - .06 * fh);
+  // Bad weather: fewer goals, and passing football suffers most.
+  const wf = st => wx.play * (wx.play < 1 && (st === "possession" || st === "wing") ? .96 : 1); lh *= wf(clubStyle(H)); la *= wf(clubStyle(A));
   // A worn home pitch blunts passing football (both sides) and makes the game scrappier.
   const pq = isMine(H) && !neutral ? pitchOf(H) : null;
   if (pq != null && pq < 70) { const k = st => (st === "possession" || st === "wing" || st === "counter" ? .004 : .002) * (70 - pq); lh *= 1 - k(clubStyle(H)); la *= 1 - k(clubStyle(A)); }
@@ -64,7 +67,7 @@ function playMatch(h, a, neutral) {
     if (R() < .7) { as = scorer(xi.filter(o => o.p !== g), "a"); if (as) as.s.a++; }
     ev.push({ m: ri(1, 90), side, g: g.name, a: as ? as.name : null });
   }
-  for (const xi of [xh, xa]) for (const { p } of xi) { p.s.app++; injuryCheck(p, pq); }
+  for (const xi of [xh, xa]) for (const { p } of xi) { if (!p.tot[0] && !p.s.app) p.debut = G.year; p.s.app++; injuryCheck(p, pq); }
   ev.sort((x, y) => x.m - y.m);
   return { h, a, hg, ag, ev, fit: [fh, fa], xg: [r1(lh), r1(la)] };
 }
