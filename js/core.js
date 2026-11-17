@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.9.6";
+const VERSION = "0.10.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -253,6 +253,7 @@ function newWorld(o) {
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
   makeForeign();
+  for (const c of G.clubs) if (!c.gone) c.own ||= newOwner(c);
   // A pool of unattached players: the trialists and journeymen a new club can sign.
   for (let i = 0; i < 160; i++) { const ovr = ri(30, 62), age = ri(19, 34); const p = makePlayer({ pos: pick(POS), ovr, age, nat: R() < .75 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); toFreeAgent(p); }
   if (o) foundClub(o);
@@ -306,3 +307,31 @@ function foundClub(o) {
   return c;
 }
 function newLedger() { return { equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, acad: 0, scout: 0, buys: 0, build: 0, interest: 0, invest: 0 }; }
+
+/* ---------- archetypes ----------
+   What kind of player he is in his position, read from which attributes stand out against his own overall (allowing
+   for the attributes every player in that position is built around). [name, keys, description, short] */
+const ARCHETYPES = {
+  GK: [["Shot-stopper", ["ss", "han"], "Keeps the ball out: reflexes and handling first.", "SS"], ["Ball-playing keeper", ["dis", "cmp"], "Starts attacks with his feet.", "BPK"], ["Commanding keeper", ["aer", "han"], "Rules his box and claims every cross.", "CMD"]],
+  CB: [["Stopper", ["tac", "str"], "Steps in, wins the ball and the duel.", "STP"], ["Aerial presence", ["hea", "str"], "Dominant in the air at both ends.", "AER"],
+    ["Ball-playing defender", ["pas", "cmp", "vis"], "Calm on the ball, breaks lines with his passing.", "BPD"], ["Covering defender", ["pac", "mar"], "Reads danger and has the pace to cover.", "COV"]],
+  FB: [["Overlapping full-back", ["pac", "sta", "dri"], "Gets up and down the flank all game.", "OFB"], ["Defensive full-back", ["tac", "mar"], "Defends first, rarely beaten one on one.", "DFB"],
+    ["Inverted full-back", ["pas", "tec", "cmp"], "Steps inside to help build play.", "IFB"]],
+  DM: [["Ball-winner", ["tac", "sta"], "Hunts the ball and breaks up play.", "BW"], ["Deep-lying playmaker", ["pas", "vis", "cmp"], "Dictates from deep.", "DLP"],
+    ["Anchor", ["mar", "str", "hea"], "Holds the position in front of the defence.", "ANC"]],
+  CM: [["Box-to-box", ["sta", "tac", "fin"], "Covers every blade of grass, tackles and scores.", "B2B"], ["Playmaker", ["pas", "vis", "tec"], "Sets the tempo and finds the pass.", "PM"],
+    ["Ball carrier", ["dri", "pac", "tec"], "Drives forward with the ball at his feet.", "BC"]],
+  AM: [["Creator", ["vis", "pas"], "Unlocks defences with the final ball.", "CRE"], ["Shadow striker", ["fin", "cmp"], "Arrives in the box to score.", "SHS"],
+    ["Dribbler", ["dri", "tec"], "Beats players in tight spaces.", "DRB"]],
+  W: [["Direct winger", ["pac", "dri"], "Takes on the full-back with speed.", "DW"], ["Inside forward", ["fin", "cmp", "dri"], "Cuts inside to shoot.", "IF"],
+    ["Wide playmaker", ["pas", "vis", "tec"], "Creates from the flank.", "WPM"], ["Workhorse winger", ["sta", "tac"], "Tracks back and presses all game.", "WW"]],
+  ST: [["Poacher", ["fin", "cmp"], "Lives in the box and finishes chances.", "POA"], ["Target man", ["hea", "str"], "Holds the ball up and wins it in the air.", "TM"],
+    ["Runner in behind", ["pac", "fin"], "Stretches the defence with his pace.", "RIB"], ["Deep-lying forward", ["pas", "vis", "tec"], "Drops in to link the play.", "DLF"]],
+};
+function archetypeOf(p) {
+  const list = ARCHETYPES[p.pos]; if (!list || !p.at) return null;
+  const W = POS_W[p.pos], off = k => W[k] ? 3 : -11;  // the shape every player in this position is generated with
+  let best = null, bs = -1e9;
+  for (const a of list) { const s = avg(a[1].map(k => (p.at[k] ?? 0) - off(k))); if (s > bs) { bs = s; best = a; } }
+  return best;
+}

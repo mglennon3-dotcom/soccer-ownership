@@ -54,6 +54,11 @@ const ACT = {
   putsale: () => { G.saleOffers = saleOffers(); render(); },
   acceptsale: async el => { const o = G.saleOffers[+el.dataset.i]; if (await ask(`Sell your ${ownPct()}% of ${my().name} to ${o.name} for ${money(o.amt)}? You'll then choose a new club.`)) { sellMyClub(o); render(); saveGame(); } },
   buyclub: async el => { const c = CL(+el.dataset.id); if (await ask(`Buy ${c.name} for ${money(askPrice(c))}?`)) { buyClub(c); PAGE = "home"; render(); saveGame(); } },
+  mtab: el => { MARKET_F.tab = el.dataset.k; render(); },
+  loanask: el => { const p = P(+el.dataset.id), from = CL(p.club), partner = net().partner && net().partner.id === from.id;
+    if (R() < (partner ? .9 : .65)) { loanIn(p, from); toast(`${from.name} agree: ${p.name} joins on loan until the end of the season.`); }
+    else { toast(`${from.name} want to keep ${p.name}.`); }
+    closeModal(); render(); saveGame(); },
   sort: el => { const [id, k] = el.dataset.v.split("|"), cur = SORTS[id]; SORTS[id] = { k, d: cur && cur.k === k ? -cur.d : SORT_UP.includes(k) ? 1 : -1 }; render(); },
   choose: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerChoice(m, +el.dataset.i); render(); saveGame(); },
   seekinv: () => { G.board.offers = investmentOffers(); if (!G.board.offers.length) toast("You can't sell any more without losing control."); render(); },
@@ -153,7 +158,10 @@ const CHANGE = {
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
-  mf: el => { MARKET_F[el.dataset.k] = el.dataset.k === "pos" ? el.value : num(el); if (el.dataset.k === "age" && !MARKET_F.age) MARKET_F.age = 40; render(); },
+  mf: el => { const k = el.dataset.k; MARKET_F[k] = ["pos", "arch", "int"].includes(k) ? el.value : num(el);
+    if (k === "pos" && MARKET_F.arch && !(ARCHETYPES[el.value] || []).some(a => a[0] === MARKET_F.arch)) MARKET_F.arch = "";
+    if (k === "arch" && el.value && MARKET_F.pos && !(ARCHETYPES[MARKET_F.pos] || []).some(a => a[0] === el.value)) MARKET_F.pos = "";
+    render(); },
 };
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;

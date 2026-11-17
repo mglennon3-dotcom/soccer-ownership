@@ -64,6 +64,7 @@ function ownersSummer() {
     c.lvl = clubStandard(c);
   }
   hostileCheck();
+  aiListings();
 }
 /* The old man dies: the heir sells, or takes over and wrecks it. */
 function succession(c) {
@@ -131,3 +132,16 @@ DECIDE.poach = (m, i) => {
   if (i === 0) { my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
   else trust(m.data.role, -10, `is unhappy you blocked his move to ${x.name}.`);
 };
+
+/* AI clubs transfer-list players they can do without: well below the club's standard and out of the side, ageing
+   reserves, and (for owners who like to sell) the odd regular. Listed players go cheaper. Refreshed each summer and
+   again in January. */
+function aiListings() {
+  for (const c of G.clubs) {
+    if (c.gone || isMine(c)) continue;
+    const S = ownStyle(c), xi = new Set(pickXI(c).map(o => o.p.id));
+    for (const id of c.squad) { const p = P(id); if (p.acad || p.loan) continue;
+      const spare = !xi.has(p.id) && (p.ovr < c.lvl - 5 || p.age >= 31);
+      p.list = spare ? R() < .5 : xi.has(p.id) ? R() < S.sells * .03 : false; }
+  }
+}

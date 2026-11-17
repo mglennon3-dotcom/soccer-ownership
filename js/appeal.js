@@ -50,7 +50,8 @@ function playerAsk(p, c = my()) {
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
-  return Math.ceil(base * Math.max(.85, ratioFor(Math.max(0, need)) + .001) / 100) * 100;
+  const want = Math.ceil(base * Math.max(.85, ratioFor(Math.max(0, need)) + .001) / 100) * 100;
+  return p.club >= 0 ? Math.max(want, Math.ceil(p.wage * .95 / 100) * 100) : want;  // nobody under contract moves for much less than he earns
 }
 function playerAppeal(p, wage, c = my()) {
   const pr = prefsOf(p, P_FACTORS), f = { ...playerFactors(p, c), money: moneyF(wage / demandWage(p, c)) };

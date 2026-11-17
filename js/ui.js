@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { pos: "", age: 40, fee: "", min: 0 };
+let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: "", min: 0, int: "" };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString("en-GB"));
 // Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
 const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
@@ -28,6 +28,7 @@ function sortTable(id, cols, rows, opt = {}) {
     ${rows.map(r => `<tr${opt.row ? " " + opt.row(r) : ""}>${cols.map(c => `<td class="${c.r ? "num" : ""}"${c.left ? ' style="text-align:left"' : ""}>${c.f(r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted">${opt.empty || "Nothing to show."}</td></tr>`}</tbody></table></div>${opt.limit && total > opt.limit ? `<p class="small muted" style="margin-top:6px">Showing ${opt.limit} of ${total.toLocaleString("en-GB")}. Narrow the filters or sort to see others.</p>` : ""}`;
 }
 const SORT_UP = ["name", "pos", "club", "nat"];  // columns that start A-Z (or by position)
+const archChip = p => { const a = archetypeOf(p); return a ? `<span class="chip hg" title="${esc(a[0] + ": " + a[2])}">${a[3]}</span>` : ""; };
 const attr20 = v => `${bar(v)}<b class="num">${r20(v)}</b>`;
 const word = ([w, cls]) => `<span class="${cls}">${w}</span>`;
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2600); }
@@ -172,6 +173,7 @@ function pgSquad() {
     ${ps.length ? `${sortTable("squad-" + tab, [
       { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
       { k: "name", l: "Name", left: true, v: p => p.name, f: p => `${esc(p.name)} ${xi.has(p.id) ? '<span class="chip xi">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.unsettled > 0 ? '<span class="chip sus">UNSETTLED</span>' : ""}${p.req ? '<span class="chip req">WANTS OUT</span>' : ""}${p.keep ? '<span class="chip list">KEEP</span>' : ""}${p.list ? '<span class="chip req">LISTED</span>' : ""}${favChip(p, c.id)}${p.loan ? '<span class="chip hg">LOAN</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}` },
+      { k: "type", l: "Type", v: p => (archetypeOf(p) || [""])[0], f: p => `<span title="${esc((archetypeOf(p) || ["", "", ""])[2])}" class="small">${esc((archetypeOf(p) || [""])[0])}</span>` },
       { k: "age", l: "Age", r: true, v: p => p.age, f: p => p.age },
       { k: "ovr", l: "Rating", v: p => p.ovr, f: p => rating(p.ovr) },
       { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
@@ -198,12 +200,14 @@ function playerModal(id) {
       <p class="small muted">Players are only sold when a club makes an offer. Transfer-listed players attract offers while a window is open, usually below their value; they arrive in your inbox with your head of recruitment's advice. Listing a player yourself goes over his head, and the manager won't like losing a first-choice player. Protected players are never sold by your staff and are offered new contracts.</p>`;
   } else {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
-    acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button><span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${money(wage)} a year.` : "He isn't interested in joining, whatever the money."}</span></div>
+    const lendable = loanable(p) && windowOpen() && !inTheirXI(p);
+    acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button>${lendable ? `<button class="btn" data-act="loanask" data-id="${p.id}">Ask to borrow him</button>` : ""}<span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${money(wage)} a year.` : "He isn't interested in joining, whatever the money."}</span></div>
       <details><summary class="small">What he's weighing up</summary>${factorBars(playerAppeal(p, wage || demandWage(p, my())), P_FACTORS)}</details>`;
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${money(p.wage)}/yr</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : p.yrs ? p.yrs + " yr" : "—"}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
     <div class="attr-grid">${attrs}</div>${acts}
+    ${archetypeOf(p) && (mine || (c && c.lg === my().lg) || staffOf("recruit")) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${formWord(seasonForm(p)) ? `<p class="small good">Coming off ${formWord(seasonForm(p))}: clubs are taking notice.</p>` : ""}
     ${(() => { const L = Object.entries(p.love || {}).filter(([, l]) => l >= FAV).map(([cid, l]) => `${l >= LEGEND ? "a legend" : "a fan favourite"} at ${esc(G.clubs[+cid] ? G.clubs[+cid].name : "a former club")}`); return L.length ? `<p class="small"><b>Supporters' view:</b> ${L.join("; ")}.</p>` : ""; })()}
     ${p.hist.length ? `<p class="small muted">Clubs: ${p.hist.map(h => `${h[0]} ${esc(h[1])}`).join(" · ")}</p>` : ""}</div>`);
@@ -361,27 +365,51 @@ function clubModal(id) {
 }
 
 /* ---------- Market ---------- */
+/* How open a player is to joining you, from the same factors he weighs when you make an offer (appeal.js). */
+function interestOf(p) {
+  const ask = playerAsk(p); if (ask == null || !willJoin(p, my())) return { w: "Not interested", k: "no", cls: "bad", ask: null };
+  const sc = playerAppeal(p, demandWage(p, my())), m = sc.score - sc.pr.thr;
+  return m >= .08 ? { w: "Keen", k: "keen", cls: "good", ask } : m >= 0 ? { w: "Open", k: "open", cls: "", ask } : { w: "For more money", k: "sign", cls: "warn", ask };
+}
+// Loan targets: young players a club would lend (not in its first team), from English or foreign clubs.
+const loanable = p => p.club >= 0 && p.club !== G.club && !p.loan && !p.acad && p.age <= 23 && (!CL(p.club).gone || CL(p.club).abroad);
+const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
 function pgMarket() {
-  const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c);
-  // Everyone who matches the filters can be sorted; each club's first team is worked out once for the asking prices.
-  const xiCache = {};
-  const pool = Object.values(G.players).filter(p => p.club !== c.id && !p.acad && !p.loan && p.club !== -2 && (!F.pos || p.pos === F.pos) && p.age <= F.age && (p.club < 0 || CL(p.club).tier >= c.tier - 2))
+  const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c), xiCache = {};
+  const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"]];
+  let base = F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (CL(p.club).tier >= c.tier - 2 || (F.tab === "loans" && CL(p.club).abroad)));
+  if (F.tab === "listed") base = base.filter(p => p.list || p.req);
+  if (F.tab === "loans") base = base.filter(p => loanable(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
+  // Cheap filters first; then each club's first team is worked out once for the asking prices.
+  let pool = base.filter(p => (!F.pos || p.pos === F.pos) && p.age <= F.age && (!F.arch || (archetypeOf(p) || [])[0] === F.arch))
     .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
-    .map(x => ({ ...x, fee: askingFee(x.p, xiCache), pe: potEstimate(x.p) })).filter(x => !F.fee || x.fee <= F.fee);
+    .map(x => ({ ...x, fee: askingFee(x.p, xiCache), pe: potEstimate(x.p) })).filter(x => F.tab === "loans" || !F.fee || x.fee <= F.fee);
+  for (const x of pool) x.i = interestOf(x.p);
+  if (F.int) pool = pool.filter(x => F.int === "sign" ? x.i.k !== "no" : F.int === "open" ? x.i.k === "open" || x.i.k === "keen" : x.i.k === F.int);
+  const archOpts = (F.pos ? [F.pos] : POS).map(r => `<optgroup label="${POS_NAME[r]}">${ARCHETYPES[r].map(a => `<option value="${esc(a[0])}" ${F.arch === a[0] ? "selected" : ""}>${a[0]}</option>`).join("")}</optgroup>`).join("");
+  const sel = (k, opts) => `<select data-act="mf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Transfer market</h2><span class="small ${windowOpen() ? "good" : "muted"}">${windowOpen() ? "Window open" : "Window closed: free agents only"}</span></div>
-    <p class="small muted" style="margin-bottom:10px">Buying a player yourself goes over your head of recruitment's head. Players at clubs more than two divisions above won't come. Ratings are ${s ? `${esc(s.name)}'s estimates` : "guesses: you have no recruitment staff"}.</p>
-    <div class="row filters"><select data-act="mf" data-k="pos"><option value="">All positions</option>${POS.map(x => `<option ${F.pos === x ? "selected" : ""}>${x}</option>`).join("")}</select>
-      <label class="small">Max age <input type="text" inputmode="decimal" class="num-in sm" data-act="mf" data-k="age" value="${fmtNum(F.age)}"></label><label class="small">Min rating <input type="text" inputmode="decimal" class="num-in sm" data-act="mf" data-k="min" value="${fmtNum(F.min)}"></label><label class="small">Max fee <input type="text" inputmode="decimal" class="num-in" data-act="mf" data-k="fee" value="${F.fee ? fmtNum(F.fee) : ""}" placeholder="any"></label></div>
-    ${sortTable("market", [
+    <div class="seg" style="margin-bottom:10px">${TABS.map(([k, l]) => `<button data-act="mtab" data-k="${k}" aria-pressed="${F.tab === k}">${l}</button>`).join("")}</div>
+    <p class="small muted" style="margin-bottom:10px">${F.tab === "loans" ? "Young players who aren't in their club's first team. Ask to borrow one from his card: you pay half his wages until the end of the season." : "Buying a player yourself goes over your head of recruitment's head."} Interest is how open he is to joining you: the money, playing time, your club's standing, facilities and more. Ratings are ${s ? `${esc(s.name)}'s estimates` : "guesses: you have no recruitment staff"}.</p>
+    <div class="row filters" style="margin-bottom:10px">
+      <label class="small">Position ${sel("pos", [["", "Any"], ...POS.map(r => [r, POS_NAME[r]])])}</label>
+      <label class="small">Type <select data-act="mf" data-k="arch"><option value="">Any</option>${archOpts}</select></label>
+      <label class="small">Max age ${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
+      <label class="small">Min rating ${sel("min", [[0, "Any"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
+      <label class="small">Interest ${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign"], ["no", "Not interested"]])}</label>
+      ${F.tab === "loans" ? "" : `<label class="small">Max fee <input type="text" inputmode="decimal" class="num-in" data-act="mf" data-k="fee" value="${F.fee ? fmtNum(F.fee) : ""}" placeholder="any"></label>`}</div>
+    ${sortTable("market-" + F.tab, [
       { k: "pos", l: "Pos", v: x => POS.indexOf(x.p.pos), f: x => `<span class="pos">${x.p.pos}</span>` },
       { k: "name", l: "Name", left: true, v: x => x.p.name, f: x => `${esc(x.p.name)}${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}` },
+      { k: "type", l: "Type", v: x => (archetypeOf(x.p) || [""])[0], f: x => archChip(x.p) },
       { k: "age", l: "Age", r: true, v: x => x.p.age, f: x => x.p.age },
       { k: "club", l: "Club", left: true, v: x => fromName(x.p), f: x => `<span class="small">${esc(fromName(x.p))}</span>` },
       { k: "ovr", l: "Rating", v: x => x.e[0] + x.e[1], f: x => range(x.e) },
       { k: "pot", l: "Potential", v: x => x.pe[0] + x.pe[1], f: x => range(x.pe) },
-      { k: "val", l: "Value", r: true, v: x => valueOf(x.p), f: x => money(valueOf(x.p)) },
-      { k: "fee", l: "Fee", r: true, v: x => x.fee, f: x => x.fee ? money(x.fee) : "Free" },
-      { k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => money(x.p.wage) },
+      { k: "int", l: "Interest", v: x => ({ keen: 3, open: 2, sign: 1, no: 0 })[x.i.k], f: x => `<span class="small ${x.i.cls}">${x.i.w}</span>` },
+      { k: "fee", l: F.tab === "loans" ? "Value" : "Fee", r: true, v: x => x.fee, f: x => F.tab === "loans" ? money(valueOf(x.p)) : x.fee ? money(x.fee) : "Free" },
+      { k: "wage", l: "Wage now", r: true, v: x => x.p.wage, f: x => money(x.p.wage) },
+      { k: "ask", l: F.tab === "loans" ? "You'd pay" : "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => F.tab === "loans" ? money(x.p.wage / 2) : x.i.ask != null ? money(x.i.ask) : "—" },
     ], pool, { sort: { k: "ovr", d: -1 }, limit: 100, row: x => `class="click" data-act="player" data-id="${x.p.id}"`, empty: "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}

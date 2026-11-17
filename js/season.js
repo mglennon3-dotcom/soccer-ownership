@@ -26,6 +26,7 @@ function startSeason() {
   for (const k of LG_KEYS) G.leagues[k].pend = [];
   for (const id of G.foreign || []) CL(id).gp = 0;
   startCups(); startContinental();
+  if (typeof aiListings === "function" && G.club != null) aiListings();
   for (const p of Object.values(G.players)) p.s = { app: 0, g: 0, a: 0 };
   const c = my(); c.att = []; c.morale = 55;
 }
@@ -92,7 +93,7 @@ function seasonWeek() {
     }
   }
   cupWeek(w); contWeek(w); foreignDomestic(w); ownersCheck(w);
-  if (w === JAN[0]) partnerWindow();
+  if (w === JAN[0]) { partnerWindow(); aiListings(); }
   if (w === JAN[0] || w === JAN[2]) foreignLoans();
   if (JAN.includes(w)) marketWeek();
   if (w % 3 === 2) devTick(1 / 16);
