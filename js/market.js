@@ -98,7 +98,7 @@ function signPlayer(p, fee, wage, byOwner) {
   signingBoost(p, c);
   spend("buys", fee); if (!byOwner) c.spentT += fee;
   if (seller && !seller.gone) aiSquadCheck(seller, true);
-  news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${money(wage)} a year.`, true);
+  news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${pw(wage)}.`, true);
 }
 function headWeek(c) {
   const s = staffOf("recruit");
@@ -181,7 +181,7 @@ function headAdvice(p, amt) {
 const newDealWage = p => Math.round(Math.max(p.wage * 1.3, demandWage(p, my()) * 1.15) / 100) * 100;
 function newDeal(p) {
   const w = newDealWage(p); p.wage = w; p.yrs = ri(3, 4); p.unsettled = 0; p.blocked = 0; p.dealY = G.year;
-  news(`${p.name} signs an improved ${p.yrs}-year contract: ${money(w)} a year. He's happy to stay.`, true);
+  news(`${p.name} signs an improved ${p.yrs}-year contract: ${pw(w)}. He's happy to stay.`, true);
 }
 /* choice: true/1 accept, false/0 reject, 2 reject and offer him a new deal. */
 function answerBid(m, accept, auto) {

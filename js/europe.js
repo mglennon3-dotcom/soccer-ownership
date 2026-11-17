@@ -205,7 +205,7 @@ function foreignLoans() {
     for (const id of G.foreign) { const x = CL(id), xi = new Set(pickXI(x).map(o => o.p.id));
       for (const pid of x.squad) { const p = P(pid); if (!p.acad && !p.loan && p.age <= 22 && !xi.has(p.id) && p.ovr >= lv - 3 && p.ovr <= lv + 8 && canSell(p)) cands.push([p, x]); } }
     for (const [p, x] of shuffle(cands).slice(0, 1 + (R() < .4 ? 1 : 0)))
-      addChoice("fLoanIn", `${x.name} (${COUNTRY[x.country].name}) offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. Until the end of the season; you'd pay half his ${money(p.wage)} wage.`, ["Take him", "No thanks"], { pid: p.id, from: x.id }, 1);
+      addChoice("fLoanIn", `${x.name} (${COUNTRY[x.country].name}) offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. Until the end of the season; you'd pay half his ${pw(p.wage)} wage.`, ["Take him", "No thanks"], { pid: p.id, from: x.id }, 1);
   }
   // Requests to borrow yours
   if (open("fLoanOut") < 1 && R() < .5) {
@@ -214,7 +214,7 @@ function foreignLoans() {
     const p = mine.sort((a, b) => b.pot - a.pot)[0]; if (!p) return;
     // Only a club where he'd go straight into the side: better than one of its regulars in his position.
     const x = shuffle(G.foreign.map(CL).filter(x => x.lvl >= p.ovr - 8 && x.lvl <= p.ovr + 2)).find(x => pickXI(x).some(o => o.slot === p.pos && roleRating(o.p, o.slot) < roleRating(p, p.pos) - 1)); if (!x) return;
-    addChoice("fLoanOut", `${x.name} (${COUNTRY[x.country].name}) want ${p.name} on loan`, `He isn't getting games here. They'd play him regularly and pay all of his ${money(p.wage)} wage until the end of the season.`, ["Let him go on loan", "Keep him"], { pid: p.id, to: x.id }, 1);
+    addChoice("fLoanOut", `${x.name} (${COUNTRY[x.country].name}) want ${p.name} on loan`, `He isn't getting games here. They'd play him regularly and pay all of his ${pw(p.wage)} wage until the end of the season.`, ["Let him go on loan", "Keep him"], { pid: p.id, to: x.id }, 1);
   }
 }
 DECIDE.fLoanIn = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id && !p.loan) loanIn(p, x); };

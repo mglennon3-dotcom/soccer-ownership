@@ -15,7 +15,7 @@ function pgBoard() {
     <div class="row" style="margin-top:10px"><button class="btn" data-act="seekinv" ${B.own <= 56 ? "disabled" : ""}>Look for investors</button></div>
     ${offers.length ? `<div class="stack" style="margin-top:10px;gap:8px">${offers.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b> · ${INVESTOR[o.type].l}<br><span class="small muted">${INVESTOR[o.type].d}</span></span><span class="row"><b class="num">${money(o.amt)} for ${o.pct}%</b><button class="btn sm primary" data-act="sellstake" data-i="${i}">Accept</button></span></div>`).join("")}</div>` : ""}</section>`;
   const dirs = `<section class="card"><div class="card-h"><h2>Directors</h2></div><p class="small muted" style="margin-bottom:8px">Business-side staff. Their skill is out of 20.</p>
-    ${Object.entries(DIRECTORS).map(([k, D]) => { const d = B.dir[k]; return `<div class="row between offer"><span><b>${D.l}</b><br><span class="small muted">${D.d}</span></span>${d ? `<span class="row"><span>${esc(d.name)} · ${attr20(d.skill)} · ${money(d.wage)}/yr</span><button class="btn sm danger" data-act="firedir" data-k="${k}">Dismiss</button></span>` : `<button class="btn sm" data-act="dircands" data-k="${k}">Find one</button>`}</div>`; }).join("")}</section>`;
+    ${Object.entries(DIRECTORS).map(([k, D]) => { const d = B.dir[k]; return `<div class="row between offer"><span><b>${D.l}</b><br><span class="small muted">${D.d}</span></span>${d ? `<span class="row"><span>${esc(d.name)} · ${staff20(d.skill)} · ${money(d.wage)}/yr</span><button class="btn sm danger" data-act="firedir" data-k="${k}">Dismiss</button></span>` : `<button class="btn sm" data-act="dircands" data-k="${k}">Find one</button>`}</div>`; }).join("")}</section>`;
   const trustC = `<section class="card"><div class="card-h"><h2>Supporters' trust</h2><span>${moodBar(T.rel)} <span class="small muted">relations ${Math.round(T.rel)}</span></span></div>
     <dl class="ledger"><dt>Members</dt><dd>${T.members.toLocaleString("en-GB")}</dd><dt>Seat on the board</dt><dd>${T.seat ? "Yes" : "No"}</dd>${T.freeze ? `<dt>Ticket price freeze</dt><dd>${seasonLabel(T.freeze)}</dd>` : ""}${T.u18 ? `<dt>Under-18 tickets</dt><dd>Half price</dd>` : ""}</dl>
     <p class="small muted" style="margin:10px 0">The organised fans. They make demands through the season. When supporters are angry and relations are poor, they protest at home games: smaller crowds and bad headlines.</p>
@@ -41,7 +41,7 @@ function objectivesCard() {
 function dirModal(k) {
   const list = directorCands(k); DIRC = list;
   modal(`<div class="modal-h"><div><p class="eyebrow">Candidates</p><h2>${DIRECTORS[k].l}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b">${list.map((d, i) => `<div class="row between offer"><span><b>${esc(d.name)}</b><br>${attr20(d.skill)}</span><span class="row"><span class="num">${money(d.wage)}/yr</span><button class="btn sm primary" data-act="hiredir" data-i="${i}">Appoint</button></span></div>`).join("")}</div>`);
+    <div class="modal-b">${list.map((d, i) => `<div class="row between offer"><span><b>${esc(d.name)}</b><br>${staff20(d.skill)}</span><span class="row"><span class="num">${money(d.wage)}/yr</span><button class="btn sm primary" data-act="hiredir" data-i="${i}">Appoint</button></span></div>`).join("")}</div>`);
 }
 let DIRC = [];
 

@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.10.2";
+const VERSION = "0.11.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -16,8 +16,17 @@ const r1 = v => Math.round(v * 10) / 10;
    is out of 20 (r20), and that's also all anyone in the game sees: your manager, your scouts and AI clubs pick and
    judge players on the 20-point figures. Only matches and development use the exact values. */
 const rh = v => Math.round(v * 2) / 2;
-const r20 = v => clamp(Math.round(v / 5), 1, 20);
-const snap20 = v => clamp(Math.round(v / 5) * 5, 5, 100);
+/* The displayed scale spreads the divisions two points apart: regional players mostly 1-5, National North/South 3-7,
+   National Division 5-9, Third 7-11, Second 9-13, First 11-15, Premier 13-17, stars 18-19, 20 generational.
+   Points: [internal (0-100), shown (1-20)], straight lines between them. */
+const R20_PTS = [[0, 1], [30, 1], [44, 3], [50, 5], [55, 7], [60, 9], [65, 11], [71, 13], [79, 15.5], [90, 18.5], [97.5, 20], [100, 20]];
+function to20(v) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a || 1); } return 20; }
+function from20(d) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (d <= y && y > x) return a + (b - a) * (d - x) / (y - x); } return 100; }
+const r20 = v => clamp(Math.round(to20(v)), 1, 20);
+const snap20 = v => clamp(from20(r20(v)), 1, 100);  // the internal value at the middle of a shown point
+const s20 = v => clamp(Math.round(v / 5), 1, 20);  // staff and directors keep a straight 1-20 scale: about 10 is average
+/* Player wages are shown by the week. */
+function pw(annual) { const w = annual / 52; return (w >= 1e6 ? money(w) : "€" + (w < 1000 ? Math.round(w / 10) * 10 : Math.round(w / 50) * 50).toLocaleString("en-GB")) + "/wk"; }
 const est20 = ([a, b]) => r20(a) === r20(b) ? `${r20(a)}` : `${r20(a)}–${r20(b)}`;
 
 /* ---------- the pyramid: six English tiers, plus a regional seventh tier where new clubs start ---------- */

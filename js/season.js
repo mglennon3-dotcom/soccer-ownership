@@ -231,7 +231,7 @@ function yearTurnover() {
   for (const p of seniors) {
     p.yrs--;
     if (p.yrs > 0) continue;
-    if (p.keep || wantsRenewal(p, core.has(p.id))) { p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(demandWage(p, mine) * (p.ovr < TIER_LVL[mine.tier] - 6 ? .5 : 1) / 100) * 100); kept.push(`${p.name} (${p.yrs} yr, ${money(p.wage)})`); }
+    if (p.keep || wantsRenewal(p, core.has(p.id))) { p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(demandWage(p, mine) * (p.ovr < TIER_LVL[mine.tier] - 6 ? .5 : 1) / 100) * 100); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
     else { toFreeAgent(p); gone.push(p.name); }
   }
   if (kept.length || gone.length) addMsg({ type: "contracts", title: `Contracts: ${kept.length} renewed, ${gone.length} released`, body: (kept.length ? `New contracts: ${kept.join(", ")}. ` : "") + (gone.length ? `Leaving: ${gone.join(", ")}.` : "") });

@@ -77,9 +77,10 @@ can do without each summer and January.
 Every player has twelve attributes (keepers five); each position's rating is a weighted mix of them. Attributes,
 ratings and potential are held in half-points on a 100 scale, which is 200 steps. Everything is shown out of 20, and
 that's also all anyone in the game sees: your manager picks his side, your scouts judge targets and AI clubs recruit on
-the 20-point figures. Only matches and development use the exact values underneath. Staff and director attributes work
-the same way. A typical starter is about 9 in the regional leagues, 12 in the Third Division and 16 in the Premier
-Division; 18–19 is world class, and 20 a once-in-a-generation player.
+the 20-point figures. Only matches and development use the exact values underneath. The shown scale puts the divisions
+two points apart: regional-league players mostly 1-5, National North/South 3-7, National Division 5-9, Third
+Division 7-11, Second 9-13, First 11-15, Premier Division 13-17; 18-19 is world class and 20 a once-in-a-generation
+player. Staff and directors use a straight 1-20 scale on which about 10 is average. Player wages are shown by the week.
 
 **Potential is rare at the top.** Each youth intake draws potential from a bell curve whose centre an academy can move
 (about 38 of 100 with no facilities, about 57 at the best academy in the game), capped at 94. Separately, about one

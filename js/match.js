@@ -16,7 +16,7 @@ function pickXI(c) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false;
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 17 && p.ovr >= TIER_LVL[c.tier] - 6));
   // Managers see ratings out of 20, like everyone else: equal figures are split by the potential they see, then by chance.
-  const score = (p, s) => Math.round(roleRating(p, s) / 5) + (youth && p.age <= 21 ? Math.min(1, (p.pot - p.ovr) * .05) : 0) + r20(p.pot) * .01 + (p.id % 7) * .001;
+  const score = (p, s) => r20(roleRating(p, s)) + (youth && p.age <= 21 ? Math.min(1, (p.pot - p.ovr) * .05) : 0) + r20(p.pot) * .01 + (p.id % 7) * .001;
   const out = Array(11).fill(null), used = new Set();
   const order = slots.map((s, i) => i).sort((a, b) => (slots[a] === "GK" ? -1 : 0) - (slots[b] === "GK" ? -1 : 0));
   for (const i of order) {

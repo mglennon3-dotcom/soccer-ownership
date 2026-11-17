@@ -85,7 +85,7 @@ function requestsCheck() {
     const u = unhappiness(p, c); if (!u || R() > clamp(u.s * .07, 0, .35)) continue;
     p.req = G.year;
     addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's unhappy about ${u.why.join(" and ")}.`,
-      ["Accept: put him on the transfer list", `Offer a new deal (${money(newDealWage(p))}/yr)`, "Refuse"], { pid: p.id, why: u.why }, 0);
+      ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: u.why }, 0);
     return;  // one at a time
   }
 }

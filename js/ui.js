@@ -29,6 +29,7 @@ function sortTable(id, cols, rows, opt = {}) {
 }
 const SORT_UP = ["name", "pos", "club", "nat"];  // columns that start A-Z (or by position)
 const archChip = p => { const a = archetypeOf(p); return a ? `<span class="chip hg" title="${esc(a[0] + ": " + a[2])}">${a[3]}</span>` : ""; };
+const staff20 = v => `${bar(v)}<b class="num">${s20(v)}</b>`;  // staff attributes: straight 1-20
 const attr20 = v => `${bar(v)}<b class="num">${r20(v)}</b>`;
 const word = ([w, cls]) => `<span class="${cls}">${w}</span>`;
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2600); }
@@ -143,7 +144,7 @@ function inboxCard() {
     if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
       return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(p.name)}: ${p.pos}, ${p.age}, rated ${r20(p.ovr)}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? "he" : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ""}</p>
-        <div class="row" style="margin-top:6px"><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="1">Accept</button><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="0">Reject</button>${x.keen && p.dealY !== G.year ? `<button class="btn sm" data-act="bid" data-id="${x.id}" data-v="2">Reject and offer a new deal (${money(newDealWage(p))}/yr)</button>` : ""}<button class="btn sm" data-act="player" data-id="${p.id}">View player</button></div></div>`; }
+        <div class="row" style="margin-top:6px"><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="1">Accept</button><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="0">Reject</button>${x.keen && p.dealY !== G.year ? `<button class="btn sm" data-act="bid" data-id="${x.id}" data-v="2">Reject and offer a new deal (${pw(newDealWage(p))})</button>` : ""}<button class="btn sm" data-act="player" data-id="${p.id}">View player</button></div></div>`; }
     return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(x.body || "")}</p>${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}" style="margin-top:6px">View</button>` : ""}</div>`;
   }).join("")}</div></section>`;
 }
@@ -169,7 +170,7 @@ function pgSquad() {
   const ps = c.squad.map(P).filter(p => tab === "acad" ? p.acad : !p.acad).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
   return `<section class="card"><div class="card-h"><h2>Squad</h2><div class="seg"><button data-act="sub" data-k="squad" data-v="first" aria-pressed="${tab === "first"}">First team (${c.squad.filter(id => !P(id).acad).length})</button><button data-act="sub" data-k="squad" data-v="acad" aria-pressed="${tab === "acad"}">Academy (${c.squad.filter(id => P(id).acad).length})</button></div></div>
-    <p class="small muted" style="margin-bottom:10px">The manager picks the side; players marked XI are his current first choices. Ratings are out of 20: about ${r20(TIER_LVL[c.tier])} is a typical starter in your division, 16 a Premier Division regular, 18–19 world class, and 20 a once-in-a-generation player. Potential shows ${potJudge}. Tap a player to sell, release or protect him.</p>
+    <p class="small muted" style="margin-bottom:10px">The manager picks the side; players marked XI are his current first choices. Ratings are out of 20: about ${r20(TIER_LVL[c.tier])} is a typical starter in your division (each division up is about two points more), 15–16 a Premier Division regular, 18–19 world class, and 20 a once-in-a-generation player. Potential shows ${potJudge}. Tap a player to sell, release or protect him.</p>
     ${ps.length ? `${sortTable("squad-" + tab, [
       { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
       { k: "name", l: "Name", left: true, v: p => p.name, f: p => `${esc(p.name)} ${xi.has(p.id) ? '<span class="chip xi">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.unsettled > 0 ? '<span class="chip sus">UNSETTLED</span>' : ""}${p.req ? '<span class="chip req">WANTS OUT</span>' : ""}${p.keep ? '<span class="chip list">KEEP</span>' : ""}${p.list ? '<span class="chip req">LISTED</span>' : ""}${favChip(p, c.id)}${p.loan ? '<span class="chip hg">LOAN</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}` },
@@ -179,7 +180,7 @@ function pgSquad() {
       { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
       { k: "app", l: "Apps", r: true, v: p => p.s.app, f: p => p.s.app },
       { k: "g", l: "Gls", r: true, v: p => p.s.g, f: p => p.s.g },
-      { k: "wage", l: "Wage", r: true, v: p => p.wage, f: p => money(p.wage) },
+      { k: "wage", l: "Wage", r: true, v: p => p.wage, f: p => pw(p.wage) },
       { k: "yrs", l: "Contract", r: true, v: p => p.acad ? 99 : p.yrs, f: p => p.acad ? "Youth" : p.yrs + "y" },
       { k: "val", l: "Value", r: true, v: p => valueOf(p), f: p => money(valueOf(p)) },
     ], ps, { sort: { k: "pos", d: 1 }, row: p => `data-act="player" data-id="${p.id}" class="click"` })}
@@ -201,11 +202,11 @@ function playerModal(id) {
   } else {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
     const lendable = loanable(p) && windowOpen() && !inTheirXI(p);
-    acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button>${lendable ? `<button class="btn" data-act="loanask" data-id="${p.id}">Ask to borrow him</button>` : ""}<span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${money(wage)} a year.` : "He isn't interested in joining, whatever the money."}</span></div>
+    acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button>${lendable ? `<button class="btn" data-act="loanask" data-id="${p.id}">Ask to borrow him</button>` : ""}<span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${pw(wage)}.` : "He isn't interested in joining, whatever the money."}</span></div>
       <details><summary class="small">What he's weighing up</summary>${factorBars(playerAppeal(p, wage || demandWage(p, my())), P_FACTORS)}</details>`;
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${money(p.wage)}/yr</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : p.yrs ? p.yrs + " yr" : "—"}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
+    <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : p.yrs ? p.yrs + " yr" : "—"}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
     <div class="attr-grid">${attrs}</div>${acts}
     ${archetypeOf(p) && (mine || (c && c.lg === my().lg) || staffOf("recruit")) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${formWord(seasonForm(p)) ? `<p class="small good">Coming off ${formWord(seasonForm(p))}: clubs are taking notice.</p>` : ""}
@@ -221,7 +222,7 @@ function staffCard(role) {
   return `<section class="card"><div class="card-h"><h2>${R0.l}</h2><span>${word(trustWord(s.trust))} <span class="muted small">trust ${Math.round(s.trust)}</span></span></div>
     <p class="lead"><b>${esc(s.name)}</b>, ${s.age}</p>
     <p style="margin:6px 0"><span class="chip list">${esc(ph.l)}</span> ${esc(ph.d)}</p><p class="small">${word(matchWord(visionMatch(s)))}</p>${exLine(s)}<p class="small"><b>Focus:</b> ${esc(R0.focus[s.focus])}${s.form ? ` · <b>Formation:</b> ${s.form}` : ""}</p>
-    <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? r20(s.at[k]) - r20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${attr20(s.at[k])}</div>`; }).join("")}</div>
+    <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? s20(s.at[k]) - s20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${staff20(s.at[k])}</div>`; }).join("")}</div>
     ${role === "manager" ? `<p class="small">His style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
     <p class="small muted">${money(s.wage)} a year · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing him costs ${money(payoff(s))}</p>
     <div class="row" style="margin-top:10px">${s.expiring ? `<button class="btn primary" data-act="renewstaff" data-r="${role}">Renew 3 years${staffAsk(s) != null ? ` (${money(Math.max(s.wage, staffAsk(s)))}/yr)` : ""}</button>` : ""}<button class="btn" data-act="cands" data-r="${role}">Look for a replacement</button><button class="btn danger" data-act="dismiss" data-r="${role}">Dismiss</button></div></section>`;
@@ -248,7 +249,7 @@ function candModal(role) {
     ${CANDS.list.map((s, i) => { const ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null; return `<div class="cand ${no ? "dim" : ""}"><div class="row between"><div><b>${esc(s.name)}</b>, ${s.age} <span class="muted small">reputation ${s.rep}</span></div><div class="num">${no ? `<span class="muted">Not interested at any price</span>` : "wants about " + money(ask) + "/yr"}</div></div>
       <p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
       ${exLine(s)}
-      <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${attr20(s.at[k])}</div>`).join("")}</div>
+      <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${staff20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
       ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw${i}" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}</div>`);
@@ -402,7 +403,7 @@ function pgMarket() {
       <label class="f">Position${sel("pos", [["", "Any"], ...POS.map(r => [r, POS_NAME[r]])])}</label>
       <label class="f">Type<select data-act="mf" data-k="arch"><option value="">Any</option>${archOpts}</select></label>
       <label class="f">Max age${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
-      <label class="f">Min rating${sel("min", [[0, "Any"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
+      <label class="f">Min rating${sel("min", [[0, "Any"], [2, "2+"], [4, "4+"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
       <label class="f">Interest${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign (not Not interested)"], ["no", "Not interested"]])}</label>
       ${F.tab === "loans" ? "" : `<label class="f">Max fee${sel("fee", FEES.map(v => [v, v ? money(v) : "Any"]))}</label>`}
       <label class="f">League${sel("lg", [["", "All leagues"], ...LG_KEYS.map(k => [k, LEAGUES[k].name]), ["ABROAD", "Clubs abroad"]])}</label></div>
@@ -418,8 +419,8 @@ function pgMarket() {
       { k: "int", l: "Interest", v: x => ({ keen: 3, open: 2, sign: 1, no: 0 })[x.i.k], f: x => `<span class="small ${x.i.cls}">${x.i.w}</span>` },
       { k: "club", l: "Club", left: true, v: x => fromName(x.p), f: x => `<span class="small">${esc(fromName(x.p))}</span>` },
       { k: "fee", l: F.tab === "loans" ? "Value" : "Fee", r: true, v: x => x.fee, f: x => F.tab === "loans" ? money(valueOf(x.p)) : x.fee ? money(x.fee) : "Free" },
-      { k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => money(x.p.wage) },
-      { k: "ask", l: F.tab === "loans" ? "You'd pay" : "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => F.tab === "loans" ? money(x.p.wage / 2) : x.i.ask != null ? money(x.i.ask) : "—" },
+      { k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => pw(x.p.wage) },
+      { k: "ask", l: F.tab === "loans" ? "You'd pay" : "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => F.tab === "loans" ? pw(x.p.wage / 2) : x.i.ask != null ? pw(x.i.ask) : "—" },
     ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
@@ -428,8 +429,8 @@ function pgMarket() {
 function buyModal(id) {
   const p = G.players[id], fee = askingFee(p), wage = playerAsk(p) || demandWage(p, my()), s = staffOf("recruit");
   modal(`<div class="modal-h"><div><p class="eyebrow">Your offer</p><h2>${esc(p.name)}</h2><p class="small muted">${esc(fromName(p))}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b"><p>The selling club wants about <b>${fee ? money(fee) : "nothing"}</b>. He wants about <b>${money(wage)}</b> a year.</p>
-    <div class="row"><label class="small">Fee € <input type="text" inputmode="decimal" class="num-in" id="b-fee" value="${fmtNum(fee)}"></label><label class="small">Wage €/yr <input type="text" inputmode="decimal" class="num-in" id="b-wage" value="${fmtNum(wage)}"></label></div>
+    <div class="modal-b"><p>The selling club wants about <b>${fee ? money(fee) : "nothing"}</b>. He wants about <b>${pw(wage)}</b>.</p>
+    <div class="row"><label class="small">Fee € <input type="text" inputmode="decimal" class="num-in" id="b-fee" value="${fmtNum(fee)}"></label><label class="small">Wage €/week <input type="text" inputmode="decimal" class="num-in" id="b-wage" value="${fmtNum(Math.round(wage / 52))}"></label></div>
     ${factorBars(playerAppeal(p, wage), P_FACTORS)}
     <p class="small muted">Paid from club cash (${money(my().cash)}), outside the budgets you've set. ${s ? `${esc(s.name)} won't like being bypassed.` : ""}</p>
     <div class="row"><button class="btn primary" data-act="buygo" data-id="${p.id}">Make the offer</button></div></div>`);

@@ -58,7 +58,7 @@ function partnerWindow() {
   const myXI = avg(pickXI(c).map(o => o.p.ovr));
   const cands = x.squad.map(P).filter(p => !p.acad && !p.loan && p.age <= 23 && p.ovr >= myXI - 2 && !pickXI(x).some(o => o.p === p)).sort((a, b) => b.pot - a.pot).slice(0, 2);
   for (const p of cands) if (!G.inbox.some(m => m.key === "pLoan" && !m.done && m.data.pid === p.id))
-    addChoice("pLoan", `${x.name} offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. You'd pay half his ${money(p.wage)} wage.`, ["Take him", "No thanks"], { pid: p.id, from: x.id }, 1);
+    addChoice("pLoan", `${x.name} offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. You'd pay half his ${pw(p.wage)} wage.`, ["Take him", "No thanks"], { pid: p.id, from: x.id }, 1);
 }
 DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id) { loanIn(p, x); if (net().partner) net().partner.rel += 3; } };
 
