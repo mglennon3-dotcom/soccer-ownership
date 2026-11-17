@@ -27,7 +27,7 @@ function pickQuestion(c) {
   if (c.prices.ticket > REF_TICKET[c.tier] * 1.2) qs.push({ key: "pressPrice", q: "Supporters say tickets are too expensive", opts: ["Cut prices to the going rate", "Prices reflect our ambition", "No comment"] });
   const star = c.squad.map(P).find(p => G.inbox.some(x => x.type === "bid" && x.pid === p.id && x.age < 6));
   if (star) qs.push({ key: "pressStar", q: `Will ${star.name} be sold?`, opts: ["He's not for sale", "Everyone has a price"], data: { pid: star.id } });
-  if (!c.fac.stadium.own || c.fac.stadium.cap < GROUND_REQ[Math.max(1, c.tier - 1)]) qs.push({ key: "pressGround", q: "What are your plans for the ground?", opts: ["Big plans: watch this space", "Not a priority"] });
+  if (!c.fac.stadium.own || c.fac.stadium.cap < STADIUM_T[c.tier] * .5) qs.push({ key: "pressGround", q: "What are your plans for the ground?", opts: ["Big plans: watch this space", "Not a priority"] });
   if (c.media > 25 && !G.docu) qs.push({ key: "pressDocu", q: "A streaming service wants to film a documentary", body: "Cameras everywhere for a season. Great for the club's profile; managers tend to hate it.", opts: ["Let them film", "Decline"] });
   if (G.week < 6) qs.push({ key: "pressAmb", q: "Where will the club be in five years?", opts: ["The Premier Division", "Steady growth", "No comment"] });
   const rival = G.clubs.find(x => !x.gone && !isMine(x) && x.own && x.lg === c.lg && OWNER_STYLES[x.own.style].media >= 3);

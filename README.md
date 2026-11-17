@@ -55,9 +55,7 @@ Running locally: any static server works, for example `python3 -m http.server 80
 | 6 | National Division North / South | 24 each | 1 | 2nd–5th | 3 |
 | 7 | Regional League North / South | 20 each | 2 | 3rd–6th | 3 (fold) |
 
-Play-offs are one-off semi-finals at the higher seed and a final at a neutral ground. **Ground grading:** a club whose
-ground is too small for the division above can't be promoted (2,000 for tier 6 up to 20,000 for the top flight); the
-club takes the cheapest ground-share big enough for the new division and goes up; only if no rented ground is big enough does the next club go up instead. A club with its own ground can play elsewhere for a while and move back home from the Facilities page.
+Play-offs are one-off semi-finals at the higher seed and a final at a neutral ground. Promotion doesn't depend on your ground: a bigger one just means bigger crowds and more income.
 
 ## Ratings: shown out of 20, held at 200-step precision
 

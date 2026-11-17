@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.6.2";
+const VERSION = "0.6.3";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -40,8 +40,6 @@ const TIER_NAME = ["", "Premier Division", "First Division", "Second Division", 
 /* Typical starter's rating (out of 100) at a mid-table club in each tier. A top-flight starter is about 79;
    the regional seventh tier sits in the mid-40s. */
 const TIER_LVL = [0, 79, 71, 65, 60, 55, 50, 44];
-/* Minimum ground capacity to be promoted into each tier (ground grading). */
-const GROUND_REQ = [0, 20000, 12000, 8000, 5000, 4000, 2000, 0];
 
 /* ---------- attributes (1-100) ---------- */
 const OUT_KEYS = ["pac", "str", "sta", "tac", "mar", "hea", "pas", "vis", "tec", "dri", "fin", "cmp"];

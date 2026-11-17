@@ -143,19 +143,9 @@ function endSeason() {
     if (champ.id === G.club) news(`CHAMPIONS! ${mine.name} win the ${L.name}.`, true);
     if (ABOVE[k]) {
       const up = ids.slice(0, L.auto); if (G.po[k] && G.po[k].win != null) up.push(G.po[k].win);
-      // Ground grading: a club without a big enough ground can't go up; the next club in the table takes its place.
-      const need = GROUND_REQ[LEAGUES[ABOVE[k]].tier], final = [];
-      for (const id of up) {
-        const c = CL(id);
-        if (!isMine(c) && c.cap < need) c.cap = Math.round(need * 1.15 / 100) * 100;  // AI clubs sort their grounds out
-        if (capacity2(c) >= need) final.push(id);
-        else if (isMine(c)) {
-          const h = shareForPromotion(c, need);
-          if (h) { final.push(id); news(`To meet ground grading for the ${LEAGUES[ABOVE[k]].name} (${need.toLocaleString("en-GB")}), ${c.name} agree ${h.name}: ${h.cap.toLocaleString("en-GB")} capacity, ${money(h.rent)} rent a home game. You can move again from the Facilities page.`, true); }
-          else news(`PROMOTION DENIED. ${c.name} finished in a promotion place, but the ground holds ${capacity2(c).toLocaleString("en-GB")}, the ${LEAGUES[ABOVE[k]].name} requires ${need.toLocaleString("en-GB")}, and no ground-share that big was available.`, true);
-        }
-      }
-      for (const id of ids) { if (final.length >= up.length) break; if (!final.includes(id) && !up.includes(id) && capacity2(CL(id)) >= need) final.push(id); }
+      // Promoted clubs go up whatever their ground holds. AI clubs grow their grounds as they rise.
+      const final = up;
+      for (const id of up) { const c = CL(id); if (!isMine(c)) c.cap = Math.max(c.cap, Math.round(STADIUM_T[LEAGUES[ABOVE[k]].tier] * rf(.5, .8) / 100) * 100); }
       for (const id of final) moves.push([id, ABOVE[k]]);
     }
     if (L.down && L.tier < 7) for (const id of ids.slice(-L.down)) moves.push([id, null]);

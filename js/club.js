@@ -34,7 +34,7 @@ const HOSTS = [
   { name: "a ground-share at a Premier Division stadium", cap: 30000, rent: 45000, amen: 4 },
 ];
 /* Where you play. Without a ground of your own you rent one (S.host). With one, you play there unless you've moved out
-   to a bigger rented ground for a while (S.away), for example to meet ground grading after promotion. */
+   to a bigger rented ground for a while (S.away), for more seats while yours is too small. */
 const atHome = c => c.fac.stadium.own && c.fac.stadium.away == null;
 function setGround(c, i) {
   const S = c.fac.stadium;
@@ -42,12 +42,6 @@ function setGround(c, i) {
   c.cap = capacity(c);
 }
 const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, cap: c.fac.stadium.cap, amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.own ? c.fac.stadium.away : c.fac.stadium.host];
-/* Promotion with too small a ground: the club agrees a ground-share at the cheapest rented ground big enough. */
-function shareForPromotion(c, need) {
-  const i = HOSTS.findIndex(h => h.cap >= need); if (i < 0) return false;
-  setGround(c, i);
-  return HOSTS[i];
-}
 const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
 const perSeat = cap => 650 + cap * .055;

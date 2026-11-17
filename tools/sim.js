@@ -11,7 +11,7 @@ run(`newWorld({ name: "Test Town", half: "N", wealth: "wealthy" });
     for (const r of ["manager","youth","recruit"]) { const s0 = staffOf(r); if (s0 && s0.yrs > 0) { s0.trust = 60; continue; }
       const cap = wageFor(TIER_LVL[c.tier] + 8) * (r === "manager" ? 1.5 : .7); const s = candidates(r).filter(s => !wontCome(s) && askingWage(s) <= cap)[0] || candidates(r).filter(s => !wontCome(s)).sort((a, b) => askingWage(a) - askingWage(b))[0]; if (s) hire(s, askingWage(s), 3); }
     c.budget.wages = Math.round(24 * wageFor(TIER_LVL[c.tier] + 3)); c.budget.transfer = Math.round(c.budget.wages * 1.5); c.budget.acad = acadRef(c.fac.acad.lvl); c.budget.scout = scoutRef(c.tier);
-    const need = GROUND_REQ[Math.max(1, c.tier - 1)];
+    const need = Math.round(STADIUM_T[Math.max(1, c.tier - 1)] * .6);  // build for the crowds a division up
     if (capacity(c) < need * 1.2 && !c.fac.stadium.build) { if (!c.fac.stadium.own) startBuild("stadium", { type: "new", ...newStadiumQuote(BUILD_SIZES.find(x => x >= need * 1.2) || 65000), name: "Sim Park", label: "x" }); else startBuild("stadium", { type: "expand", ...expandQuote(c, Math.round(need * 1.2 - c.fac.stadium.cap)), label: "x" }); }
     if (c.fac.stadium.own && c.fac.stadium.pitch < 50 && !c.fac.stadium.relay) relayPitch("hybrid");
     if (c.cash < 0) c.cash += -c.cash + c.budget.wages;  // the owner tops up

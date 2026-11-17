@@ -85,7 +85,9 @@ function checklist() {
   if (c.offers.length) out.push([`${new Set(c.offers.map(o => o.slot)).size} sponsorship slot${new Set(c.offers.map(o => o.slot)).size > 1 ? "s have" : " has"} offers waiting.`, "comm"]);
   for (const s of Object.values(c.staff).filter(s => s && s.expiring)) out.push([`${s.name}'s contract has run out: renew or replace.`, "staff"]);
   if (wageBill(c) > c.budget.wages) out.push([`The wage bill (${money(wageBill(c))}) is over the wage budget (${money(c.budget.wages)}).`, "fin"]);
-  const up = ABOVE[c.lg]; if (up && capacity(c) < GROUND_REQ[LEAGUES[up].tier]) out.push([`Your ground holds ${capacity(c).toLocaleString("en-GB")}; promotion needs ${GROUND_REQ[LEAGUES[up].tier].toLocaleString("en-GB")}.`, "fac"]);
+  // A small ground is a financial handicap: when it keeps selling out, fans (and their money) are being turned away.
+  const recent = (c.att || []).slice(-5), full = recent.filter(a => a >= capacity(c)).length;
+  if (recent.length >= 3 && full >= 3) out.push([`${full} of your last ${recent.length} home games sold out. A bigger ground would earn more at the gate and the bar.`, "fac"]);
   if (c.fac.stadium.own && c.fac.stadium.pitch < 50 && !c.fac.stadium.relay) out.push(["The pitch is in poor condition.", "fac"]);
   if (c.cash < 0) out.push([`The club is overdrawn (${money(c.cash)}).`, "fin"]);
   return out;
@@ -276,16 +278,16 @@ function pgComm() {
 /* ---------- Facilities ---------- */
 function progress(b) { return `<p class="small">Under construction: ${b.total - b.left} of ${b.total} weeks ${bar(b.total - b.left, b.total)}</p>`; }
 function pgFac() {
-  const c = my(), S = c.fac.stadium, up = ABOVE[c.lg], need = up ? GROUND_REQ[LEAGUES[up].tier] : 0;
+  const c = my(), S = c.fac.stadium;
   let st = `<section class="card"><div class="card-h"><h2>Stadium</h2><span class="small muted">${S.own ? esc(S.name) : "Rented"}</span></div>
-    <dl class="ledger"><dt>Capacity</dt><dd>${capacity(c).toLocaleString("en-GB")}</dd><dt>Needed for promotion</dt><dd class="${capacity(c) < need ? "bad" : "good"}">${need ? need.toLocaleString("en-GB") : "—"}</dd>
+    <dl class="ledger"><dt>Capacity</dt><dd>${capacity(c).toLocaleString("en-GB")}</dd>
     <dt>Facilities</dt><dd>Level ${ground(c).amen} of 5</dd>${S.own ? `<dt>Executive suites</dt><dd>${S.suites || 0} (room for ${suiteMax(c)})</dd><dt>Pitch</dt><dd>${word(pitchWord(S.pitch))} ${Math.round(S.pitch)}/100 · ${PITCH[S.ptype || "grass"].l}</dd><dt>Upkeep</dt><dd>${money(stadiumUpkeep(c))}/yr</dd>` : `<dt>Rent</dt><dd>${money(ground(c).rent)} a home game</dd>`}</dl>`;
   if (S.build) st += `<p style="margin-top:10px"><b>${esc(S.build.label)}</b></p>` + progress(S.build);
   const here = i => S.own ? S.away === i : S.host === i;
   st += `<h3 style="margin:14px 0 6px">Where you play</h3>
-    <p class="small muted">If you win promotion with too small a ground, the club takes the cheapest ground-share big enough for the new division, so promotion goes ahead.</p>
+    <p class="small muted">A bigger ground means bigger crowds when demand is there. Renting costs a fee every home game and the landlord keeps half the bar takings.</p>
     ${S.own ? `<div class="row between offer"><span><b>${esc(S.name)}</b> (your own ground)<br><span class="small muted">${S.cap.toLocaleString("en-GB")} capacity · no rent · all the bar takings</span></span>${atHome(c) ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="home">Move back home</button>`}</div>` : ""}
-    ${HOSTS.map((h, i) => `<div class="row between offer"><span>${esc(h.name[0].toUpperCase() + h.name.slice(1))}<br><span class="small muted">${h.cap.toLocaleString("en-GB")} capacity · ${money(h.rent)} a game · facilities ${h.amen}${h.cap >= need && need ? " · meets the next division's grading" : ""}</span></span>${here(i) ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="${i}">Move here</button>`}</div>`).join("")}`;
+    ${HOSTS.map((h, i) => `<div class="row between offer"><span>${esc(h.name[0].toUpperCase() + h.name.slice(1))}<br><span class="small muted">${h.cap.toLocaleString("en-GB")} capacity · ${money(h.rent)} a game · facilities ${h.amen}</span></span>${here(i) ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="${i}">Move here</button>`}</div>`).join("")}`;
   if (!S.own) {
     if (!S.build) st += `<h3 style="margin:14px 0 6px">Build your own ground</h3><p class="small muted">Your own ground keeps all the bar takings, unlocks executive suites and naming rights, and has no rent; it has upkeep instead. You'll keep renting while it's built.</p>
       <label class="small">Name <input id="st-name" value="${esc(c.town)} Park" maxlength="30"></label>
@@ -319,7 +321,7 @@ function pgLeagueInner() {
   const scorers = Object.values(G.players).filter(p => p.club >= 0 && CL(p.club).lg === k && p.s.g > 0).sort((a, b) => b.s.g - a.s.g).slice(0, 8);
   const po = G.po && G.po[k];
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${LEAGUES[k].name}</h2><select data-act="lgsel">${opts}</select></div>
-    ${tableHTML(k, table(k))}<p class="small muted" style="margin-top:8px">${LEAGUES[k].auto ? `Top ${LEAGUES[k].auto} promoted` : "Champions"}${LEAGUES[k].po ? `, ${ord(LEAGUES[k].po[0])}–${ord(LEAGUES[k].po[1])} play-offs` : ""}, bottom ${LEAGUES[k].down} ${LEAGUES[k].tier === 7 ? "drop out of the pyramid" : "relegated"}. Promotion needs a ground of ${ABOVE[k] ? GROUND_REQ[LEAGUES[ABOVE[k]].tier].toLocaleString("en-GB") : "—"}.</p></section>
+    ${tableHTML(k, table(k))}<p class="small muted" style="margin-top:8px">${LEAGUES[k].auto ? `Top ${LEAGUES[k].auto} promoted` : "Champions"}${LEAGUES[k].po ? `, ${ord(LEAGUES[k].po[0])}–${ord(LEAGUES[k].po[1])} play-offs` : ""}, bottom ${LEAGUES[k].down} ${LEAGUES[k].tier === 7 ? "drop out of the pyramid" : "relegated"}.</p></section>
     ${po ? `<section class="card"><div class="card-h"><h3>Play-offs</h3></div>${po.res.map(r => `<p>${esc(CL(r.h).name)} ${r.hg}–${r.ag} ${esc(CL(r.a).name)}${r.pens ? " (pens)" : ""}</p>`).join("") || "<p class='muted'>To come.</p>"}</section>` : ""}
     ${k === my().lg ? `<section class="card"><div class="card-h"><h3>Your results</h3></div>${(G.myRes || []).length ? resultsList((G.myRes || []).slice().reverse()) : "<p class='muted'>None yet.</p>"}</section>` : ""}</div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Top scorers</h3></div>${scorers.length ? scorers.map(p => `<div class="row between small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><span class="muted">${esc(CL(p.club).short)}</span><b class="num">${p.s.g}</b></div>`).join("") : "<p class='muted'>None yet.</p>"}</section></div></div>`;
