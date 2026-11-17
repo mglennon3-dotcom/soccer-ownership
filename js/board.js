@@ -180,7 +180,7 @@ function myAdministration(c) {
    missed; meeting them pleases fans, staff and investors. The manager tells you if he thinks a target is unrealistic. */
 const OBJ = {
   lg: { l: "League", opts: { title: "Win the league", up: "Win promotion", po: "Reach the play-offs", top: "Finish in the top half", safe: "Avoid relegation", none: "No target" } },
-  cup: { l: "National Cup", opts: { win: "Win it", final: "Reach the final", qf: "Reach the quarter-finals", r3: "Reach the third round", none: "No target" } },
+  cup: { l: "National Cup", opts: { win: "Win it", final: "Reach the final", qf: "Reach the quarter-finals", r3: "Reach the third round", tie: "Win a tie", none: "No target" } },
   fin: { l: "Finances", opts: { profit: "Make a profit", even: "Lose no more than 10% of income", none: "No target" } },
   youth: { l: "Youth", opts: { y3: "Three academy debuts", y1: "One academy debut", none: "No target" } },
 };
@@ -202,8 +202,10 @@ function judgeObjectives(report) {
   if (!o || o.y !== report.y) return;
   const res = (k, met) => { if (o[k] === "none") return; G.objRes.push({ k, t: OBJ[k].opts[o[k]], met }); };
   res("lg", report.pos <= lgTarget(o.lg, report.lg) || (o.lg === "up" && report.up) || (o.lg === "po" && report.po));
-  const nc = G.cups && G.cups.NC, reached = nc ? (nc.win === c.id ? 9 : nc.log.filter(x => x.h === c.id || x.a === c.id).length) : 0;
-  res("cup", { win: nc && nc.win === c.id, final: nc && nc.log.some(x => x.r === "Final" && (x.h === c.id || x.a === c.id)), qf: nc && nc.log.some(x => x.r === "Quarter-finals" && (x.h === c.id || x.a === c.id)), r3: reached >= 3, none: true }[o.cup]);
+  // Judged by the furthest round the club played in (so a club with a first-round bye isn't asked for an extra round).
+  const NC_ROUNDS = ["First round", "Second round", "Third round", "Fourth round", "Fifth round", "Quarter-finals", "Semi-finals", "Final"];
+  const nc = G.cups && G.cups.NC, mine = nc ? nc.log.filter(x => x.h === c.id || x.a === c.id) : [], furthest = Math.max(-1, ...mine.map(x => NC_ROUNDS.indexOf(x.r)));
+  res("cup", { win: !!nc && nc.win === c.id, final: furthest >= 7, qf: furthest >= 5, r3: furthest >= 2, tie: mine.some(x => x.w === c.id), none: true }[o.cup]);
   const f = c.finLast, net = f ? ledgerIncome(f) - ledgerCosts(f) + (f.build || 0) : 0;  // building work isn't counted against you
   res("fin", o.fin === "profit" ? net > 0 : net > -(f ? ledgerIncome(f) * .1 : 0));
   const debuts = c.squad.map(P).filter(p => p.age <= 21 && p.hist.length && p.hist[0][1] === c.short && p.debut === report.y).length;
