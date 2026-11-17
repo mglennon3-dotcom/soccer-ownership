@@ -38,8 +38,12 @@ Running locally: any static server works, for example `python3 -m http.server 80
   grass or a hybrid surface). Build a training ground and an academy, levels 1 to 10.
 - **Make the stadium pay beyond match days:** club shop and megastore, car park, conference and events centre, tours
   and museum, a stadium hotel, summer concerts (they damage the pitch), a tenant team.
-- **Overrule your staff when you must.** Buy a player yourself, sell or release one, or answer a bid against your head
-  of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
+- **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against
+  your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
+- **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually
+  below their value) and for players they rate, listed or not; a standout season brings more and bigger bids from
+  bigger clubs. Offers come to your inbox with your head of recruitment's advice. A player signed in a window can't be
+  sold until it closes.
 - **Fund it.** You choose your fortune at the start (local businessperson, wealthy investor, billionaire consortium)
   and move money in and out of the club. An overdrawn club pays 10% interest.
 
@@ -105,6 +109,15 @@ A **partner club** two or more divisions above offers young players on loan each
 below you take your funding (raising their standard and facilities), take your players on loan first, and give you first
 refusal on their best youngsters at a discount.
 
+## Fan favourites and legends
+
+Players build affection with each club they play for: games, goals, assists, loyalty, and more for academy graduates.
+About two good seasons make a fan favourite, six or more a club legend. Favourites sell shirts; selling or releasing one
+upsets the supporters. Legends who retire get a testimonial and a place on the club's legends list. Signing a big name
+for your division, or bringing a favourite home, gets the supporters buzzing (mood, new fans, shirt sales). Some retiring
+players go into coaching and appear among your staff candidates, your own favourites and legends always; appointing a
+legend lifts the fans, the supporters' trust and the dressing room, and legends are keener to come home.
+
 ## Media, weather and staff
 
 - **Media.** Your profile raises sponsorship. Every few weeks the press wants an answer (the manager's future, promotion
@@ -132,6 +145,6 @@ it on as it stands: squad, manager, ground, facilities and sponsors. The History
 `js/names.js` (names, towns, regions and helpers), `core.js` (pyramid, players, talent, development),
 `staff.js`, `club.js` (prices, attendance, sponsors, facilities, suites, pitch, ventures), `weather.js`, `match.js`,
 `events.js` (decisions and media), `cups.js`, `owners.js` (rival owners), `board.js` (valuation, investors, directors,
-supporters' trust, loans, objectives), `partners.js`, `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
+supporters' trust, loans, objectives), `partners.js`, `legends.js`, `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
 
 `node tools/sim.js 20` plays 20 seasons headless and reports talent, ratings by tier and the test club's progress.

@@ -54,6 +54,7 @@ function hire(s, wage, yrs) {
   const ask = staffAsk(s) || wage;
   s.wage = wage; s.yrs = yrs; s.expiring = false; s.trust = clamp(60 + Math.round((wage / ask - 1) * 40), 40, 80); s.since = G.year;
   c.staff[s.role] = s;
+  hiredExPro(s);
   (G.filled ||= {})[s.role] = true; if (G.pools && G.pools[s.role]) G.pools[s.role].list = G.pools[s.role].list.filter(x => x !== s);
   news(`${s.name} is appointed ${ROLES_STAFF[s.role].l.toLowerCase()} on ${money(wage)} a year for ${yrs} year${yrs > 1 ? "s" : ""}.`, true);
   if (s.role === "manager") c.form = s.form;
@@ -153,6 +154,7 @@ function candidates(role) {
   if (P[role] && now - P[role].t < 6 && P[role].list.length) return P[role].list;
   const a = attraction(), n = (G.filled || {})[role] ? 12 : 20, out = [];
   for (let i = 0; i < n; i++) out.push(genStaff(role, clamp(Math.round(a + (i < n * .65 ? normal() * 8 : 15 + R() * 30)), 3, 95)));
+  out.unshift(...exProCands(role));  // former players moving into coaching, your own favourites first
   P[role] = { t: now, list: out };
   return out;
 }

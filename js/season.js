@@ -56,7 +56,7 @@ function advance() {
   if (G.phase === "summer") summerWeek();
   else if (G.phase === "season") seasonWeek();
   else if (G.phase === "playoffs") playoffWeek();
-  buildWeek(c); pitchWeek(c, c._home); c._home = false; fansWeek(c); weeklyAccounts(c);
+  buzzWeek(c); buildWeek(c); pitchWeek(c, c._home); c._home = false; fansWeek(c); weeklyAccounts(c);
   for (const o of c.offers) o.exp--;
   c.offers = c.offers.filter(o => o.exp > 0);
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
@@ -213,6 +213,8 @@ function seasonReview(r, up, down) {
 
 /* Each summer: everyone a year older, retirements, contracts, youth intakes, squads rebuilt. */
 function yearTurnover() {
+  loveSeason();
+  for (const p of Object.values(G.players)) p.last = { app: p.s.app, g: p.s.g, a: p.s.a };  // remembered for next season's market
   const mine = my();
   // Contracts: your head of recruitment renews those he wants (you can flag players to keep); the rest leave.
   // He keeps enough players to field a side: the best 18 seniors are renewed if the wage budget allows.
@@ -320,7 +322,7 @@ function aiSign(c, pos) {
   if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
   else if (R() < .5) {
     const lower = G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && x.tier <= c.tier + 2);
-    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
+    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     if (pool.length) p = pick(pool);
   }
   if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); }

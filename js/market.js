@@ -86,6 +86,7 @@ function signPlayer(p, fee, wage, byOwner) {
   if (p.club === -2) G.abroad = G.abroad.filter(id => id !== p.id);
   p.abroad = undefined;
   moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4);
+  signingBoost(p, c);
   spend("buys", fee); if (!byOwner) c.spentT += fee;
   if (seller && !seller.gone) aiSquadCheck(seller, true);
   news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${money(wage)} a year.`, true);
@@ -99,16 +100,15 @@ function headWeek(c) {
     const best = shortlist(c, need, 1)[0]; if (!best) continue;
     signPlayer(best.p, negotiated(askingFee(best.p)), best.p._ask, false); signed++;
   }
-  // Clear out the surplus: too many seniors means the least useful go.
-  const seniors = () => c.squad.map(P).filter(p => !p.acad);
-  let guard = 0;
-  while (seniors().length > 26 && guard++ < 5) {
-    const xi = new Set(pickXI(c).map(o => o.p.id));
-    const p = seniors().filter(q => !xi.has(q.id) && !q.keep && !q.loan).sort((a, b) => a.ovr - b.ovr)[0]; if (!p) break;
-    sellToAI(p, false);
-  }
+  // Too many seniors: he transfer-lists the least useful and waits for offers. Only a squad far too big at the end of
+  // the window gets players released.
+  const seniors = () => c.squad.map(P).filter(p => !p.acad && !p.loan);
+  const xi = new Set(pickXI(c).map(o => o.p.id)), spare = seniors().filter(q => !xi.has(q.id) && !q.keep && canSell(q)).sort((a, b) => a.ovr - b.ovr);
+  for (const p of spare.slice(0, Math.max(0, seniors().length - 26))) if (!p.list) { p.list = true; news(`${s.name} transfer-lists ${p.name}.`); }
+  if (lastWindowWeek()) for (const p of spare.filter(q => q.club === c.id).slice(0, Math.max(0, seniors().length - 28))) release(p, false);
 }
-/* Sell a player to the AI club that suits him; if nobody wants him, release him. */
+const lastWindowWeek = () => (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
+/* A forced sale (administration): the administrators take what a club at his level will pay. */
 function sellToAI(p, byOwner, fee) {
   const c = my(), buyer = G.clubs.filter(x => !x.gone && !isMine(x) && Math.abs(x.lvl - p.ovr) < 6).sort(() => R() - .5)[0];
   if (!buyer) return release(p, byOwner);
@@ -123,21 +123,41 @@ function release(p, byOwner) {
   news(`${p.name} is released${releaseCost(p) ? `, with ${money(releaseCost(p))} paid up` : ""}${byOwner ? " (your decision)" : ""}.`);
 }
 
-/* ---------- bids for your players ---------- */
+/* ---------- offers for your players ----------
+   Real offers only, and only in a window. Clubs bid for players you've transfer-listed (usually below their value:
+   everyone knows you want to sell), and the bigger clubs come in for your stars whether they're listed or not. */
 function bidsWeek(c) {
   for (const p of c.squad.map(P)) {
-    if (p.acad || p.age > 31 || p.loan) continue;
-    const star = p.ovr >= TIER_LVL[c.tier] + 5 || (p.age <= 21 && p.pot >= TIER_LVL[c.tier] + 10);
-    if (!star || R() > .12 || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
-    const h = hostileOf(c), buyer = h && R() < .4 ? h : G.clubs.filter(x => !x.gone && !isMine(x) && x.tier < c.tier && x.lvl >= p.ovr - 3).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr))[0];
-    if (!buyer) continue;
-    const amt = Math.round(valueOf(p) * rf(.85, 1.5) * (buyer.own ? 1 + OWNER_STYLES[buyer.own.style].poach * .3 : 1) / 1000) * 1000;
-    addMsg({ type: "bid", pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${buyer.name} bid ${money(amt)} for ${p.name}` });
+    if (p.acad || p.loan || !canSell(p) || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
+    let buyer = null, amt = 0;
+    if (p.list) {
+      if (R() > .35) continue;
+      const want = G.clubs.filter(x => !x.gone && !isMine(x) && x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 && p.age <= 33);
+      if (!want.length) continue;
+      buyer = pick(want); amt = Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000;
+    } else {
+      // Unlisted players draw bids too: anyone who'd be a regular somewhere, more often the better he is for your
+      // level, and at or above his value, since the club has to tempt you.
+      if (p.age > 33) continue;
+      const star = p.ovr >= TIER_LVL[c.tier] + 5 || (p.age <= 21 && p.pot >= TIER_LVL[c.tier] + 10);
+      // A standout season puts him in the shop window: more bids, bigger ones, from bigger clubs.
+      const form = Math.max(0, seasonForm(p));
+      const chance = .025 + (star ? .1 : 0) + Math.max(0, p.ovr - TIER_LVL[c.tier]) * .006 + form * .07;
+      if (R() > chance) continue;
+      const h = hostileOf(c), want = G.clubs.filter(x => !x.gone && !isMine(x) && x.lvl >= p.ovr - 3 && x.lvl <= p.ovr + 7 + form * 4 && x.tier <= c.tier + 1);
+      buyer = h && star && R() < .4 ? h : want.length ? wpick(want, x => 1 + Math.max(0, c.tier - x.tier) * 1.5) : null;
+      if (!buyer) continue;
+      amt = Math.round(valueOf(p) * rf(.9, 1.45) * (1 + form * .2) * (buyer.own ? 1 + OWNER_STYLES[buyer.own.style].poach * .3 : 1) / 1000) * 1000;
+    }
+    if (amt < 1000) amt = 1000;
+    const fw = formWord(seasonForm(p));
+    addMsg({ type: "bid", pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${buyer.name} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
 }
 function headAdvice(p, amt) {
   const s = staffOf("recruit"), v = valueOf(p), starter = pickXI(my()).some(o => o.p === p);
   if (p.keep) return "reject";
+  if (p.list) return amt >= v * (s && s.phil === "value" ? .75 : .6) ? "accept" : "reject";  // he wants him gone, at a fair price
   if (!s) return amt >= v * 1.4 ? "accept" : "reject";
   const r = { value: amt >= v * 1.15, potential: p.age >= 24 ? amt >= v : amt >= v * 1.6, proven: starter ? amt >= v * 1.8 : amt >= v, fit: amt >= v * 1.3 }[s.phil];
   return r ? "accept" : "reject";
@@ -166,13 +186,15 @@ function ownerBuy(p, fee, wage) {
   if (staffOf("recruit")) trust("recruit", onList ? -3 : -10, onList ? "would rather have done the deal himself." : `wasn't consulted about ${p.name} and isn't happy.`);
   const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null); else trust("manager", -3, null);
 }
-function ownerSell(p) {
-  G.meddle = (G.meddle || 0) + 1;
+/* You put a player on the transfer list (or take him off). Offers then come in through the inbox. */
+function ownerList(p) {
+  p.list = !p.list;
+  if (!p.list) return news(`${p.name} is taken off the transfer list.`);
+  G.meddle = (G.meddle || 0) + .5;
   const starter = pickXI(my()).some(o => o.p === p);
-  const b = sellToAI(p, true);
-  if (staffOf("recruit")) trust("recruit", -6, `wasn't consulted about selling ${p.name}.`);
-  if (starter) trust("manager", -9, `is angry you sold ${p.name}, one of his first-choice players.`);
-  return b;
+  if (staffOf("recruit")) trust("recruit", -3, null);
+  if (starter) trust("manager", -6, `is unhappy you've transfer-listed ${p.name}, one of his first-choice players.`);
+  news(`You put ${p.name} on the transfer list. Offers will come in while the window is open.`);
 }
 function ownerRelease(p) {
   G.meddle = (G.meddle || 0) + .5;

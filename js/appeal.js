@@ -64,7 +64,9 @@ function staffFactors(s) {
   const budget = s.role === "manager" ? clamp(.5 + Math.log2(Math.max(1, c.budget.wages) / typWages) * .5, 0, 1) : s.role === "youth" ? (c.fac.acad.lvl ? clamp(.5 + budgetFactor(c.budget.acad, acadRef(c.fac.acad.lvl)) / 6, 0, 1) : .1) : clamp(.5 + Math.log2(Math.max(1, c.budget.transfer) / (typWages * .8)) * .4, 0, 1);
   const xi = pickXI(c), q = avg(xi.map(o => roleRating(o.p, o.slot)));
   const squad = s.role === "manager" ? clamp(.5 + (q - TIER_LVL[T]) / 12 + styleFit(xi, s.phil) * .25, 0, 1) : clamp(.5 + (q - TIER_LVL[T]) / 15, 0, 1);
-  return { prest: clamp(.5 + (TIER_REP[T] + c.rep * .3 - s.rep) / 30, 0, 1), fac, budget, squad, proj: projectF(), auto: meddleF(), vision: visionMatch(s) };
+  // A legend of the club wants to come home: the club's standing and his own fit don't hold him back.
+  const home = isLegendOf(s, c.id) ? 1 : s.ex && s.ex.favOf.includes(c.id) ? .5 : 0;
+  return { prest: Math.max(home, clamp(.5 + (TIER_REP[T] + c.rep * .3 - s.rep) / 30, 0, 1)), fac, budget, squad, proj: projectF(), auto: meddleF(), vision: Math.max(home * .9, visionMatch(s)) };
 }
 function staffAsk(s) {
   const pr = prefsOf(s, S_FACTORS), f = staffFactors(s);

@@ -109,7 +109,7 @@ function concessionsFor(c, crowd, price = c.prices.conc) {
 }
 function merchFor(c, price = c.prices.shirt) {  // per week
   const units = commMult() * c.fans * .007 * Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7) * (.8 + c.mood / 250) * merchMult(c);
-  return units * price * .45;
+  return units * price * .45 * shirtBoost(c);
 }
 /* Forecast for the finance page: a typical home game against an average side. */
 function matchdayForecast(c, t = c.prices.ticket, k = c.prices.conc) {
