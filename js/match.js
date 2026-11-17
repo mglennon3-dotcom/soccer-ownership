@@ -35,7 +35,7 @@ function styleFit(xi, style) {
 }
 function teamPower(c, xi) {
   let a = 0, m = 0, d = 0, wa = 0, wm = 0, wd = 0;
-  for (const { p, slot } of xi) { const r = roleRating(p, slot), w = SLOT_W[slot]; a += r * w[0]; m += r * w[1]; d += r * w[2]; wa += w[0]; wm += w[1]; wd += w[2]; }
+  for (const { p, slot } of xi) { const r = roleRating(p, slot) - (p.unsettled > 0 ? 3 : 0), w = SLOT_W[slot]; a += r * w[0]; m += r * w[1]; d += r * w[2]; wa += w[0]; wm += w[1]; wd += w[2]; }
   const missing = 11 - xi.length;  // a side short of players is badly weakened
   const A = a / (wa || 1), M = m / (wm || 1), D = d / (wd || 1);
   const morale = ((isMine(c) ? c.morale : 55) - 55) / 15;  // about +-3

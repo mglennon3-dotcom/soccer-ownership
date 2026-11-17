@@ -52,7 +52,7 @@ function advance() {
   const c = my();
   if (G.ended || G.club == null) return;
   weatherWeek();
-  for (const p of Object.values(G.players)) if (p.inj) p.inj--;
+  for (const p of Object.values(G.players)) { if (p.inj) p.inj--; if (p.unsettled > 0) p.unsettled--; }
   if (G.phase === "summer") summerWeek();
   else if (G.phase === "season") seasonWeek();
   else if (G.phase === "playoffs") playoffWeek();
@@ -335,6 +335,9 @@ const openDecisions = () => G.inbox.filter(m => (m.type === "bid" || m.type === 
 /* Bids you don't answer within a week are decided by your head of recruitment. */
 function settleInbox() {
   for (const m of G.inbox.slice()) { m.age++; if (m.done) continue;
-    if (m.type === "bid" && m.age >= 2) answerBid(m, m.rec === "accept", true);
+    if (m.type === "bid" && m.age >= 2) { const p = G.players[m.pid], c = my();
+      // Turning down a club the player wants to join, he offers the improved deal if the wage budget allows it.
+      const deal = m.rec !== "accept" && m.keen && p && p.dealY !== G.year && wageBill(c) + newDealWage(p) - p.wage <= c.budget.wages;
+      answerBid(m, m.rec === "accept" ? true : deal ? 2 : false, true); }
     if (m.type === "choice" && m.age >= 3) answerChoice(m, m.dflt); }
 }

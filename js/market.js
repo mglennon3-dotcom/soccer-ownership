@@ -150,8 +150,8 @@ function bidsWeek(c) {
       amt = Math.round(valueOf(p) * rf(.9, 1.45) * (1 + form * .2) * (buyer.own ? 1 + OWNER_STYLES[buyer.own.style].poach * .3 : 1) / 1000) * 1000;
     }
     if (amt < 1000) amt = 1000;
-    const fw = formWord(seasonForm(p));
-    addMsg({ type: "bid", pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${buyer.name} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
+    const fw = formWord(seasonForm(p)), keen = buyer.tier < c.tier || buyer.rep > c.rep + 8 || (p.list && R() < .7);
+    addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${buyer.name} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
 }
 function headAdvice(p, amt) {
@@ -162,11 +162,23 @@ function headAdvice(p, amt) {
   const r = { value: amt >= v * 1.15, potential: p.age >= 24 ? amt >= v : amt >= v * 1.6, proven: starter ? amt >= v * 1.8 : amt >= v, fit: amt >= v * 1.3 }[s.phil];
   return r ? "accept" : "reject";
 }
+/* The improved contract that keeps a wanted player happy: about 30% more, for three or four years. */
+const newDealWage = p => Math.round(Math.max(p.wage * 1.3, demandWage(p, my()) * 1.15) / 100) * 100;
+function newDeal(p) {
+  const w = newDealWage(p); p.wage = w; p.yrs = ri(3, 4); p.unsettled = 0; p.blocked = 0; p.dealY = G.year;
+  news(`${p.name} signs an improved ${p.yrs}-year contract: ${money(w)} a year. He's happy to stay.`, true);
+}
+/* choice: true/1 accept, false/0 reject, 2 reject and offer him a new deal. */
 function answerBid(m, accept, auto) {
-  m.done = true; m.answer = accept ? "accepted" : "rejected";
+  const deal = accept === 2; accept = accept === true || accept === 1;
+  m.done = true; m.answer = accept ? "accepted" : deal ? "rejected, with a new contract" : "rejected";
   const p = G.players[m.pid], buyer = CL(m.club);
   if (!p || p.club !== G.club) { m.answer = "lapsed"; return; }
-  if (!auto && (accept ? "accept" : "reject") !== m.rec) {
+  if (!accept && m.keen && p.dealY !== G.year) {
+    if (deal) newDeal(p);
+    else { p.blocked = (p.blocked || 0) + 1; p.unsettled = 8 + p.blocked * 4; news(`${p.name} wanted the move to ${buyer.name} and is unsettled${p.blocked >= 2 ? ". He's been blocked before and it shows" : ""}.`, p.blocked >= 2); }
+  }
+  if (!auto && !deal && (accept ? "accept" : "reject") !== m.rec) {
     G.meddle = (G.meddle || 0) + 1;
     trust("recruit", -7, accept ? `unhappy you sold ${p.name} when he advised keeping him.` : `frustrated you turned down ${money(m.amt)} for ${p.name}.`);
   }

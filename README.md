@@ -42,7 +42,7 @@ Running locally: any static server works, for example `python3 -m http.server 80
   your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
 - **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually
   below their value) and for players they rate, listed or not; a standout season brings more and bigger bids from
-  bigger clubs. Offers come to your inbox with your head of recruitment's advice. A player signed in a window can't be
+  bigger clubs. Offers come to your inbox with your head of recruitment's advice: accept, reject, or reject and offer the player an improved contract. A player who wants the move and is turned down without a better deal is unsettled for a while and plays below his best. A player signed in a window can't be
   sold until it closes.
 - **Fund it.** You choose your fortune at the start (local businessperson, wealthy investor, billionaire consortium)
   and move money in and out of the club. An overdrawn club pays 10% interest.
