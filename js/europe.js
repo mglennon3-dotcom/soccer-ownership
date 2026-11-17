@@ -40,9 +40,20 @@ function makeForeign() {
     }
   }
 }
-function foreignSquad(c) {
+/* Filling a gap: a free agent who fits the club's standard first (countrymen preferred), otherwise a new player. */
+function foreignSignFA(c, pos) {
+  const fits = G.fa.map(P).filter(p => p && p.pos === pos && p.age <= 32 && p.ovr >= c.lvl - 7 && p.ovr <= c.lvl + 4);
+  if (!fits.length) return false;
+  const p = fits.sort((a, b) => (b.ovr + (b.nat === c.country ? 3 : 0)) - (a.ovr + (a.nat === c.country ? 3 : 0)))[0];
+  moveTo(p, c); p.wage = wageFor(p.ovr); p.yrs = ri(1, 3);
+  if (G.club != null && (p.hist || []).some(h => h[1] === my().short)) news(`Former ${my().name} player ${p.name} signs for ${c.name} in ${COUNTRY[c.country].name} on a free.`);
+  return true;
+}
+function foreignSquad(c, faOnly) {
   const have = pos => c.squad.map(P).filter(p => p.pos === pos && !p.acad).length;
   for (const [pos, n] of Object.entries(SQUAD_MIX)) for (let i = have(pos); i < n; i++) {
+    if (foreignSignFA(c, pos)) continue;
+    if (faOnly) break;
     const age = ri(19, 33), ovr = clamp(Math.round(c.lvl + 2 - i * 3 + normal() * 2.5), 40, 94);
     const p = makePlayer({ pos, ovr, age, nat: R() < .7 ? c.country : pickNat(c.country), club: c.id, pot: seniorPot(ovr, age) });
     p.yrs = ri(1, 4); c.squad.push(p.id); p.hist.push([G.year, c.short]);
@@ -62,6 +73,8 @@ function foreignSummer() {
     }
   }
 }
+// During a window foreign clubs plug gaps from the free agents only (new players are made only in the summer).
+function foreignJanuary() { for (const id of G.foreign || []) foreignSquad(CL(id), true); }
 const countryOf = c => c.abroad ? COUNTRY[c.country].name : "England";
 const divisionOf = c => c.abroad ? `${COUNTRY[c.country].name}` : LEAGUES[c.lg].name;
 

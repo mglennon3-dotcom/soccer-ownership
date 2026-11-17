@@ -226,6 +226,7 @@ function marketWeek() {
   const c = my();
   headWeek(c); bidsWeek(c);
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
+  foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
   const last = (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
   if (last) { clearAbroad(); news("The transfer window has closed."); }
 }
