@@ -1,2 +1,16 @@
-{ "name": "Touchline Owner", "short_name": "Owner", "start_url": ".", "display": "standalone", "background_color": "#10231a", "theme_color": "#10231a",
-  "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }, { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }] }
+{
+  "name": "Touchline Owner",
+  "short_name": "Owner",
+  "description": "Own a brand-new football club at the bottom of the pyramid. Hire the staff, set the prices, build the ground, and take it to the top.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10231a",
+  "theme_color": "#10231a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

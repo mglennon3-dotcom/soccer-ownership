@@ -6,8 +6,17 @@ players: you hire the people who do, give them budgets, and run the business. Al
 
 ## Play it
 
-Any static server works: `python3 -m http.server 8000` in this folder, then open <http://localhost:8000>.
-Careers are saved in the browser (IndexedDB). Export a save file from the History page to back one up.
+- **Online:** open the GitHub Pages address for this repository. The game is served straight from the `main` branch
+  (Settings → Pages → Deploy from a branch → `main`, `/ (root)`; `.nojekyll` makes GitHub serve the files as they are).
+- **Offline:** open it once while online, then use your browser's *Install app* or *Add to Home Screen*. The game's
+  files are cached by a service worker, so it opens with no connection after that. Google Fonts are cached the first
+  time they load; until then the game uses system fonts.
+- **On claude.ai:** `artifact.html` is the same game laid out for a claude.ai page.
+- **Careers** are saved in the browser (IndexedDB) on that device, as many as you like. Export a save file from the
+  History page to back one up or move a career to another device, and import it there.
+
+Running locally: any static server works, for example `python3 -m http.server 8000` in this folder, then open
+<http://localhost:8000>.
 
 ## What you do
 

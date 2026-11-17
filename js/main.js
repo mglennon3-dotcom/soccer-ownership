@@ -36,33 +36,40 @@ async function advanceN(n, until) {
   busy = false; $("#busy").hidden = true; closeModal(); render(); saveGame();
 }
 
+/* Confirmations happen on the page: browsers' own confirm() dialogs are blocked when the game runs inside claude.ai. */
+let ASKING = null;
+function ask(msg, yes = "Confirm") {
+  return new Promise(res => { ASKING = res; modal(`<div class="modal-h"><h2>Are you sure?</h2></div><div class="modal-b"><p class="lead">${esc(msg)}</p><div class="row"><button class="btn primary" data-act="askyes">${esc(yes)}</button><button class="btn" data-act="askno">Cancel</button></div></div>`); });
+}
 const built = r => { if (typeof r === "string") toast(r); };
 const ACT = {
+  askyes: () => { const r = ASKING; ASKING = null; closeModal(); if (r) r(true); },
+  askno: () => { const r = ASKING; ASKING = null; closeModal(); if (r) r(false); },
   putsale: () => { G.saleOffers = saleOffers(); render(); },
-  acceptsale: el => { const o = G.saleOffers[+el.dataset.i]; if (confirm(`Sell your ${ownPct()}% of ${my().name} to ${o.name} for ${money(o.amt)}? You'll then choose a new club.`)) { sellMyClub(o); render(); saveGame(); } },
-  buyclub: el => { const c = CL(+el.dataset.id); if (confirm(`Buy ${c.name} for ${money(askPrice(c))}?`)) { buyClub(c); PAGE = "home"; render(); saveGame(); } },
+  acceptsale: async el => { const o = G.saleOffers[+el.dataset.i]; if (await ask(`Sell your ${ownPct()}% of ${my().name} to ${o.name} for ${money(o.amt)}? You'll then choose a new club.`)) { sellMyClub(o); render(); saveGame(); } },
+  buyclub: async el => { const c = CL(+el.dataset.id); if (await ask(`Buy ${c.name} for ${money(askPrice(c))}?`)) { buyClub(c); PAGE = "home"; render(); saveGame(); } },
   choose: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerChoice(m, +el.dataset.i); render(); saveGame(); },
   seekinv: () => { G.board.offers = investmentOffers(); if (!G.board.offers.length) toast("You can't sell any more without losing control."); render(); },
-  sellstake: el => { const o = G.board.offers[+el.dataset.i]; if (o && confirm(`Sell ${o.pct}% of the club to ${o.name} for ${money(o.amt)}?`)) { sellStake(o); render(); saveGame(); } },
-  buyback: el => { const i = G.board.inv[+el.dataset.i]; if (confirm(`Buy back ${i.name}'s ${i.pct}% for ${money(buyBackPrice(i))} of your own money?`)) { buyBack(+el.dataset.i); render(); saveGame(); } },
+  sellstake: async el => { const o = G.board.offers[+el.dataset.i]; if (o && await ask(`Sell ${o.pct}% of the club to ${o.name} for ${money(o.amt)}?`)) { sellStake(o); render(); saveGame(); } },
+  buyback: async el => { const i = G.board.inv[+el.dataset.i]; if (await ask(`Buy back ${i.name}'s ${i.pct}% for ${money(buyBackPrice(i))} of your own money?`)) { buyBack(+el.dataset.i); render(); saveGame(); } },
   dircands: el => dirModal(el.dataset.k),
   hiredir: el => { const d = DIRC[+el.dataset.i]; G.board.dir[d.role] = d; news(`${d.name} is appointed ${DIRECTORS[d.role].l.toLowerCase()}.`); closeModal(); render(); saveGame(); },
-  firedir: el => { const k = el.dataset.k, d = G.board.dir[k]; if (confirm(`Dismiss ${d.name}? Half a year's pay.`)) { spend("directors", d.wage / 2); G.board.dir[k] = null; render(); } },
+  firedir: async el => { const k = el.dataset.k, d = G.board.dir[k]; if (await ask(`Dismiss ${d.name}? Half a year's pay.`)) { spend("directors", d.wage / 2); G.board.dir[k] = null; render(); } },
   meettrust: () => { meetTrust(); render(); },
-  trustseat: () => { if (confirm("Give the supporters' trust a seat on the board?")) { G.sTrust.seat = true; trustRel(12, "A supporters' trust director joins the board."); moodHit(my(), 3); render(); } },
+  trustseat: async () => { if (await ask("Give the supporters' trust a seat on the board?")) { G.sTrust.seat = true; trustRel(12, "A supporters' trust director joins the board."); moodHit(my(), 3); render(); } },
   setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) o[k] = $("#obj-" + k).value; setObjectives(o); render(); saveGame(); },
   objreset: () => { G.obj = null; render(); },
   approach: el => { approachPartner(CL(+el.dataset.id)); render(); saveGame(); },
-  endpartner: () => { if (confirm("End the partnership?")) { news(`The partnership with ${CL(net().partner.id).name} ends.`); net().partner = null; render(); } },
+  endpartner: async () => { if (await ask("End the partnership?")) { news(`The partnership with ${CL(net().partner.id).name} ends.`); net().partner = null; render(); } },
   addfeeder: el => { addFeeder(CL(+el.dataset.id)); render(); saveGame(); },
-  dropfeeder: el => { if (confirm("End this feeder arrangement?")) { dropFeeder(+el.dataset.id); render(); } },
+  dropfeeder: async el => { if (await ask("End this feeder arrangement?")) { dropFeeder(+el.dataset.id); render(); } },
   repayloan: el => { repayLoan(+el.dataset.id); render(); saveGame(); },
-  loanq: () => { const amt = +$("#ln-amt").value || 0, yrs = +$("#ln-yrs").value, t = loanTerms(amt, yrs);
+  loanq: async () => { const amt = +$("#ln-amt").value || 0, yrs = +$("#ln-yrs").value, t = loanTerms(amt, yrs);
     if (amt <= 0) return; if (amt > t.max) return toast(`The bank will lend at most ${money(t.max)}.`);
     const block = boardBlocks(amt); if (block) return toast(block);
-    if (confirm(`Borrow ${money(amt)} over ${yrs} years at ${(t.rate * 100).toFixed(1)}%: ${money(t.weekly)} a week, ${money(t.weekly * yrs * 52)} in all?`)) { takeLoan(amt, yrs); render(); saveGame(); } },
+    if (await ask(`Borrow ${money(amt)} over ${yrs} years at ${(t.rate * 100).toFixed(1)}%: ${money(t.weekly)} a week, ${money(t.weekly * yrs * 52)} in all?`)) { takeLoan(amt, yrs); render(); saveGame(); } },
   olend: () => { ownerLend(+$("#ol-amt").value || 0); render(); }, orecall: () => { ownerRecall(+$("#ol-amt").value || 0); render(); },
-  heat: () => { const q = heatQuote(my()); if (confirm(`Install undersoil heating for ${money(q.cost)}?`)) { built(startBuild("stadium", { type: "heat", ...q, label: "undersoil heating" })); render(); saveGame(); } },
+  heat: async () => { const q = heatQuote(my()); if (await ask(`Install undersoil heating for ${money(q.cost)}?`)) { built(startBuild("stadium", { type: "heat", ...q, label: "undersoil heating" })); render(); saveGame(); } },
   page: el => { PAGE = el.dataset.p; closeModal(); scrollTo(0, 0); render(); },
   sub: el => { SUB[el.dataset.k] = el.dataset.v; render(); },
   adv: el => advanceN(+el.dataset.n || 1),
@@ -71,13 +78,13 @@ const ACT = {
     <button class="btn" data-act="advto" data-k="phase">${G.phase === "summer" ? "To the start of the season" : "To the end of the season"}</button>
     <p class="small muted">Stops early when something needs your answer.</p></div></div>`),
   advto: () => { const ph = G.phase, y = G.year; advanceN(80, () => G.phase !== ph && !(ph === "season" && G.phase === "playoffs") || G.year !== y); },
-  close: () => closeModal(), closebg: (el, e) => { if (e.target === el) closeModal(); },
+  close: () => { if (ASKING) return ACT.askno(); closeModal(); }, closebg: (el, e) => { if (e.target === el) ACT.close(); },
   club: el => clubModal(+el.dataset.id), player: el => playerModal(+el.dataset.id),
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "1", false); render(); saveGame(); },
   keep: el => { const p = P(+el.dataset.id); p.keep = !p.keep; toast(p.keep ? `${p.name} is protected: not for sale, and he'll be offered a new contract.` : `${p.name} is no longer protected.`); playerModal(p.id); render(); },
   promote: el => { const p = P(+el.dataset.id), c = my(); p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) * .6 / 100) * 100); news(`${p.name} is promoted from the academy on a professional contract.`, true); closeModal(); render(); },
-  sell: el => { const p = P(+el.dataset.id); if (!confirm(`Sell ${p.name}? Your staff weren't consulted.`)) return; const b = ownerSell(p); closeModal(); render(); saveGame(); toast(b ? `${p.name} sold to ${b.name}.` : `Nobody wanted ${p.name}; he was released.`); },
-  release: el => { const p = P(+el.dataset.id); if (!confirm(`Release ${p.name}?${p.acad ? "" : ` It costs ${money(releaseCost(p))}.`}`)) return; if (p.acad) { leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); } else ownerRelease(p); closeModal(); render(); saveGame(); },
+  sell: async el => { const p = P(+el.dataset.id); if (!await ask(`Sell ${p.name}? Your staff weren't consulted.`)) return; const b = ownerSell(p); closeModal(); render(); saveGame(); toast(b ? `${p.name} sold to ${b.name}.` : `Nobody wanted ${p.name}; he was released.`); },
+  release: async el => { const p = P(+el.dataset.id); if (!await ask(`Release ${p.name}?${p.acad ? "" : ` It costs ${money(releaseCost(p))}.`}`)) return; if (p.acad) { leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); } else ownerRelease(p); closeModal(); render(); saveGame(); },
   buy: el => buyModal(+el.dataset.id),
   buygo: el => {
     const p = P(+el.dataset.id), fee = +$("#b-fee").value || 0, wage = +$("#b-wage").value || 0, ask = askingFee(p);
@@ -93,24 +100,28 @@ const ACT = {
     if (a.score < a.pr.thr) { toast(`${s.name} says no. ${refusalReason(a, S_FACTORS)}`); return; }
     hire(s, wage, yrs); closeModal(); render(); saveGame();
   },
-  dismiss: el => { const s = staffOf(el.dataset.r); if (confirm(`Dismiss ${s.name}? It costs ${money(payoff(s))}.`)) { dismiss(el.dataset.r); G.meddle = (G.meddle || 0) + .5; render(); saveGame(); } },
+  dismiss: async el => { const s = staffOf(el.dataset.r); if (await ask(`Dismiss ${s.name}? It costs ${money(payoff(s))}.`)) { dismiss(el.dataset.r); G.meddle = (G.meddle || 0) + .5; render(); saveGame(); } },
   renewstaff: el => { const s = staffOf(el.dataset.r), w = staffAsk(s); if (w == null) { toast(`${s.name} won't sign a new contract: ${refusalReason(staffAppeal(s, s.wage * 1.5), S_FACTORS)}`); return; } s.wage = Math.max(w, s.wage); s.yrs = 3; s.expiring = false; news(`${s.name} signs a new three-year contract (${money(s.wage)} a year).`); render(); saveGame(); },
   invest: el => { invest(+el.dataset.v); render(); }, investx: () => { invest(+$("#inv-amt").value || 0); render(); }, withdraw: () => { withdraw(+$("#inv-amt").value || 0); render(); },
   sponsor: el => { const o = my().offers.filter(x => x.slot === el.dataset.k)[+el.dataset.i]; if (o) acceptOffer(o); render(); saveGame(); },
   askoffers: el => { const c = my(); (c.ask ||= {})[el.dataset.k] = G.week + G.year * 100; refreshOffers(c, el.dataset.k); render(); },
   host: el => { setGround(my(), +el.dataset.i); news(`The club moves to ${HOSTS[+el.dataset.i].name}.`); render(); },
-  buildst: el => { const n = +el.dataset.n, q = newStadiumQuote(n), name = ($("#st-name").value || my().town + " Park").trim(); if (!confirm(`Build ${name} (${n.toLocaleString()}) for ${money(q.cost)}?`)) return; built(startBuild("stadium", { type: "new", ...q, name, label: `building ${name}, ${n.toLocaleString()} capacity` })); render(); saveGame(); },
-  expand: el => { const q = expandQuote(my(), +el.dataset.n); if (!confirm(`Build a ${q.add.toLocaleString()}-seat stand for ${money(q.cost)}?`)) return; built(startBuild("stadium", { type: "expand", ...q, label: `a new ${q.add.toLocaleString()}-capacity stand` })); render(); saveGame(); },
+  buildst: async el => { const n = +el.dataset.n, q = newStadiumQuote(n), name = ($("#st-name").value || my().town + " Park").trim(); if (!await ask(`Build ${name} (${n.toLocaleString()}) for ${money(q.cost)}?`)) return; built(startBuild("stadium", { type: "new", ...q, name, label: `building ${name}, ${n.toLocaleString()} capacity` })); render(); saveGame(); },
+  expand: async el => { const q = expandQuote(my(), +el.dataset.n); if (!await ask(`Build a ${q.add.toLocaleString()}-seat stand for ${money(q.cost)}?`)) return; built(startBuild("stadium", { type: "expand", ...q, label: `a new ${q.add.toLocaleString()}-capacity stand` })); render(); saveGame(); },
   amen: () => { const q = amenQuote(my()); built(startBuild("stadium", { type: "amen", ...q, label: `stadium facilities to level ${q.lvl}` })); render(); saveGame(); },
   suites: () => { const q = suiteQuote(my()); built(startBuild("stadium", { type: "suites", ...q, label: `${q.add} executive suites` })); render(); saveGame(); },
-  relay: el => { const k = el.dataset.k; if (!confirm(`Re-lay the pitch with ${PITCH[k].l.toLowerCase()} for ${money(PITCH[k].cost(my()))}?`)) return; relayPitch(k); render(); saveGame(); },
-  vent: el => { const k = el.dataset.k; if (!confirm(`Build the ${VENTURES[k].l.toLowerCase()} for ${money(VENTURES[k].cost(my()))}?`)) return; buildVenture(k); render(); saveGame(); },
-  unvent: el => { if (confirm(`Close the ${VENTURES[el.dataset.k].l.toLowerCase()}?`)) { closeVenture(el.dataset.k); render(); } },
+  relay: async el => { const k = el.dataset.k; if (!await ask(`Re-lay the pitch with ${PITCH[k].l.toLowerCase()} for ${money(PITCH[k].cost(my()))}?`)) return; relayPitch(k); render(); saveGame(); },
+  vent: async el => { const k = el.dataset.k; if (!await ask(`Build the ${VENTURES[k].l.toLowerCase()} for ${money(VENTURES[k].cost(my()))}?`)) return; buildVenture(k); render(); saveGame(); },
+  unvent: async el => { if (await ask(`Close the ${VENTURES[el.dataset.k].l.toLowerCase()}?`)) { closeVenture(el.dataset.k); render(); } },
   upfac: el => { const k = el.dataset.k, lvl = my().fac[k].lvl + 1; built(startBuild(k, { lvl, cost: facCost(k, lvl), weeks: facWeeks(lvl), label: `${FAC_NAME[k].toLowerCase()} to level ${lvl}` })); render(); saveGame(); },
-  export: () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(G)], { type: "application/json" })); a.download = `${my().short}-${G.year}.json`; a.click(); },
+  export: async () => {
+    const data = JSON.stringify(G), filename = `${(my() ? my().short : "owner").toLowerCase()}-${G.year}.json`;
+    try { const dl = window.claude && await window.claude.use("downloads"); if (dl) { await dl.save({ filename, data: new Blob([data], { type: "application/json" }) }); return toast("Save file exported."); } } catch (e) { if (e && e.code === "declined") return; }
+    try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = filename; a.click(); } catch (e) { toast("Couldn't export the save here."); }
+  },
   quit: async () => { await saveGame(); start(); },
   load: el => loadSave(el.dataset.id),
-  delsave: async el => { if (!confirm("Delete this career?")) return; await dbDo("readwrite", st => st.delete(el.dataset.id)); start(); },
+  delsave: async el => { if (!await ask("Delete this career?")) return; await dbDo("readwrite", st => st.delete(el.dataset.id)); start(); },
   found: async () => {
     const name = $("#f-name").value.trim(); if (!name) return toast("Give your club a name.");
     const sel = id => ($(`#${id} [aria-pressed="true"]`) || {}).dataset?.v;
@@ -125,7 +136,7 @@ const CHANGE = {
     if (k === "ticket" && G.sTrust && G.sTrust.freeze === G.year && v > c.prices.ticket) { toast("You promised the supporters' trust a price freeze this season."); render(); return; }
     c.prices[k] = v; render(); },
   ffund: el => { const f = net().feeders.find(x => x.id === +el.dataset.id); if (f) f.fund = Math.max(0, Math.round(+el.value || 0)); render(); },
-  loanout: el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (confirm(`Loan ${p.name} to ${x.name} until the end of the season?`)) { loanOut(p, x); closeModal(); render(); saveGame(); } },
+  loanout: async el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (await ask(`Loan ${p.name} to ${x.name} until the end of the season?`)) { loanOut(p, x); closeModal(); render(); saveGame(); } },
   budget: el => { const c = my(), k = el.dataset.k, v = Math.max(0, Math.round(+el.value || 0)), old = c.budget[k]; c.budget[k] = v;
     // Staff notice their budgets being cut hard.
     const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) trust(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
@@ -148,6 +159,9 @@ document.addEventListener("change", e => {
   if (el.id === "imp" && el.files[0]) { el.files[0].text().then(t => { try { G = JSON.parse(t); upgradeSave(); G.saveId = "c" + Date.now(); PAGE = "home"; render(); saveGame(); toast("Save imported."); } catch { toast("That isn't a save file."); } }); return; }
   const f = CHANGE[el.dataset.act]; if (f) f(el);
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+document.addEventListener("keydown", e => { if (e.key === "Escape") ACT.close(); });
+try { if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) && window.top === window) { navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(r => r.update()).catch(() => { });
+  // When a new version takes over, reload once so you are never left looking at the old one.
+  let reloaded = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (reloaded || busy) return; reloaded = true; location.reload(); }); } } catch (e) { }
+window.claude?.hot?.snapshot?.(() => ({ G, PAGE }));
 start();
