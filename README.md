@@ -23,6 +23,10 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Set your vision** (Board page): how you want the team to play, how you want it to recruit, and ten points across
   six priorities (winning now, youth, sound finances, the supporters, commercial growth, facilities). Staff who share
   your vision are keener to join and grow happier; staff who don't slowly sour. Each point brings a small benefit too.
+- **Your owner profile** (Owner page): your name, fortune, the value of your stake, net worth and what you've put in;
+  how supporters, the trust, your staff, investors and the media see you, and whether you're hands-off or a meddler;
+  your vision at a glance; and your record (seasons, promotions, relegations, honours, best finish, clubs owned) with
+  milestones such as your first promotion, first title, first cup and first season in Europe.
 - **Watch your team.** The Tactics page shows the manager's formation on a pitch with his first-choice eleven (each
   player's rating in his position, out-of-position players marked), the bench and who's unavailable, his style and how
   well the squad suits it, attack, midfield and defence against the division, which styles the squad would suit best

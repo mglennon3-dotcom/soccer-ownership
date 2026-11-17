@@ -160,6 +160,7 @@ const CHANGE = {
     const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) trust(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
     render(); },
   fweek: el => { SUB.fw = +el.value; },
+  oname: el => { const v = el.value.trim(); if (v) { G.owner.name = v; saveGame(); render(); } },
   concerts: el => { my().fac.stadium.concerts = +el.value; render(); },
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },

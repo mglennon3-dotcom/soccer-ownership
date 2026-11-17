@@ -270,3 +270,57 @@ function needsCard(c) {
     <p class="small" style="margin-top:8px">Weakest area: <b>${weak[0].toLowerCase()}</b> ${weak[1] < 0 ? `<span class="bad">${weak[1]} on the division average</span>` : weak[1] > 0 ? `<span class="good">still +${weak[1]} on the division average</span>` : "level with the division average"}.</p>
     <p class="small muted" style="margin-top:4px">${s ? `${esc(s.name)} is working through these in the transfer windows.` : "You have no head of recruitment to fill them."}</p></section>`;
 }
+
+/* ---------- the owner's profile ---------- */
+function ownerRecord() {
+  const H = G.history.slice().reverse(), c = my(), clubs = [...(G.career || []).map(x => x.club), c.name];
+  const trophies = [...c.trophies.filter(t => t[0] >= (c.ownedFrom ?? c.founded)).map(t => [t[0], t[1], c.name])];
+  for (const h of H) for (const cup of h.cups || []) if (/winners/.test(cup) && !trophies.some(t => t[0] === h.y && cup.startsWith(t[1]))) trophies.push([h.y, cup.replace(": winners", ""), h.club || c.name]);
+  for (const h of H) if (h.pos === 1 && !trophies.some(t => t[0] === h.y && t[1] === LEAGUES[h.lg].name)) trophies.push([h.y, LEAGUES[h.lg].name, h.club || c.name]);
+  // Milestones: the first time each thing happened.
+  const ms = [], first = (test, text) => { const h = H.find(test); if (h) ms.push([h.y, text(h)]); };
+  ms.push([c.ownedFrom ?? c.founded, (c.ownedFrom != null ? "Bought " : "Founded ") + (G.career && G.career.length ? (G.career[0].club) : c.name)]);
+  first(h => h.up, h => `First promotion, into the ${LEAGUES[ABOVE[h.lg] || h.lg].name}`);
+  first(h => h.pos === 1, h => `First title: the ${LEAGUES[h.lg].name}`);
+  first(h => (h.cups || []).some(x => /winners/.test(x)), h => `First cup: ${(h.cups.find(x => /winners/.test(x)) || "").replace(": winners", "")}`);
+  first(h => (h.cups || []).some(x => /Champions Cup|Continental Shield/.test(x)), h => "First season in Europe");
+  for (const t of [5, 3, 1]) first(h => h.tier <= t, h => t === 1 ? "Reached the Premier Division" : `Reached the ${TIER_NAME[t]}`);
+  const legends = (c.legends || []).slice().sort((a, b) => a.to - b.to); if (legends[0]) ms.push([legends[0].to, `First club legend retired: ${legends[0].name}`]);
+  for (const x of G.career || []) ms.push([x.to, `Sold ${x.club} for ${money(x.sold)}`]);
+  ms.sort((a, b) => a[0] - b[0]);
+  return { H, clubs, trophies: trophies.sort((a, b) => a[0] - b[0]), ms,
+    ups: H.filter(h => h.up).length, downs: H.filter(h => h.down).length, best: H.length ? H.slice().sort((a, b) => a.tier - b.tier || a.pos - b.pos)[0] : null };
+}
+function pgOwner() {
+  const c = my(), O = G.owner, R = ownerRecord(), v = valuation(c), stake = Math.round(v * ownPct() / 100), lent = O.lent || 0, worth = O.wealth + stake + lent;
+  const since = (G.career && G.career[0] ? G.career[0].from : c.ownedFrom ?? c.founded), years = G.year - since + (G.phase === "summer" ? 0 : 1);
+  const staffT = Object.values(c.staff).filter(Boolean).map(s => s.trust), med = G.meddle || 0;
+  const style = med >= 3 ? ["A meddler: you overrule your staff a lot", "bad"] : med >= 1 ? ["Involved: you step in now and then", "warn"] : ["Hands-off: you let your staff work", "good"];
+  const inv = (G.board || {}).inv || [], invMood = inv.length ? avg(inv.map(i => i.mood)) : null;
+  const V = vision(), topPri = Object.entries(V.pri).sort((a, b) => b[1] - a[1]).filter(x => x[1] > 0).slice(0, 3).map(([k, n]) => `${PRIORITIES[k].l} ${"●".repeat(n)}`).join(" · ");
+  return `<div class="grid2"><div class="stack">
+    <section class="card summary"><div class="card-h"><h2>${esc(O.name)}</h2><span class="small muted">${WEALTH[O.kind] ? WEALTH[O.kind].l : "Owner"} · ${ord(years)} season as an owner</span></div>
+      <label class="small">Your name <input type="text" data-act="oname" value="${esc(O.name)}" maxlength="30"></label>
+      <dl class="ledger" style="margin-top:12px"><dt>Your fortune</dt><dd>${money(O.wealth)}</dd><dt>Your ${ownPct()}% of ${esc(c.name)}</dt><dd>${money(stake)}</dd>${lent ? `<dt>Lent to the club</dt><dd>${money(lent)}</dd>` : ""}
+        <dt class="tot">Net worth</dt><dd class="tot">${money(worth)}</dd><dt>Put in so far</dt><dd>${money(O.invested)}</dd>
+        <dt>Started with</dt><dd>${WEALTH[O.kind] ? money(WEALTH[O.kind].amt) : "—"}</dd></dl></section>
+    <section class="card"><div class="card-h"><h3>How you're seen</h3></div><dl class="ledger">
+      <dt>Supporters</dt><dd>${word(moodWord(c.mood))}</dd>
+      <dt>Supporters' trust</dt><dd>${G.sTrust ? `${Math.round(G.sTrust.rel)}/100` : "—"}</dd>
+      <dt>Your staff</dt><dd>${staffT.length ? word(trustWord(avg(staffT))) : "No staff yet"}</dd>
+      ${invMood != null ? `<dt>Investors</dt><dd>${invMood >= 60 ? '<span class="good">Happy</span>' : invMood >= 35 ? "Watchful" : '<span class="bad">Unhappy</span>'}</dd>` : ""}
+      <dt>Media profile</dt><dd>${Math.round(c.media || 10)}/100</dd></dl>
+      <p class="small ${style[1]}" style="margin-top:8px">${style[0]}.</p></section>
+    <section class="card"><div class="card-h"><h3>Your vision</h3><button class="lnk small" data-act="page" data-p="board">Change</button></div>
+      <p class="small"><b>Football:</b> ${V.style === "any" ? "whatever wins" : STYLES[V.style].l} · <b>Recruitment:</b> ${V.recruit === "any" ? "left to the experts" : ROLES_STAFF.recruit.phil[V.recruit].l}</p>
+      <p class="small" style="margin-top:4px"><b>Priorities:</b> ${topPri || "none set"}</p></section>
+  </div><div class="stack">
+    <section class="card"><div class="card-h"><h2>Record</h2></div><dl class="ledger">
+      <dt>Seasons</dt><dd>${R.H.length}</dd><dt>Promotions</dt><dd>${R.ups}</dd><dt>Relegations</dt><dd>${R.downs}</dd><dt>Trophies</dt><dd>${R.trophies.length}</dd>
+      <dt>Best finish</dt><dd style="font-family:inherit">${R.best ? `${ord(R.best.pos)}, ${LEAGUES[R.best.lg].name} (${seasonLabel(R.best.y)})` : "—"}</dd>
+      <dt>Clubs owned</dt><dd style="font-family:inherit">${R.clubs.map(esc).join(", ")}</dd></dl>
+      ${R.trophies.length ? `<h3 style="margin:12px 0 6px">Honours</h3>${R.trophies.map(t => `<p class="small">🏆 ${seasonLabel(t[0])} · ${esc(t[1])}${R.clubs.length > 1 ? ` <span class="muted">(${esc(t[2])})</span>` : ""}</p>`).join("")}` : ""}</section>
+    <section class="card"><div class="card-h"><h3>Milestones</h3></div>${R.ms.map(([y, t]) => `<div class="row small" style="padding:3px 0;gap:10px"><span class="num muted" style="min-width:4ch">${y}</span><span>${esc(t)}</span></div>`).join("")}
+      ${R.H.length < 2 ? `<p class="small muted" style="margin-top:6px">Promotions, titles, cups, European football and club legends will appear here as they happen.</p>` : ""}</section>
+  </div></div>`;
+}
