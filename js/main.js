@@ -59,6 +59,7 @@ const ACT = {
   mctyall: el => { MARKET_F.off = el.dataset.v === "1" ? [] : MKT_COUNTRIES.slice(); render(); },
   nudge: el => { const a = el.dataset.a, k = el.dataset.k, inp = document.querySelector(`input[data-act="${a}"][data-k="${k}"]`); if (!inp) return;
     const v = el.dataset.set != null ? +el.dataset.set : Math.max(0, Math.round((num(inp) + +el.dataset.d) * 100) / 100); inp.value = String(v); CHANGE[a](inp); },
+  mfind: el => { Object.assign(MARKET_F, { tab: "all", pos: el.dataset.k, arch: "", int: "sign" }); PAGE = "market"; render(); scrollTo(0, 0); },
   mtab: el => { MARKET_F.tab = el.dataset.k; render(); },
   loanask: el => { const p = P(+el.dataset.id), from = CL(p.club), partner = net().partner && net().partner.id === from.id;
     if (R() < (partner ? .9 : .65)) { loanIn(p, from); toast(`${from.name} agree: ${p.name} joins on loan until the end of the season.`); }

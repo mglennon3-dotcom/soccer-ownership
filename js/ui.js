@@ -121,13 +121,15 @@ function pgHome() {
         const R = K.ko[K.round], t = R && R.ties.find(t => (t.h === G.club || t.a === G.club) && t.w == null); return t ? `<p>${D.name} ${R.n.toLowerCase()}: v ${clubLink(CL(t.h === G.club ? t.a : t.h))} <span class="muted small">· week${R.n === "Final" ? "" : "s"} ${CONT_KO[K.round].w.map(w => w + 1).join(" & ")}</span></p>` : ""; }).join("")}
       ${weatherLine()}
       <p class="small muted" style="margin-top:6px">Squad suits the manager's style: ${fitText(fit)} · Team rating ${r20(avg(xi.map(o => roleRating(o.p, o.slot))))} (division typical ${r20(TIER_LVL[c.tier])}) · Morale ${Math.round(c.morale)}</p></section>
+    ${positionCard(c)}
+    ${performersCard(c)}
+    ${needsCard(c)}
     ${todo.length ? `<section class="card"><div class="card-h"><h2>Needs your attention</h2></div><ul class="todo">${todo.map(([t, p]) => `<li><button class="lnk" data-act="page" data-p="${p}">${esc(t)}</button></li>`).join("")}</ul></section>` : ""}
     ${inboxCard()}
     ${G.phase === "summer" && !(G.obj && G.obj.y === G.year) ? objectivesCard() : ""}
     <section class="card"><div class="card-h"><h2>Results</h2><button class="lnk small" data-act="page" data-p="league">All results</button></div>${last.length ? resultsList(last) : `<p class="muted">No games yet.</p>`}</section>
     <section class="card"><div class="card-h"><h2>News</h2></div><ul class="news">${G.news.slice(0, 25).map(n => `<li class="${n.hi ? "hi" : ""}">${esc(n.t)}<small>${n.y} · ${n.w}</small></li>`).join("")}</ul></section>
   </div><div class="stack">
-    ${G.phase !== "summer" ? `<section class="card"><div class="card-h"><h3>${LEAGUES[c.lg].name}</h3></div>${miniTable(c.lg)}</section>` : `<section class="card"><div class="card-h"><h3>This season</h3></div><p>${LEAGUES[c.lg].name}. ${LEAGUES[c.lg].auto} promoted automatically${LEAGUES[c.lg].po ? `, ${ord(LEAGUES[c.lg].po[0])}–${ord(LEAGUES[c.lg].po[1])} to the play-offs` : ""}.</p></section>`}
     <section class="card"><div class="card-h"><h3>The club</h3></div><dl class="ledger">
       <dt>Supporters</dt><dd>${c.fans.toLocaleString("en-GB")} · ${word(moodWord(c.mood))}</dd>
       <dt>Ground</dt><dd>${capacity(c).toLocaleString("en-GB")}${atHome(c) ? "" : " (rented)"}</dd>

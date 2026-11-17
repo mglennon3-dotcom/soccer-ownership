@@ -232,3 +232,41 @@ function pgTactics() {
       <dl class="ledger" style="margin-top:6px"><dt>They play</dt><dd>${STYLES[opp.coach.style].l}, ${opp.coach.form}</dd><dt>Their side</dt><dd>${rating(avg(oxi.map(o => roleRating(o.p, o.slot))))}</dd><dt>Ours</dt><dd>${rating(avg(xi.map(o => roleRating(o.p, o.slot))))}</dd></dl></section>` : ""}
   </div></div>`;
 }
+
+/* ---------- Office: league position, top performers, areas of need ---------- */
+function positionCard(c) {
+  const L = LEAGUES[c.lg], t = table(c.lg), i = t.findIndex(r => r.id === c.id), me = t[i], n = t.length;
+  if (G.phase === "summer" || !me || !me.p) return `<section class="card"><div class="card-h"><h2>${L.name}</h2></div><p>${L.auto} promoted automatically${L.po ? `, ${ord(L.po[0])}–${ord(L.po[1])} to the play-offs` : ""}, bottom ${L.down} ${L.tier === 7 ? "drop out of the pyramid" : "relegated"}.</p>${G.phase === "summer" ? "" : miniTable(c.lg)}</section>`;
+  const gap = pos => { const r = t[pos - 1]; return r ? r.pts - me.pts : 0; };
+  const lines = [];
+  if (L.auto && i + 1 > L.auto) lines.push(`${gap(L.auto)} point${gap(L.auto) === 1 ? "" : "s"} off automatic promotion`);
+  else if (L.auto) lines.push(`In an automatic promotion place${i + 1 < n ? `, ${me.pts - t[L.auto].pts} clear` : ""}`);
+  if (L.po && i + 1 > L.po[1]) lines.push(`${gap(L.po[1])} off the play-offs`);
+  else if (L.po && i + 1 >= L.po[0]) lines.push("In the play-off places");
+  if (L.down) { const safe = n - L.down; if (i + 1 > safe) lines.push(`<span class="bad">${gap(safe)} point${gap(safe) === 1 ? "" : "s"} from safety</span>`); else lines.push(`${me.pts - t[safe].pts} clear of the drop`); }
+  return `<section class="card"><div class="card-h"><h2>${ord(i + 1)} <span class="muted" style="font-size:.6em">of ${n}</span></h2><span class="small muted">${me.pts} pts · ${me.w}W ${me.d}D ${me.l}L · GD ${me.gf - me.ga >= 0 ? "+" : ""}${me.gf - me.ga}</span></div>
+    <p class="small" style="margin-bottom:8px">${lines.join(" · ")}</p>${miniTable(c.lg)}
+    <div class="row" style="margin-top:6px"><button class="lnk small" data-act="page" data-p="league">Full table</button></div></section>`;
+}
+function performersCard(c) {
+  const ps = c.squad.map(P).filter(p => !p.acad || p.s.app), any = ps.some(p => p.s.app);
+  const top = (f, k, unit) => { const l = ps.filter(p => f(p) > 0).sort((a, b) => f(b) - f(a) || b.ovr - a.ovr).slice(0, 3);
+    return l.length ? l.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span><b class="num">${f(p)}${unit ? " " + unit : ""}</b></div>`).join("") : `<p class="small muted">None yet.</p>`; };
+  const best = ps.slice().sort((a, b) => b.ovr - a.ovr).slice(0, 3);
+  return `<section class="card"><div class="card-h"><h2>Top performers</h2><span class="small muted">this season</span></div>
+    <div class="perf">
+      <div><h3>Goals</h3>${any ? top(p => p.s.g, "g") : `<p class="small muted">No games yet.</p>`}</div>
+      <div><h3>Assists</h3>${any ? top(p => p.s.a, "a") : `<p class="small muted">No games yet.</p>`}</div>
+      <div><h3>Best players</h3>${best.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span>${rating(p.ovr)}</div>`).join("")}</div>
+    </div></section>`;
+}
+function needsCard(c) {
+  const needs = squadNeeds(c), xi = pickXI(c), L = lineStrength(xi), div = G.leagues[c.lg].clubs.filter(id => id !== c.id).map(id => lineStrength(pickXI(CL(id))));
+  const lines = [["Attack", "a"], ["Midfield", "m"], ["Defence", "d"]].map(([l, k]) => [l, r20(L[k]) - r20(avg(div.map(x => x[k])))]).sort((a, b) => a[1] - b[1]);
+  const weak = lines[0], s = staffOf("recruit");
+  return `<section class="card"><div class="card-h"><h2>Areas of need</h2><button class="lnk small" data-act="page" data-p="tactics">Tactics</button></div>
+    ${needs.length ? needs.slice(0, 5).map(n => `<div class="row between" style="padding:4px 0;border-top:1px solid var(--line)"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `<b>${n.short} more needed</b>` : `<b>needs an upgrade</b>`} <span class="small muted">best now ${n.weakest ? r20(n.weakest) : "—"}, typical ${r20(TIER_LVL[c.tier])}</span></span><button class="btn sm" data-act="mfind" data-k="${n.pos}">Find</button></div>`).join("")
+      : `<p class="small">Every position is covered at your division's standard.</p>`}
+    <p class="small" style="margin-top:8px">Weakest area: <b>${weak[0].toLowerCase()}</b> ${weak[1] < 0 ? `<span class="bad">${weak[1]} on the division average</span>` : weak[1] > 0 ? `<span class="good">still +${weak[1]} on the division average</span>` : "level with the division average"}.</p>
+    <p class="small muted" style="margin-top:4px">${s ? `${esc(s.name)} is working through these in the transfer windows.` : "You have no head of recruitment to fill them."}</p></section>`;
+}
