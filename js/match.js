@@ -15,15 +15,28 @@ const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
 function pickXI(c) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false;
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 17 && p.ovr >= TIER_LVL[c.tier] - 6));
-  // Managers judge on the 20-point scale (unrounded, so a squad of 1s isn't a lottery), prefer players in their own
-  // position, and split near-ties by the potential they see.
-  const score = (p, s) => to20(roleRating(p, s)) + (p.pos === s ? .3 : 0) + (youth && p.age <= 21 ? Math.min(1, (p.pot - p.ovr) * .05) : 0) + r20(p.pot) * .01 + (p.id % 7) * .001;
+  /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
+     one point on the 100 scale, about a tenth of a shown point at the top), and a manager who trusts youth gives a
+     promising youngster in his own position up to 1.5 more: enough to pick him over a slightly better senior player,
+     never over a clearly better one. */
+  const score = (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + (youth && p.age <= 21 && p.pos === s ? Math.min(1.5, (p.pot - p.ovr) * .1) : 0) + (p.id % 7) * .0001;
+  // The strongest player-position pairs first, across the whole formation (not slot by slot)...
+  const pairs = [];
+  for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
+  pairs.sort((a, b) => b[0] - a[0]);
   const out = Array(11).fill(null), used = new Set();
-  const order = slots.map((s, i) => i).sort((a, b) => (slots[a] === "GK" ? -1 : 0) - (slots[b] === "GK" ? -1 : 0));
-  for (const i of order) {
-    let best = null, bs = -1;
-    for (const p of pool) { if (used.has(p.id)) continue; const v = score(p, slots[i]); if (v > bs) { bs = v; best = p; } }
-    if (best) { out[i] = best; used.add(best.id); }
+  for (const [, i, p] of pairs) { if (out[i] || used.has(p.id)) continue; out[i] = p; used.add(p.id); }
+  // ...then swap players between positions, and with the bench, while it makes the side better.
+  for (let pass = 0, better = true; better && pass < 8; pass++) {
+    better = false;
+    for (let a = 0; a < 11; a++) for (let b = a + 1; b < 11; b++) {
+      const pa = out[a], pb = out[b]; if (!pa || !pb) continue;
+      if (score(pa, slots[b]) + score(pb, slots[a]) > score(pa, slots[a]) + score(pb, slots[b]) + 1e-9) { out[a] = pb; out[b] = pa; better = true; }
+    }
+    for (let a = 0; a < 11; a++) for (const q of pool) {
+      if (used.has(q.id)) continue;
+      if (!out[a] || score(q, slots[a]) > score(out[a], slots[a]) + 1e-9) { if (out[a]) used.delete(out[a].id); out[a] = q; used.add(q.id); better = true; }
+    }
   }
   return out.map((p, i) => p ? { p, slot: slots[i], i } : null).filter(Boolean);
 }
