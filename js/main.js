@@ -109,7 +109,7 @@ const ACT = {
   invest: el => { invest(+el.dataset.v); render(); }, investx: () => { invest(num($("#inv-amt"))); render(); }, withdraw: () => { withdraw(num($("#inv-amt"))); render(); },
   sponsor: el => { const o = my().offers.filter(x => x.slot === el.dataset.k)[+el.dataset.i]; if (o) acceptOffer(o); render(); saveGame(); },
   askoffers: el => { const c = my(); (c.ask ||= {})[el.dataset.k] = G.week + G.year * 100; refreshOffers(c, el.dataset.k); render(); },
-  host: el => { setGround(my(), +el.dataset.i); news(`The club moves to ${HOSTS[+el.dataset.i].name}.`); render(); },
+  host: el => { const i = el.dataset.i === "home" ? "home" : +el.dataset.i; setGround(my(), i); news(i === "home" ? `The club moves back to ${my().fac.stadium.name}.` : `The club moves to ${HOSTS[i].name}.`); render(); saveGame(); },
   buildst: async el => { const n = +el.dataset.n, q = newStadiumQuote(n), name = ($("#st-name").value || my().town + " Park").trim(); if (!await ask(`Build ${name} (${n.toLocaleString()}) for ${money(q.cost)}?`)) return; built(startBuild("stadium", { type: "new", ...q, name, label: `building ${name}, ${n.toLocaleString()} capacity` })); render(); saveGame(); },
   expand: async el => { const q = expandQuote(my(), +el.dataset.n); if (!await ask(`Build a ${q.add.toLocaleString()}-seat stand for ${money(q.cost)}?`)) return; built(startBuild("stadium", { type: "expand", ...q, label: `a new ${q.add.toLocaleString()}-capacity stand` })); render(); saveGame(); },
   amen: () => { const q = amenQuote(my()); built(startBuild("stadium", { type: "amen", ...q, label: `stadium facilities to level ${q.lvl}` })); render(); saveGame(); },

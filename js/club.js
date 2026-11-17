@@ -31,9 +31,23 @@ const HOSTS = [
   { name: "the town Recreation Ground", cap: 1200, rent: 600, amen: 1 },
   { name: "a ground-share with a neighbouring club", cap: 3500, rent: 2500, amen: 2 },
   { name: "a ground-share at a Football League stadium", cap: 9000, rent: 9000, amen: 3 },
+  { name: "a ground-share at a Premier Division stadium", cap: 30000, rent: 45000, amen: 4 },
 ];
-function setGround(c, i) { c.fac.stadium.host = i; if (!c.fac.stadium.own) { c.cap = HOSTS[i].cap; } }
-const ground = c => c.fac.stadium.own ? { name: c.fac.stadium.name || `${c.town} Park`, cap: c.fac.stadium.cap, amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.host];
+/* Where you play. Without a ground of your own you rent one (S.host). With one, you play there unless you've moved out
+   to a bigger rented ground for a while (S.away), for example to meet ground grading after promotion. */
+const atHome = c => c.fac.stadium.own && c.fac.stadium.away == null;
+function setGround(c, i) {
+  const S = c.fac.stadium;
+  if (S.own) S.away = i === "home" ? null : i; else S.host = i;
+  c.cap = capacity(c);
+}
+const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, cap: c.fac.stadium.cap, amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.own ? c.fac.stadium.away : c.fac.stadium.host];
+/* Promotion with too small a ground: the club agrees a ground-share at the cheapest rented ground big enough. */
+function shareForPromotion(c, need) {
+  const i = HOSTS.findIndex(h => h.cap >= need); if (i < 0) return false;
+  setGround(c, i);
+  return HOSTS[i];
+}
 const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
 const perSeat = cap => 650 + cap * .055;
@@ -96,7 +110,7 @@ function crowdFor(c, opp, price = c.prices.ticket) {
 }
 function concessionsFor(c, crowd, price = c.prices.conc) {
   const am = ground(c).amen, buy = clamp(1.6 * Math.pow(REF_CONC[c.tier] / Math.max(.3, price), 1.4), 0, 2.6) * (.65 + am * .12);
-  const gross = crowd * buy * price, cut = c.fac.stadium.own ? 1 : .5;  // a landlord keeps half the bar takings
+  const gross = crowd * buy * price, cut = atHome(c) ? 1 : .5;  // a landlord keeps half the bar takings
   return { gross, net: gross * .55 * cut };
 }
 function merchFor(c, price = c.prices.shirt) {  // per week
@@ -196,12 +210,12 @@ function suiteQuote(c, n = 4) { const room = suiteMax(c) - (c.fac.stadium.suites
    re-lay it. (While you rent a ground, the pitch is the landlord's problem.) */
 const PITCH = { grass: { l: "Natural grass", wear: 2.4, cost: c => 40000 + c.fac.stadium.cap * 4 }, hybrid: { l: "Hybrid (reinforced) grass", wear: 1.1, cost: c => 250000 + c.fac.stadium.cap * 22 } };
 const pitchWord = q => q >= 80 ? ["Excellent", "good"] : q >= 65 ? ["Good", "good"] : q >= 50 ? ["Worn", "warn"] : q >= 35 ? ["Poor", "bad"] : ["Mudbath", "bad"];
-const pitchOf = c => c.fac.stadium.own ? c.fac.stadium.pitch : null;
+const pitchOf = c => atHome(c) ? c.fac.stadium.pitch : null;
 function pitchWeek(c, homeGame) {
   const S = c.fac.stadium; if (!S.own) return;
   if (S.relay && --S.relay.left <= 0) { S.ptype = S.relay.type; S.pitch = 100; S.relay = null; news(`The new ${PITCH[S.ptype].l.toLowerCase()} pitch is laid.`, true); return; }
   const before = S.pitch;
-  if (homeGame) S.pitch -= PITCH[S.ptype || "grass"].wear * rf(.7, 1.4) * (G.wx ? wxAt(c).wear : 1) * wearMult();
+  if (homeGame && atHome(c)) S.pitch -= PITCH[S.ptype || "grass"].wear * rf(.7, 1.4) * (G.wx ? wxAt(c).wear : 1) * wearMult();
   S.pitch = clamp(S.pitch + (G.phase === "summer" ? 3 : .35), 5, 100);
   if (S.pitch < 40 && homeGame) moodHit(c, -.4);
   if (pitchWord(before)[0] !== pitchWord(S.pitch)[0] && S.pitch < before && S.pitch < 65) news(`The groundsman reports the pitch is now ${pitchWord(S.pitch)[0].toLowerCase()} (${Math.round(S.pitch)}/100).`, S.pitch < 50);
@@ -244,7 +258,7 @@ function ventureWeek(c) {
   let t = 0; for (const k of Object.keys(c.fac.stadium.vent || {})) { const V = VENTURES[k]; if (V.week) t += V.week(c); if (V.wear) c.fac.stadium.pitch = Math.max(5, c.fac.stadium.pitch - V.wear * rf(.6, 1.4)); }
   return t;
 }
-const ventureGame = (c, crowd) => c.fac.stadium.own ? sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].game ? VENTURES[k].game(c, crowd) : 0) : 0;
+const ventureGame = (c, crowd) => atHome(c) ? sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].game ? VENTURES[k].game(c, crowd) : 0) : 0;
 /* Summer concerts: a big ground can host up to four. Each pays by capacity and the club's draw, and costs the pitch
    about eight points. Set how many you want on the Facilities page; they're held during the pre-season. */
 const CONCERT_MIN = 15000;

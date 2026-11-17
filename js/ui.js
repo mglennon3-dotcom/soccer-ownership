@@ -108,7 +108,7 @@ function pgHome() {
     ${G.phase !== "summer" ? `<section class="card"><div class="card-h"><h3>${LEAGUES[c.lg].name}</h3></div>${miniTable(c.lg)}</section>` : `<section class="card"><div class="card-h"><h3>This season</h3></div><p>${LEAGUES[c.lg].name}. ${LEAGUES[c.lg].auto} promoted automatically${LEAGUES[c.lg].po ? `, ${ord(LEAGUES[c.lg].po[0])}–${ord(LEAGUES[c.lg].po[1])} to the play-offs` : ""}.</p></section>`}
     <section class="card"><div class="card-h"><h3>The club</h3></div><dl class="ledger">
       <dt>Supporters</dt><dd>${c.fans.toLocaleString("en-GB")} · ${word(moodWord(c.mood))}</dd>
-      <dt>Ground</dt><dd>${capacity(c).toLocaleString("en-GB")}${c.fac.stadium.own ? "" : " (rented)"}</dd>
+      <dt>Ground</dt><dd>${capacity(c).toLocaleString("en-GB")}${atHome(c) ? "" : " (rented)"}</dd>
       <dt>Training ground</dt><dd>Level ${c.fac.train.lvl}</dd><dt>Academy</dt><dd>Level ${c.fac.acad.lvl}</dd>
       <dt>Wage bill</dt><dd>${money(wageBill(c))} / ${money(c.budget.wages)}</dd>
       <dt>Season so far</dt><dd class="${ledgerIncome(c.fin) - ledgerCosts(c.fin) < 0 ? "bad" : "good"}">${money(ledgerIncome(c.fin) - ledgerCosts(c.fin))}</dd></dl></section>
@@ -230,7 +230,7 @@ function pgFin() {
   return `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h2>Prices</h2></div><div class="price-grid">
       ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}: ${money(f.gate)} a game.`)}
-      ${priceIn("conc", "Food & drink (average item)", REF_CONC[T], .5, `About ${money(f.conc)} profit a game${c.fac.stadium.own ? "" : " after your landlord's half"}.`)}
+      ${priceIn("conc", "Food & drink (average item)", REF_CONC[T], .5, `About ${money(f.conc)} profit a game${atHome(c) ? "" : " after your landlord's half"}.`)}
       ${priceIn("shirt", "Replica shirt", REF_SHIRT[T], 1, `About ${money(merchFor(c) * 52)} profit a year.`)}
       ${c.fac.stadium.own && c.fac.stadium.suites ? priceIn("suite", "Executive suite (per season)", REF_SUITE[T], 500, `${suitesLet(c)} of ${c.fac.stadium.suites} suites let: ${money(suitesLet(c) * c.prices.suite)} a season.`) : ""}
     </div><p class="small muted" style="margin-top:8px">Supporters notice prices well above the going rate and their mood suffers; cheap tickets win a little goodwill.</p></section>
@@ -281,8 +281,12 @@ function pgFac() {
     <dl class="ledger"><dt>Capacity</dt><dd>${capacity(c).toLocaleString("en-GB")}</dd><dt>Needed for promotion</dt><dd class="${capacity(c) < need ? "bad" : "good"}">${need ? need.toLocaleString("en-GB") : "—"}</dd>
     <dt>Facilities</dt><dd>Level ${ground(c).amen} of 5</dd>${S.own ? `<dt>Executive suites</dt><dd>${S.suites || 0} (room for ${suiteMax(c)})</dd><dt>Pitch</dt><dd>${word(pitchWord(S.pitch))} ${Math.round(S.pitch)}/100 · ${PITCH[S.ptype || "grass"].l}</dd><dt>Upkeep</dt><dd>${money(stadiumUpkeep(c))}/yr</dd>` : `<dt>Rent</dt><dd>${money(ground(c).rent)} a home game</dd>`}</dl>`;
   if (S.build) st += `<p style="margin-top:10px"><b>${esc(S.build.label)}</b></p>` + progress(S.build);
+  const here = i => S.own ? S.away === i : S.host === i;
+  st += `<h3 style="margin:14px 0 6px">Where you play</h3>
+    <p class="small muted">If you win promotion with too small a ground, the club takes the cheapest ground-share big enough for the new division, so promotion goes ahead.</p>
+    ${S.own ? `<div class="row between offer"><span><b>${esc(S.name)}</b> (your own ground)<br><span class="small muted">${S.cap.toLocaleString("en-GB")} capacity · no rent · all the bar takings</span></span>${atHome(c) ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="home">Move back home</button>`}</div>` : ""}
+    ${HOSTS.map((h, i) => `<div class="row between offer"><span>${esc(h.name[0].toUpperCase() + h.name.slice(1))}<br><span class="small muted">${h.cap.toLocaleString("en-GB")} capacity · ${money(h.rent)} a game · facilities ${h.amen}${h.cap >= need && need ? " · meets the next division's grading" : ""}</span></span>${here(i) ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="${i}">Move here</button>`}</div>`).join("")}`;
   if (!S.own) {
-    st += `<h3 style="margin:14px 0 6px">Where you play</h3>${HOSTS.map((h, i) => `<div class="row between offer"><span>${esc(h.name[0].toUpperCase() + h.name.slice(1))}<br><span class="small muted">${h.cap.toLocaleString("en-GB")} capacity · ${money(h.rent)} a game · facilities ${h.amen}</span></span>${S.host === i ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="${i}">Move here</button>`}</div>`).join("")}`;
     if (!S.build) st += `<h3 style="margin:14px 0 6px">Build your own ground</h3><p class="small muted">Your own ground keeps all the bar takings, unlocks executive suites and naming rights, and has no rent; it has upkeep instead. You'll keep renting while it's built.</p>
       <label class="small">Name <input id="st-name" value="${esc(c.town)} Park" maxlength="30"></label>
       ${BUILD_SIZES.map(n => { const q = newStadiumQuote(n); return `<div class="row between offer"><span><b>${n.toLocaleString("en-GB")}</b> capacity<br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="buildst" data-n="${n}">Build</button></div>`; }).join("")}`;

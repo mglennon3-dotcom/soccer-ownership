@@ -149,7 +149,11 @@ function endSeason() {
         const c = CL(id);
         if (!isMine(c) && c.cap < need) c.cap = Math.round(need * 1.15 / 100) * 100;  // AI clubs sort their grounds out
         if (capacity2(c) >= need) final.push(id);
-        else if (isMine(c)) news(`PROMOTION DENIED. ${c.name} finished in a promotion place, but the ground holds ${capacity2(c).toLocaleString("en-GB")} and the ${LEAGUES[ABOVE[k]].name} requires ${need.toLocaleString("en-GB")}.`, true);
+        else if (isMine(c)) {
+          const h = shareForPromotion(c, need);
+          if (h) { final.push(id); news(`To meet ground grading for the ${LEAGUES[ABOVE[k]].name} (${need.toLocaleString("en-GB")}), ${c.name} agree ${h.name}: ${h.cap.toLocaleString("en-GB")} capacity, ${money(h.rent)} rent a home game. You can move again from the Facilities page.`, true); }
+          else news(`PROMOTION DENIED. ${c.name} finished in a promotion place, but the ground holds ${capacity2(c).toLocaleString("en-GB")}, the ${LEAGUES[ABOVE[k]].name} requires ${need.toLocaleString("en-GB")}, and no ground-share that big was available.`, true);
+        }
       }
       for (const id of ids) { if (final.length >= up.length) break; if (!final.includes(id) && !up.includes(id) && capacity2(CL(id)) >= need) final.push(id); }
       for (const id of final) moves.push([id, ABOVE[k]]);
