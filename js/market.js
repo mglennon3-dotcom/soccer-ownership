@@ -11,10 +11,15 @@ function demandWage(p, c) {
 }
 // Will he come at all? Players rarely drop more than two divisions.
 const willJoin = (p, c) => p.club < 0 && p.club !== -2 ? true : c.tier - (p.club >= 0 ? CL(p.club).tier : 1) <= 3 || p.age >= 32;
-function askingFee(p) {
+// xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once.
+function askingFee(p, xi) {
   if (p.club === -1) return 0;
   let f = valueOf(p) * 1.15;
-  if (p.club >= 0) { const c = CL(p.club); if (pickXI(c).some(o => o.p === p)) f *= 1.3; if (p.list) f *= .8; }
+  if (p.club >= 0) {
+    const c = CL(p.club), starters = xi ? (xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id))) : null;
+    if (starters ? starters.has(p.id) : pickXI(c).some(o => o.p === p)) f *= 1.3;
+    if (p.list) f *= .8;
+  }
   return Math.round(f / 1000) * 1000;
 }
 const negotiated = fee => Math.round(fee * (1.08 - staffAttr("recruit", "neg", 30) / 300) / 1000) * 1000;

@@ -17,6 +17,17 @@ const rating = v => `<span class="ovr ${rcls(v)}">${r20(v)}</span>`;
 const range = ([a, b]) => r20(a) === r20(b) ? rating(a) : `<span class="ovr ${rcls((a + b) / 2)}">${r20(a)}–${r20(b)}</span>`;
 const favChip = (p, cid) => ({ 2: '<span class="chip rival r3">LEGEND</span>', 1: '<span class="chip acad">FAN FAVOURITE</span>' })[favLevel(p, cid)] || "";
 const exLine = s => s.ex ? `<p class="small">${isLegendOf(s, G.club) ? '<span class="chip rival r3">YOUR CLUB LEGEND</span> ' : s.ex.favOf.includes(G.club) ? '<span class="chip acad">YOUR FORMER FAVOURITE</span> ' : ""}Former ${POS_NAME[s.ex.pos].toLowerCase()}: best rating ${r20(s.ex.peak)}, ${s.ex.apps} games, ${s.ex.goals} goals (${s.ex.clubs.map(esc).join(", ")})</p>` : "";
+/* Sortable tables, as in Touchline Manager: tap a column heading to sort by it, tap again to reverse. Text columns start
+   A-Z, numbers start highest first. cols: { k, l, v: row => sort value, f: row => cell html, r: right-aligned, left }. */
+let SORTS = {};
+function sortTable(id, cols, rows, opt = {}) {
+  const st = SORTS[id] || opt.sort || null;
+  if (st) { const col = cols.find(c => c.k === st.k); if (col && col.v) rows = rows.map(r => [col.v(r), r]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0) * st.d).map(x => x[1]); }
+  const total = rows.length; if (opt.limit) rows = rows.slice(0, opt.limit);
+  return `<div class="tbl-wrap"><table class="sq"><thead><tr>${cols.map(c => `<th${c.left ? ' style="text-align:left"' : ""} ${st && st.k === c.k ? `aria-sort="${st.d > 0 ? "ascending" : "descending"}"` : ""}>${c.v ? `<button data-act="sort" data-v="${id}|${c.k}">${c.l}${st && st.k === c.k ? (st.d > 0 ? " ▲" : " ▼") : ""}</button>` : c.l}</th>`).join("")}</tr></thead><tbody>
+    ${rows.map(r => `<tr${opt.row ? " " + opt.row(r) : ""}>${cols.map(c => `<td class="${c.r ? "num" : ""}"${c.left ? ' style="text-align:left"' : ""}>${c.f(r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted">${opt.empty || "Nothing to show."}</td></tr>`}</tbody></table></div>${opt.limit && total > opt.limit ? `<p class="small muted" style="margin-top:6px">Showing ${opt.limit} of ${total.toLocaleString("en-GB")}. Narrow the filters or sort to see others.</p>` : ""}`;
+}
+const SORT_UP = ["name", "pos", "club", "nat"];  // columns that start A-Z (or by position)
 const attr20 = v => `${bar(v)}<b class="num">${r20(v)}</b>`;
 const word = ([w, cls]) => `<span class="${cls}">${w}</span>`;
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2600); }
@@ -158,9 +169,18 @@ function pgSquad() {
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
   return `<section class="card"><div class="card-h"><h2>Squad</h2><div class="seg"><button data-act="sub" data-k="squad" data-v="first" aria-pressed="${tab === "first"}">First team (${c.squad.filter(id => !P(id).acad).length})</button><button data-act="sub" data-k="squad" data-v="acad" aria-pressed="${tab === "acad"}">Academy (${c.squad.filter(id => P(id).acad).length})</button></div></div>
     <p class="small muted" style="margin-bottom:10px">The manager picks the side; players marked XI are his current first choices. Ratings are out of 20: about ${r20(TIER_LVL[c.tier])} is a typical starter in your division, 16 a Premier Division regular, 18–19 world class, and 20 a once-in-a-generation player. Potential shows ${potJudge}. Tap a player to sell, release or protect him.</p>
-    ${ps.length ? `<div class="tbl-wrap"><table class="sq"><thead><tr><th>Pos</th><th style="text-align:left">Name</th><th>Age</th><th>Rating</th><th>Potential</th><th>Apps</th><th>Gls</th><th>Wage</th><th>Contract</th><th>Value</th></tr></thead><tbody>
-    ${ps.map(p => `<tr data-act="player" data-id="${p.id}" class="click"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)} ${xi.has(p.id) ? '<span class="chip xi">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.unsettled > 0 ? '<span class="chip sus">UNSETTLED</span>' : ""}${p.req ? '<span class="chip req">WANTS OUT</span>' : ""}${p.keep ? '<span class="chip list">KEEP</span>' : ""}${p.list ? '<span class="chip req">LISTED</span>' : ""}${favChip(p, c.id)}${p.loan ? '<span class="chip hg">LOAN</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}</td>
-      <td class="num">${p.age}</td><td>${rating(p.ovr)}</td><td>${range(potEstimate(p))}</td><td class="num">${p.s.app}</td><td class="num">${p.s.g}</td><td class="num">${money(p.wage)}</td><td class="num">${p.acad ? "Youth" : p.yrs + "y"}</td><td class="num">${money(valueOf(p))}</td></tr>`).join("")}</tbody></table></div>
+    ${ps.length ? `${sortTable("squad-" + tab, [
+      { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
+      { k: "name", l: "Name", left: true, v: p => p.name, f: p => `${esc(p.name)} ${xi.has(p.id) ? '<span class="chip xi">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.unsettled > 0 ? '<span class="chip sus">UNSETTLED</span>' : ""}${p.req ? '<span class="chip req">WANTS OUT</span>' : ""}${p.keep ? '<span class="chip list">KEEP</span>' : ""}${p.list ? '<span class="chip req">LISTED</span>' : ""}${favChip(p, c.id)}${p.loan ? '<span class="chip hg">LOAN</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}` },
+      { k: "age", l: "Age", r: true, v: p => p.age, f: p => p.age },
+      { k: "ovr", l: "Rating", v: p => p.ovr, f: p => rating(p.ovr) },
+      { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
+      { k: "app", l: "Apps", r: true, v: p => p.s.app, f: p => p.s.app },
+      { k: "g", l: "Gls", r: true, v: p => p.s.g, f: p => p.s.g },
+      { k: "wage", l: "Wage", r: true, v: p => p.wage, f: p => money(p.wage) },
+      { k: "yrs", l: "Contract", r: true, v: p => p.acad ? 99 : p.yrs, f: p => p.acad ? "Youth" : p.yrs + "y" },
+      { k: "val", l: "Value", r: true, v: p => valueOf(p), f: p => money(valueOf(p)) },
+    ], ps, { sort: { k: "pos", d: 1 }, row: p => `data-act="player" data-id="${p.id}" class="click"` })}
     ${tab === "first" && (G.loanList || []).some(id => G.players[id] && G.players[id].loan && G.players[id].loan.from === c.id) ? `<h3 style="margin:14px 0 6px">Out on loan</h3>${(G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id).map(p => `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> (${p.pos}, ${r20(p.ovr)}) at ${esc(CL(p.club).name)}: ${p.s.app} games</p>`).join("")}` : ""}`
     : `<p class="muted">${tab === "acad" ? (c.fac.acad.lvl ? "The academy's first intake arrives in the summer." : "No academy yet. Build one on the Facilities page.") : "No players."}</p>`}</section>`;
 }
@@ -343,14 +363,26 @@ function clubModal(id) {
 /* ---------- Market ---------- */
 function pgMarket() {
   const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c);
-  const pool = Object.values(G.players).filter(p => p.club !== c.id && !p.acad && (!F.pos || p.pos === F.pos) && p.age <= F.age && (p.club < 0 || CL(p.club).tier >= c.tier - 2))
-    .map(p => ({ p, e: ovrEstimate(p), fee: askingFee(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min && (!F.fee || x.fee <= F.fee)).sort((a, b) => b.e[1] - a.e[1]).slice(0, 60);
+  // Everyone who matches the filters can be sorted; each club's first team is worked out once for the asking prices.
+  const xiCache = {};
+  const pool = Object.values(G.players).filter(p => p.club !== c.id && !p.acad && !p.loan && p.club !== -2 && (!F.pos || p.pos === F.pos) && p.age <= F.age && (p.club < 0 || CL(p.club).tier >= c.tier - 2))
+    .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
+    .map(x => ({ ...x, fee: askingFee(x.p, xiCache), pe: potEstimate(x.p) })).filter(x => !F.fee || x.fee <= F.fee);
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Transfer market</h2><span class="small ${windowOpen() ? "good" : "muted"}">${windowOpen() ? "Window open" : "Window closed: free agents only"}</span></div>
     <p class="small muted" style="margin-bottom:10px">Buying a player yourself goes over your head of recruitment's head. Players at clubs more than two divisions above won't come. Ratings are ${s ? `${esc(s.name)}'s estimates` : "guesses: you have no recruitment staff"}.</p>
     <div class="row filters"><select data-act="mf" data-k="pos"><option value="">All positions</option>${POS.map(x => `<option ${F.pos === x ? "selected" : ""}>${x}</option>`).join("")}</select>
       <label class="small">Max age <input type="text" inputmode="decimal" class="num-in sm" data-act="mf" data-k="age" value="${fmtNum(F.age)}"></label><label class="small">Min rating <input type="text" inputmode="decimal" class="num-in sm" data-act="mf" data-k="min" value="${fmtNum(F.min)}"></label><label class="small">Max fee <input type="text" inputmode="decimal" class="num-in" data-act="mf" data-k="fee" value="${F.fee ? fmtNum(F.fee) : ""}" placeholder="any"></label></div>
-    <div class="tbl-wrap"><table class="sq"><thead><tr><th>Pos</th><th style="text-align:left">Name</th><th>Age</th><th style="text-align:left">Club</th><th>Rating</th><th>Potential</th><th>Fee</th></tr></thead><tbody>
-    ${pool.map(({ p, e, fee }) => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td style="text-align:left" class="small">${esc(fromName(p))}</td><td>${range(e)}</td><td>${range(potEstimate(p))}</td><td class="num">${fee ? money(fee) : "Free"}</td></tr>`).join("")}</tbody></table></div></section></div>
+    ${sortTable("market", [
+      { k: "pos", l: "Pos", v: x => POS.indexOf(x.p.pos), f: x => `<span class="pos">${x.p.pos}</span>` },
+      { k: "name", l: "Name", left: true, v: x => x.p.name, f: x => `${esc(x.p.name)}${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}` },
+      { k: "age", l: "Age", r: true, v: x => x.p.age, f: x => x.p.age },
+      { k: "club", l: "Club", left: true, v: x => fromName(x.p), f: x => `<span class="small">${esc(fromName(x.p))}</span>` },
+      { k: "ovr", l: "Rating", v: x => x.e[0] + x.e[1], f: x => range(x.e) },
+      { k: "pot", l: "Potential", v: x => x.pe[0] + x.pe[1], f: x => range(x.pe) },
+      { k: "val", l: "Value", r: true, v: x => valueOf(x.p), f: x => money(valueOf(x.p)) },
+      { k: "fee", l: "Fee", r: true, v: x => x.fee, f: x => x.fee ? money(x.fee) : "Free" },
+      { k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => money(x.p.wage) },
+    ], pool, { sort: { k: "ovr", d: -1 }, limit: 100, row: x => `class="click" data-act="player" data-id="${x.p.id}"`, empty: "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section></div></div>`;
