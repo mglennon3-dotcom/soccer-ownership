@@ -40,3 +40,10 @@ table.lg tr.z-down td:first-child{box-shadow:inset 3px 0 0 var(--zone-down)}
 .fbar{height:7px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}.fbar i{display:block;height:100%}
 details summary{cursor:pointer;color:var(--muted)}
 @media (max-width:860px){.grid2,.grid3{grid-template-columns:minmax(0,1fr)}.factor{grid-template-columns:120px 1fr 36px}}
+
+/* Phones and tablets: 16px form text, or iPhone Safari zooms the page in on every tap of a field and stays zoomed. */
+@media (pointer:coarse),(max-width:760px){input:not([type]),input[type=text],input[type=number],select,textarea{font-size:16px}.num-in{width:132px}.num-in.sm{width:76px}}
+/* iOS only sends taps to elements that look clickable. */
+[data-act]{cursor:pointer}.modal{cursor:auto}
+.todo .lnk,.news .lnk{display:inline}
+.btn,.seg button,.tabs button,.playbtn button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}

@@ -70,7 +70,7 @@ const ACT = {
     if (await ask(`Borrow ${money(amt)} over ${yrs} years at ${(t.rate * 100).toFixed(1)}%: ${money(t.weekly)} a week, ${money(t.weekly * yrs * 52)} in all?`)) { takeLoan(amt, yrs); render(); saveGame(); } },
   olend: () => { ownerLend(+$("#ol-amt").value || 0); render(); }, orecall: () => { ownerRecall(+$("#ol-amt").value || 0); render(); },
   heat: async () => { const q = heatQuote(my()); if (await ask(`Install undersoil heating for ${money(q.cost)}?`)) { built(startBuild("stadium", { type: "heat", ...q, label: "undersoil heating" })); render(); saveGame(); } },
-  page: el => { PAGE = el.dataset.p; closeModal(); scrollTo(0, 0); render(); },
+  page: el => { PAGE = el.dataset.p; MAST_COMPACT = false; closeModal(); render(); scrollTo(0, 0); lastY = 0; },
   sub: el => { SUB[el.dataset.k] = el.dataset.v; render(); },
   adv: el => advanceN(+el.dataset.n || 1),
   advmenu: () => modal(`<div class="modal-h"><h2>Continue</h2><button class="btn modal-x" data-act="close">✕</button></div><div class="modal-b"><div class="stack">
@@ -165,3 +165,27 @@ try { if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) &&
   let reloaded = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (reloaded || busy) return; reloaded = true; location.reload(); }); } } catch (e) { }
 window.claude?.hot?.snapshot?.(() => ({ G, PAGE }));
 start();
+
+/* On a phone the masthead is a third of the screen. As in Touchline Manager, scrolling down shrinks it to the club
+   name and the Continue button; scrolling up (or reaching the top) brings back the numbers and the section tabs. */
+const phoneWidth = () => matchMedia("(max-width:760px)").matches;
+let lastY = 0, upRun = 0, downRun = 0;
+function setCompact(on) {
+  const m = document.querySelector(".mast"); MAST_COMPACT = on; if (!m) return;
+  const before = m.getBoundingClientRect().height;
+  m.classList.toggle("compact", on);
+  // The masthead is sticky and takes up room in the page: scroll by the change so what you were reading stays put.
+  const d = before - m.getBoundingClientRect().height; if (d) window.scrollBy(0, -d);
+  lastY = scrollY; upRun = downRun = 0;
+}
+window.addEventListener("scroll", () => {
+  const y = scrollY, dy = y - lastY; lastY = y;
+  if (!phoneWidth() || !document.querySelector(".mast")) return;
+  if (dy > 0) { downRun += dy; upRun = 0; } else { upRun -= dy; downRun = 0; }
+  if (!MAST_COMPACT && y > 140 && downRun > 40) setCompact(true);
+  else if (MAST_COMPACT && (y < 30 || upRun > 70)) setCompact(false);
+}, { passive: true });
+window.addEventListener("resize", () => { if (!phoneWidth() && MAST_COMPACT) setCompact(false); });
+// iPhones close web apps in the background without warning: save whenever the game is put away.
+document.addEventListener("visibilitychange", () => { if (document.hidden && G && G.club != null) saveGame(); });
+window.addEventListener("pagehide", () => { if (G && G.club != null) saveGame(); });

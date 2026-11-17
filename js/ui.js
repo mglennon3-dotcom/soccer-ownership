@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let PAGE = "home", SUB = {}, MARKET_F = { pos: "", age: 40, fee: "", min: 0 };
+let MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { pos: "", age: 40, fee: "", min: 0 };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString());
 const big = v => Math.abs(v) < 1000 ? eur(v) : money(v);
 const crest = (c, s = 22) => `<svg class="crest" width="${s}" height="${Math.round(s * 1.15)}" viewBox="0 0 20 23" aria-hidden="true"><path d="M1 1h18v9c0 6-4 10-9 12C5 20 1 16 1 10z" fill="${c.color}" stroke="var(--crest-edge)"/><text x="10" y="13" text-anchor="middle" font-size="6" font-weight="700" fill="#fff" font-family="sans-serif">${esc(c.short)}</text></svg>`;
@@ -48,7 +48,7 @@ function phaseText() {
 }
 function mast() {
   const c = my(), pos = G.phase === "summer" ? null : posOf(c.lg, c.id), dec = openDecisions().length;
-  return `<header class="mast" style="--club:${c.color}"><div class="wrap gut"><div class="mast-in">
+  return `<header class="mast${MAST_COMPACT ? " compact" : ""}" style="--club:${c.color}"><div class="wrap gut"><div class="mast-in">
     <div class="ident row">${crest(c, 30)}<div><p class="eyebrow" style="color:var(--board-muted)">${phaseText()}</p><h1 style="font-size:24px">${esc(c.name)}</h1></div></div>
     <div class="mast-r"><dl class="kpis">
       <div><dt>Club cash</dt><dd class="${c.cash < 0 ? "bad" : ""}">${money(c.cash)}</dd></div>
@@ -208,15 +208,15 @@ function candModal(role) {
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${attr20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
-      ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="number" class="num-in" id="cw${i}" value="${ask}" step="1000"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}</div>`);
+      ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="number" inputmode="decimal" class="num-in" id="cw${i}" value="${ask}" step="1000"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}</div>`);
 }
 
 /* ---------- Finances ---------- */
 function pgFin() {
   const c = my(), f = matchdayForecast(c), T = c.tier, L = c.finLast;
   const row = (k, l) => `<tr><td style="text-align:left">${l}</td><td class="num">${money(c.fin[k] || 0)}</td><td class="num muted">${L ? money(L[k] || 0) : "—"}</td></tr>`;
-  const priceIn = (k, l, ref, step, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="number" class="num-in" data-act="price" data-k="${k}" value="${c.prices[k]}" step="${step}" min="0"></span></label><p class="small muted">Typical in your division: ${eur(ref)}. ${note}</p></div>`;
-  const budgetIn = (k, l, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="number" class="num-in" data-act="budget" data-k="${k}" value="${c.budget[k]}" step="1000" min="0"></span></label><p class="small muted">${note}</p></div>`;
+  const priceIn = (k, l, ref, step, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="number" inputmode="decimal" class="num-in" data-act="price" data-k="${k}" value="${c.prices[k]}" step="${step}" min="0"></span></label><p class="small muted">Typical in your division: ${eur(ref)}. ${note}</p></div>`;
+  const budgetIn = (k, l, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="number" inputmode="decimal" class="num-in" data-act="budget" data-k="${k}" value="${c.budget[k]}" step="1000" min="0"></span></label><p class="small muted">${note}</p></div>`;
   return `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h2>Prices</h2></div><div class="price-grid">
       ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString()} of ${capacity(c).toLocaleString()}: ${money(f.gate)} a game.`)}
@@ -242,7 +242,7 @@ function pgFin() {
     <section class="card"><div class="card-h"><h2>Your money</h2></div><dl class="ledger"><dt>Club cash</dt><dd class="${c.cash < 0 ? "bad" : ""}">${money(c.cash)}</dd><dt>Your fortune</dt><dd>${money(G.owner.wealth)}</dd><dt>Put in so far</dt><dd>${money(G.owner.invested)}</dd></dl>
       <p class="small muted" style="margin:10px 0">An overdrawn club pays 10% a year interest.</p>
       <div class="row">${[1e5, 1e6, 1e7].map(v => `<button class="btn sm" data-act="invest" data-v="${v}" ${G.owner.wealth < v ? "disabled" : ""}>Put in ${money(v)}</button>`).join("")}</div>
-      <div class="row" style="margin-top:8px"><input type="number" class="num-in" id="inv-amt" placeholder="Amount" step="10000"><button class="btn sm" data-act="investx">Put in</button><button class="btn sm" data-act="withdraw">Take out</button></div></section>
+      <div class="row" style="margin-top:8px"><input type="number" inputmode="decimal" class="num-in" id="inv-amt" placeholder="Amount" step="10000"><button class="btn sm" data-act="investx">Put in</button><button class="btn sm" data-act="withdraw">Take out</button></div></section>
     <section class="card"><div class="card-h"><h3>A year at a glance</h3></div><dl class="ledger">
       <dt>Player wages</dt><dd>${money(wageBill(c))}</dd><dt>Staff wages</dt><dd>${money(staffBill(c))}</dd><dt>Upkeep</dt><dd>${money(upkeep(c))}</dd><dt>Academy + scouting</dt><dd>${money(c.budget.acad + c.budget.scout)}</dd>
       <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section>
@@ -325,7 +325,7 @@ function pgMarket() {
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Transfer market</h2><span class="small ${windowOpen() ? "good" : "muted"}">${windowOpen() ? "Window open" : "Window closed: free agents only"}</span></div>
     <p class="small muted" style="margin-bottom:10px">Buying a player yourself goes over your head of recruitment's head. Players at clubs more than two divisions above won't come. Ratings are ${s ? `${esc(s.name)}'s estimates` : "guesses: you have no recruitment staff"}.</p>
     <div class="row filters"><select data-act="mf" data-k="pos"><option value="">All positions</option>${POS.map(x => `<option ${F.pos === x ? "selected" : ""}>${x}</option>`).join("")}</select>
-      <label class="small">Max age <input type="number" class="num-in sm" data-act="mf" data-k="age" value="${F.age}"></label><label class="small">Min rating <input type="number" class="num-in sm" data-act="mf" data-k="min" value="${F.min}"></label><label class="small">Max fee <input type="number" class="num-in" data-act="mf" data-k="fee" value="${F.fee}" step="10000" placeholder="any"></label></div>
+      <label class="small">Max age <input type="number" inputmode="decimal" class="num-in sm" data-act="mf" data-k="age" value="${F.age}"></label><label class="small">Min rating <input type="number" inputmode="decimal" class="num-in sm" data-act="mf" data-k="min" value="${F.min}"></label><label class="small">Max fee <input type="number" inputmode="decimal" class="num-in" data-act="mf" data-k="fee" value="${F.fee}" step="10000" placeholder="any"></label></div>
     <div class="tbl-wrap"><table class="sq"><thead><tr><th>Pos</th><th style="text-align:left">Name</th><th>Age</th><th style="text-align:left">Club</th><th>Rating</th><th>Potential</th><th>Fee</th></tr></thead><tbody>
     ${pool.map(({ p, e, fee }) => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td style="text-align:left" class="small">${esc(fromName(p))}</td><td>${range(e)}</td><td>${range(potEstimate(p))}</td><td class="num">${fee ? money(fee) : "Free"}</td></tr>`).join("")}</tbody></table></div></section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
@@ -336,7 +336,7 @@ function buyModal(id) {
   const p = G.players[id], fee = askingFee(p), wage = playerAsk(p) || demandWage(p, my()), s = staffOf("recruit");
   modal(`<div class="modal-h"><div><p class="eyebrow">Your offer</p><h2>${esc(p.name)}</h2><p class="small muted">${esc(fromName(p))}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><p>The selling club wants about <b>${fee ? money(fee) : "nothing"}</b>. He wants about <b>${money(wage)}</b> a year.</p>
-    <div class="row"><label class="small">Fee € <input type="number" class="num-in" id="b-fee" value="${fee}" step="1000"></label><label class="small">Wage €/yr <input type="number" class="num-in" id="b-wage" value="${wage}" step="1000"></label></div>
+    <div class="row"><label class="small">Fee € <input type="number" inputmode="decimal" class="num-in" id="b-fee" value="${fee}" step="1000"></label><label class="small">Wage €/yr <input type="number" inputmode="decimal" class="num-in" id="b-wage" value="${wage}" step="1000"></label></div>
     ${factorBars(playerAppeal(p, wage), P_FACTORS)}
     <p class="small muted">Paid from club cash (${money(my().cash)}), outside the budgets you've set. ${s ? `${esc(s.name)} won't like being bypassed.` : ""}</p>
     <div class="row"><button class="btn primary" data-act="buygo" data-id="${p.id}">Make the offer</button></div></div>`);
