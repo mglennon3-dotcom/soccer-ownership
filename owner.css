@@ -80,3 +80,16 @@ html,body{overflow-x:clip}
 .todo{list-style:none;padding-left:0}
 .todo li{display:flex;gap:8px;align-items:baseline}
 .todo li::before{content:"•";color:var(--accent-ink);font-weight:700}
+
+/* Settings (prices and budgets): name and figure, a compact euro box with steps, a usage bar, a line of help. */
+.settings{display:grid}
+.setting{display:grid;gap:8px;padding:14px 0;border-top:1px solid var(--line)}
+.setting:first-child{border-top:0;padding-top:4px}
+.setting-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.setting-h .small{color:var(--muted);font-family:var(--f-mono)}
+.setting-c{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.setting-c .btn.sm{min-width:36px;min-height:36px;font-size:18px;line-height:1;padding:0 10px}
+.money-in{position:relative;display:inline-flex;align-items:center}
+.money-in>span{position:absolute;left:10px;color:var(--muted);pointer-events:none;font-family:var(--f-mono)}
+.money-in input{padding-left:24px;width:140px;text-align:right;font-family:var(--f-mono)}
+.use{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}.use i{display:block;height:100%}

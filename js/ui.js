@@ -7,6 +7,8 @@ const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v)
 // Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
 const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
 const num = el => Math.max(0, +String(el && el.value || "").replace(/[^0-9.]/g, "") || 0);
+// A sensible step for a budget of this size: about a tenth of it, rounded.
+const stepFor = v => { const t = Math.max(1000, v / 10), m = Math.pow(10, Math.floor(Math.log10(t))); return Math.round(t / m) * m; };
 const big = v => Math.abs(v) < 1000 ? eur(v) : money(v);
 const crest = (c, s = 22) => `<svg class="crest" width="${s}" height="${Math.round(s * 1.15)}" viewBox="0 0 20 23" aria-hidden="true"><path d="M1 1h18v9c0 6-4 10-9 12C5 20 1 16 1 10z" fill="${c.color}" stroke="var(--crest-edge)"/><text x="10" y="13" text-anchor="middle" font-size="6" font-weight="700" fill="#fff" font-family="sans-serif">${esc(c.short)}</text></svg>`;
 const clubLink = c => `<button class="lnk" data-act="club" data-id="${c.id}">${esc(c.name)}</button>`;
@@ -258,8 +260,13 @@ function candModal(role) {
 function pgFin() {
   const c = my(), f = matchdayForecast(c), T = c.tier, L = c.finLast;
   const row = (k, l) => `<tr><td style="text-align:left">${l}</td><td class="num">${money(c.fin[k] || 0)}</td><td class="num muted">${L ? money(L[k] || 0) : "—"}</td></tr>`;
-  const priceIn = (k, l, ref, step, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="text" inputmode="decimal" class="num-in" data-act="price" data-k="${k}" value="${fmtNum(c.prices[k])}"></span></label><p class="small muted">Typical in your division: ${eur(ref)}. ${note}</p></div>`;
-  const budgetIn = (k, l, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="text" inputmode="decimal" class="num-in" data-act="budget" data-k="${k}" value="${fmtNum(c.budget[k])}"></span></label><p class="small muted">${note}</p></div>`;
+  /* A setting: name and key figure on top, a compact € box with − / + steps, an optional bar, a line of help. */
+  const setting = ({ act, k, l, val, step, fig, bar, help, ref }) => `<div class="setting"><div class="setting-h"><b>${l}</b>${fig ? `<span class="small">${fig}</span>` : ""}</div>
+    <div class="setting-c"><button class="btn sm" data-act="nudge" data-a="${act}" data-k="${k}" data-d="${-step}" aria-label="Less">−</button><span class="money-in"><span>€</span><input type="text" inputmode="decimal" class="num-in" data-act="${act}" data-k="${k}" value="${fmtNum(val)}" aria-label="${esc(l)}"></span><button class="btn sm" data-act="nudge" data-a="${act}" data-k="${k}" data-d="${step}" aria-label="More">+</button>${ref != null && Math.abs(val - ref) > step / 2 ? `<button class="lnk small" data-act="nudge" data-a="${act}" data-k="${k}" data-set="${ref}">Set to ${eur(ref)}</button>` : ""}</div>
+    ${bar != null ? `<div class="use"><i style="width:${clamp(bar * 100, 0, 100)}%;background:${bar > 1 ? "var(--loss)" : bar > .9 ? "var(--accent)" : "var(--win)"}"></i></div>` : ""}
+    <p class="small muted">${help}</p></div>`;
+  const priceIn = (k, l, ref, step, note) => setting({ act: "price", k, l, val: c.prices[k], step, ref, fig: `typical ${eur(ref)}`, help: note });
+  const budgetIn = (k, l, note, o = {}) => setting({ act: "budget", k, l, val: c.budget[k], step: o.step || stepFor(c.budget[k]), ref: o.ref, fig: o.fig, bar: o.bar, help: note });
   const tab = SUB.fin || "over", TABS = [["over", "Overview"], ["game", "Per game"], ["prices", "Prices"], ["budgets", "Budgets"], ["accounts", "Accounts"], ["loans", "Borrowing"]];
   const tabs = `<div class="chips" style="margin-bottom:14px">${TABS.map(([k, l]) => `<button data-act="sub" data-k="fin" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>`;
   const body = {
@@ -270,17 +277,17 @@ function pgFin() {
       <dt>Player wages</dt><dd>${money(wageBill(c))}</dd><dt>Staff wages</dt><dd>${money(staffBill(c))}</dd><dt>Upkeep</dt><dd>${money(upkeep(c))}</dd><dt>Academy + scouting</dt><dd>${money(c.budget.acad + c.budget.scout)}</dd>
       <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section></div></div>`,
     game: () => perGameHTML(c),
-    prices: () => `<section class="card"><div class="card-h"><h2>Prices</h2></div><div class="price-grid">
+    prices: () => `<section class="card"><div class="card-h"><h2>Prices</h2></div><div class="settings">
       ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}: ${money(f.gate)} a game.`)}
       ${priceIn("conc", "Food & drink (average item)", REF_CONC[T], .5, `About ${money(f.conc)} profit a game${atHome(c) ? "" : " after your landlord's half"}.`)}
       ${priceIn("shirt", "Replica shirt", REF_SHIRT[T], 1, `About ${money(merchFor(c) * 52)} profit a year.`)}
       ${c.fac.stadium.own && c.fac.stadium.suites ? priceIn("suite", "Executive suite (per season)", REF_SUITE[T], 500, `${suitesLet(c)} of ${c.fac.stadium.suites} suites let: ${money(suitesLet(c) * c.prices.suite)} a season.`) : ""}
     </div><p class="small muted" style="margin-top:8px">Supporters notice prices well above the going rate and their mood suffers; cheap tickets win a little goodwill.</p></section>`,
-    budgets: () => `<section class="card"><div class="card-h"><h2>Budgets</h2></div><div class="price-grid">
-      ${budgetIn("wages", "Player wage budget (per year)", `Current wage bill ${money(wageBill(c))}. Your head of recruitment won't sign players or renew contracts beyond it.`)}
-      ${budgetIn("transfer", "Transfer budget (per season)", `Spent this season: ${money(c.spentT)}. Fees for players he signs come out of this.`)}
-      ${budgetIn("acad", "Academy running budget (per year)", c.fac.acad.lvl ? `A solid budget for a level-${c.fac.acad.lvl} academy is about ${money(acadRef(c.fac.acad.lvl))}. More means bigger, better intakes.` : "No academy yet.")}
-      ${budgetIn("scout", "Scouting budget (per year)", `About ${money(scoutRef(T))} is normal at this level. More lets your recruitment team see further and judge players better.`)}
+    budgets: () => `<section class="card"><div class="card-h"><h2>Budgets</h2></div><div class="settings">
+      ${budgetIn("wages", "Player wages (per year)", "Your head of recruitment won't sign players or renew contracts beyond it.", { fig: `${money(wageBill(c))} used · ${money(Math.max(0, c.budget.wages - wageBill(c)))} left`, bar: c.budget.wages ? wageBill(c) / c.budget.wages : 1 })}
+      ${budgetIn("transfer", "Transfer fees (this season)", "Fees for the players your head of recruitment signs come out of this.", { fig: `${money(c.spentT)} spent · ${money(Math.max(0, c.budget.transfer - c.spentT))} left`, bar: c.budget.transfer ? c.spentT / c.budget.transfer : (c.spentT ? 1.01 : 0) })}
+      ${c.fac.acad.lvl ? budgetIn("acad", "Academy (per year)", "More means bigger, better intakes; less, smaller and weaker ones.", { ref: Math.round(acadRef(c.fac.acad.lvl)), fig: `normal ${money(acadRef(c.fac.acad.lvl))}` }) : `<div class="setting"><div class="setting-h"><b>Academy</b></div><p class="small muted">No academy yet. Build one on the Facilities page.</p></div>`}
+      ${budgetIn("scout", "Scouting (per year)", "More lets your recruitment team see further and judge players better.", { ref: scoutRef(T), fig: `normal ${money(scoutRef(T))}` })}
     </div></section>`,
     accounts: () => `<section class="card"><div class="card-h"><h2>Accounts</h2><span class="muted small">this season · last season</span></div><div class="tbl-wrap"><table class="proj"><tbody>
       <tr class="sec"><td colspan="3">Income</td></tr>${row("gate", "Gate receipts")}${row("conc", "Food & drink")}${row("suites", "Executive suites")}${row("events", "Stadium ventures & events")}${row("merch", "Merchandise")}${row("spons", "Sponsorship")}${row("tv", "Central (TV) money")}${row("prize", "Prize money")}${row("sales", "Player sales")}
