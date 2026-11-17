@@ -67,7 +67,8 @@ Every player has an archetype for his position, read from which of his attribute
 ball-playing defender, a poacher or a target man, and so on); it shows on the Squad page, the market and player cards.
 The market has four tabs (all players, free agents, transfer listed, loan targets) and filters for position, type,
 age, rating, interest, fee, league and country, laid out as in Touchline Manager. Interest is how open a player is to joining you, from the same factors he weighs when
-you bid. Tables show his current wage and what he'd want from you, and sort by any column. Ask to borrow a loan target
+you bid. Nobody drops more than one division below his natural level (the division whose typical
+starter is nearest his rating), or two once he's 31, whatever the money. Tables show his current wage and what he'd want from you, and sort by any column. Ask to borrow a loan target
 from his card during a window: you pay half his wages until the end of the season. AI clubs transfer-list players they
 can do without each summer and January.
 

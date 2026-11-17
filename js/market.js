@@ -10,7 +10,11 @@ function demandWage(p, c) {
   return Math.round(wageFor(p.ovr) * (p.club === -2 ? 1.15 : 1) / 100) * 100;
 }
 // Will he come at all? Players rarely drop more than two divisions.
-const willJoin = (p, c) => p.club < 0 && p.club !== -2 ? true : c.tier - (p.club >= 0 ? CL(p.club).tier : 1) <= 3 || p.age >= 32;
+/* Would he even consider a club in this division? Every player has a natural level: the division whose typical starter
+   is nearest his rating. He'll drop one division below it (two once he's 31 and winding down), but no further,
+   whatever the money. Free agents included. */
+const naturalTier = p => { let best = 7; for (let t = 1; t <= 7; t++) if (Math.abs(TIER_LVL[t] - p.ovr) < Math.abs(TIER_LVL[best] - p.ovr)) best = t; return best; };
+const willJoin = (p, c) => c.tier - naturalTier(p) <= (p.age >= 31 ? 2 : 1);
 // xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once.
 function askingFee(p, xi) {
   if (p.club === -1) return 0;
