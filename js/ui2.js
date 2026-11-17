@@ -66,9 +66,10 @@ function pgNet() {
 /* ---------- Competitions: league and cups ---------- */
 function pgComps() {
   const tab = SUB.comp || (G.phase === "summer" ? "pre" : "league"), mineCups = Object.keys(CUP_DEF).filter(k => CUP_DEF[k].tiers.includes(my().tier));
-  const tabs = `<div class="seg" style="margin-bottom:12px">${G.phase === "summer" ? `<button data-act="sub" data-k="comp" data-v="pre" aria-pressed="${tab === "pre"}">Pre-season</button>` : ""}<button data-act="sub" data-k="comp" data-v="league" aria-pressed="${tab === "league"}">League</button>${Object.keys(CUP_DEF).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CUP_DEF[k].name}${mineCups.includes(k) ? "" : " ·"}</button>`).join("")}</div>`;
+  const tabs = `<div class="seg" style="margin-bottom:12px">${G.phase === "summer" ? `<button data-act="sub" data-k="comp" data-v="pre" aria-pressed="${tab === "pre"}">Pre-season</button>` : ""}<button data-act="sub" data-k="comp" data-v="league" aria-pressed="${tab === "league"}">League</button>${Object.keys(CUP_DEF).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CUP_DEF[k].name}${mineCups.includes(k) ? "" : " ·"}</button>`).join("")}${Object.keys(CONT).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CONT[k].name}</button>`).join("")}</div>`;
   if (tab === "league") return tabs + pgLeagueInner();
   if (tab === "pre") return tabs + preseasonHTML();
+  if (CONT[tab]) return tabs + contHTML(tab);
   const K = (G.cups || {})[tab], D = CUP_DEF[tab]; if (!K) return tabs + `<p class="muted">Not started.</p>`;
   const rounds = [...new Set(K.log.map(x => x.r))];
   const tieRow = (t, done) => { const mine = t.h === G.club || t.a === G.club; return `<div class="row between small ${mine ? "me-row" : ""}"><span>${esc(CL(t.h).name)} <span class="muted">(${CL(t.h).tier})</span></span><b class="num">${done ? `${t.hg}–${t.ag}${t.pens ? " p" : ""}` : "v"}</b><span style="text-align:right">${esc(CL(t.a).name)} <span class="muted">(${CL(t.a).tier})</span></span></div>`; };
@@ -162,4 +163,22 @@ function preseasonHTML() {
         ${done ? `<span class="muted">Asked</span>` : `<button class="btn sm" data-act="friendly" data-id="${x.id}" data-h="0" ${full ? "disabled" : ""}>Away</button><button class="btn sm" data-act="friendly" data-id="${x.id}" data-h="1" ${full ? "disabled" : ""}>Home</button>`}</div></div>`; }).join("")}</div></section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Your pre-season</h3></div>${F.length ? F.slice().sort((a, b) => a.w - b.w).map(f => { const x = CL(f.opp), r = (G.myRes || []).find(r => r.comp === "F" && r.opp === f.opp && r.w === f.w);
       return `<p class="small">Week ${f.w + 1}: ${f.home ? "v" : "at"} ${esc(x.name)}${r ? ` · <b>${r.gf}–${r.ga}</b>` : f.home ? "" : ` · fee ${money(f.fee)}`}</p>`; }).join("") : "<p class='small muted'>None arranged yet.</p>"}</section></div></div>`;
+}
+
+/* ---------- continental competitions ---------- */
+function contHTML(k) {
+  const K = (G.cont || {})[k], D = CONT[k], c = my(), q = G.qual && G.qual.y === G.year + 1 ? G.qual[k] : null;
+  const teamCell = id => { const x = CL(id); return `${crest(x, 14)} <button class="lnk" data-act="club" data-id="${id}">${esc(x.name)}</button> <span class="muted small">${x.abroad ? COUNTRY[x.country].name : "Eng"}</span>`; };
+  const info = `<section class="card"><div class="card-h"><h3>${D.name}</h3></div><p class="small">${k === "CC" ? "The top four in the Premier Division and 28 clubs from Spain, Germany, Italy, France, Portugal, the Netherlands and Belgium." : "5th and 6th in the Premier Division, the National Cup winners whatever their division, and 29 clubs from abroad."} Eight groups of four, home and away; the top two go through to two-legged knockout rounds and a final at a neutral ground.</p>
+    <dl class="ledger" style="margin-top:8px"><dt>Taking part</dt><dd>${money(D.join)}</dd><dt>Group win / draw</dt><dd>${money(D.win)} / ${money(D.draw)}</dd>${CONT_KO.map((r, i) => `<dt>Reaching the ${r.n.toLowerCase()}</dt><dd>${money(D.rounds[i])}</dd>`).join("")}<dt>Winners</dt><dd>${money(D.champ)}</dd></dl>
+    ${q ? `<p class="small" style="margin-top:8px"><b>Qualified for next season:</b> ${q.map(id => esc(CL(id).name)).join(", ")}</p>` : ""}
+    ${G.contLast && G.contLast[k] && G.contLast[k].win != null ? `<p class="small muted" style="margin-top:6px">Last season's winners: ${esc(CL(G.contLast[k].win).name)}</p>` : ""}</section>`;
+  if (!K) return `<div class="grid2"><div class="stack"><section class="card"><p class="muted">The continental competitions start next season.</p></section></div><div class="stack">${info}</div></div>`;
+  const tie = (t, final) => `<div class="row between small ${t.h === G.club || t.a === G.club ? "me-row" : ""}" style="padding:3px 0"><span>${teamCell(t.h)}</span><b class="num">${t.g1 ? final ? `${t.g1[0]}–${t.g1[1]}${t.pens ? " p" : ""}` : `${t.g1[0]}–${t.g1[1]}${t.g2 ? ` · ${t.g2[0]}–${t.g2[1]}` : ""}${t.pens ? " p" : ""}` : "v"}</b><span style="text-align:right">${teamCell(t.a)}</span></div>`;
+  const ko = K.ko.slice().reverse().map((R, i) => `<section class="card"><div class="card-h"><h3>${R.n}</h3><span class="small muted">week${R.n === "Final" ? "" : "s"} ${CONT_KO.find(x => x.n === R.n).w.map(w => w + 1).join(" & ")}</span></div>${R.ties.map(t => tie(t, R.n === "Final")).join("")}</section>`).join("");
+  const groups = K.groups.map((g, gi) => { const t = groupTable(K, gi), mine = g.includes(G.club);
+    return `<section class="card"${mine ? ' style="border-color:var(--accent)"' : ""}><div class="card-h"><h3>Group ${"ABCDEFGH"[gi]}</h3></div><div class="tbl-wrap"><table class="lg"><thead><tr><th style="text-align:left">Club</th><th>P</th><th>GD</th><th>Pts</th></tr></thead><tbody>${t.map((r, i) => `<tr class="${i < 2 && K.md === 6 ? "z-up" : ""} ${r.id === G.club ? "me" : ""}"><td style="text-align:left">${teamCell(r.id)}</td><td class="num">${r.p}</td><td class="num">${r.gf - r.ga}</td><td class="num"><b>${r.pts}</b></td></tr>`).join("")}</tbody></table></div></section>`; });
+  const myGroup = K.groups.findIndex(g => g.includes(G.club));
+  return `<div class="grid2"><div class="stack">${K.win != null ? `<section class="card summary"><h2>🏆 ${esc(CL(K.win).name)}</h2></section>` : ""}${ko}
+    <p class="small muted">Group games in weeks ${CONT_GROUP_WEEKS.map(w => w + 1).join(", ")}.</p>${myGroup >= 0 ? groups[myGroup] : ""}${groups.filter((_, i) => i !== myGroup).join("")}</div><div class="stack">${info}</div></div>`;
 }

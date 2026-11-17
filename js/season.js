@@ -24,7 +24,7 @@ function startSeason() {
   G.myRes = []; G.po = null;
   for (const c of G.clubs) if (!c.gone && c.ded && G.leagues[c.lg].tab[c.id]) G.leagues[c.lg].tab[c.id].pts -= c.ded;  // administration
   for (const k of LG_KEYS) G.leagues[k].pend = [];
-  startCups();
+  startCups(); startContinental();
   for (const p of Object.values(G.players)) p.s = { app: 0, g: 0, a: 0 };
   const c = my(); c.att = []; c.morale = 55;
 }
@@ -89,7 +89,7 @@ function seasonWeek() {
       const r = playMatch(h, a); tally(L, r); afterMatch(r, k);
     }
   }
-  cupWeek(w); ownersCheck(w);
+  cupWeek(w); contWeek(w); ownersCheck(w);
   if (w === JAN[0]) partnerWindow();
   if (JAN.includes(w)) marketWeek();
   if (w % 3 === 2) devTick(1 / 16);
@@ -137,6 +137,7 @@ function devTick(dt) {
 
 /* ---------- the end of the season ---------- */
 function endSeason() {
+  qualify();  // Champions Cup and Continental Shield places for next season, from this table and the National Cup
   const moves = [], mine = my(), report = { y: G.year };
   for (const k of LG_KEYS) {
     const L = LEAGUES[k], t = table(k), ids = t.map(r => r.id);
@@ -162,7 +163,8 @@ function endSeason() {
   judgeObjectives({ ...report, up: wentUp, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club) });
   // History
   const f = mine.fin;
-  G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }).filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
+  G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: [...Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }),
+    ...Object.values(G.cont || {}).map(K => { if (!K.teams.includes(G.club)) return null; if (K.win === G.club) return CONT[K.key].name + ": winners"; const r = K.ko.filter(R => R.ties.some(t => t.h === G.club || t.a === G.club)).pop(); return `${CONT[K.key].name}: ${r ? r.n.toLowerCase() : "group stage"}`; })].filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
     inc: ledgerIncome(f), cost: ledgerCosts(f), att: Math.round(avg(mine.att || [])), fans: mine.fans, cash: mine.cash, mgr: mgr().name,
     top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" });
   investorsSummer({ up: wentUp, down: wentDown });
@@ -191,7 +193,7 @@ function endSeason() {
   feedersSummer();
   staffSummer();
   if (G.sTrust && G.sTrust.freeze === G.year) G.sTrust.freeze = 0;
-  G.cupsLast = G.cups; G.friendlies = []; G.fAsked = []; G.fOpts = null; mine.prep = 0;
+  G.cupsLast = G.cups; G.contLast = G.cont; G.friendlies = []; G.fAsked = []; G.fOpts = null; mine.prep = 0;
   G.year++; G.phase = "summer"; G.week = 0; G.po = null;
   startSeason();
   refreshOffers(mine);
@@ -253,6 +255,7 @@ function yearTurnover() {
   // Good free agents don't stay unemployed: a club at their level takes them on.
   for (const p of G.fa.map(P).filter(p => p && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = wageFor(p.ovr); p.yrs = ri(1, 3); } }
   for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, false);
+  foreignSummer();
   wonderWatch();
 }
 function wantsRenewal(p, core) {

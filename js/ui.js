@@ -101,6 +101,9 @@ function pgHome() {
   return `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h2>Next up</h2><span class="muted small">${esc(mgr().name)} · ${STYLES[mgr().phil].l} · ${mgr().form}</span></div>${fx}
       ${myCupTie().map(({ k, K, t }) => `<p>${CUP_DEF[k].name} ${K.name.toLowerCase()}: ${t.h === G.club ? "home to" : "away to"} ${clubLink(CL(t.h === G.club ? t.a : t.h))} <span class="muted small">· week ${CUP_DEF[k].weeks[K.round] + 1}</span></p>`).join("")}
+      ${Object.values(G.cont || {}).filter(K => K.teams.includes(G.club) && K.win == null).map(K => { const D = CONT[K.key], md = CONT_GROUP_WEEKS.findIndex(w => w >= G.week);
+        if (K.md < 6 && md >= 0) { const g = K.groups.findIndex(x => x.includes(G.club)), pair = GROUP_MD[md].map(([i, j]) => [K.groups[g][i], K.groups[g][j]]).find(p => p.includes(G.club)); return `<p>${D.name}, Group ${"ABCDEFGH"[g]}: ${pair[0] === G.club ? "home to" : "away to"} ${clubLink(CL(pair[0] === G.club ? pair[1] : pair[0]))} <span class="muted small">· week ${CONT_GROUP_WEEKS[md] + 1}</span></p>`; }
+        const R = K.ko[K.round], t = R && R.ties.find(t => (t.h === G.club || t.a === G.club) && t.w == null); return t ? `<p>${D.name} ${R.n.toLowerCase()}: v ${clubLink(CL(t.h === G.club ? t.a : t.h))} <span class="muted small">· week${R.n === "Final" ? "" : "s"} ${CONT_KO[K.round].w.map(w => w + 1).join(" & ")}</span></p>` : ""; }).join("")}
       ${weatherLine()}
       <p class="small muted" style="margin-top:6px">Squad suits the manager's style: ${fitText(fit)} · Team rating ${r20(avg(xi.map(o => roleRating(o.p, o.slot))))} (division typical ${r20(TIER_LVL[c.tier])}) · Morale ${Math.round(c.morale)}</p></section>
     ${todo.length ? `<section class="card"><div class="card-h"><h2>Needs your attention</h2></div><ul class="todo">${todo.map(([t, p]) => `<li><button class="lnk" data-act="page" data-p="${p}">${esc(t)}</button></li>`).join("")}</ul></section>` : ""}
@@ -135,7 +138,7 @@ function inboxCard() {
 function resultsList(rs) {
   return `<ul class="results">${rs.map(r => { const o = CL(r.opp), mine = r.ev.filter(e => (e.side === 0) === (r.home || (r.comp === "PO" && !r.home && false)));
     const sc = r.ev.filter(e => r.home ? e.side === 0 : e.side === 1).map(e => esc(e.g.split(" ").slice(1).join(" ") || e.g) + " " + e.m + "'").join(", ");
-    return `<li><span class="res ${r.res}">${r.res}</span> <b class="num">${r.gf}–${r.ga}</b>${r.pens ? " (pens)" : ""} ${r.home ? "v" : "at"} ${clubLink(o)} <span class="muted small">${r.comp === "F" ? "Friendly" : r.comp === "PO" ? "Play-off" : "Wk " + (r.w + 1)}${r.crowd ? " · crowd " + r.crowd.toLocaleString("en-GB") : ""}${sc ? " · " + sc : ""}</span></li>`; }).join("")}</ul>`;
+    return `<li><span class="res ${r.res}">${r.res}</span> <b class="num">${r.gf}–${r.ga}</b>${r.pens ? " (pens)" : ""} ${r.home ? "v" : "at"} ${clubLink(o)} <span class="muted small">${r.label ? esc(r.label) : r.comp === "F" ? "Friendly" : r.comp === "PO" ? "Play-off" : "Wk " + (r.w + 1)}${r.crowd ? " · crowd " + r.crowd.toLocaleString("en-GB") : ""}${sc ? " · " + sc : ""}</span></li>`; }).join("")}</ul>`;
 }
 function miniTable(k) {
   const t = table(k), i = t.findIndex(r => r.id === G.club), from = clamp(i - 3, 0, Math.max(0, t.length - 8));
@@ -332,7 +335,7 @@ function pgLeagueInner() {
 }
 function clubModal(id) {
   const c = CL(id), ps = c.squad.map(P).filter(p => !p.acad).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
-  modal(`<div class="modal-h" style="--mc:${c.color}">${crest(c, 36)}<div><p class="eyebrow">${LEAGUES[c.lg].name} · founded ${c.founded}</p><h2>${esc(c.name)}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
+  modal(`<div class="modal-h" style="--mc:${c.color}">${crest(c, 36)}<div><p class="eyebrow">${divisionOf(c)} · founded ${c.founded}</p><h2>${esc(c.name)}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b">${isMine(c) ? "" : `<dl class="facts"><div><dt>Manager</dt><dd>${esc(c.coach.name)}</dd></div><div><dt>Style</dt><dd>${STYLES[c.coach.style].l}, ${c.coach.form}</dd></div><div><dt>Ground</dt><dd>${c.cap.toLocaleString("en-GB")}</dd></div><div><dt>Owner</dt><dd>${esc(c.own.name)}<br><span class="small muted">${OWNER_STYLES[c.own.style].l}</span></dd></div><div><dt>Honours</dt><dd>${c.trophies.length ? c.trophies.map(t => t[0] + " " + t[1]).join(", ") : "—"}</dd></div></dl>`}
     <div class="tbl-wrap"><table><tbody>${ps.map(p => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td>${range(ovrEstimate(p))}</td></tr>`).join("")}</tbody></table></div></div>`);
 }

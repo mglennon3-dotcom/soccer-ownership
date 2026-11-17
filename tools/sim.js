@@ -2,7 +2,7 @@
 // Usage: node tools/sim.js [seasons=20]
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const ctx = { console, Math, Date, JSON }; vm.createContext(ctx);
-for (const f of ["names", "core", "staff", "club", "weather", "match", "events", "cups", "owners", "board", "partners", "legends", "friendlies", "sale", "season", "market", "appeal"]) vm.runInContext(fs.readFileSync(path.join(__dirname, "../js", f + ".js"), "utf8"), ctx, { filename: f + ".js" });
+for (const f of ["names", "core", "staff", "club", "weather", "match", "events", "cups", "owners", "board", "partners", "legends", "friendlies", "europe", "sale", "season", "market", "appeal"]) vm.runInContext(fs.readFileSync(path.join(__dirname, "../js", f + ".js"), "utf8"), ctx, { filename: f + ".js" });
 const run = s => vm.runInContext(s, ctx);
 const seasons = +process.argv[2] || 20, t0 = Date.now();
 run(`newWorld({ name: "Test Town", half: "N", wealth: "wealthy" });

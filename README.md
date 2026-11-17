@@ -90,6 +90,18 @@ The league, plus three cups with one-off ties and penalties: the **National Cup*
 the **League Cup** (tiers 1–4) and the **National Trophy** (tiers 5–7). Prize money for every round won; beating a club
 from a higher division delights the supporters.
 
+## Continental football
+
+71 clubs from Spain, Germany, Italy, France, Portugal, the Netherlands and Belgium play in two competitions of 32 (they
+don't play domestic leagues; their strength drifts each summer):
+- **Champions Cup:** the top four in the Premier Division and 28 foreign clubs.
+- **Continental Shield:** 5th and 6th in the Premier Division, the National Cup winners whatever their division (so a
+  cup run can take a small club into Europe), and 29 foreign clubs.
+
+Eight groups of four, home and away (weeks 5-25), then two-legged knockout rounds and a final at a neutral ground.
+Prize money for taking part, every group win and draw, and each round reached; home European nights draw bigger
+crowds at higher prices. Players at foreign clubs can be signed too.
+
 ## The boardroom
 
 - **Objectives.** Set league, cup, finance and youth targets each pre-season. They're announced: ambitious targets lift
@@ -157,6 +169,6 @@ it on as it stands: squad, manager, ground, facilities and sponsors. The History
 `js/names.js` (names, towns, regions and helpers), `core.js` (pyramid, players, talent, development),
 `staff.js`, `club.js` (prices, attendance, sponsors, facilities, suites, pitch, ventures), `weather.js`, `match.js`,
 `events.js` (decisions and media), `cups.js`, `owners.js` (rival owners), `board.js` (valuation, investors, directors,
-supporters' trust, loans, objectives), `partners.js`, `legends.js`, `friendlies.js` (friendlies and transfer requests), `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
+supporters' trust, loans, objectives), `partners.js`, `legends.js`, `friendlies.js` (friendlies and transfer requests), `europe.js` (foreign clubs and the continental cups), `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
 
 `node tools/sim.js 20` plays 20 seasons headless and reports talent, ratings by tier and the test club's progress.

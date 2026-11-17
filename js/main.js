@@ -16,6 +16,7 @@ function upgradeSave() {
   G.board ||= { own: 100, inv: [], dir: {}, offers: [] }; G.sTrust ||= { rel: 50, members: 0, seat: false }; G.net ||= { partner: null, feeders: [] }; G.loans ||= [];
   for (const c of G.clubs) if (!c.gone && !isMine(c) && !c.own) c.own = newOwner(c);
   if (!G.cups) startCups();
+  if (!G.foreign) { makeForeign(); G.cont = {}; }
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }
 async function start() { G = null; renderStart(await listSaves()); }
