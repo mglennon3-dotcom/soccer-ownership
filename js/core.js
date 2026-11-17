@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.11.0";
+const VERSION = "0.11.1";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -16,10 +16,11 @@ const r1 = v => Math.round(v * 10) / 10;
    is out of 20 (r20), and that's also all anyone in the game sees: your manager, your scouts and AI clubs pick and
    judge players on the 20-point figures. Only matches and development use the exact values. */
 const rh = v => Math.round(v * 2) / 2;
-/* The displayed scale spreads the divisions two points apart: regional players mostly 1-5, National North/South 3-7,
-   National Division 5-9, Third 7-11, Second 9-13, First 11-15, Premier 13-17, stars 18-19, 20 generational.
+/* The displayed scale, division by division: Regional League and National North/South mostly 1-5, National Division
+   3-7, Third Division 5-9, Second 6-10, First 9-13, Premier Division 12-20 (stars 18-19, 20 generational). Foreign
+   clubs are their countries' top flights and read like the Premier Division.
    Points: [internal (0-100), shown (1-20)], straight lines between them. */
-const R20_PTS = [[0, 1], [30, 1], [44, 3], [50, 5], [55, 7], [60, 9], [65, 11], [71, 13], [79, 15.5], [90, 18.5], [97.5, 20], [100, 20]];
+const R20_PTS = [[0, 1], [36, 1], [44, 2.5], [50, 3.5], [55, 5], [60, 7], [65, 8.2], [71, 11], [79, 15], [90, 18.5], [97.5, 20], [100, 20]];
 function to20(v) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a || 1); } return 20; }
 function from20(d) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (d <= y && y > x) return a + (b - a) * (d - x) / (y - x); } return 100; }
 const r20 = v => clamp(Math.round(to20(v)), 1, 20);
@@ -257,7 +258,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
