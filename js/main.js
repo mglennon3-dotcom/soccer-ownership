@@ -7,8 +7,8 @@ async function dbDo(mode, fn) { const db = await idb(); return new Promise((ok, 
 async function saveGame() {
   if (!G) return;
   G.saveId = G.saveId || "c" + Date.now();
-  const c = my(), info = `${seasonLabel(G.year)} · ${LEAGUES[c.lg].name} · ${money(G.owner.wealth)}`;
-  try { await dbDo("readwrite", st => st.put({ id: G.saveId, name: c.name, info, at: Date.now(), g: JSON.stringify(G) }, G.saveId)); }
+  const c = my(), info = c ? `${seasonLabel(G.year)} · ${LEAGUES[c.lg].name} · ${money(G.owner.wealth)}` : `${seasonLabel(G.year)} · between clubs · ${money(G.owner.wealth)}`;
+  try { await dbDo("readwrite", st => st.put({ id: G.saveId, name: c ? c.name : "Between clubs", info, at: Date.now(), g: JSON.stringify(G) }, G.saveId)); }
   catch (e) { toast("Couldn't save: " + e.message); }
 }
 async function listSaves() { try { const all = await dbDo("readonly", st => st.getAll()); return (all || []).sort((a, b) => b.at - a.at); } catch { return []; } }
@@ -38,6 +38,9 @@ async function advanceN(n, until) {
 
 const built = r => { if (typeof r === "string") toast(r); };
 const ACT = {
+  putsale: () => { G.saleOffers = saleOffers(); render(); },
+  acceptsale: el => { const o = G.saleOffers[+el.dataset.i]; if (confirm(`Sell your ${ownPct()}% of ${my().name} to ${o.name} for ${money(o.amt)}? You'll then choose a new club.`)) { sellMyClub(o); render(); saveGame(); } },
+  buyclub: el => { const c = CL(+el.dataset.id); if (confirm(`Buy ${c.name} for ${money(askPrice(c))}?`)) { buyClub(c); PAGE = "home"; render(); saveGame(); } },
   choose: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerChoice(m, +el.dataset.i); render(); saveGame(); },
   seekinv: () => { G.board.offers = investmentOffers(); if (!G.board.offers.length) toast("You can't sell any more without losing control."); render(); },
   sellstake: el => { const o = G.board.offers[+el.dataset.i]; if (o && confirm(`Sell ${o.pct}% of the club to ${o.name} for ${money(o.amt)}?`)) { sellStake(o); render(); saveGame(); } },
@@ -128,6 +131,7 @@ const CHANGE = {
     const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) trust(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
     render(); },
   concerts: el => { my().fac.stadium.concerts = +el.value; render(); },
+  buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
   mf: el => { MARKET_F[el.dataset.k] = el.dataset.k === "pos" ? el.value : (+el.value || 0); if (el.dataset.k === "age" && !MARKET_F.age) MARKET_F.age = 40; render(); },
 };

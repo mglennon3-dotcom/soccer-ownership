@@ -1,5 +1,5 @@
 // Offline cache: network first, falling back to the cached copy.
-const VERSION = "owner-0.2.0";
+const VERSION = "owner-0.3.0";
 self.addEventListener("install", e => self.skipWaiting());
 self.addEventListener("activate", e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", e => {

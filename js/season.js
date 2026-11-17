@@ -50,7 +50,7 @@ function nextFixture() {
 /* ---------- a week ---------- */
 function advance() {
   const c = my();
-  if (G.ended) return;
+  if (G.ended || G.club == null) return;
   weatherWeek();
   for (const p of Object.values(G.players)) if (p.inj) p.inj--;
   if (G.phase === "summer") summerWeek();
@@ -60,6 +60,7 @@ function advance() {
   for (const o of c.offers) o.exp--;
   c.offers = c.offers.filter(o => o.exp > 0);
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
+  if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
   mediaWeek(); trustWeek(c); poachWeek(); bidForMyClub();
   settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
@@ -166,7 +167,7 @@ function endSeason() {
   judgeObjectives({ ...report, up: wentUp, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club) });
   // History
   const f = mine.fin;
-  G.history.unshift({ obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }).filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
+  G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }).filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
     inc: ledgerIncome(f), cost: ledgerCosts(f), att: Math.round(avg(mine.att || [])), fans: mine.fans, cash: mine.cash, mgr: mgr().name,
     top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" });
   investorsSummer({ up: wentUp, down: wentDown });

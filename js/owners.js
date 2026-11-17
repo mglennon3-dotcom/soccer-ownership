@@ -19,6 +19,10 @@ const OWNER_STYLES = {
   gambler:   { l: "Reckless gambler",    d: "Spends what he hasn't got. Boom, then bust.", spend: 5, build: .3, patience: .3, debt: .2, poach: .6, media: 3, prices: 1.1, sells: .2, w: 1 },
   fanowned:  { l: "Supporter-owned",     d: "Run by its fans. Cheap tickets, no debt, slow growth, never sold.", spend: -1, build: .2, patience: .85, debt: 0, poach: .05, media: 1, prices: .8, sells: .5, w: 1.5 },
   meddler:   { l: "Meddler",             d: "Picks the team from the directors' box. Sacks managers after three defeats; good staff won't work for him.", spend: 2, build: .25, patience: .1, debt: .05, poach: .5, media: 4, prices: 1.05, sells: .4, w: 1.5 },
+  dynasty:   { l: "Old-money dynasty",   d: "The same family for a century. Steady and proud, until the old man dies and the heir takes over: he sells up or runs it into the ground.", spend: 1, build: .3, patience: .75, debt: .03, poach: .3, media: 2, prices: 1, sells: .4, w: 1.2 },
+  hostile:   { l: "Hostile neighbour",   d: "Bought the club next door to beat yours. Goes after your staff, your players, your sponsors and your supporters.", spend: 4, build: .5, patience: .4, debt: .04, poach: 1, media: 7, prices: .9, sells: .2, w: 0 },
+  crypto:    { l: "Crypto or betting money", d: "Fast money from a crypto exchange or a betting firm. Spends big, and can vanish overnight.", spend: 5, build: .3, patience: .4, debt: .03, poach: .7, media: 4, prices: 1.05, sells: .3, w: .8 },
+  explayer:  { l: "Former player",       d: "A club legend who came back as owner. The fans adore him; he hires his old teammates as managers, whether they're any good or not.", spend: 0, build: .25, patience: .75, debt: .02, poach: .2, media: 4, prices: .9, sells: .4, w: 1 },
   academy:   { l: "Youth evangelist",    d: "Believes in the academy above all. Brings players through and sells them on.", spend: -1, build: .3, patience: .8, debt: .01, poach: .3, media: 1, prices: .95, sells: .9, w: 1.5 },
 };
 const OWNER_CORP = ["Holdings", "Capital", "Group", "Partners", "Sports", "Investments", "Global"];
@@ -26,13 +30,18 @@ function newOwner(c, style) {
   style = style || wpick(Object.keys(OWNER_STYLES), k => OWNER_STYLES[k].w * (k === "sugar" || k === "celebrity" ? (c.tier <= 3 ? 2 : .7) : 1));
   const corp = ["multiclub", "stripper", "moneyball", "developer"].includes(style) && R() < .6;
   const wealth = style === "fanowned" ? 0 : Math.round(Math.pow(10, rf(5.5, 7.5) + (8 - c.tier) * .22 + (style === "sugar" ? 1.6 : style === "celebrity" ? .7 : 0)));
-  return { name: corp ? pick(BRANDS) + " " + pick(OWNER_CORP) : style === "fanowned" ? `${c.town} Supporters' Society` : nameFor("ENG"), style, wealth, since: G.year, flash: R() };
+  const name = corp ? pick(BRANDS) + " " + pick(OWNER_CORP) : style === "fanowned" ? `${c.town} Supporters' Society` : style === "dynasty" ? `The ${pick(NAMES.ENG[1])} family`
+    : style === "crypto" ? pick(["Coin", "Chain", "Bet", "Block", "Punt", "Token"]) + pick(["Vault", "Stake", "Hub", "X", "Max", "Rush"]) : nameFor("ENG");
+  return { name, style, wealth, since: G.year, flash: R() };
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
 function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0); }
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
+// A former player's managers are his old teammates: picked for loyalty, not ability.
+function coachFor(c) { const co = aiCoach(c.rep); if (c.own && c.own.style === "explayer") { co.tac = Math.max(5, co.tac - ri(8, 18)); co.mate = true; } return co; }
+const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "hostile" && x.own.target === c.id);
 function ownersSummer() {
   for (const c of G.clubs) {
     if (c.gone || isMine(c)) continue;
@@ -48,9 +57,33 @@ function ownersSummer() {
     const over = c.lvl > TIER_LVL[c.tier] + 3 || c.own.style === "stripper";
     if (over && R() < S.debt) administration(c);
     // Takeovers: a few clubs change hands each summer; supporter-owned clubs never do.
-    if (c.own.style !== "fanowned" && R() < .035) takeover(c);
+    if (c.own.style === "dynasty" && G.year - c.own.since >= 12 && R() < .1) succession(c);
+    else if (c.own.style === "crypto" && R() < .15) cryptoCrash(c);
+    else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
+    if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
     c.lvl = clubStandard(c);
   }
+  hostileCheck();
+}
+/* The old man dies: the heir sells, or takes over and wrecks it. */
+function succession(c) {
+  const fam = c.own.name, where = c.lg === my().lg || c.half === my().half;
+  if (R() < .5) { takeover(c); if (where) news(`The death of its patriarch ends ${fam}'s century at ${c.name}: the heir sells to ${c.own.name}.`, true); }
+  else { c.own = { ...c.own, style: pick(["gambler", "absentee", "meddler"]), since: G.year, heir: true }; if (where) news(`${fam}'s heir takes charge at ${c.name}, and he isn't his father: ${OWNER_STYLES[c.own.style].l.toLowerCase()}.`, true); }
+}
+/* Crypto and betting money: there one day, gone the next. */
+function cryptoCrash(c) {
+  news(`${c.own.name}, the money behind ${c.name}, has collapsed overnight. The club is left with wages it can't pay.`, c.lg === my().lg || c.half === my().half);
+  administration(c);
+}
+/* A hostile neighbour: once you're noticed, a rich owner may buy a nearby club to take you on. One at a time. */
+function hostileCheck() {
+  const c = my(); if (hostileOf(c) || G.history.length < 2 || c.rep < 8 || R() > .12) return;
+  const near = G.clubs.filter(x => !x.gone && !isMine(x) && x.region === c.region && Math.abs(x.tier - c.tier) <= 1 && x.own.style !== "fanowned");
+  const x = near.length ? pick(near) : G.clubs.filter(x => !x.gone && !isMine(x) && x.half === c.half && Math.abs(x.tier - c.tier) <= 1 && x.own.style !== "fanowned")[0];
+  if (!x) return;
+  x.own = newOwner(x, "hostile"); x.own.wealth = Math.max(x.own.wealth, G.owner.wealth * rf(.8, 2)); x.own.target = c.id; x.rep = Math.min(99, x.rep + 3);
+  news(`${x.own.name} buys ${x.name} and tells reporters he'll "put ${c.name} in their place". You have a hostile neighbour.`, true); bumpMedia(5);
 }
 function administration(c) {
   c.ded = 10; c.rep = Math.max(1, c.rep - 4);
@@ -72,13 +105,13 @@ function ownersCheck(w) {
   for (const k of LG_KEYS) {
     const t = table(k), n = t.length;
     t.forEach((r, i) => { const c = CL(r.id); if (isMine(c) || i < n * .66 || !c.own) return;
-      if (R() > ownStyle(c).patience) { const old = c.coach.name; c.coach = aiCoach(c.rep); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
+      if (R() > ownStyle(c).patience) { const old = c.coach.name; c.coach = coachFor(c); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
   }
 }
 /* Sponsors: a celebrity or billionaire owner nearby hoovers up local sponsorship. */
 function sponsorSqueeze(c) {
   const near = G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.half === c.half && Math.abs(x.tier - c.tier) <= 1 && OWNER_STYLES[x.own.style].media >= 6);
-  return near.length ? Math.max(.7, 1 - near.length * .1) : 1;
+  return Math.max(.6, (near.length ? Math.max(.7, 1 - near.length * .1) : 1) * (hostileOf(c) ? .88 : 1));
 }
 /* Poaching: ambitious owners above you come for your staff. */
 function poachWeek() {
@@ -86,7 +119,7 @@ function poachWeek() {
   if (G.phase !== "season" || R() > .03) return;
   const role = pick(["manager", "manager", "recruit", "youth"]), s = staffOf(role); if (!s) return;
   if (G.inbox.some(m => m.key === "poach" && !m.done)) return;
-  const q = staffAvg(s), suitors = G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.tier < c.tier && OWNER_STYLES[x.own.style].poach > R() && Math.abs(TIER_REP[x.tier] + 15 - q) < 25);
+  const h = hostileOf(c), q = staffAvg(s), suitors = h && R() < .5 ? [h] : G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.tier < c.tier && OWNER_STYLES[x.own.style].poach > R() && Math.abs(TIER_REP[x.tier] + 15 - q) < 25);
   if (!suitors.length) return;
   // Compensation: what's left of his contract, and a premium on top that rises with how badly they want him.
   const x = pick(suitors), comp = Math.round(s.wage * Math.max(1, s.yrs) * (1.1 + OWNER_STYLES[x.own.style].poach * .5 + R() * .3) / 1000) * 1000;
@@ -98,13 +131,3 @@ DECIDE.poach = (m, i) => {
   if (i === 0) { my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
   else trust(m.data.role, -10, `is unhappy you blocked his move to ${x.name}.`);
 };
-/* A takeover approach for your own club: sell, and the career ends. */
-function bidForMyClub() {
-  if (G.phase !== "summer" || G.week !== 3 || R() > .25 || G.history.length < 2) return;
-  const v = valuation(my()), rich = G.clubs.filter(x => x.own && x.own.wealth > v * 3).length;
-  if (!rich && R() > .3) return;
-  const style = pick(["sugar", "multiclub", "celebrity", "developer", "stripper", "moneyball"]);
-  const amt = Math.round(v * rf(1.05, 1.6) * (G.board ? G.board.own / 100 : 1) / 1e4) * 1e4;
-  addChoice("takeover", `Takeover bid: ${money(amt)} for your stake`, `A ${OWNER_STYLES[style].l.toLowerCase()} wants to buy you out. ${OWNER_STYLES[style].d} Accepting ends your time as owner.`, ["Sell the club", "Not for sale"], { amt, style }, 1);
-}
-DECIDE.takeover = (m, i) => { if (i === 0) { G.owner.wealth += m.data.amt; G.ended = { y: G.year, amt: m.data.amt, style: m.data.style }; news(`You sell the club for ${money(m.data.amt)}.`, true); } else moodHit(my(), 2); };

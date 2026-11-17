@@ -115,5 +115,5 @@ function staffSummer() {
   // Rival managers age and retire too.
   for (const x of G.clubs) { if (x.gone || isMine(x) || !x.coach) continue; const co = x.coach; co.age = (co.age || ri(36, 62)) + 1;
     co.tac = clamp(rh(co.tac + (co.age < 45 ? rf(0, 2) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2.5))), 5, 99); co.dev = clamp(rh(co.dev + (co.age < 45 ? rf(0, 1.5) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2))), 5, 99);
-    if (co.age >= 70 || (co.age >= 60 && R() < (co.age - 59) * .1)) { x.coach = aiCoach(x.rep); if (x.lg === c.lg) news(`${x.name}'s manager ${co.name} retires. ${x.coach.name} replaces him.`); } }
+    if (co.age >= 70 || (co.age >= 60 && R() < (co.age - 59) * .1)) { x.coach = coachFor(x); if (x.lg === c.lg) news(`${x.name}'s manager ${co.name} retires. ${x.coach.name} replaces him.`); } }
 }

@@ -107,14 +107,21 @@ refusal on their best youngsters at a discount.
 
 Every club has an owner with a style that drives it: lifelong fan, billionaire benefactor, asset stripper, data-driven
 investor, property developer, celebrity, multi-club group, absent owner, reckless gambler, supporter-owned, meddler,
-youth evangelist. Styles decide spending, building, how long managers last, administrations, poaching of your staff and
-players, and competition for local sponsors. Clubs change hands in takeovers, and someone may make an offer for yours.
+youth evangelist, old-money dynasty (until the heir takes over), hostile neighbour (bought nearby to beat you), crypto or betting money (can vanish overnight), former player (fans adore him; he hires his mates as managers). Styles decide spending, building, how long managers last, administrations, poaching of your staff and
+players, and competition for local sponsors. Clubs change hands in takeovers.
+
+## Selling up and starting again
+
+Put the club up for sale from the Board page (or accept an unsolicited bid that sometimes comes in the summer). You're
+paid for your stake, plus anything you lent the club; investors and loans stay with it, and it carries on as an AI club
+under its new owner. Then buy any club whose owner will sell (not supporter-owned clubs or hostile neighbours), and take
+it on as it stands: squad, manager, ground, facilities and sponsors. The History page keeps every club you've owned.
 
 ## Code
 
 `js/names.js` (names, towns and helpers from Touchline Manager), `core.js` (pyramid, players, talent, development),
 `staff.js`, `club.js` (prices, attendance, sponsors, facilities, suites, pitch, ventures), `weather.js`, `match.js`,
 `events.js` (decisions and media), `cups.js`, `owners.js` (rival owners), `board.js` (valuation, investors, directors,
-supporters' trust, loans, objectives), `partners.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
+supporters' trust, loans, objectives), `partners.js`, `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
 
 `node tools/sim.js 20` plays 20 seasons headless and reports talent, ratings by tier and the test club's progress.

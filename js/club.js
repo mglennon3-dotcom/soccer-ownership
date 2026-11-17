@@ -75,7 +75,7 @@ function buildWeek(c) {
 
 /* ---------- supporters ---------- */
 // Where the fanbase is heading: the division, the club's standing and whether it's winning.
-function fanTarget(c) { return FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250); }
+function fanTarget(c) { return FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1); }
 function fansWeek(c) {
   const t = fanTarget(c);
   c.fans = Math.max(50, Math.round(c.fans + (t - c.fans) * (t > c.fans ? .012 : .004)));

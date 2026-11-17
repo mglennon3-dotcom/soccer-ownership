@@ -20,7 +20,11 @@ function pgBoard() {
     <dl class="ledger"><dt>Members</dt><dd>${T.members.toLocaleString()}</dd><dt>Seat on the board</dt><dd>${T.seat ? "Yes" : "No"}</dd>${T.freeze ? `<dt>Ticket price freeze</dt><dd>${seasonLabel(T.freeze)}</dd>` : ""}${T.u18 ? `<dt>Under-18 tickets</dt><dd>Half price</dd>` : ""}</dl>
     <p class="small muted" style="margin:10px 0">The organised fans. They make demands through the season. When supporters are angry and relations are poor, they protest at home games: smaller crowds and bad headlines.</p>
     <div class="row"><button class="btn sm" data-act="meettrust" ${T.met === G.year ? "disabled" : ""}>Meet the trust${T.met === G.year ? " (done this year)" : ""}</button>${!T.seat ? `<button class="btn sm" data-act="trustseat">Offer them a board seat</button>` : ""}</div></section>`;
-  return `<div class="grid2"><div class="stack">${objectivesCard()}${own}</div><div class="stack">${trustC}${dirs}</div></div>`;
+  const so = G.saleOffers || [];
+  const sale = `<section class="card"><div class="card-h"><h2>Sell the club</h2></div><p class="small muted" style="margin-bottom:8px">Sell your ${B.own}% and buy another club with the money. The investors, loans and debts stay with this club.</p>
+    ${so.length ? `<div class="stack" style="gap:8px">${so.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b><br><span class="small muted">${OWNER_STYLES[o.style].l}: ${OWNER_STYLES[o.style].d}</span></span><span class="row"><b class="num">${money(o.amt)}</b><button class="btn sm danger" data-act="acceptsale" data-i="${i}">Sell</button></span></div>`).join("")}</div>` : `<button class="btn" data-act="putsale">Put the club up for sale</button>`}
+    ${(G.career || []).length ? `<h3 style="margin:12px 0 6px">Clubs you've owned</h3>${G.career.map(x => `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: sold to ${esc(x.by)} for ${money(x.sold)}</p>`).join("")}` : ""}</section>`;
+  return `<div class="grid2"><div class="stack">${objectivesCard()}${own}</div><div class="stack">${trustC}${dirs}${sale}</div></div>`;
 }
 function objectivesCard() {
   const o = G.obj && G.obj.y === G.year ? G.obj : null, canSet = G.phase === "summer";
@@ -80,9 +84,10 @@ function pgComps() {
 function pgRivals() {
   const c = my(), mine = G.leagues[c.lg].clubs.map(CL).filter(x => !isMine(x));
   const rich = G.clubs.filter(x => !x.gone && x.own && !isMine(x)).sort((a, b) => b.own.wealth - a.own.wealth).slice(0, 10);
-  const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">DERBY</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td></tr>`;
+  const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">DERBY</span>' : ""}${x.own.target === c.id ? ' <span class="chip rival r3">HOSTILE</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td></tr>`;
   const head = `<thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Owner</th><th style="text-align:left">Style</th><th>Fortune</th><th>Since</th><th>Division</th></tr></thead>`;
-  return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Your division's owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${mine.map(row).join("")}</tbody></table></div></section>
+  const h = hostileOf(c);
+  return `${h ? `<section class="card summary" style="margin-bottom:16px"><div class="card-h"><h2>Hostile neighbour: ${esc(h.name)}</h2></div><p>${esc(h.own.name)} bought ${esc(h.name)} in ${h.own.since} to beat you. Expect approaches for your staff and bids for your players, fewer local sponsors and a fight for supporters.</p></section>` : ""}<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Your division's owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${mine.map(row).join("")}</tbody></table></div></section>
     <section class="card"><div class="card-h"><h2>The richest owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${rich.map(row).join("")}</tbody></table></div></section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Owner styles</h3></div>${Object.values(OWNER_STYLES).map(s => `<p class="small" style="margin-bottom:6px"><b>${s.l}.</b> ${s.d}</p>`).join("")}
     <p class="small muted">Owners with deep pockets and big profiles near you take local sponsorship from you. Ambitious owners above you come for your staff and pay over the odds for your players. Clubs change hands in takeovers every summer.</p></section></div></div>`;
@@ -110,4 +115,17 @@ function endScreen() {
   return `<div class="wrap gut"><div class="hero"><p class="eyebrow">${seasonLabel(e.y)}</p><h1>You sold <span>${esc(c.name)}</span></h1>
     <p>For ${money(e.amt)} to a ${OWNER_STYLES[e.style].l.toLowerCase()}. You founded the club in ${c.founded} with nothing; you leave it in the ${LEAGUES[c.lg].name}, with ${c.fans.toLocaleString()} supporters and ${c.trophies.length} trophies. You put in ${money(G.owner.invested)}; your fortune is now ${money(G.owner.wealth)}.</p></div>
     <div class="row"><button class="btn primary" data-act="quit">Back to the start</button></div></div>`;
+}
+
+/* ---------- between clubs: buy one ---------- */
+let BUYF = { tier: 0, afford: true };
+function buyScreen() {
+  const w = G.owner.wealth, list = G.clubs.filter(c => !c.gone && c.own && (!BUYF.tier || c.tier === BUYF.tier)).map(c => ({ c, p: askPrice(c) })).filter(x => x.p && (!BUYF.afford || x.p <= w)).sort((a, b) => a.c.tier - b.c.tier || b.p - a.p).slice(0, 80);
+  const last = (G.career || []).slice(-1)[0];
+  return `<div class="wrap gut page"><div class="hero"><p class="eyebrow">${seasonLabel(G.year)} · between clubs</p><h1>Buy <span>a club</span></h1>
+    <p>${last ? `You sold ${esc(last.club)} for ${money(last.sold)}. ` : ""}Your fortune: <b>${money(w)}</b>. You get the club as it stands: squad, manager, ground, facilities and sponsors. Supporter-owned clubs and hostile owners won't sell.</p></div>
+    <section class="card"><div class="row filters" style="margin-bottom:10px"><select data-act="buyf" data-k="tier"><option value="0">All divisions</option>${[1, 2, 3, 4, 5, 6, 7].map(t => `<option value="${t}" ${BUYF.tier === t ? "selected" : ""}>${TIER_NAME[t]}</option>`).join("")}</select>
+      <label class="small"><input type="checkbox" data-act="buyf" data-k="afford" ${BUYF.afford ? "checked" : ""}> Only clubs I can afford</label></div>
+    <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Division</th><th>Ground</th><th>Fans</th><th>Team</th><th style="text-align:left">Owner</th><th>Price</th><th></th></tr></thead><tbody>
+    ${list.map(({ c, p }) => `<tr><td style="text-align:left">${crest(c, 14)} <button class="lnk" data-act="club" data-id="${c.id}">${esc(c.name)}</button></td><td style="text-align:left" class="small">${LEAGUES[c.lg].name}</td><td class="num">${c.cap.toLocaleString()}</td><td class="num">${c.fans.toLocaleString()}</td><td>${rating(avg(pickXI(c).map(o => o.p.ovr)))}</td><td style="text-align:left" class="small">${OWNER_STYLES[c.own.style].l}</td><td class="num">${money(p)}</td><td><button class="btn sm primary" data-act="buyclub" data-id="${c.id}" ${p > w ? "disabled" : ""}>Buy</button></td></tr>`).join("") || `<tr><td colspan="8" class="muted">No clubs for sale at this price.</td></tr>`}</tbody></table></div></section></div>`;
 }

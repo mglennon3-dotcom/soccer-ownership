@@ -129,7 +129,7 @@ function bidsWeek(c) {
     if (p.acad || p.age > 31 || p.loan) continue;
     const star = p.ovr >= TIER_LVL[c.tier] + 5 || (p.age <= 21 && p.pot >= TIER_LVL[c.tier] + 10);
     if (!star || R() > .12 || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
-    const buyer = G.clubs.filter(x => !x.gone && !isMine(x) && x.tier < c.tier && x.lvl >= p.ovr - 3).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr))[0];
+    const h = hostileOf(c), buyer = h && R() < .4 ? h : G.clubs.filter(x => !x.gone && !isMine(x) && x.tier < c.tier && x.lvl >= p.ovr - 3).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr))[0];
     if (!buyer) continue;
     const amt = Math.round(valueOf(p) * rf(.85, 1.5) * (buyer.own ? 1 + OWNER_STYLES[buyer.own.style].poach * .3 : 1) / 1000) * 1000;
     addMsg({ type: "bid", pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${buyer.name} bid ${money(amt)} for ${p.name}` });
