@@ -34,7 +34,7 @@ function squadNeeds(c) {
   const senior = c.squad.map(P).filter(p => !p.acad || p.age >= 18);
   for (const pos of POS) {
     const n = slots.filter(s => s === pos).length; if (!n && pos !== "GK") continue;
-    const depth = senior.filter(p => p.pos === pos).length, want = pos === "GK" ? 2 : Math.max(2, n * 2);
+    const depth = senior.filter(p => p.pos === pos && !(p.inj > 4) && !p.list).length, want = pos === "GK" ? 2 : Math.max(2, n * 2);
     const starters = xi.filter(o => o.slot === pos).map(o => roleRating(o.p, pos)), weakest = starters.length ? Math.min(...starters) : 0;
     if (depth < want) out.push({ pos, kind: "depth", weakest, short: want - depth });
     else if (weakest < TIER_LVL[c.tier] + 2) out.push({ pos, kind: "upgrade", weakest });
@@ -100,6 +100,14 @@ function signPlayer(p, fee, wage, byOwner) {
   if (seller && !seller.gone) aiSquadCheck(seller, true);
   news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${pw(wage)}.`, true);
 }
+/* Position cover: two keepers, and for every outfield position in the manager's formation one more than it has places.
+   Your staff never list, sell or release a player if that would leave his position short (long injuries don't count
+   as cover). */
+function coverNeed(c, pos) { const n = FORMS[mgr().form || "4-4-2"].filter(s => s === pos).length; return pos === "GK" ? 2 : n ? n + 1 : 0; }
+function coverOK(c, p) {
+  const left = c.squad.map(P).filter(q => q !== p && q.pos === p.pos && !q.acad && !q.list && !(q.inj > 4) && !(q.loan && q.loan.from === c.id)).length;
+  return left >= coverNeed(c, p.pos);
+}
 function headWeek(c) {
   const s = staffOf("recruit");
   if (!s) return;
@@ -113,8 +121,8 @@ function headWeek(c) {
   // the window gets players released.
   const seniors = () => c.squad.map(P).filter(p => !p.acad && !p.loan);
   const xi = new Set(pickXI(c).map(o => o.p.id)), spare = seniors().filter(q => !xi.has(q.id) && !q.keep && canSell(q)).sort((a, b) => a.ovr - b.ovr);
-  for (const p of spare.slice(0, Math.max(0, seniors().length - 26))) if (!p.list) { p.list = true; news(`${s.name} transfer-lists ${p.name}.`); }
-  if (lastWindowWeek()) for (const p of spare.filter(q => q.club === c.id).slice(0, Math.max(0, seniors().length - 28))) release(p, false);
+  for (const p of spare.slice(0, Math.max(0, seniors().length - 26))) if (!p.list && coverOK(c, p)) { p.list = true; news(`${s.name} transfer-lists ${p.name}.`); }
+  if (lastWindowWeek()) for (const p of spare.filter(q => q.club === c.id && coverOK(c, q)).slice(0, Math.max(0, seniors().length - 28))) release(p, false);
 }
 const lastWindowWeek = () => (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
 /* A forced sale (administration): the administrators take what a club at his level will pay. */
@@ -172,6 +180,7 @@ function headAdvice(p, amt) {
   const s = staffOf("recruit"), v = valueOf(p), starter = pickXI(my()).some(o => o.p === p);
   if (p.keep) return "reject";
   if (my().squad.filter(id => !P(id).acad).length <= 16) return "reject";  // the squad is too thin to sell
+  if (!coverOK(my(), p)) return "reject";  // it would leave his position short
   if (p.list) return amt >= v * (s && s.phil === "value" ? .75 : .6) ? "accept" : "reject";  // he wants him gone, at a fair price
   if (!s) return amt >= v * 1.4 ? "accept" : "reject";
   const r = { value: amt >= v * 1.15, potential: p.age >= 24 ? amt >= v : amt >= v * 1.6, proven: starter ? amt >= v * 1.8 : amt >= v, fit: amt >= v * 1.3 }[s.phil];

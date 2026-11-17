@@ -66,6 +66,11 @@ function scorer(xi, kind) {
 /* A side that can't field eleven (everyone sold, injured or suspended) signs trialists from the free agents to make up
    the numbers, so a match is never played a man short by accident. Only your club can end up here. */
 function emergencyXI(c) {
+  // No fit keeper: the club signs one from the free agents for the match (and beyond, on a short contract).
+  if (!c.squad.some(id => P(id).pos === "GK" && avail(P(id)) && (!P(id).acad || P(id).age >= 17))) {
+    const gk = G.fa.map(P).filter(p => p && p.pos === "GK" && p.age <= 36).sort((a, b) => b.ovr - a.ovr)[0];
+    if (gk) { moveTo(gk, c); gk.wage = Math.max(1000, Math.round(wageFor(gk.ovr) * .6 / 100) * 100); gk.yrs = 1; news(`With no fit goalkeeper, ${c.name} sign ${gk.name} from the free agents on a short contract.`, true); }
+  }
   const need = 11 - pickXI(c).length; if (need <= 0) return;
   const fa = G.fa.map(P).filter(p => p && p.age <= 34).sort((a, b) => a.wage - b.wage);
   for (const p of fa.slice(0, need)) { moveTo(p, c); p.wage = Math.max(1000, Math.round(wageFor(p.ovr) * .5 / 100) * 100); p.yrs = 1; }
