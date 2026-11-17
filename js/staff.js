@@ -48,18 +48,13 @@ function attraction() {
 const askingWage = s => staffAsk(s);
 const wontCome = s => staffAsk(s) == null;
 
-/* Candidates: a fresh list each time you look, centred on the level the job attracts, with a few long shots. */
-function candidates(role) {
-  const a = attraction(), out = [];
-  for (let i = 0; i < 9; i++) out.push(genStaff(role, clamp(Math.round(a + (i < 6 ? normal() * 8 : 15 + R() * 30)), 3, 95)));
-  return out.sort((x, y) => staffAvg(y) - staffAvg(x));
-}
 function hire(s, wage, yrs) {
   const c = my(), cur = c.staff[s.role];
   if (cur && cur !== s) dismiss(s.role, true);
   const ask = staffAsk(s) || wage;
   s.wage = wage; s.yrs = yrs; s.expiring = false; s.trust = clamp(60 + Math.round((wage / ask - 1) * 40), 40, 80); s.since = G.year;
   c.staff[s.role] = s;
+  (G.filled ||= {})[s.role] = true; if (G.pools && G.pools[s.role]) G.pools[s.role].list = G.pools[s.role].list.filter(x => x !== s);
   news(`${s.name} is appointed ${ROLES_STAFF[s.role].l.toLowerCase()} on ${money(wage)} a year for ${yrs} year${yrs > 1 ? "s" : ""}.`, true);
   if (s.role === "manager") c.form = s.form;
 }
@@ -107,6 +102,7 @@ function staffSummer() {
     const env = role === "manager" ? c.fac.train.lvl / 10 : role === "youth" ? c.fac.acad.lvl / 10 : clamp(.5 + budgetFactor(c.budget.scout, scoutRef(c.tier)) / 6, 0, 1);
     const up = (7 - c.tier) * .04;
     if (ageStaff(s, clamp(env + up, 0, 1.2))) { c.staff[role] = null; news(`${s.name} retires as ${ROLES_STAFF[role].l.toLowerCase()} at ${s.age}. The job is vacant.`, true); continue; }
+    s.trust = clamp(s.trust + (visionMatch(s) - .5) * 12, 0, 100);
     s.rep = clamp(Math.round(s.rep + ((G.history[0] || {}).up ? 3 : 0) + (staffAvg(s) - s.rep * .75 - 18) * .1), 1, 99);
     const moved = Object.keys(s.at).map(k => s.at[k] - s.prev[k]).reduce((a, b) => a + b, 0);
     if (Math.abs(moved) >= 4) news(`${s.name} has ${moved > 0 ? "improved" : "declined"} over the season (${ROLES_STAFF[role].l.toLowerCase()}).`);
@@ -116,4 +112,47 @@ function staffSummer() {
   for (const x of G.clubs) { if (x.gone || isMine(x) || !x.coach) continue; const co = x.coach; co.age = (co.age || ri(36, 62)) + 1;
     co.tac = clamp(rh(co.tac + (co.age < 45 ? rf(0, 2) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2.5))), 5, 99); co.dev = clamp(rh(co.dev + (co.age < 45 ? rf(0, 1.5) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2))), 5, 99);
     if (co.age >= 70 || (co.age >= 60 && R() < (co.age - 59) * .1)) { x.coach = coachFor(x); if (x.lg === c.lg) news(`${x.name}'s manager ${co.name} retires. ${x.coach.name} replaces him.`); } }
+}
+
+/* ---------- your vision as owner ----------
+   How you want the club run: a style of football, a way of recruiting, and ten points spread across six priorities.
+   Staff whose ideas match it are keener to join and grow happier working for you; staff whose ideas clash slowly sour.
+   Each point also brings a small, steady benefit in that area. */
+const PRIORITIES = {
+  results:    { l: "Winning now", d: "Dressing-room confidence: team morale settles about one point higher per point." },
+  youth:      { l: "Youth development", d: "Each point raises the quality of academy intakes a little." },
+  finance:    { l: "Sound finances", d: "Each point trims running costs by 2%; investors who want profits approve." },
+  fans:       { l: "The supporters", d: "Each point lifts supporters' mood a little every week and warms the supporters' trust." },
+  commercial: { l: "Commercial growth", d: "Each point adds about 2.5% to what sponsors offer." },
+  facilities: { l: "Facilities", d: "Each point takes 2% off building costs." },
+};
+const VISION_POINTS = 10;
+const vision = () => (G.owner.vision ||= { style: "any", recruit: "any", pri: { results: 2, youth: 2, finance: 2, fans: 2, commercial: 1, facilities: 1 } });
+const vpt = k => G && G.owner ? (vision().pri[k] || 0) : 0;
+// How well a member of staff's ideas fit yours, 0-1.
+function visionMatch(s) {
+  const v = vision(), P = v.pri;
+  if (s.role === "manager") {
+    const style = v.style === "any" ? .65 : s.phil === v.style ? 1 : .2;
+    const focus = s.focus === "youth" ? .3 + P.youth * .17 : s.focus === "results" ? .3 + P.results * .17 : .6;
+    return clamp(style * .6 + focus * .4, 0, 1);
+  }
+  if (s.role === "recruit") {
+    const want = v.recruit !== "any" ? v.recruit : P.youth >= 3 ? "potential" : P.finance >= 3 ? "value" : P.results >= 3 ? "proven" : null;
+    return want ? (s.phil === want ? 1 : s.phil === "fit" ? .5 : .25) : .65;
+  }
+  const local = s.focus === "local" ? .4 + P.fans * .1 + P.finance * .05 : .4 + P.youth * .1;
+  return clamp(.3 + P.youth * .12 + local * .3, 0, 1);
+}
+const matchWord = m => m >= .75 ? ["Shares your vision", "good"] : m >= .5 ? ["Partly shares your vision", ""] : ["Different ideas from yours", "warn"];
+
+/* The candidate pools: kept for six weeks rather than redrawn every time you look. A role you've never filled draws
+   from a bigger pool (20); later searches find 12. */
+function candidates(role) {
+  const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
+  if (P[role] && now - P[role].t < 6 && P[role].list.length) return P[role].list;
+  const a = attraction(), n = (G.filled || {})[role] ? 12 : 20, out = [];
+  for (let i = 0; i < n; i++) out.push(genStaff(role, clamp(Math.round(a + (i < n * .65 ? normal() * 8 : 15 + R() * 30)), 3, 95)));
+  P[role] = { t: now, list: out };
+  return out;
 }

@@ -56,7 +56,7 @@ function investorsSummer(report) {
   for (const i of B.inv) {
     let d = report.up ? 12 : report.down ? -15 : 0;
     d += (G.objRes || []).reduce((s, o) => s + (o.met ? 4 : -5), 0);
-    if (i.type === "pe") d += profit > 0 ? 6 : -8;
+    if (i.type === "pe") d += (profit > 0 ? 6 : -8) + vpt("finance");
     if (i.type === "local" || i.type === "fans") d += (my().mood - 50) / 8;
     i.mood = clamp(i.mood + d * INVESTOR[i.type].temper * .6, 0, 100);
     if (i.type === "pe") { const div = Math.round(i.amt * .04); spend("dividend", div); news(`${i.name} take a ${money(div)} dividend.`); }
@@ -89,7 +89,7 @@ function directorCands(k) {
 const dirWages = () => G.board ? sum(Object.values(G.board.dir).filter(Boolean), d => d.wage) : 0;
 // Effects, each scaling with skill: up to 2.5 points off loan rates, 10% off upkeep, 20% on sponsors, 15% off building.
 const loanCut = () => dirSkill("finance") / 100 * .025;
-const upkeepMult = () => 1 - dirSkill("finance") / 1000;
+const upkeepMult = () => (1 - dirSkill("finance") / 1000) * (1 - vpt("finance") * .02);
 const commMult = () => 1 + dirSkill("commercial") / 500;
 const buildMult = () => 1 - dirSkill("ops") * .0015;
 const wearMult = () => 1 - dirSkill("ops") * .003;
@@ -100,6 +100,7 @@ const wearMult = () => 1 - dirSkill("ops") * .003;
 function trustRel(d, msg) { const T = G.sTrust; T.rel = clamp(T.rel + d, 0, 100); if (msg) news(msg); }
 function trustWeek(c) {
   const T = G.sTrust; T.members = Math.round(c.fans * (.04 + T.rel / 500));
+  if (vpt("fans")) { moodHit(c, vpt("fans") * .03); T.rel = clamp(T.rel + vpt("fans") * .02, 0, 100); }
   T.rel = clamp(T.rel + (c.mood - 50) * .02 + (T.seat ? .1 : 0), 0, 100);
   if (G.phase === "season" && c.mood < 30 && T.rel < 35 && R() < .2) { T.protest = 2; moodHit(c, -1); news(`Supporters protest outside the ground before the game. The trust says the club has stopped listening.`, true); bumpMedia(2); }
   if (T.protest) T.protest--;

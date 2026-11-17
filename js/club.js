@@ -53,7 +53,7 @@ const ACAD_DESC = ["No academy", "Evening sessions for local boys", "A small you
 
 function startBuild(kind, q) {
   const c = my(), block = boardBlocks(q.cost); if (block) { news(block, true); return block; }
-  q = { ...q, cost: Math.round(q.cost * buildMult() / 1e4) * 1e4, weeks: Math.max(2, Math.round(q.weeks * (1 - dirSkill("ops") * .002))) };
+  q = { ...q, cost: Math.round(q.cost * buildMult() * (1 - vpt("facilities") * .02) / 1e4) * 1e4, weeks: Math.max(2, Math.round(q.weeks * (1 - dirSkill("ops") * .002))) };
   if (kind === "stadium") c.fac.stadium.build = { ...q, left: q.weeks, total: q.weeks };
   else c.fac[kind].build = { lvl: q.lvl, cost: q.cost, left: q.weeks, total: q.weeks };
   spend("build", q.cost);
@@ -119,7 +119,7 @@ const BRAND_KIND = ["Insurance", "Motors", "Energy", "Bank", "Telecom", "Logisti
 const KIT_BRANDS = ["Strider", "Volta", "Kinetic", "Arcus", "Tempo", "Fieldcraft", "Nova Sport", "Pulse", "Sprintline", "Ridge"];
 const COMM_T = [0, 90e6, 7e6, 1.6e6, 700e3, 220e3, 80e3, 25e3];  // a typical club's commercial value by tier, per year
 const isDerby = (c, o) => o && c.region === o.region && c.lg === o.lg;
-function commercialValue(c) { return mediaMult(c) * commMult() * sponsorSqueeze(c) * COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333); }
+function commercialValue(c) { return (1 + vpt("commercial") * .025) * mediaMult(c) * commMult() * sponsorSqueeze(c) * COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333); }
 function makeOffers(slot) {
   const c = my(), base = commercialValue(c) * SLOTS[slot].share, out = [];
   for (let i = 0; i < 3; i++) {

@@ -100,7 +100,7 @@ function afterMatch(r, k) {
   const home = r.h === c.id, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? r.a : r.h);
   let crowd = null; if (home) { crowd = homeGameMoney(c, opp); c._home = true; }
   const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = isDerby(c, opp) ? 2 : 1;
-  c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 - c.morale) * .1, 20, 95);
+  c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 + vpt("results") - c.morale) * .1, 20, 95);
   moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);
   G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
 }
@@ -278,7 +278,7 @@ function intakeSpec(c) {
     const lvl = c.fac.acad.lvl; if (!lvl) return null;
     const y = staffOf("youth"), bf = budgetFactor(c.budget.acad, acadRef(lvl)), wide = y && y.focus === "wide";
     return { n: Math.max(1, Math.round(2 + lvl * .45 + (y ? y.at.reach / 40 : 0) + bf * .4 + (wide ? 1 : 0))),
-      mean: 37 + lvl * 1.3 + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3) + bf + (wide ? 1.5 : 0),
+      mean: 37 + vpt("youth") * .4 + lvl * 1.3 + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3) + bf + (wide ? 1.5 : 0),
       exc: 1 + lvl * .1 + (wide ? .5 : 0), phil: y ? y.phil : "balanced", wide };
   }
   return { n: Math.round(2 + c.acadLvl * .3 + R()), mean: 37 + c.acadLvl * 1.3, exc: 1 + c.acadLvl * .1, phil: "balanced", wide: c.tier <= 2 };

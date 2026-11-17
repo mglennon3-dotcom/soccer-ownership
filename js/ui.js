@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { pos: "", age: 40, fee: "", min: 0 };
+let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { pos: "", age: 40, fee: "", min: 0 };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString());
 const big = v => Math.abs(v) < 1000 ? eur(v) : money(v);
 const crest = (c, s = 22) => `<svg class="crest" width="${s}" height="${Math.round(s * 1.15)}" viewBox="0 0 20 23" aria-hidden="true"><path d="M1 1h18v9c0 6-4 10-9 12C5 20 1 16 1 10z" fill="${c.color}" stroke="var(--crest-edge)"/><text x="10" y="13" text-anchor="middle" font-size="6" font-weight="700" fill="#fff" font-family="sans-serif">${esc(c.short)}</text></svg>`;
@@ -63,8 +63,11 @@ function render() {
   if (G.club == null) { $("#app").innerHTML = buyScreen(); return; }
   const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals }[PAGE]();
   if (G.ended) { $("#app").innerHTML = endScreen(); return; }
-  const y = scrollY;
+  // The section tabs keep their sideways scroll across redraws, so tapping a tab doesn't snap the bar back to the start.
+  // (Only a visible bar records it: iOS reports 0 while the compact masthead hides it.)
+  const y = scrollY, nav = document.querySelector("nav.tabs"); if (nav && nav.offsetParent) NAV_X = nav.scrollLeft;
   $("#app").innerHTML = mast() + `<main class="wrap gut page">${body}</main>`;
+  const nav2 = document.querySelector("nav.tabs"); if (nav2) nav2.scrollLeft = NAV_X;
   scrollTo(0, y);
 }
 
@@ -181,7 +184,7 @@ function staffCard(role) {
   const ph = R0.phil[s.phil];
   return `<section class="card"><div class="card-h"><h2>${R0.l}</h2><span>${word(trustWord(s.trust))} <span class="muted small">trust ${Math.round(s.trust)}</span></span></div>
     <p class="lead"><b>${esc(s.name)}</b>, ${s.age}</p>
-    <p style="margin:6px 0"><span class="chip list">${esc(ph.l)}</span> ${esc(ph.d)}</p><p class="small"><b>Focus:</b> ${esc(R0.focus[s.focus])}${s.form ? ` · <b>Formation:</b> ${s.form}` : ""}</p>
+    <p style="margin:6px 0"><span class="chip list">${esc(ph.l)}</span> ${esc(ph.d)}</p><p class="small">${word(matchWord(visionMatch(s)))}</p><p class="small"><b>Focus:</b> ${esc(R0.focus[s.focus])}${s.form ? ` · <b>Formation:</b> ${s.form}` : ""}</p>
     <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? r20(s.at[k]) - r20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${attr20(s.at[k])}</div>`; }).join("")}</div>
     ${role === "manager" ? `<p class="small">His style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
     <p class="small muted">${money(s.wage)} a year · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing him costs ${money(payoff(s))}</p>
@@ -193,18 +196,21 @@ function pgStaff() {
 }
 /* What a player or coach is weighing up: each factor's weight to him (his top two starred) and how you score on it. */
 function factorBars(a, factors) {
-  return `<div class="factors">${factors.map(([k, l]) => { const v = a.f[k], top = a.pr.top.includes(k);
+  return `<div class="factors">${factors.filter(([k]) => a.pr.pri[k] != null).map(([k, l]) => { const v = a.f[k], top = a.pr.top.includes(k);
     return `<div class="factor ${top ? "top" : ""}" title="${esc(FACTOR_HELP[k] || "")}"><span>${top ? "★ " : ""}${l}</span><span class="fbar"><i style="width:${Math.round(v * 100)}%;background:${v >= .6 ? "var(--win)" : v >= .4 ? "var(--accent)" : "var(--loss)"}"></i></span><span class="muted small num">${Math.round(a.pr.pri[k] * 100)}%</span></div>`; }).join("")}</div>
     <p class="small muted">★ what he cares about most. The bar is how well your club does on it; the figure is how much it weighs with him.</p>`;
 }
 let CANDS = null;
+let CSORT = "best";
 function candModal(role) {
-  CANDS = { role, list: candidates(role).sort((a, b) => (staffAsk(a) == null) - (staffAsk(b) == null) || staffAvg(b) - staffAvg(a)) };
+  const by = { best: (a, b) => staffAvg(b) - staffAvg(a), cheap: (a, b) => (staffAsk(a) ?? 1e12) - (staffAsk(b) ?? 1e12), vision: (a, b) => visionMatch(b) - visionMatch(a) }[CSORT];
+  CANDS = { role, list: candidates(role).slice().sort((a, b) => (staffAsk(a) == null) - (staffAsk(b) == null) || by(a, b)) };
   const R0 = ROLES_STAFF[role];
-  modal(`<div class="modal-h"><div><p class="eyebrow">Candidates</p><h2>${R0.l}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
+  modal(`<div class="modal-h"><div><p class="eyebrow">${CANDS.list.length} candidates</p><h2>${R0.l}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
+    <div class="modal-b" style="padding-bottom:0"><div class="seg">${[["best", "Best"], ["cheap", "Cheapest"], ["vision", "Closest to your vision"]].map(([k, l]) => `<button data-act="csort" data-k="${k}" data-r="${role}" aria-pressed="${CSORT === k}">${l}</button>`).join("")}</div></div>
     <div class="modal-b"><p class="small muted">Like players, coaches weigh up the whole job: the money, your club's standing, facilities, budgets, the squad, your ambition, and whether you let staff do their jobs. Each cares about some things more than others. The wage shown is the least that would get him to say yes; offer less and he'll probably refuse.</p>
     ${CANDS.list.map((s, i) => { const ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null; return `<div class="cand ${no ? "dim" : ""}"><div class="row between"><div><b>${esc(s.name)}</b>, ${s.age} <span class="muted small">reputation ${s.rep}</span></div><div class="num">${no ? `<span class="muted">Not interested at any price</span>` : "wants about " + money(ask) + "/yr"}</div></div>
-      <p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""}</p>
+      <p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${attr20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>

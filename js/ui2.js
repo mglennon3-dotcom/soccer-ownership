@@ -24,7 +24,7 @@ function pgBoard() {
   const sale = `<section class="card"><div class="card-h"><h2>Sell the club</h2></div><p class="small muted" style="margin-bottom:8px">Sell your ${B.own}% and buy another club with the money. The investors, loans and debts stay with this club.</p>
     ${so.length ? `<div class="stack" style="gap:8px">${so.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b><br><span class="small muted">${OWNER_STYLES[o.style].l}: ${OWNER_STYLES[o.style].d}</span></span><span class="row"><b class="num">${money(o.amt)}</b><button class="btn sm danger" data-act="acceptsale" data-i="${i}">Sell</button></span></div>`).join("")}</div>` : `<button class="btn" data-act="putsale">Put the club up for sale</button>`}
     ${(G.career || []).length ? `<h3 style="margin:12px 0 6px">Clubs you've owned</h3>${G.career.map(x => `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: sold to ${esc(x.by)} for ${money(x.sold)}</p>`).join("")}` : ""}</section>`;
-  return `<div class="grid2"><div class="stack">${objectivesCard()}${own}</div><div class="stack">${trustC}${dirs}${sale}</div></div>`;
+  return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}${own}</div><div class="stack">${trustC}${dirs}${sale}</div></div>`;
 }
 function objectivesCard() {
   const o = G.obj && G.obj.y === G.year ? G.obj : null, canSet = G.phase === "summer";
@@ -128,4 +128,16 @@ function buyScreen() {
       <label class="small"><input type="checkbox" data-act="buyf" data-k="afford" ${BUYF.afford ? "checked" : ""}> Only clubs I can afford</label></div>
     <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Division</th><th>Ground</th><th>Fans</th><th>Team</th><th style="text-align:left">Owner</th><th>Price</th><th></th></tr></thead><tbody>
     ${list.map(({ c, p }) => `<tr><td style="text-align:left">${crest(c, 14)} <button class="lnk" data-act="club" data-id="${c.id}">${esc(c.name)}</button></td><td style="text-align:left" class="small">${LEAGUES[c.lg].name}</td><td class="num">${c.cap.toLocaleString()}</td><td class="num">${c.fans.toLocaleString()}</td><td>${rating(avg(pickXI(c).map(o => o.p.ovr)))}</td><td style="text-align:left" class="small">${OWNER_STYLES[c.own.style].l}</td><td class="num">${money(p)}</td><td><button class="btn sm primary" data-act="buyclub" data-id="${c.id}" ${p > w ? "disabled" : ""}>Buy</button></td></tr>`).join("") || `<tr><td colspan="8" class="muted">No clubs for sale at this price.</td></tr>`}</tbody></table></div></section></div>`;
+}
+
+/* ---------- your vision ---------- */
+function visionCard() {
+  const v = vision(), used = sum(Object.values(v.pri)), left = VISION_POINTS - used;
+  return `<section class="card"><div class="card-h"><h2>Your vision</h2><span class="small ${left ? "warn" : "muted"}">${left} of ${VISION_POINTS} points left</span></div>
+    <p class="small muted" style="margin-bottom:10px">What matters to you as owner. Staff who share your ideas are keener to join and grow happier working for you; staff who don't slowly sour. Each priority point also brings a small benefit in that area.</p>
+    <div class="price-grid" style="margin-bottom:12px">
+      <label class="small"><b>How the team should play</b><select data-act="vset" data-k="style"><option value="any">Whatever wins</option>${Object.entries(STYLES).map(([k, s]) => `<option value="${k}" ${v.style === k ? "selected" : ""}>${s.l}</option>`).join("")}</select></label>
+      <label class="small"><b>How to recruit</b><select data-act="vset" data-k="recruit"><option value="any">Leave it to the experts</option>${Object.entries(ROLES_STAFF.recruit.phil).map(([k, s]) => `<option value="${k}" ${v.recruit === k ? "selected" : ""}>${s.l}</option>`).join("")}</select></label></div>
+    <div class="stack" style="gap:8px">${Object.entries(PRIORITIES).map(([k, P]) => `<div class="row between offer"><span><b>${P.l}</b><br><span class="small muted">${P.d}</span></span>
+      <span class="row" style="flex-wrap:nowrap"><button class="btn sm" data-act="vpri" data-k="${k}" data-d="-1" ${v.pri[k] ? "" : "disabled"} aria-label="Less">−</button><b class="num" style="min-width:3ch;text-align:center">${"●".repeat(v.pri[k])}${"○".repeat(4 - v.pri[k])}</b><button class="btn sm" data-act="vpri" data-k="${k}" data-d="1" ${left && v.pri[k] < 4 ? "" : "disabled"} aria-label="More">+</button></span></div>`).join("")}</div></section>`;
 }

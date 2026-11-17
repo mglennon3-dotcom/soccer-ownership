@@ -20,6 +20,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
 
 ## What you do
 
+- **Set your vision** (Board page): how you want the team to play, how you want it to recruit, and ten points across
+  six priorities (winning now, youth, sound finances, the supporters, commercial growth, facilities). Staff who share
+  your vision are keener to join and grow happier; staff who don't slowly sour. Each point brings a small benefit too.
 - **Hire staff.** A manager (tactics, motivation, player development; a style of play, a formation, and a view on
   youth), a head of recruitment (judging ability, negotiation, contacts; a recruitment philosophy and a search area),
   and a youth manager (development, judging potential, youth scouting; a type of player, local or wide search).

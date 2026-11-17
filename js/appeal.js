@@ -4,7 +4,7 @@
 "use strict";
 
 const P_FACTORS = [["money", "Wages"], ["time", "Playing time"], ["form", "Formation fit"], ["prest", "Club prestige"], ["fac", "Training facilities"], ["home", "Close to home"], ["proj", "The project"]];
-const S_FACTORS = [["money", "Salary"], ["prest", "Club prestige"], ["fac", "Facilities"], ["budget", "Budgets"], ["squad", "The squad"], ["proj", "Owner's ambition"], ["auto", "Freedom to work"]];
+const S_FACTORS = [["money", "Salary"], ["prest", "Club prestige"], ["fac", "Facilities"], ["budget", "Budgets"], ["squad", "The squad"], ["proj", "Owner's ambition"], ["auto", "Freedom to work"], ["vision", "Shared vision"]];
 const FACTOR_HELP = {
   money: "The wage on offer against what he's after.", time: "Whether he'd start: the players ahead of him at his position.",
   form: "How many places the manager's formation has for his position.", prest: "The club's standing against what he's used to.",
@@ -13,6 +13,7 @@ const FACTOR_HELP = {
   proj: "Your fortune, and whether the club is on the way up.", budget: "The budget he'd work with against what's normal in the division.",
   squad: "For a manager: the quality of the squad and how it suits his style. For others: the club's current direction.",
   auto: "Whether you let your staff do their jobs. Every time you overrule them, word gets around.",
+  vision: "Whether your vision for the club (Board page) matches his own ideas about how football should be played and run.",
 };
 function makePri(factors) {
   const pri = {}; for (const [k] of factors) pri[k] = .5 + R() * .6;
@@ -63,7 +64,7 @@ function staffFactors(s) {
   const budget = s.role === "manager" ? clamp(.5 + Math.log2(Math.max(1, c.budget.wages) / typWages) * .5, 0, 1) : s.role === "youth" ? (c.fac.acad.lvl ? clamp(.5 + budgetFactor(c.budget.acad, acadRef(c.fac.acad.lvl)) / 6, 0, 1) : .1) : clamp(.5 + Math.log2(Math.max(1, c.budget.transfer) / (typWages * .8)) * .4, 0, 1);
   const xi = pickXI(c), q = avg(xi.map(o => roleRating(o.p, o.slot)));
   const squad = s.role === "manager" ? clamp(.5 + (q - TIER_LVL[T]) / 12 + styleFit(xi, s.phil) * .25, 0, 1) : clamp(.5 + (q - TIER_LVL[T]) / 15, 0, 1);
-  return { prest: clamp(.5 + (TIER_REP[T] + c.rep * .3 - s.rep) / 30, 0, 1), fac, budget, squad, proj: projectF(), auto: meddleF() };
+  return { prest: clamp(.5 + (TIER_REP[T] + c.rep * .3 - s.rep) / 30, 0, 1), fac, budget, squad, proj: projectF(), auto: meddleF(), vision: visionMatch(s) };
 }
 function staffAsk(s) {
   const pr = prefsOf(s, S_FACTORS), f = staffFactors(s);

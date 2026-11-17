@@ -47,3 +47,15 @@ details summary{cursor:pointer;color:var(--muted)}
 [data-act]{cursor:pointer}.modal{cursor:auto}
 .todo .lnk,.news .lnk{display:inline}
 .btn,.seg button,.tabs button,.playbtn button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* Safari on iPhone: the dialog's width was a percentage of a grid column sized by its own content, so a long line of
+   text could stretch the player card (and the page's columns) past the screen. Every column now has a definite width. */
+.scrim{grid-template-columns:minmax(0,1fr);justify-items:center}
+.modal{width:100%;max-width:820px}
+.stack{grid-template-columns:minmax(0,1fr)}
+.grid2>*,.grid3>*,.card,.modal-b,.modal-h>div,.decision,.offer,.cand,.attr-r>span:first-child{min-width:0}
+.card,.modal,.decision{overflow-wrap:break-word}
+.modal-h h2{overflow-wrap:anywhere}
+.lnk{white-space:normal}
+html,body{overflow-x:clip}
+@media (max-width:760px){.btn{white-space:normal}.modal-h h2{font-size:22px}.facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
