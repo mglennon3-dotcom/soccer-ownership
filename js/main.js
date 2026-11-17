@@ -1,7 +1,7 @@
 /* Boot, saves (IndexedDB, one record per career) and the button router. */
 "use strict";
 
-const DB = { name: "touchline-owner", store: "saves" };
+const DB = { name: "touchline-owner", store: "saves" };  // the database keeps its first name so existing careers still load
 function idb() { return new Promise((ok, no) => { const r = indexedDB.open(DB.name, 1); r.onupgradeneeded = () => r.result.createObjectStore(DB.store); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); }
 async function dbDo(mode, fn) { const db = await idb(); return new Promise((ok, no) => { const t = db.transaction(DB.store, mode), st = t.objectStore(DB.store), r = fn(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => no(t.error); }); }
 async function saveGame() {
@@ -45,7 +45,9 @@ const built = r => { if (typeof r === "string") toast(r); };
 const ACT = {
   askyes: () => { const r = ASKING; ASKING = null; closeModal(); if (r) r(true); },
   askno: () => { const r = ASKING; ASKING = null; closeModal(); if (r) r(false); },
-  vpri: el => { const v = vision(), k = el.dataset.k, d = +el.dataset.d; if (d > 0 && sum(Object.values(v.pri)) >= VISION_POINTS) return; v.pri[k] = clamp((v.pri[k] || 0) + d, 0, 4); render(); },
+  vpri: el => { const start = !!el.closest("#f-vision"), v = start ? START_V : vision(), k = el.dataset.k, d = +el.dataset.d;
+    if (d > 0 && sum(Object.values(v.pri)) >= VISION_POINTS) return; v.pri[k] = clamp((v.pri[k] || 0) + d, 0, 4);
+    if (start) $("#f-vision").outerHTML = visionCard(START_V, true); else render(); },
   csort: el => { CSORT = el.dataset.k; candModal(el.dataset.r); },
   putsale: () => { G.saleOffers = saleOffers(); render(); },
   acceptsale: async el => { const o = G.saleOffers[+el.dataset.i]; if (await ask(`Sell your ${ownPct()}% of ${my().name} to ${o.name} for ${money(o.amt)}? You'll then choose a new club.`)) { sellMyClub(o); render(); saveGame(); } },
@@ -128,7 +130,7 @@ const ACT = {
     const name = $("#f-name").value.trim(); if (!name) return toast("Give your club a name.");
     const sel = id => ($(`#${id} [aria-pressed="true"]`) || {}).dataset?.v;
     $("#busy").hidden = false; await new Promise(r => setTimeout(r, 30));
-    newWorld({ name, town: $("#f-town").value.trim() || name.split(" ")[0], short: ($("#f-short").value.trim() || name).toUpperCase(), owner: $("#f-owner").value.trim(), half: sel("f-half") || "N", color: sel("f-color"), wealth: sel("f-wealth") || "wealthy" });
+    newWorld({ name, town: $("#f-town").value.trim() || name.split(" ")[0], short: ($("#f-short").value.trim() || name).toUpperCase(), owner: $("#f-owner").value.trim(), vision: JSON.parse(JSON.stringify(START_V)), half: sel("f-half") || "N", color: sel("f-color"), wealth: sel("f-wealth") || "wealthy" });
     startSeason(); refreshOffers(my());
     $("#busy").hidden = true; PAGE = "home"; render(); saveGame();
   },
@@ -144,7 +146,7 @@ const CHANGE = {
     const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) trust(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
     render(); },
   concerts: el => { my().fac.stadium.concerts = +el.value; render(); },
-  vset: el => { vision()[el.dataset.k] = el.value; render(); },
+  vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
   mf: el => { MARKET_F[el.dataset.k] = el.dataset.k === "pos" ? el.value : (+el.value || 0); if (el.dataset.k === "age" && !MARKET_F.age) MARKET_F.age = 40; render(); },
@@ -169,7 +171,7 @@ try { if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) &&
 window.claude?.hot?.snapshot?.(() => ({ G, PAGE }));
 start();
 
-/* On a phone the masthead is a third of the screen. As in Touchline Manager, scrolling down shrinks it to the club
+/* On a phone the masthead is a third of the screen. Scrolling down shrinks it to the club
    name and the Continue button; scrolling up (or reaching the top) brings back the numbers and the section tabs. */
 const phoneWidth = () => matchMedia("(max-width:760px)").matches;
 let lastY = 0, upRun = 0, downRun = 0;

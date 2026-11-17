@@ -1,4 +1,4 @@
-/* World data and helpers carried over from Touchline Manager: names, nationalities, towns, regions, colours. */
+/* World data and helpers: names, nationalities, towns, regions, colours. */
 const R = Math.random;
 const ri = (a, b) => a + Math.floor(R() * (b - a + 1));
 const rf = (a, b) => a + R() * (b - a);

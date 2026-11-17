@@ -1,4 +1,4 @@
-/* Additions for Touchline Owner on top of Touchline Manager's app.css. */
+/* The Owner's Box: its own palette and components, on top of the shared base stylesheet (app.css). */
 .page{padding-block:16px 60px}
 .lnk{background:none;border:0;padding:0;color:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;font:inherit;cursor:pointer;text-align:left}
 .lnk:hover{text-decoration-color:var(--ink)}
@@ -59,3 +59,24 @@ details summary{cursor:pointer;color:var(--muted)}
 .lnk{white-space:normal}
 html,body{overflow-x:clip}
 @media (max-width:760px){.btn{white-space:normal}.modal-h h2{font-size:22px}.facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Palette: a boardroom at night. Deep navy for the masthead and dark mode, brass for the accent, cool paper for the page.
+   Same three states as the base sheet: system light, system dark (unless light is chosen), and an explicit dark choice. */
+:root{
+  --bg:#eceff4; --surface:#fbfcfd; --surface-2:#e2e6ee; --ink:#131a2a; --muted:#566074; --line:#cdd3df;
+  --board:#111a2e; --board-2:#1b2743; --board-ink:#eef1f7; --board-muted:#9aa6bf;
+  --accent:#c9a24a; --accent-ink:#7a5c16; --on-accent:#1a1404; --info:#2f5fa8;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#090e19; --surface:#101727; --surface-2:#172038; --ink:#e3e7f0; --muted:#8e99b0; --line:#232f49;
+  --board:#060a14; --board-2:#0f1830; --board-ink:#eef1f7; --board-muted:#8a97b2;
+  --accent:#d8b45e; --accent-ink:#d8b45e; --on-accent:#1a1404; --info:#7ea6e8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#090e19; --surface:#101727; --surface-2:#172038; --ink:#e3e7f0; --muted:#8e99b0; --line:#232f49;
+  --board:#060a14; --board-2:#0f1830; --board-ink:#eef1f7; --board-muted:#8a97b2;
+  --accent:#d8b45e; --accent-ink:#d8b45e; --on-accent:#1a1404; --info:#7ea6e8; color-scheme:dark}
+/* The to-do list draws its own bullets: its items are buttons, which sit as boxes, so a wrapped one pushed the
+   list's own bullet down to its last line. */
+.todo{list-style:none;padding-left:0}
+.todo li{display:flex;gap:8px;align-items:baseline}
+.todo li::before{content:"•";color:var(--accent-ink);font-weight:700}

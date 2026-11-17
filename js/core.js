@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -20,7 +20,7 @@ const r20 = v => clamp(Math.round(v / 5), 1, 20);
 const snap20 = v => clamp(Math.round(v / 5) * 5, 5, 100);
 const est20 = ([a, b]) => r20(a) === r20(b) ? `${r20(a)}` : `${r20(a)}–${r20(b)}`;
 
-/* ---------- the pyramid: Touchline Manager's six English tiers, plus a regional seventh tier where new clubs start ---------- */
+/* ---------- the pyramid: six English tiers, plus a regional seventh tier where new clubs start ---------- */
 const LEAGUES = {
   L1:  { name: "Premier Division",        tier: 1, size: 20, auto: 0, po: null,   down: 3 },
   L2:  { name: "First Division",          tier: 2, size: 24, auto: 2, po: [3, 6], down: 3 },
@@ -290,7 +290,7 @@ function foundClub(o) {
     deals: [], offers: [], staff: { manager: null, youth: null, recruit: null }, fin: newLedger(), finLast: null, spentT: 0 };
   c.short = shortFor(o.short || o.name);
   G.clubs.push(c); L.clubs.push(c.id); G.club = c.id;
-  G.owner = { name: o.owner || "The owner", wealth: WEALTH[o.wealth].amt, kind: o.wealth, invested: 0 };
+  G.owner = { name: o.owner || "The owner", wealth: WEALTH[o.wealth].amt, kind: o.wealth, invested: 0, vision: o.vision };
   invest(Math.min(G.owner.wealth, Math.round(WEALTH[o.wealth].amt * .08)), true);
   // An open trial day: the founding squad is whoever turned up.
   for (const [pos, n] of Object.entries({ GK: 2, CB: 3, FB: 3, DM: 1, CM: 3, AM: 1, W: 2, ST: 3 })) for (let i = 0; i < n; i++) {

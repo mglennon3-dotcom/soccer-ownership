@@ -1,4 +1,4 @@
-/* Why people join. Like Touchline Manager's youth prospects, every player and every coach weighs a set of factors,
+/* Why people join. Every player and every coach weighs a set of factors,
    with their own priorities: two that matter most to them, the rest less. Money is one factor among them. A big enough
    offer can make up for a weak spot, but not for everything: some people won't come at any price. */
 "use strict";

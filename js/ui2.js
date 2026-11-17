@@ -131,13 +131,17 @@ function buyScreen() {
 }
 
 /* ---------- your vision ---------- */
-function visionCard() {
-  const v = vision(), used = sum(Object.values(v.pri)), left = VISION_POINTS - used;
-  return `<section class="card"><div class="card-h"><h2>Your vision</h2><span class="small ${left ? "warn" : "muted"}">${left} of ${VISION_POINTS} points left</span></div>
-    <p class="small muted" style="margin-bottom:10px">What matters to you as owner. Staff who share your ideas are keener to join and grow happier working for you; staff who don't slowly sour. Each priority point also brings a small benefit in that area.</p>
+/* The vision controls: on the Board page for your club, and on the start screen before the club is founded
+   (start = true: they edit START_V and redraw only themselves, so the rest of the form keeps what you typed). */
+let START_V = { style: "any", recruit: "any", pri: { results: 2, youth: 2, finance: 2, fans: 2, commercial: 1, facilities: 1 } };
+function visionCard(v = vision(), start = false) {
+  const used = sum(Object.values(v.pri)), left = VISION_POINTS - used;
+  const head = `<div class="card-h"><${start ? "h3" : "h2"}>Your vision</${start ? "h3" : "h2"}><span class="small ${left ? "warn" : "muted"}">${left} of ${VISION_POINTS} points left</span></div>`;
+  const body = `<p class="small muted" style="margin-bottom:10px">What matters to you as owner. Staff who share your ideas are keener to join and grow happier working for you; staff who don't slowly sour. Each priority point also brings a small benefit in that area.${start ? " You can change all of this later on the Board page." : ""}</p>
     <div class="price-grid" style="margin-bottom:12px">
       <label class="small"><b>How the team should play</b><select data-act="vset" data-k="style"><option value="any">Whatever wins</option>${Object.entries(STYLES).map(([k, s]) => `<option value="${k}" ${v.style === k ? "selected" : ""}>${s.l}</option>`).join("")}</select></label>
       <label class="small"><b>How to recruit</b><select data-act="vset" data-k="recruit"><option value="any">Leave it to the experts</option>${Object.entries(ROLES_STAFF.recruit.phil).map(([k, s]) => `<option value="${k}" ${v.recruit === k ? "selected" : ""}>${s.l}</option>`).join("")}</select></label></div>
     <div class="stack" style="gap:8px">${Object.entries(PRIORITIES).map(([k, P]) => `<div class="row between offer"><span><b>${P.l}</b><br><span class="small muted">${P.d}</span></span>
-      <span class="row" style="flex-wrap:nowrap"><button class="btn sm" data-act="vpri" data-k="${k}" data-d="-1" ${v.pri[k] ? "" : "disabled"} aria-label="Less">−</button><b class="num" style="min-width:3ch;text-align:center">${"●".repeat(v.pri[k])}${"○".repeat(4 - v.pri[k])}</b><button class="btn sm" data-act="vpri" data-k="${k}" data-d="1" ${left && v.pri[k] < 4 ? "" : "disabled"} aria-label="More">+</button></span></div>`).join("")}</div></section>`;
+      <span class="row" style="flex-wrap:nowrap"><button class="btn sm" data-act="vpri" data-k="${k}" data-d="-1" ${v.pri[k] ? "" : "disabled"} aria-label="Less">−</button><b class="num" style="min-width:3ch;text-align:center">${"●".repeat(v.pri[k])}${"○".repeat(4 - v.pri[k])}</b><button class="btn sm" data-act="vpri" data-k="${k}" data-d="1" ${left && v.pri[k] < 4 ? "" : "disabled"} aria-label="More">+</button></span></div>`).join("")}</div>`;
+  return start ? `<div id="f-vision" style="margin-top:16px">${head}${body}</div>` : `<section class="card">${head}${body}</section>`;
 }

@@ -1,6 +1,6 @@
-# Touchline Owner
+# The Owner's Box
 
-A football club ownership game in the browser, built on Touchline Manager's world. You found a brand-new club at the
+A football club ownership game in the browser. You found a brand-new club at the
 bottom of a seven-tier English pyramid and try to take it to the Premier Division. You don't pick the team or sign
 players: you hire the people who do, give them budgets, and run the business. All clubs, players and staff are fictional.
 
@@ -76,7 +76,7 @@ Even a generational talent needs football, coaching and facilities to get there.
 
 ## Why people join
 
-Like Touchline Manager's youth prospects, every player and every coach has their own priorities. Each weighs seven
+Every player and every coach has their own priorities. Each weighs seven
 factors, two of them most heavily. Players weigh wages, playing time, formation fit, club prestige, training
 facilities, closeness to home and the project. Coaches weigh salary, prestige, facilities, budgets, the squad, your
 ambition and freedom to work. Money is only one factor. Some people won't come at any price, and the hiring and
@@ -131,7 +131,7 @@ it on as it stands: squad, manager, ground, facilities and sponsors. The History
 
 ## Code
 
-`js/names.js` (names, towns and helpers from Touchline Manager), `core.js` (pyramid, players, talent, development),
+`js/names.js` (names, towns, regions and helpers), `core.js` (pyramid, players, talent, development),
 `staff.js`, `club.js` (prices, attendance, sponsors, facilities, suites, pitch, ventures), `weather.js`, `match.js`,
 `events.js` (decisions and media), `cups.js`, `owners.js` (rival owners), `board.js` (valuation, investors, directors,
 supporters' trust, loans, objectives), `partners.js`, `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
