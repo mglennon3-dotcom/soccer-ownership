@@ -68,11 +68,11 @@ const ACT = {
   addfeeder: el => { addFeeder(CL(+el.dataset.id)); render(); saveGame(); },
   dropfeeder: async el => { if (await ask("End this feeder arrangement?")) { dropFeeder(+el.dataset.id); render(); } },
   repayloan: el => { repayLoan(+el.dataset.id); render(); saveGame(); },
-  loanq: async () => { const amt = +$("#ln-amt").value || 0, yrs = +$("#ln-yrs").value, t = loanTerms(amt, yrs);
+  loanq: async () => { const amt = num($("#ln-amt")), yrs = +$("#ln-yrs").value, t = loanTerms(amt, yrs);
     if (amt <= 0) return; if (amt > t.max) return toast(`The bank will lend at most ${money(t.max)}.`);
     const block = boardBlocks(amt); if (block) return toast(block);
     if (await ask(`Borrow ${money(amt)} over ${yrs} years at ${(t.rate * 100).toFixed(1)}%: ${money(t.weekly)} a week, ${money(t.weekly * yrs * 52)} in all?`)) { takeLoan(amt, yrs); render(); saveGame(); } },
-  olend: () => { ownerLend(+$("#ol-amt").value || 0); render(); }, orecall: () => { ownerRecall(+$("#ol-amt").value || 0); render(); },
+  olend: () => { ownerLend(num($("#ol-amt"))); render(); }, orecall: () => { ownerRecall(num($("#ol-amt"))); render(); },
   heat: async () => { const q = heatQuote(my()); if (await ask(`Install undersoil heating for ${money(q.cost)}?`)) { built(startBuild("stadium", { type: "heat", ...q, label: "undersoil heating" })); render(); saveGame(); } },
   page: el => { PAGE = el.dataset.p; MAST_COMPACT = false; closeModal(); render(); scrollTo(0, 0); lastY = 0; },
   sub: el => { SUB[el.dataset.k] = el.dataset.v; render(); },
@@ -91,7 +91,7 @@ const ACT = {
   release: async el => { const p = P(+el.dataset.id); if (!await ask(`Release ${p.name}?${p.acad ? "" : ` It costs ${money(releaseCost(p))}.`}`)) return; if (p.acad) { leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); } else ownerRelease(p); closeModal(); render(); saveGame(); },
   buy: el => buyModal(+el.dataset.id),
   buygo: el => {
-    const p = P(+el.dataset.id), fee = +$("#b-fee").value || 0, wage = +$("#b-wage").value || 0, ask = askingFee(p);
+    const p = P(+el.dataset.id), fee = num($("#b-fee")), wage = num($("#b-wage")), ask = askingFee(p);
     if (fee < ask * .95) return toast(`${p.club >= 0 ? CL(p.club).name : "His club"} turn the offer down. They want about ${money(ask)}.`);
     const a = playerAppeal(p, wage);
     if (a.score < a.pr.thr) return toast(`${p.name} turns you down. ${refusalReason(a, P_FACTORS)}`);
@@ -99,14 +99,14 @@ const ACT = {
   },
   cands: el => candModal(el.dataset.r),
   hire: el => {
-    const s = CANDS.list[+el.dataset.i], wage = +$("#cw" + el.dataset.i).value || 0, yrs = +$("#cy" + el.dataset.i).value;
+    const s = CANDS.list[+el.dataset.i], wage = num($("#cw" + el.dataset.i)), yrs = +$("#cy" + el.dataset.i).value;
     const a = staffAppeal(s, wage);
     if (a.score < a.pr.thr) { toast(`${s.name} says no. ${refusalReason(a, S_FACTORS)}`); return; }
     hire(s, wage, yrs); closeModal(); render(); saveGame();
   },
   dismiss: async el => { const s = staffOf(el.dataset.r); if (await ask(`Dismiss ${s.name}? It costs ${money(payoff(s))}.`)) { dismiss(el.dataset.r); G.meddle = (G.meddle || 0) + .5; render(); saveGame(); } },
   renewstaff: el => { const s = staffOf(el.dataset.r), w = staffAsk(s); if (w == null) { toast(`${s.name} won't sign a new contract: ${refusalReason(staffAppeal(s, s.wage * 1.5), S_FACTORS)}`); return; } s.wage = Math.max(w, s.wage); s.yrs = 3; s.expiring = false; news(`${s.name} signs a new three-year contract (${money(s.wage)} a year).`); render(); saveGame(); },
-  invest: el => { invest(+el.dataset.v); render(); }, investx: () => { invest(+$("#inv-amt").value || 0); render(); }, withdraw: () => { withdraw(+$("#inv-amt").value || 0); render(); },
+  invest: el => { invest(+el.dataset.v); render(); }, investx: () => { invest(num($("#inv-amt"))); render(); }, withdraw: () => { withdraw(num($("#inv-amt"))); render(); },
   sponsor: el => { const o = my().offers.filter(x => x.slot === el.dataset.k)[+el.dataset.i]; if (o) acceptOffer(o); render(); saveGame(); },
   askoffers: el => { const c = my(); (c.ask ||= {})[el.dataset.k] = G.week + G.year * 100; refreshOffers(c, el.dataset.k); render(); },
   host: el => { setGround(my(), +el.dataset.i); news(`The club moves to ${HOSTS[+el.dataset.i].name}.`); render(); },
@@ -136,12 +136,12 @@ const ACT = {
   },
 };
 const CHANGE = {
-  price: el => { const c = my(), k = el.dataset.k, v = Math.max(0, +el.value || 0);
+  price: el => { const c = my(), k = el.dataset.k, v = num(el);
     if (k === "ticket" && G.sTrust && G.sTrust.freeze === G.year && v > c.prices.ticket) { toast("You promised the supporters' trust a price freeze this season."); render(); return; }
     c.prices[k] = v; render(); },
-  ffund: el => { const f = net().feeders.find(x => x.id === +el.dataset.id); if (f) f.fund = Math.max(0, Math.round(+el.value || 0)); render(); },
+  ffund: el => { const f = net().feeders.find(x => x.id === +el.dataset.id); if (f) f.fund = Math.round(num(el)); render(); },
   loanout: async el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (await ask(`Loan ${p.name} to ${x.name} until the end of the season?`)) { loanOut(p, x); closeModal(); render(); saveGame(); } },
-  budget: el => { const c = my(), k = el.dataset.k, v = Math.max(0, Math.round(+el.value || 0)), old = c.budget[k]; c.budget[k] = v;
+  budget: el => { const c = my(), k = el.dataset.k, v = Math.round(num(el)), old = c.budget[k]; c.budget[k] = v;
     // Staff notice their budgets being cut hard.
     const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) trust(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
     render(); },
@@ -149,7 +149,7 @@ const CHANGE = {
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
-  mf: el => { MARKET_F[el.dataset.k] = el.dataset.k === "pos" ? el.value : (+el.value || 0); if (el.dataset.k === "age" && !MARKET_F.age) MARKET_F.age = 40; render(); },
+  mf: el => { MARKET_F[el.dataset.k] = el.dataset.k === "pos" ? el.value : num(el); if (el.dataset.k === "age" && !MARKET_F.age) MARKET_F.age = 40; render(); },
 };
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
@@ -164,6 +164,8 @@ document.addEventListener("change", e => {
   if (el.id === "imp" && el.files[0]) { el.files[0].text().then(t => { try { G = JSON.parse(t); upgradeSave(); G.saveId = "c" + Date.now(); PAGE = "home"; render(); saveGame(); toast("Save imported."); } catch { toast("That isn't a save file."); } }); return; }
   const f = CHANGE[el.dataset.act]; if (f) f(el);
 });
+// Boxes that don't redraw the page (offers, loans, amounts) tidy their figure when you leave them.
+document.addEventListener("focusout", e => { const el = e.target; if (el.classList && el.classList.contains("num-in") && el.value.trim()) el.value = fmtNum(num(el)); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") ACT.close(); });
 try { if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) && window.top === window) { navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(r => r.update()).catch(() => { });
   // When a new version takes over, reload once so you are never left looking at the old one.

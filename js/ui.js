@@ -3,7 +3,10 @@
 
 const $ = s => document.querySelector(s);
 let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { pos: "", age: 40, fee: "", min: 0 };
-const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString());
+const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString("en-GB"));
+// Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
+const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
+const num = el => Math.max(0, +String(el && el.value || "").replace(/[^0-9.]/g, "") || 0);
 const big = v => Math.abs(v) < 1000 ? eur(v) : money(v);
 const crest = (c, s = 22) => `<svg class="crest" width="${s}" height="${Math.round(s * 1.15)}" viewBox="0 0 20 23" aria-hidden="true"><path d="M1 1h18v9c0 6-4 10-9 12C5 20 1 16 1 10z" fill="${c.color}" stroke="var(--crest-edge)"/><text x="10" y="13" text-anchor="middle" font-size="6" font-weight="700" fill="#fff" font-family="sans-serif">${esc(c.short)}</text></svg>`;
 const clubLink = c => `<button class="lnk" data-act="club" data-id="${c.id}">${esc(c.name)}</button>`;
@@ -55,7 +58,7 @@ function mast() {
       <div><dt>Club cash</dt><dd class="${c.cash < 0 ? "bad" : ""}">${money(c.cash)}</dd></div>
       <div><dt>Your fortune</dt><dd>${money(G.owner.wealth)}</dd></div>
       <div><dt>${LEAGUES[c.lg].name}</dt><dd>${pos ? ord(pos) : "—"}</dd></div>
-      <div><dt>Fans</dt><dd>${c.fans.toLocaleString()}</dd></div></dl>
+      <div><dt>Fans</dt><dd>${c.fans.toLocaleString("en-GB")}</dd></div></dl>
       <div class="playbtn"><button data-act="adv" data-n="1">Continue</button><button data-act="advmenu" aria-label="More">▾</button></div></div></div>
     <nav class="tabs">${PAGES.map(([k, l]) => `<button data-act="page" data-p="${k}" ${PAGE === k ? 'aria-current="page"' : ""}>${l}${k === "home" && dec ? `<span class="dot">${dec}</span>` : ""}</button>`).join("")}</nav></div></header>`;
 }
@@ -82,7 +85,7 @@ function checklist() {
   if (c.offers.length) out.push([`${new Set(c.offers.map(o => o.slot)).size} sponsorship slot${new Set(c.offers.map(o => o.slot)).size > 1 ? "s have" : " has"} offers waiting.`, "comm"]);
   for (const s of Object.values(c.staff).filter(s => s && s.expiring)) out.push([`${s.name}'s contract has run out: renew or replace.`, "staff"]);
   if (wageBill(c) > c.budget.wages) out.push([`The wage bill (${money(wageBill(c))}) is over the wage budget (${money(c.budget.wages)}).`, "fin"]);
-  const up = ABOVE[c.lg]; if (up && capacity(c) < GROUND_REQ[LEAGUES[up].tier]) out.push([`Your ground holds ${capacity(c).toLocaleString()}; promotion needs ${GROUND_REQ[LEAGUES[up].tier].toLocaleString()}.`, "fac"]);
+  const up = ABOVE[c.lg]; if (up && capacity(c) < GROUND_REQ[LEAGUES[up].tier]) out.push([`Your ground holds ${capacity(c).toLocaleString("en-GB")}; promotion needs ${GROUND_REQ[LEAGUES[up].tier].toLocaleString("en-GB")}.`, "fac"]);
   if (c.fac.stadium.own && c.fac.stadium.pitch < 50 && !c.fac.stadium.relay) out.push(["The pitch is in poor condition.", "fac"]);
   if (c.cash < 0) out.push([`The club is overdrawn (${money(c.cash)}).`, "fin"]);
   return out;
@@ -104,8 +107,8 @@ function pgHome() {
   </div><div class="stack">
     ${G.phase !== "summer" ? `<section class="card"><div class="card-h"><h3>${LEAGUES[c.lg].name}</h3></div>${miniTable(c.lg)}</section>` : `<section class="card"><div class="card-h"><h3>This season</h3></div><p>${LEAGUES[c.lg].name}. ${LEAGUES[c.lg].auto} promoted automatically${LEAGUES[c.lg].po ? `, ${ord(LEAGUES[c.lg].po[0])}–${ord(LEAGUES[c.lg].po[1])} to the play-offs` : ""}.</p></section>`}
     <section class="card"><div class="card-h"><h3>The club</h3></div><dl class="ledger">
-      <dt>Supporters</dt><dd>${c.fans.toLocaleString()} · ${word(moodWord(c.mood))}</dd>
-      <dt>Ground</dt><dd>${capacity(c).toLocaleString()}${c.fac.stadium.own ? "" : " (rented)"}</dd>
+      <dt>Supporters</dt><dd>${c.fans.toLocaleString("en-GB")} · ${word(moodWord(c.mood))}</dd>
+      <dt>Ground</dt><dd>${capacity(c).toLocaleString("en-GB")}${c.fac.stadium.own ? "" : " (rented)"}</dd>
       <dt>Training ground</dt><dd>Level ${c.fac.train.lvl}</dd><dt>Academy</dt><dd>Level ${c.fac.acad.lvl}</dd>
       <dt>Wage bill</dt><dd>${money(wageBill(c))} / ${money(c.budget.wages)}</dd>
       <dt>Season so far</dt><dd class="${ledgerIncome(c.fin) - ledgerCosts(c.fin) < 0 ? "bad" : "good"}">${money(ledgerIncome(c.fin) - ledgerCosts(c.fin))}</dd></dl></section>
@@ -128,7 +131,7 @@ function inboxCard() {
 function resultsList(rs) {
   return `<ul class="results">${rs.map(r => { const o = CL(r.opp), mine = r.ev.filter(e => (e.side === 0) === (r.home || (r.comp === "PO" && !r.home && false)));
     const sc = r.ev.filter(e => r.home ? e.side === 0 : e.side === 1).map(e => esc(e.g.split(" ").slice(1).join(" ") || e.g) + " " + e.m + "'").join(", ");
-    return `<li><span class="res ${r.res}">${r.res}</span> <b class="num">${r.gf}–${r.ga}</b>${r.pens ? " (pens)" : ""} ${r.home ? "v" : "at"} ${clubLink(o)} <span class="muted small">${r.comp === "PO" ? "Play-off" : "Wk " + (r.w + 1)}${r.crowd ? " · crowd " + r.crowd.toLocaleString() : ""}${sc ? " · " + sc : ""}</span></li>`; }).join("")}</ul>`;
+    return `<li><span class="res ${r.res}">${r.res}</span> <b class="num">${r.gf}–${r.ga}</b>${r.pens ? " (pens)" : ""} ${r.home ? "v" : "at"} ${clubLink(o)} <span class="muted small">${r.comp === "PO" ? "Play-off" : "Wk " + (r.w + 1)}${r.crowd ? " · crowd " + r.crowd.toLocaleString("en-GB") : ""}${sc ? " · " + sc : ""}</span></li>`; }).join("")}</ul>`;
 }
 function miniTable(k) {
   const t = table(k), i = t.findIndex(r => r.id === G.club), from = clamp(i - 3, 0, Math.max(0, t.length - 8));
@@ -215,18 +218,18 @@ function candModal(role) {
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${attr20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
-      ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="number" inputmode="decimal" class="num-in" id="cw${i}" value="${ask}" step="1000"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}</div>`);
+      ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw${i}" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}</div>`);
 }
 
 /* ---------- Finances ---------- */
 function pgFin() {
   const c = my(), f = matchdayForecast(c), T = c.tier, L = c.finLast;
   const row = (k, l) => `<tr><td style="text-align:left">${l}</td><td class="num">${money(c.fin[k] || 0)}</td><td class="num muted">${L ? money(L[k] || 0) : "—"}</td></tr>`;
-  const priceIn = (k, l, ref, step, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="number" inputmode="decimal" class="num-in" data-act="price" data-k="${k}" value="${c.prices[k]}" step="${step}" min="0"></span></label><p class="small muted">Typical in your division: ${eur(ref)}. ${note}</p></div>`;
-  const budgetIn = (k, l, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="number" inputmode="decimal" class="num-in" data-act="budget" data-k="${k}" value="${c.budget[k]}" step="1000" min="0"></span></label><p class="small muted">${note}</p></div>`;
+  const priceIn = (k, l, ref, step, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="text" inputmode="decimal" class="num-in" data-act="price" data-k="${k}" value="${fmtNum(c.prices[k])}"></span></label><p class="small muted">Typical in your division: ${eur(ref)}. ${note}</p></div>`;
+  const budgetIn = (k, l, note) => `<div class="price"><label>${l}<span class="row"><span>€</span><input type="text" inputmode="decimal" class="num-in" data-act="budget" data-k="${k}" value="${fmtNum(c.budget[k])}"></span></label><p class="small muted">${note}</p></div>`;
   return `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h2>Prices</h2></div><div class="price-grid">
-      ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString()} of ${capacity(c).toLocaleString()}: ${money(f.gate)} a game.`)}
+      ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}: ${money(f.gate)} a game.`)}
       ${priceIn("conc", "Food & drink (average item)", REF_CONC[T], .5, `About ${money(f.conc)} profit a game${c.fac.stadium.own ? "" : " after your landlord's half"}.`)}
       ${priceIn("shirt", "Replica shirt", REF_SHIRT[T], 1, `About ${money(merchFor(c) * 52)} profit a year.`)}
       ${c.fac.stadium.own && c.fac.stadium.suites ? priceIn("suite", "Executive suite (per season)", REF_SUITE[T], 500, `${suitesLet(c)} of ${c.fac.stadium.suites} suites let: ${money(suitesLet(c) * c.prices.suite)} a season.`) : ""}
@@ -249,7 +252,7 @@ function pgFin() {
     <section class="card"><div class="card-h"><h2>Your money</h2></div><dl class="ledger"><dt>Club cash</dt><dd class="${c.cash < 0 ? "bad" : ""}">${money(c.cash)}</dd><dt>Your fortune</dt><dd>${money(G.owner.wealth)}</dd><dt>Put in so far</dt><dd>${money(G.owner.invested)}</dd></dl>
       <p class="small muted" style="margin:10px 0">An overdrawn club pays 10% a year interest.</p>
       <div class="row">${[1e5, 1e6, 1e7].map(v => `<button class="btn sm" data-act="invest" data-v="${v}" ${G.owner.wealth < v ? "disabled" : ""}>Put in ${money(v)}</button>`).join("")}</div>
-      <div class="row" style="margin-top:8px"><input type="number" inputmode="decimal" class="num-in" id="inv-amt" placeholder="Amount" step="10000"><button class="btn sm" data-act="investx">Put in</button><button class="btn sm" data-act="withdraw">Take out</button></div></section>
+      <div class="row" style="margin-top:8px"><input type="text" inputmode="decimal" class="num-in" id="inv-amt" placeholder="Amount"><button class="btn sm" data-act="investx">Put in</button><button class="btn sm" data-act="withdraw">Take out</button></div></section>
     <section class="card"><div class="card-h"><h3>A year at a glance</h3></div><dl class="ledger">
       <dt>Player wages</dt><dd>${money(wageBill(c))}</dd><dt>Staff wages</dt><dd>${money(staffBill(c))}</dd><dt>Upkeep</dt><dd>${money(upkeep(c))}</dd><dt>Academy + scouting</dt><dd>${money(c.budget.acad + c.budget.scout)}</dd>
       <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section>
@@ -275,16 +278,16 @@ function progress(b) { return `<p class="small">Under construction: ${b.total - 
 function pgFac() {
   const c = my(), S = c.fac.stadium, up = ABOVE[c.lg], need = up ? GROUND_REQ[LEAGUES[up].tier] : 0;
   let st = `<section class="card"><div class="card-h"><h2>Stadium</h2><span class="small muted">${S.own ? esc(S.name) : "Rented"}</span></div>
-    <dl class="ledger"><dt>Capacity</dt><dd>${capacity(c).toLocaleString()}</dd><dt>Needed for promotion</dt><dd class="${capacity(c) < need ? "bad" : "good"}">${need ? need.toLocaleString() : "—"}</dd>
+    <dl class="ledger"><dt>Capacity</dt><dd>${capacity(c).toLocaleString("en-GB")}</dd><dt>Needed for promotion</dt><dd class="${capacity(c) < need ? "bad" : "good"}">${need ? need.toLocaleString("en-GB") : "—"}</dd>
     <dt>Facilities</dt><dd>Level ${ground(c).amen} of 5</dd>${S.own ? `<dt>Executive suites</dt><dd>${S.suites || 0} (room for ${suiteMax(c)})</dd><dt>Pitch</dt><dd>${word(pitchWord(S.pitch))} ${Math.round(S.pitch)}/100 · ${PITCH[S.ptype || "grass"].l}</dd><dt>Upkeep</dt><dd>${money(stadiumUpkeep(c))}/yr</dd>` : `<dt>Rent</dt><dd>${money(ground(c).rent)} a home game</dd>`}</dl>`;
   if (S.build) st += `<p style="margin-top:10px"><b>${esc(S.build.label)}</b></p>` + progress(S.build);
   if (!S.own) {
-    st += `<h3 style="margin:14px 0 6px">Where you play</h3>${HOSTS.map((h, i) => `<div class="row between offer"><span>${esc(h.name[0].toUpperCase() + h.name.slice(1))}<br><span class="small muted">${h.cap.toLocaleString()} capacity · ${money(h.rent)} a game · facilities ${h.amen}</span></span>${S.host === i ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="${i}">Move here</button>`}</div>`).join("")}`;
+    st += `<h3 style="margin:14px 0 6px">Where you play</h3>${HOSTS.map((h, i) => `<div class="row between offer"><span>${esc(h.name[0].toUpperCase() + h.name.slice(1))}<br><span class="small muted">${h.cap.toLocaleString("en-GB")} capacity · ${money(h.rent)} a game · facilities ${h.amen}</span></span>${S.host === i ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="${i}">Move here</button>`}</div>`).join("")}`;
     if (!S.build) st += `<h3 style="margin:14px 0 6px">Build your own ground</h3><p class="small muted">Your own ground keeps all the bar takings, unlocks executive suites and naming rights, and has no rent; it has upkeep instead. You'll keep renting while it's built.</p>
       <label class="small">Name <input id="st-name" value="${esc(c.town)} Park" maxlength="30"></label>
-      ${BUILD_SIZES.map(n => { const q = newStadiumQuote(n); return `<div class="row between offer"><span><b>${n.toLocaleString()}</b> capacity<br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="buildst" data-n="${n}">Build</button></div>`; }).join("")}`;
+      ${BUILD_SIZES.map(n => { const q = newStadiumQuote(n); return `<div class="row between offer"><span><b>${n.toLocaleString("en-GB")}</b> capacity<br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="buildst" data-n="${n}">Build</button></div>`; }).join("")}`;
   } else if (!S.build) {
-    st += `<h3 style="margin:14px 0 6px">Expand</h3>${[1000, 3000, 8000, 15000].map(a => { const q = expandQuote(c, a); return `<div class="row between offer"><span>New stand: <b>+${a.toLocaleString()}</b><br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="expand" data-n="${a}">Build</button></div>`; }).join("")}`;
+    st += `<h3 style="margin:14px 0 6px">Expand</h3>${[1000, 3000, 8000, 15000].map(a => { const q = expandQuote(c, a); return `<div class="row between offer"><span>New stand: <b>+${a.toLocaleString("en-GB")}</b><br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="expand" data-n="${a}">Build</button></div>`; }).join("")}`;
     const aq = amenQuote(c); if (aq) st += `<div class="row between offer"><span>Upgrade facilities to level ${aq.lvl}<br><span class="small muted">Concourses, bars, toilets: more spent per fan. ${money(aq.cost)} · ${aq.weeks} weeks</span></span><button class="btn sm" data-act="amen">Upgrade</button></div>`;
     if (!S.heat) { const hq = heatQuote(c); st += `<div class="row between offer"><span>Undersoil heating<br><span class="small muted">Frost and snow won't postpone your home games. ${money(hq.cost)} · ${hq.weeks} weeks · upkeep ${money(hq.upkeep)}/yr</span></span><button class="btn sm" data-act="heat">Install</button></div>`; }
     const sq = suiteQuote(c); if (sq) st += `<div class="row between offer"><span>Add ${sq.add} executive suites<br><span class="small muted">Let to businesses by the season (demand about ${Math.round(suiteDemand(c))} at the going rate). ${money(sq.cost)} · ${sq.weeks} weeks</span></span><button class="btn sm" data-act="suites">Build</button></div>`;
@@ -296,7 +299,7 @@ function pgFac() {
     st += `<section class="card"><div class="card-h"><h2>Beyond match days</h2></div><p class="small muted" style="margin-bottom:8px">Other ways to make the ground pay. This season so far: ${money(c.fin.events || 0)}.</p>
       ${Object.entries(VENTURES).map(([k, V]) => { const on = has(c, k), ok = ventureOK(c, k);
         return `<div class="row between offer"><span><b>${V.l}</b>${on ? ' <span class="good small">open</span>' : ""}<br><span class="small muted">${V.d} ${on ? "" : `Costs ${money(V.cost(c))}`}${V.upkeep ? ` · upkeep ${money(V.upkeep)}/yr` : ""}${V.week && ok ? ` · earns about ${money(V.week(c) * 52)}/yr` : ""}</span></span>${on ? `<button class="btn sm" data-act="unvent" data-k="${k}">Close</button>` : ok ? `<button class="btn sm" data-act="vent" data-k="${k}">Build</button>` : `<span class="small muted">Not yet</span>`}</div>`; }).join("")}
-      <div class="row between offer"><span><b>Summer concerts</b><br><span class="small muted">${S.cap >= CONCERT_MIN ? `About ${money(concertFee(c))} each, held in pre-season. Each one costs the pitch about 8 points.` : `Needs a ground of ${CONCERT_MIN.toLocaleString()}.`}</span></span>${S.cap >= CONCERT_MIN ? `<select data-act="concerts">${[0, 1, 2, 3, 4].map(n => `<option ${n === (S.concerts || 0) ? "selected" : ""}>${n}</option>`).join("")}</select>` : ""}</div></section>`;
+      <div class="row between offer"><span><b>Summer concerts</b><br><span class="small muted">${S.cap >= CONCERT_MIN ? `About ${money(concertFee(c))} each, held in pre-season. Each one costs the pitch about 8 points.` : `Needs a ground of ${CONCERT_MIN.toLocaleString("en-GB")}.`}</span></span>${S.cap >= CONCERT_MIN ? `<select data-act="concerts">${[0, 1, 2, 3, 4].map(n => `<option ${n === (S.concerts || 0) ? "selected" : ""}>${n}</option>`).join("")}</select>` : ""}</div></section>`;
   }
   const fac = k => { const F = c.fac[k], D = k === "train" ? TRAIN_DESC : ACAD_DESC, nx = F.lvl + 1;
     return `<section class="card"><div class="card-h"><h2>${FAC_NAME[k]}</h2><span class="num">Level ${F.lvl}/10</span></div><p class="lead">${D[F.lvl]}.</p>
@@ -312,7 +315,7 @@ function pgLeagueInner() {
   const scorers = Object.values(G.players).filter(p => p.club >= 0 && CL(p.club).lg === k && p.s.g > 0).sort((a, b) => b.s.g - a.s.g).slice(0, 8);
   const po = G.po && G.po[k];
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${LEAGUES[k].name}</h2><select data-act="lgsel">${opts}</select></div>
-    ${tableHTML(k, table(k))}<p class="small muted" style="margin-top:8px">${LEAGUES[k].auto ? `Top ${LEAGUES[k].auto} promoted` : "Champions"}${LEAGUES[k].po ? `, ${ord(LEAGUES[k].po[0])}–${ord(LEAGUES[k].po[1])} play-offs` : ""}, bottom ${LEAGUES[k].down} ${LEAGUES[k].tier === 7 ? "drop out of the pyramid" : "relegated"}. Promotion needs a ground of ${ABOVE[k] ? GROUND_REQ[LEAGUES[ABOVE[k]].tier].toLocaleString() : "—"}.</p></section>
+    ${tableHTML(k, table(k))}<p class="small muted" style="margin-top:8px">${LEAGUES[k].auto ? `Top ${LEAGUES[k].auto} promoted` : "Champions"}${LEAGUES[k].po ? `, ${ord(LEAGUES[k].po[0])}–${ord(LEAGUES[k].po[1])} play-offs` : ""}, bottom ${LEAGUES[k].down} ${LEAGUES[k].tier === 7 ? "drop out of the pyramid" : "relegated"}. Promotion needs a ground of ${ABOVE[k] ? GROUND_REQ[LEAGUES[ABOVE[k]].tier].toLocaleString("en-GB") : "—"}.</p></section>
     ${po ? `<section class="card"><div class="card-h"><h3>Play-offs</h3></div>${po.res.map(r => `<p>${esc(CL(r.h).name)} ${r.hg}–${r.ag} ${esc(CL(r.a).name)}${r.pens ? " (pens)" : ""}</p>`).join("") || "<p class='muted'>To come.</p>"}</section>` : ""}
     ${k === my().lg ? `<section class="card"><div class="card-h"><h3>Your results</h3></div>${(G.myRes || []).length ? resultsList((G.myRes || []).slice().reverse()) : "<p class='muted'>None yet.</p>"}</section>` : ""}</div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Top scorers</h3></div>${scorers.length ? scorers.map(p => `<div class="row between small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><span class="muted">${esc(CL(p.club).short)}</span><b class="num">${p.s.g}</b></div>`).join("") : "<p class='muted'>None yet.</p>"}</section></div></div>`;
@@ -320,7 +323,7 @@ function pgLeagueInner() {
 function clubModal(id) {
   const c = CL(id), ps = c.squad.map(P).filter(p => !p.acad).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   modal(`<div class="modal-h" style="--mc:${c.color}">${crest(c, 36)}<div><p class="eyebrow">${LEAGUES[c.lg].name} · founded ${c.founded}</p><h2>${esc(c.name)}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b">${isMine(c) ? "" : `<dl class="facts"><div><dt>Manager</dt><dd>${esc(c.coach.name)}</dd></div><div><dt>Style</dt><dd>${STYLES[c.coach.style].l}, ${c.coach.form}</dd></div><div><dt>Ground</dt><dd>${c.cap.toLocaleString()}</dd></div><div><dt>Owner</dt><dd>${esc(c.own.name)}<br><span class="small muted">${OWNER_STYLES[c.own.style].l}</span></dd></div><div><dt>Honours</dt><dd>${c.trophies.length ? c.trophies.map(t => t[0] + " " + t[1]).join(", ") : "—"}</dd></div></dl>`}
+    <div class="modal-b">${isMine(c) ? "" : `<dl class="facts"><div><dt>Manager</dt><dd>${esc(c.coach.name)}</dd></div><div><dt>Style</dt><dd>${STYLES[c.coach.style].l}, ${c.coach.form}</dd></div><div><dt>Ground</dt><dd>${c.cap.toLocaleString("en-GB")}</dd></div><div><dt>Owner</dt><dd>${esc(c.own.name)}<br><span class="small muted">${OWNER_STYLES[c.own.style].l}</span></dd></div><div><dt>Honours</dt><dd>${c.trophies.length ? c.trophies.map(t => t[0] + " " + t[1]).join(", ") : "—"}</dd></div></dl>`}
     <div class="tbl-wrap"><table><tbody>${ps.map(p => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td>${range(ovrEstimate(p))}</td></tr>`).join("")}</tbody></table></div></div>`);
 }
 
@@ -332,7 +335,7 @@ function pgMarket() {
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Transfer market</h2><span class="small ${windowOpen() ? "good" : "muted"}">${windowOpen() ? "Window open" : "Window closed: free agents only"}</span></div>
     <p class="small muted" style="margin-bottom:10px">Buying a player yourself goes over your head of recruitment's head. Players at clubs more than two divisions above won't come. Ratings are ${s ? `${esc(s.name)}'s estimates` : "guesses: you have no recruitment staff"}.</p>
     <div class="row filters"><select data-act="mf" data-k="pos"><option value="">All positions</option>${POS.map(x => `<option ${F.pos === x ? "selected" : ""}>${x}</option>`).join("")}</select>
-      <label class="small">Max age <input type="number" inputmode="decimal" class="num-in sm" data-act="mf" data-k="age" value="${F.age}"></label><label class="small">Min rating <input type="number" inputmode="decimal" class="num-in sm" data-act="mf" data-k="min" value="${F.min}"></label><label class="small">Max fee <input type="number" inputmode="decimal" class="num-in" data-act="mf" data-k="fee" value="${F.fee}" step="10000" placeholder="any"></label></div>
+      <label class="small">Max age <input type="text" inputmode="decimal" class="num-in sm" data-act="mf" data-k="age" value="${fmtNum(F.age)}"></label><label class="small">Min rating <input type="text" inputmode="decimal" class="num-in sm" data-act="mf" data-k="min" value="${fmtNum(F.min)}"></label><label class="small">Max fee <input type="text" inputmode="decimal" class="num-in" data-act="mf" data-k="fee" value="${F.fee ? fmtNum(F.fee) : ""}" placeholder="any"></label></div>
     <div class="tbl-wrap"><table class="sq"><thead><tr><th>Pos</th><th style="text-align:left">Name</th><th>Age</th><th style="text-align:left">Club</th><th>Rating</th><th>Potential</th><th>Fee</th></tr></thead><tbody>
     ${pool.map(({ p, e, fee }) => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td style="text-align:left" class="small">${esc(fromName(p))}</td><td>${range(e)}</td><td>${range(potEstimate(p))}</td><td class="num">${fee ? money(fee) : "Free"}</td></tr>`).join("")}</tbody></table></div></section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
@@ -343,7 +346,7 @@ function buyModal(id) {
   const p = G.players[id], fee = askingFee(p), wage = playerAsk(p) || demandWage(p, my()), s = staffOf("recruit");
   modal(`<div class="modal-h"><div><p class="eyebrow">Your offer</p><h2>${esc(p.name)}</h2><p class="small muted">${esc(fromName(p))}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><p>The selling club wants about <b>${fee ? money(fee) : "nothing"}</b>. He wants about <b>${money(wage)}</b> a year.</p>
-    <div class="row"><label class="small">Fee € <input type="number" inputmode="decimal" class="num-in" id="b-fee" value="${fee}" step="1000"></label><label class="small">Wage €/yr <input type="number" inputmode="decimal" class="num-in" id="b-wage" value="${wage}" step="1000"></label></div>
+    <div class="row"><label class="small">Fee € <input type="text" inputmode="decimal" class="num-in" id="b-fee" value="${fmtNum(fee)}"></label><label class="small">Wage €/yr <input type="text" inputmode="decimal" class="num-in" id="b-wage" value="${fmtNum(wage)}"></label></div>
     ${factorBars(playerAppeal(p, wage), P_FACTORS)}
     <p class="small muted">Paid from club cash (${money(my().cash)}), outside the budgets you've set. ${s ? `${esc(s.name)} won't like being bypassed.` : ""}</p>
     <div class="row"><button class="btn primary" data-act="buygo" data-id="${p.id}">Make the offer</button></div></div>`);
@@ -353,7 +356,7 @@ function buyModal(id) {
 function pgHist() {
   const c = my();
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Seasons</h2></div>${G.history.length ? `<div class="tbl-wrap"><table><thead><tr><th>Season</th><th style="text-align:left">Division</th><th>Pos</th><th>Pts</th><th>Crowd</th><th>Income</th><th>Costs</th><th style="text-align:left">Manager</th><th style="text-align:left">Cups · targets</th></tr></thead><tbody>
-    ${G.history.map(h => `<tr><td>${seasonLabel(h.y)}</td><td style="text-align:left">${G.career && G.career.length ? `<b>${esc(h.club || "")}</b> · ` : ""}${LEAGUES[h.lg].name}</td><td class="num">${ord(h.pos)}${h.up ? ' <span class="good">▲</span>' : h.down ? ' <span class="bad">▼</span>' : ""}</td><td class="num">${h.pts}</td><td class="num">${h.att.toLocaleString()}</td><td class="num">${money(h.inc)}</td><td class="num">${money(h.cost)}</td><td style="text-align:left" class="small">${esc(h.mgr)}</td><td style="text-align:left" class="small">${[...(h.cups || []), ...(h.obj || [])].map(esc).join("<br>")}</td></tr>`).join("")}</tbody></table></div>` : "<p class='muted'>Your first season is under way.</p>"}</section>
+    ${G.history.map(h => `<tr><td>${seasonLabel(h.y)}</td><td style="text-align:left">${G.career && G.career.length ? `<b>${esc(h.club || "")}</b> · ` : ""}${LEAGUES[h.lg].name}</td><td class="num">${ord(h.pos)}${h.up ? ' <span class="good">▲</span>' : h.down ? ' <span class="bad">▼</span>' : ""}</td><td class="num">${h.pts}</td><td class="num">${h.att.toLocaleString("en-GB")}</td><td class="num">${money(h.inc)}</td><td class="num">${money(h.cost)}</td><td style="text-align:left" class="small">${esc(h.mgr)}</td><td style="text-align:left" class="small">${[...(h.cups || []), ...(h.obj || [])].map(esc).join("<br>")}</td></tr>`).join("")}</tbody></table></div>` : "<p class='muted'>Your first season is under way.</p>"}</section>
     <section class="card"><div class="card-h"><h3>Honours</h3></div>${c.trophies.length ? c.trophies.map(t => `<p>🏆 ${t[0]} ${esc(t[1])}</p>`).join("") : "<p class='muted'>None yet.</p>"}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Hall of fame</h3></div>${G.hof.length ? G.hof.slice(-15).reverse().map(h => `<p class="small">${esc(h.name)} (${h.pos}) · peak ${h.peak} · ${h.apps} apps, ${h.goals} goals · retired ${h.y}</p>`).join("") : "<p class='muted small'>Great players who retire are remembered here.</p>"}</section>
     <section class="card"><div class="card-h"><h3>Save</h3></div><div class="row"><button class="btn sm" data-act="export">Export save file</button><label class="btn sm">Import<input type="file" id="imp" accept=".json" hidden></label><button class="btn sm" data-act="quit">Back to start</button></div></section></div></div>`;

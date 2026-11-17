@@ -63,8 +63,8 @@ function buildWeek(c) {
   const S = c.fac.stadium;
   if (S.build && --S.build.left <= 0) {
     const b = S.build; S.build = null;
-    if (b.type === "new") { S.own = true; S.cap = b.cap; S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString()} capacity. ${c.name} have a home of their own.`, true); }
-    else if (b.type === "expand") { S.cap += b.add; news(`The new stand is open. Capacity is now ${S.cap.toLocaleString()}.`, true); }
+    if (b.type === "new") { S.own = true; S.cap = b.cap; S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
+    else if (b.type === "expand") { S.cap += b.add; news(`The new stand is open. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "heat") { S.heat = true; news("Undersoil heating is installed: frost and snow won't stop games at home any more.", true); }
     else if (b.type === "suites") { S.suites = (S.suites || 0) + b.add; news(`${b.add} new executive suites are ready (${S.suites} in all).`, true); }
     else if (b.type === "amen") { S.amen = b.lvl; news(`Stadium facilities upgraded to level ${b.lvl}.`, true); }
