@@ -39,7 +39,7 @@ function teamPower(c, xi) {
   const missing = 11 - xi.length;  // a side short of players is badly weakened
   const A = a / (wa || 1), M = m / (wm || 1), D = d / (wd || 1);
   const morale = ((isMine(c) ? c.morale : 55) - 55) / 15;  // about +-3
-  const tac = (clubTac(c) - 50) / 20;  // about +-2.5
+  const tac = (clubTac(c) - 50) / 20 + prepBonus(c);  // about +-2.5, plus pre-season sharpness or rust
   return { atk: .65 * A + .35 * M + morale + tac - missing * 4, def: .7 * D + .3 * M + morale + tac - missing * 4 };
 }
 function poisson(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= R(); } while (p > L); return k - 1; }
@@ -48,7 +48,7 @@ function scorer(xi, kind) {
   const k = kind === "g" ? "fin" : "pas";
   return wpick(xi, o => w[o.slot] * Math.pow((o.p.at[k] || 30) / 50, 2)).p;
 }
-function playMatch(h, a, neutral) {
+function playMatch(h, a, neutral, fr) {  // fr: a friendly, kept out of players' records
   const H = CL(h), A = CL(a), xh = pickXI(H), xa = pickXI(A), ph = teamPower(H, xh), pa = teamPower(A, xa);
   const sh = STYLES[clubStyle(H)], sa = STYLES[clubStyle(A)], fh = styleFit(xh, clubStyle(H)), fa = styleFit(xa, clubStyle(A));
   const adv = neutral ? 0 : 2, wx = G.wx ? wxAt(H) : WX.clear;
@@ -63,11 +63,11 @@ function playMatch(h, a, neutral) {
   const hg = poisson(clamp(lh, .1, 6)), ag = poisson(clamp(la, .1, 6));
   const ev = [];
   for (const [xi, n, side] of [[xh, hg, 0], [xa, ag, 1]]) for (let i = 0; i < n; i++) {
-    const g = scorer(xi, "g"); g.s.g++; let as = null;
-    if (R() < .7) { as = scorer(xi.filter(o => o.p !== g), "a"); if (as) as.s.a++; }
+    const g = scorer(xi, "g"); if (!fr) g.s.g++; let as = null;
+    if (R() < .7) { as = scorer(xi.filter(o => o.p !== g), "a"); if (as && !fr) as.s.a++; }
     ev.push({ m: ri(1, 90), side, g: g.name, a: as ? as.name : null });
   }
-  for (const xi of [xh, xa]) for (const { p } of xi) { if (!p.tot[0] && !p.s.app) p.debut = G.year; p.s.app++; injuryCheck(p, pq); }
+  for (const xi of [xh, xa]) for (const { p } of xi) { if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; p.s.app++; injuryCheck(p, pq); }
   ev.sort((x, y) => x.m - y.m);
   return { h, a, hg, ag, ev, fit: [fh, fa], xg: [r1(lh), r1(la)] };
 }

@@ -61,13 +61,14 @@ function advance() {
   c.offers = c.offers.filter(o => o.exp > 0);
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
   if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
-  mediaWeek(); trustWeek(c); poachWeek(); bidForMyClub();
+  mediaWeek(); trustWeek(c); poachWeek(); requestsCheck(); bidForMyClub();
   settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
 }
 function summerWeek() {
   if (G.week === 1) partnerWindow();
+  friendlyWeek();
   marketWeek();
   G.week++;
   if (G.week >= SUMMER_WEEKS) {
@@ -190,7 +191,7 @@ function endSeason() {
   feedersSummer();
   staffSummer();
   if (G.sTrust && G.sTrust.freeze === G.year) G.sTrust.freeze = 0;
-  G.cupsLast = G.cups;
+  G.cupsLast = G.cups; G.friendlies = []; G.fAsked = []; G.fOpts = null; mine.prep = 0;
   G.year++; G.phase = "summer"; G.week = 0; G.po = null;
   startSeason();
   refreshOffers(mine);
@@ -214,7 +215,7 @@ function seasonReview(r, up, down) {
 /* Each summer: everyone a year older, retirements, contracts, youth intakes, squads rebuilt. */
 function yearTurnover() {
   loveSeason();
-  for (const p of Object.values(G.players)) p.last = { app: p.s.app, g: p.s.g, a: p.s.a };  // remembered for next season's market
+  for (const p of Object.values(G.players)) { p.last = { app: p.s.app, g: p.s.g, a: p.s.a }; if (p.req && !p.list) p.req = 0; }  // a refused request can come again next season  // remembered for next season's market
   const mine = my();
   // Contracts: your head of recruitment renews those he wants (you can flag players to keep); the rest leave.
   // He keeps enough players to field a side: the best 18 seniors are renewed if the wage budget allows.

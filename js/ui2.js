@@ -65,9 +65,10 @@ function pgNet() {
 
 /* ---------- Competitions: league and cups ---------- */
 function pgComps() {
-  const tab = SUB.comp || "league", mineCups = Object.keys(CUP_DEF).filter(k => CUP_DEF[k].tiers.includes(my().tier));
-  const tabs = `<div class="seg" style="margin-bottom:12px"><button data-act="sub" data-k="comp" data-v="league" aria-pressed="${tab === "league"}">League</button>${Object.keys(CUP_DEF).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CUP_DEF[k].name}${mineCups.includes(k) ? "" : " ·"}</button>`).join("")}</div>`;
+  const tab = SUB.comp || (G.phase === "summer" ? "pre" : "league"), mineCups = Object.keys(CUP_DEF).filter(k => CUP_DEF[k].tiers.includes(my().tier));
+  const tabs = `<div class="seg" style="margin-bottom:12px">${G.phase === "summer" ? `<button data-act="sub" data-k="comp" data-v="pre" aria-pressed="${tab === "pre"}">Pre-season</button>` : ""}<button data-act="sub" data-k="comp" data-v="league" aria-pressed="${tab === "league"}">League</button>${Object.keys(CUP_DEF).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CUP_DEF[k].name}${mineCups.includes(k) ? "" : " ·"}</button>`).join("")}</div>`;
   if (tab === "league") return tabs + pgLeagueInner();
+  if (tab === "pre") return tabs + preseasonHTML();
   const K = (G.cups || {})[tab], D = CUP_DEF[tab]; if (!K) return tabs + `<p class="muted">Not started.</p>`;
   const rounds = [...new Set(K.log.map(x => x.r))];
   const tieRow = (t, done) => { const mine = t.h === G.club || t.a === G.club; return `<div class="row between small ${mine ? "me-row" : ""}"><span>${esc(CL(t.h).name)} <span class="muted">(${CL(t.h).tier})</span></span><b class="num">${done ? `${t.hg}–${t.ag}${t.pens ? " p" : ""}` : "v"}</b><span style="text-align:right">${esc(CL(t.a).name)} <span class="muted">(${CL(t.a).tier})</span></span></div>`; };
@@ -144,4 +145,21 @@ function visionCard(v = vision(), start = false) {
     <div class="stack" style="gap:8px">${Object.entries(PRIORITIES).map(([k, P]) => `<div class="row between offer"><span><b>${P.l}</b><br><span class="small muted">${P.d}</span></span>
       <span class="row" style="flex-wrap:nowrap"><button class="btn sm" data-act="vpri" data-k="${k}" data-d="-1" ${v.pri[k] ? "" : "disabled"} aria-label="Less">−</button><b class="num" style="min-width:3ch;text-align:center">${"●".repeat(v.pri[k])}${"○".repeat(4 - v.pri[k])}</b><button class="btn sm" data-act="vpri" data-k="${k}" data-d="1" ${left && v.pri[k] < 4 ? "" : "disabled"} aria-label="More">+</button></span></div>`).join("")}</div>`;
   return start ? `<div id="f-vision" style="margin-top:16px">${head}${body}</div>` : `<section class="card">${head}${body}</section>`;
+}
+
+/* ---------- pre-season friendlies ---------- */
+function preseasonHTML() {
+  if (G.phase !== "summer") return `<p class="muted">Friendlies are arranged in pre-season.</p>`;
+  const c = my(), F = G.friendlies || [], asked = new Set(G.fAsked || []), free = freeWeeks(), full = !free.length;
+  if (!free.includes(SUB.fw)) SUB.fw = free[0];
+  const opp = friendlyOptions(), like = i => i >= .8 ? ["Keen", "good"] : i >= .5 ? ["Might say yes", ""] : ["Unlikely", "warn"];
+  return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Arrange friendlies</h2><span class="small muted">${F.length} of ${MAX_FRIENDLIES} weeks</span></div>
+    <p class="small muted" style="margin-bottom:10px">Away, the host pays you: bigger clubs pay more, and every club pays more the keener it is to face a side of your ability. Home, you keep a reduced gate; a bigger visitor draws a bigger crowd but takes a third as an appearance fee. You can play one in every pre-season week. Fewer than two and the team starts the season rusty; three or more sharpens it.</p>
+    ${full ? `<p class="small">Every pre-season week has a friendly.</p>` : `<label class="small" style="display:block;margin-bottom:10px"><b>For week</b> <select data-act="fweek">${free.map(w => `<option value="${w}" ${SUB.fw === w ? "selected" : ""}>Pre-season week ${w + 1}${w === G.week ? " (this week)" : ""}</option>`).join("")}</select></label>`}
+    <div class="stack" style="gap:6px">${opp.map(x => { const i = friendlyInterest(x), h = homeFriendly(x), done = asked.has(x.id);
+      return `<div class="offer"><div class="row between"><span>${crest(x, 16)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name}${x.region === c.region ? " · local" : ""}</span></span>${word(like(i))}</div>
+        <div class="row small" style="margin-top:4px"><span class="muted">Away fee ${money(awayFee(x))} · at home about ${h.crowd.toLocaleString("en-GB")} fans, ${money(h.gate - h.fee)} to you</span>
+        ${done ? `<span class="muted">Asked</span>` : `<button class="btn sm" data-act="friendly" data-id="${x.id}" data-h="0" ${full ? "disabled" : ""}>Away</button><button class="btn sm" data-act="friendly" data-id="${x.id}" data-h="1" ${full ? "disabled" : ""}>Home</button>`}</div></div>`; }).join("")}</div></section></div>
+    <div class="stack"><section class="card"><div class="card-h"><h3>Your pre-season</h3></div>${F.length ? F.slice().sort((a, b) => a.w - b.w).map(f => { const x = CL(f.opp), r = (G.myRes || []).find(r => r.comp === "F" && r.opp === f.opp && r.w === f.w);
+      return `<p class="small">Week ${f.w + 1}: ${f.home ? "v" : "at"} ${esc(x.name)}${r ? ` · <b>${r.gf}–${r.ga}</b>` : f.home ? "" : ` · fee ${money(f.fee)}`}</p>`; }).join("") : "<p class='small muted'>None arranged yet.</p>"}</section></div></div>`;
 }

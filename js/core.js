@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.7.1";
+const VERSION = "0.8.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -262,7 +262,7 @@ function leaveClub(p) { if (p.club >= 0 && typeof favLeaves === "function") favL
 /* Transfer windows: a player who joins a club in a window can't be sold on in the same window. */
 const windowId = () => (G.phase === "summer" ? "S" : "J") + G.year;
 const canSell = p => !(p.inW && p.inW === windowId() && windowOpen());
-function moveTo(p, c) { p.inW = windowId(); leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]); }
+function moveTo(p, c) { p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]); }
 function retire(p) {
   p._retiring = true; onRetire(p);
   if (p.peak >= 80 || p.tot[0] >= 400) G.hof.push({ name: p.name, pos: p.pos, nat: p.nat, peak: p.peak, apps: p.tot[0], goals: p.tot[1], y: G.year, clubs: [...new Set(p.hist.map(h => h[1]))].slice(-5) });

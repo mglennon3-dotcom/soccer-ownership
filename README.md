@@ -109,6 +109,18 @@ A **partner club** two or more divisions above offers young players on loan each
 below you take your funding (raising their standard and facilities), take your players on loan first, and give you first
 refusal on their best youngsters at a discount.
 
+## Pre-season friendlies and unhappy players
+
+Arrange a friendly in any or all of the eight pre-season weeks (Competitions → Pre-season). Away, the host pays you a fee
+that grows with the size of their club and how keen they are to face a side of your ability; neighbours are keener,
+much stronger clubs barely interested. Home, you keep a reduced gate, and bigger visitors draw bigger crowds but take a
+third as an appearance fee. Friendlies don't count in players' records; fewer than two leaves the team rusty for the
+first league games, three or more gives a small edge.
+
+Players get unhappy: benched when good enough to start, far too good for your division, underpaid, or kept from a move.
+An unhappy player may hand in a transfer request: accept it (he's listed), offer a new deal (settles money and blocked
+moves, sometimes the rest), or refuse (he's unsettled and plays below his best).
+
 ## Fan favourites and legends
 
 Players build affection with each club they play for: games, goals, assists, loyalty, and more for academy graduates.
@@ -145,6 +157,6 @@ it on as it stands: squad, manager, ground, facilities and sponsors. The History
 `js/names.js` (names, towns, regions and helpers), `core.js` (pyramid, players, talent, development),
 `staff.js`, `club.js` (prices, attendance, sponsors, facilities, suites, pitch, ventures), `weather.js`, `match.js`,
 `events.js` (decisions and media), `cups.js`, `owners.js` (rival owners), `board.js` (valuation, investors, directors,
-supporters' trust, loans, objectives), `partners.js`, `legends.js`, `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
+supporters' trust, loans, objectives), `partners.js`, `legends.js`, `friendlies.js` (friendlies and transfer requests), `sale.js`, `season.js`, `market.js`, `appeal.js`, `ui.js`, `ui2.js`, `main.js`.
 
 `node tools/sim.js 20` plays 20 seasons headless and reports talent, ratings by tier and the test club's progress.
