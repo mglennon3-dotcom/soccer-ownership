@@ -31,6 +31,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
   youth), a head of recruitment (judging ability, negotiation, contacts; a recruitment philosophy and a search area),
   and a youth manager (development, judging potential, youth scouting; a type of player, local or wide search).
   Their philosophies decide how the team plays and who gets signed. Pick people whose ideas match yours.
+- **Finances in tabs:** Overview, Per game (what a home game brings in and costs, what runs every week, and the net of a
+  home week and an away week, forecast and this season's actual averages), Prices, Budgets, Accounts and Borrowing.
+  Sums under €10,000 are shown in full.
 - **Set prices:** tickets, food and drink, replica shirts, executive suites. Prices above what supporters expect earn
   more per head but cost crowds and goodwill.
 - **Set budgets:** player wages, transfers, academy running costs, scouting. Your staff work within them and notice

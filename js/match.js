@@ -16,10 +16,14 @@ function pickXI(c) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false;
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 17 && p.ovr >= TIER_LVL[c.tier] - 6));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
-     one point on the 100 scale, about a tenth of a shown point at the top), and a manager who trusts youth gives a
-     promising youngster in his own position up to 1.5 more: enough to pick him over a slightly better senior player,
-     never over a clearly better one. */
-  const score = (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + (youth && p.age <= 21 && p.pos === s ? Math.min(1.5, (p.pot - p.ovr) * .1) : 0) + (p.id % 7) * .0001;
+     one point on the 100 scale, about a tenth of a shown point at the top). */
+  // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position
+  // gets the place over an older player rated the same, and a high-potential one (potential 4+ points above his
+  // rating) gets it even a point below. Within the same shown rating the better player still comes first.
+  const youngFav = p => p.age <= 21 ? (r20(p.pot) - r20(p.ovr) >= 4 ? 16 : 6) : 0;
+  const score = youth
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);

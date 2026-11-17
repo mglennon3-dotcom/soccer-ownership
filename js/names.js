@@ -11,7 +11,7 @@ function wpick(arr, w) { let t = 0; const ws = arr.map(x => { const v = Math.max
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 function money(v) {
   const a = Math.abs(v), s = v < 0 ? "−" : "";
-  if (a < 500) return "€0";
+  if (a < 10000) return s + "€" + Math.round(a).toLocaleString("en-GB");  // small sums in full: at the bottom of the pyramid every euro shows
   if (a >= 1e9) return s + "€" + (a / 1e9).toFixed(2) + "bn";
   if (a >= 1e7) return s + "€" + (a / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
   if (a >= 1e6) return s + "€" + (a / 1e6).toFixed(2).replace(/0$/, "").replace(/\.0$/, "") + "M";

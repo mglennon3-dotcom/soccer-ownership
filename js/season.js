@@ -28,7 +28,7 @@ function startSeason() {
   startCups(); startContinental();
   if (typeof aiListings === "function" && G.club != null) aiListings();
   for (const p of Object.values(G.players)) p.s = { app: 0, g: 0, a: 0 };
-  const c = my(); c.att = []; c.morale = 55;
+  const c = my(); c.att = []; c.hgs = null; c.morale = 55;
 }
 function tally(L, r) {
   const H = L.tab[r.h], A = L.tab[r.a]; H.p++; A.p++; H.gf += r.hg; H.ga += r.ag; A.gf += r.ag; A.ga += r.hg;
