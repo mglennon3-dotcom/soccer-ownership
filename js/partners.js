@@ -8,11 +8,12 @@ const net = () => G.net || (G.net = { partner: null, feeders: [] });
 const isFeeder = id => net().feeders.some(f => f.id === id);
 
 /* ---------- loans ---------- */
-function loanOut(p, to) {
-  const c = my(); p.loan = { from: c.id, to: to.id, share: .5 };
+// share: the part of his wage the borrowing club pays.
+function loanOut(p, to, share = .5) {
+  const c = my(); p.loan = { from: c.id, to: to.id, share };
   c.squad = c.squad.filter(id => id !== p.id); to.squad.push(p.id); p.club = to.id;
   (G.loanList ||= []).push(p.id);
-  news(`${p.name} goes on loan to ${to.name} for the rest of the season. They pay half his wages.`);
+  news(`${p.name} goes on loan to ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""} for the rest of the season. They pay ${share >= 1 ? "all" : "half"} his wages.`);
 }
 function loanIn(p, from, share = .5) {
   const c = my(); p.loan = { from: from.id, to: c.id, share };
@@ -25,7 +26,7 @@ function endLoans() {
     const p = G.players[id]; if (!p || !p.loan) continue;
     const at = CL(p.club), home = CL(p.loan.from);
     if (at) at.squad = at.squad.filter(x => x !== id);
-    if (home && !home.gone) { home.squad.push(id); p.club = home.id; } else toFreeAgent(p);
+    if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; } else toFreeAgent(p);  // foreign clubs count as still going
     if (home && isMine(home)) news(`${p.name} returns from his loan at ${at ? at.name : "his loan club"} (${p.s.app} games).`);
     p.loan = null;
   }

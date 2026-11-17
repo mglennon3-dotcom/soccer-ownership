@@ -75,6 +75,17 @@ function foreignSummer() {
 }
 // During a window foreign clubs plug gaps from the free agents only (new players are made only in the summer).
 function foreignJanuary() { for (const id of G.foreign || []) foreignSquad(CL(id), true); }
+/* Foreign clubs' own league seasons, in the background: 38 games on the same weeks as a 20-club division. They aren't
+   simulated as matches, but the side the manager picks gets the appearances, goals and assists, so players there
+   (yours on loan included) play and develop. */
+function foreignDomestic(w) {
+  if (REST20.has(w)) return;
+  for (const id of G.foreign || []) {
+    const c = CL(id), xi = pickXI(c); c.gp = (c.gp || 0) + 1;
+    for (const { p } of xi) { p.s.app++; injuryCheck(p, null); }
+    for (let i = poisson(1.45); i > 0; i--) { const g = scorer(xi, "g"); if (!g) break; g.s.g++; if (R() < .7) { const a = scorer(xi.filter(o => o.p !== g), "a"); if (a) a.s.a++; } }
+  }
+}
 const countryOf = c => c.abroad ? COUNTRY[c.country].name : "England";
 const divisionOf = c => c.abroad ? `${COUNTRY[c.country].name}` : LEAGUES[c.lg].name;
 
@@ -180,3 +191,31 @@ function contMatch(h, a, neutral, comp, label) {
   }
   return r;
 }
+
+/* ---------- loans with foreign clubs ----------
+   Each window, a foreign club or two may offer you a young player who isn't in its first team but would help you (you pay
+   half his wages), and may ask to borrow one of your young players who isn't getting games (they pay all of his wages,
+   and he plays regular football). Loans run to the end of the season. */
+function foreignLoans() {
+  const c = my(); if (!G.foreign || !c) return;
+  const myXI = pickXI(c), lv = avg(myXI.map(o => o.p.ovr)), open = k => G.inbox.filter(m => m.key === k && !m.done).length;
+  // Offers to you
+  if (open("fLoanIn") < 2 && R() < .6) {
+    const cands = [];
+    for (const id of G.foreign) { const x = CL(id), xi = new Set(pickXI(x).map(o => o.p.id));
+      for (const pid of x.squad) { const p = P(pid); if (!p.acad && !p.loan && p.age <= 22 && !xi.has(p.id) && p.ovr >= lv - 3 && p.ovr <= lv + 8 && canSell(p)) cands.push([p, x]); } }
+    for (const [p, x] of shuffle(cands).slice(0, 1 + (R() < .4 ? 1 : 0)))
+      addChoice("fLoanIn", `${x.name} (${COUNTRY[x.country].name}) offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. Until the end of the season; you'd pay half his ${money(p.wage)} wage.`, ["Take him", "No thanks"], { pid: p.id, from: x.id }, 1);
+  }
+  // Requests to borrow yours
+  if (open("fLoanOut") < 1 && R() < .5) {
+    const xi = new Set(myXI.map(o => o.p.id)), games = (G.leagues[c.lg].tab[c.id] || {}).p || 0;
+    const mine = c.squad.map(P).filter(p => !p.acad && !p.loan && p.age <= 22 && !xi.has(p.id) && !p.keep && (games < 5 || p.s.app < games * .3));
+    const p = mine.sort((a, b) => b.pot - a.pot)[0]; if (!p) return;
+    // Only a club where he'd go straight into the side: better than one of its regulars in his position.
+    const x = shuffle(G.foreign.map(CL).filter(x => x.lvl >= p.ovr - 8 && x.lvl <= p.ovr + 2)).find(x => pickXI(x).some(o => o.slot === p.pos && roleRating(o.p, o.slot) < roleRating(p, p.pos) - 1)); if (!x) return;
+    addChoice("fLoanOut", `${x.name} (${COUNTRY[x.country].name}) want ${p.name} on loan`, `He isn't getting games here. They'd play him regularly and pay all of his ${money(p.wage)} wage until the end of the season.`, ["Let him go on loan", "Keep him"], { pid: p.id, to: x.id }, 1);
+  }
+}
+DECIDE.fLoanIn = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id && !p.loan) loanIn(p, x); };
+DECIDE.fLoanOut = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.to); if (i === 0 && p && p.club === G.club && !p.loan) loanOut(p, x, 1); };

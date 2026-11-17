@@ -24,6 +24,7 @@ function startSeason() {
   G.myRes = []; G.po = null;
   for (const c of G.clubs) if (!c.gone && c.ded && G.leagues[c.lg].tab[c.id]) G.leagues[c.lg].tab[c.id].pts -= c.ded;  // administration
   for (const k of LG_KEYS) G.leagues[k].pend = [];
+  for (const id of G.foreign || []) CL(id).gp = 0;
   startCups(); startContinental();
   for (const p of Object.values(G.players)) p.s = { app: 0, g: 0, a: 0 };
   const c = my(); c.att = []; c.morale = 55;
@@ -68,6 +69,7 @@ function advance() {
 }
 function summerWeek() {
   if (G.week === 1) partnerWindow();
+  if (G.week === 2 || G.week === 5) foreignLoans();
   friendlyWeek();
   marketWeek();
   G.week++;
@@ -89,8 +91,9 @@ function seasonWeek() {
       const r = playMatch(h, a); tally(L, r); afterMatch(r, k);
     }
   }
-  cupWeek(w); contWeek(w); ownersCheck(w);
+  cupWeek(w); contWeek(w); foreignDomestic(w); ownersCheck(w);
   if (w === JAN[0]) partnerWindow();
+  if (w === JAN[0] || w === JAN[2]) foreignLoans();
   if (JAN.includes(w)) marketWeek();
   if (w % 3 === 2) devTick(1 / 16);
   G.week++;
@@ -132,6 +135,7 @@ function playoffWeek() {
 function devTick(dt) {
   const games = {};
   for (const k of LG_KEYS) for (const r of Object.values(G.leagues[k].tab || {})) games[r.id] = r.p;
+  for (const id of G.foreign || []) games[id] = CL(id).gp || 0;  // foreign clubs' domestic seasons
   for (const p of Object.values(G.players)) if (p.club !== -2) develop(p, dt, p.club >= 0 ? games[p.club] || 0 : 0);
 }
 
