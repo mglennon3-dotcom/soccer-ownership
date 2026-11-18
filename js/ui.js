@@ -187,9 +187,12 @@ function tableHTML(k, rows, off = 0, compact) {
 /* ---------- Squad ---------- */
 function pgSquad() {
   const c = my(), tab = SUB.squad || "first", xi = new Set(pickXI(c).map(o => o.p.id));
-  const ps = c.squad.map(P).filter(p => tab === "acad" ? p.acad : !p.acad).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
+  // Tabs: the first team, the academy, and three lists: protected (kept or not for sale), transfer-listed, loan-listed.
+  const SQT = { first: ["First team", p => !p.acad], acad: ["Academy", p => p.acad], prot: ["Protected", p => p.keep || p.nfs], tl: ["Transfer listed", p => p.list], ll: ["Loan listed", p => p.loanList] };
+  const all = c.squad.map(P), ps = all.filter((SQT[tab] || SQT.first)[1]).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
-  return `<section class="card"><div class="card-h"><h2>Squad</h2><div class="seg"><button data-act="sub" data-k="squad" data-v="first" aria-pressed="${tab === "first"}">First team (${c.squad.filter(id => !P(id).acad).length})</button><button data-act="sub" data-k="squad" data-v="acad" aria-pressed="${tab === "acad"}">Academy (${c.squad.filter(id => P(id).acad).length})</button></div></div>
+  return `<section class="card"><div class="card-h"><h2>Squad</h2></div>
+    <div class="chips" style="margin-bottom:12px">${Object.entries(SQT).map(([k, [l, f]]) => `<button data-act="sub" data-k="squad" data-v="${k}" aria-pressed="${tab === k}">${l} (${all.filter(f).length})</button>`).join("")}</div>
     <p class="small muted" style="margin-bottom:10px">The manager picks the side; players marked XI are his current first choices. Ratings are out of 20: about ${r20(TIER_LVL[c.tier])} is a typical starter in your division. The Regional League and National North/South are mostly 1–5, the National Division 3–7, the Third Division 5–9, the Second 6–10, the First 9–13 and the Premier Division 12–20; 18–19 is world class and 20 a once-in-a-generation player. Potential shows ${potJudge}. Tap a player to sell, release or protect him.</p>
     ${tab === "first" ? (() => { const n = regList(c).length, out = ps.filter(p => !isReg(p, c)).length; return `<p class="small" style="margin-bottom:10px"><b>Registered: ${n} of ${REG_MAX}</b>${out ? ` · <span class="bad">${out} not registered (can't play)</span>` : ""} · under-21s don't need registering. ${windowOpen() ? "Tick or untick in the Reg. column while the window is open." : "The list can change in the next transfer window."}</p>`; })() : ""}
     ${tab === "acad" && ps.length ? (() => { for (const id of [...ASEL]) if (!ps.some(p => p.id === id)) ASEL.delete(id); const n = ASEL.size;
@@ -201,7 +204,7 @@ function pgSquad() {
       { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
       { k: "age", l: "Age", r: true, v: p => p.age, f: p => p.age },
       { k: "ovr", l: "Rating", v: p => p.ovr, f: p => rating(p.ovr) },
-      ...(tab === "first" ? [{ k: "reg", l: "Reg.", v: p => regExempt(p) ? 1 : isReg(p, c) ? 2 : 0, f: p => regExempt(p) ? `<span class="small muted">U21</span>` : `<input type="checkbox" data-act="reg" data-id="${p.id}" ${isReg(p, c) ? "checked" : ""} ${windowOpen() ? "" : "disabled"} aria-label="Registered">` }] : []),
+      ...(tab !== "acad" ? [{ k: "reg", l: "Reg.", v: p => regExempt(p) ? 1 : isReg(p, c) ? 2 : 0, f: p => regExempt(p) ? `<span class="small muted">U21</span>` : `<input type="checkbox" data-act="reg" data-id="${p.id}" ${isReg(p, c) ? "checked" : ""} ${windowOpen() ? "" : "disabled"} aria-label="Registered">` }] : []),
       { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
       { k: "app", l: "Apps", r: true, v: p => p.s.app, f: p => p.s.sub ? `${p.s.app - p.s.sub}<span class="small muted"> (${p.s.sub})</span>` : p.s.app },
       { k: "fit", l: "Fit", r: true, v: p => p.fit ?? 100, f: p => { const f = Math.round(p.fit ?? 100); return `<span class="small ${f < 70 ? "bad" : f < 85 ? "warn" : ""}">${f}%</span>`; } },
@@ -211,9 +214,9 @@ function pgSquad() {
       { k: "yrs", l: "Contract", r: true, v: p => p.acad ? 99 : p.yrs, f: p => p.acad ? "Youth" : p.yrs + "y" },
       { k: "val", l: "Value", r: true, v: p => valueOf(p), f: p => money(valueOf(p)) },
     ], ps, { sort: { k: "pos", d: 1 } })}
-    ${tab === "first" ? `<p class="small muted" style="margin-top:8px">XI first choice · apps (sub apps) · Fit: sharpness, below about 85% the manager rests him · KP protected · NFS not for sale · TL transfer-listed · LL available for loan · LN on loan here · OUT wants to leave · UNS unsettled · NR not registered · FAV fan favourite · LEG legend · 3w injured for 3 weeks</p>` : ""}
+    ${tab !== "acad" ? `<p class="small muted" style="margin-top:8px">XI first choice · apps (sub apps) · Fit: sharpness, below about 85% the manager rests him · KP protected · NFS not for sale · TL transfer-listed · LL available for loan · LN on loan here · OUT wants to leave · UNS unsettled · NR not registered · FAV fan favourite · LEG legend · 3w injured for 3 weeks</p>` : ""}
     ${tab === "first" && (G.loanList || []).some(id => G.players[id] && G.players[id].loan && G.players[id].loan.from === c.id) ? `<h3 style="margin:14px 0 6px">Out on loan</h3>${(G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id).map(p => `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> (${p.pos}, ${r20(p.ovr)}) at ${esc(CL(p.club).name)}: ${p.s.app} games · you still pay ${pw(p.wage * (1 - p.loan.share))}${p.loan.share >= 1 ? "" : ` (${Math.round((1 - p.loan.share) * 100)}%)`}</p>`).join("")}` : ""}`
-    : `<p class="muted">${tab === "acad" ? (c.fac.acad.lvl ? "The academy's first intake arrives in the summer." : "No academy yet. Build one on the Facilities page.") : "No players."}</p>`}</section>`;
+    : `<p class="muted">${tab === "acad" ? (c.fac.acad.lvl ? "The academy's first intake arrives in the summer." : "No academy yet. Build one on the Facilities page.") : tab === "prot" ? "Nobody is protected or marked not for sale. Do it from a player's card." : tab === "tl" ? "Nobody is on the transfer list." : tab === "ll" ? "Nobody is available for loan. Make a player available from his card." : "No players."}</p>`}</section>`;
 }
 /* Progression on a player's card: a row a season (newest first, this season so far on top) and a small line of his
    rating. Potential is shown only for your own players, as your staff estimate it now. */
