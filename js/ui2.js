@@ -205,11 +205,15 @@ function lineStrength(xi) {
   for (const { p, slot } of xi) { const r = roleRating(p, slot), w = SLOT_W[slot]; a += r * w[0]; m += r * w[1]; d += r * w[2]; wa += w[0]; wm += w[1]; wd += w[2]; }
   return { a: a / (wa || 1), m: m / (wm || 1), d: d / (wd || 1) };
 }
+// Fitness (sharpness): a small bar on the pitch and a percentage elsewhere; amber below 85%, red below 70%.
+const fitCol = f => f < 70 ? "var(--loss)" : f < 85 ? "var(--accent)" : "var(--win)";
+const fitBar = p => { const f = Math.round(p.fit ?? 100); return `<span class="fitbar" title="Fitness ${f}%"><i style="width:${f}%;background:${fitCol(f)}"></i></span><span class="fitpc">${f}%</span>`; };
+const fitTxt = p => { const f = Math.round(p.fit ?? 100); return `<span class="small ${f < 70 ? "bad" : f < 85 ? "warn" : "muted"}">${f}%</span>`; };
 function pgTactics() {
   const c = my(), M = mgr(), hired = !!staffOf("manager"), form = M.form || "4-4-2", xi = pickXI(c), st = STYLES[M.phil], fit = styleFit(xi, M.phil);
   const pos = FORM_XY[form] || FORM_XY["4-4-2"];
   const slots = xi.map(({ p, slot, i }) => { const [x, y] = pos[i], r = r20(roleRating(p, slot)), oop = p.pos !== slot;
-    return `<button class="slot${oop ? " oop" : ""}" style="left:${x}%;top:${y}%" data-act="player" data-id="${p.id}" title="${esc(p.name)}: ${POS_NAME[slot]}${oop ? ` (normally ${POS_NAME[p.pos].toLowerCase()})` : ""}"><span class="disc">${r}</span><span class="nm">${esc(p.name.split(" ").slice(1).join(" ") || p.name)}</span><span class="rl">${slot}</span></button>`; }).join("");
+    return `<button class="slot${oop ? " oop" : ""}" style="left:${x}%;top:${y}%" data-act="player" data-id="${p.id}" title="${esc(p.name)}: ${POS_NAME[slot]}${oop ? ` (normally ${POS_NAME[p.pos].toLowerCase()})` : ""}"><span class="disc">${r}</span><span class="nm">${esc(p.name.split(" ").slice(1).join(" ") || p.name)}</span><span class="rl">${slot} · <span style="color:${fitCol(Math.round(p.fit ?? 100))}">${Math.round(p.fit ?? 100)}%</span></span></button>`; }).join("");
   const missing = 11 - xi.length;
   // The style's four attributes across the outfield XI, against their own average.
   const outf = xi.filter(o => o.p.pos !== "GK").map(o => o.p), allAvg = avg(outf.map(p => avg(OUT_KEYS.map(k => p.at[k]))));
@@ -228,7 +232,7 @@ function pgTactics() {
       <div class="pitch" style="--club:${c.color};max-width:420px;margin:0 auto">${PITCH_LINES}${slots}</div>
       ${missing > 0 ? `<p class="small bad" style="margin-top:8px">${missing} place${missing > 1 ? "s" : ""} empty: not enough fit players.</p>` : ""}
       <p class="small muted" style="margin-top:8px">The number is each player's rating in that position (out of 20). A dashed ring means he's playing out of position. Tap a player for his card.</p></section>
-    <section class="card"><div class="card-h"><h3>Substitutes</h3></div>${bench.length ? bench.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span><span>${rating(p.ovr)}</span></div>`).join("") : "<p class='small muted'>Nobody else is fit.</p>"}
+    <section class="card"><div class="card-h"><h3>Substitutes</h3></div>${bench.length ? bench.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span><span>${fitTxt(p)} ${rating(p.ovr)}</span></div>`).join("") : "<p class='small muted'>Nobody else is fit.</p>"}
       ${out2.length ? `<h3 style="margin:12px 0 6px">Unavailable or unsettled</h3>${out2.map(p => `<p class="small">${esc(p.name)} (${p.pos}): ${p.inj ? `injured, ${p.inj} week${p.inj > 1 ? "s" : ""}` : "unsettled, playing below his best"}</p>`).join("")}` : ""}</section>
   </div><div class="stack">
     <section class="card"><div class="card-h"><h2>How we play</h2></div>

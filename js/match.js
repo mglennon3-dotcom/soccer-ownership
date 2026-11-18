@@ -131,9 +131,9 @@ function playMatch(h, a, neutral, fr) {
 }
 /* Sharpness (fitness, 0-100): a full game costs 6-16 points (less with stamina), a friendly half that; it comes back
    each week, faster with better training. Managers rest players who drop below about 85. */
-function tire(p, part, fr) { p.fit = clamp((p.fit ?? 100) - (16 - (p.at.sta || 50) / 10) * part * (fr ? .5 : 1) * (p.pos === "GK" ? .3 : 1), 30, 100); }
+function tire(p, part, fr) { p.fit = clamp((p.fit ?? 100) - (15 - (p.at.sta || 50) / 10) * part * (fr ? .5 : 1) * (p.pos === "GK" ? .3 : 1), 30, 100); }
 function recoverWeek() {
-  for (const c of G.clubs) { if (c.gone && !c.abroad) continue; const back = 7.5 + (isMine(c) ? c.fac.train.lvl : c.train || 3) * .4;
+  for (const c of G.clubs) { if (c.gone && !c.abroad) continue; const back = 8 + (isMine(c) ? c.fac.train.lvl : c.train || 3) * .4;
     for (const id of c.squad) { const p = P(id); if (p && p.fit != null && p.fit < 100) p.fit = Math.min(100, p.fit + back); } }
 }
 function injuryCheck(p, pq) {
