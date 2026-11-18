@@ -119,6 +119,14 @@ function startPlayoffs() {
   const mine = Object.entries(G.po).find(([, x]) => x.semis.flat().includes(G.club));
   news(mine ? `${my().name} are in the ${LEAGUES[mine[0]].name} play-offs!` : "The regular season is over. The play-offs are next.", !!mine);
 }
+// Your play-off: which league, and where you stand in it (semi to play, final to play, out, or won).
+function myPlayoff() {
+  const e = Object.entries(G.po || {}).find(([, x]) => x.semis.flat().includes(G.club)); if (!e) return null;
+  const [k, x] = e, semi = x.semis.find(s => s.includes(G.club));
+  if (G.week === 0) return { k, stage: "semi", h: semi[0], a: semi[1] };
+  if (x.final && x.final.includes(G.club)) return { k, stage: "final", h: x.final[0], a: x.final[1] };
+  return { k, stage: "out", opp: semi[0] === G.club ? semi[1] : semi[0] };
+}
 function koMatch(h, a, neutral, k) {
   const { w, r } = playKO(h, a, neutral, "PO", neutral ? "Play-off final" : "Play-off semi-final");
   G.po[k].res.push({ h, a, hg: r.hg, ag: r.ag, pens: r.pens, w });
@@ -200,7 +208,7 @@ function endSeason() {
   staffSummer();
   if (G.sTrust && G.sTrust.freeze === G.year) G.sTrust.freeze = 0;
   G.cupsLast = G.cups; G.contLast = G.cont; G.friendlies = []; G.fAsked = []; G.fOpts = null; mine.prep = 0;
-  G.year++; G.phase = "summer"; G.week = 0; G.po = null;
+  G.poLast = G.po; G.year++; G.phase = "summer"; G.week = 0; G.po = null;
   startSeason();
   refreshOffers(mine);
   seasonReview(report, wentUp, wentDown);

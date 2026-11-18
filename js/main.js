@@ -102,7 +102,7 @@ const ACT = {
     <button class="btn" data-act="adv" data-n="1">One week</button><button class="btn" data-act="adv" data-n="4">Four weeks</button>
     <button class="btn" data-act="advto" data-k="phase">${G.phase === "summer" ? "To the start of the season" : "To the end of the season"}</button>
     <p class="small muted">Stops early when something needs your answer.</p></div></div>`),
-  advto: () => { const ph = G.phase, y = G.year; advanceN(80, () => G.phase !== ph && !(ph === "season" && G.phase === "playoffs") || G.year !== y); },
+  advto: () => { const ph = G.phase, y = G.year; advanceN(80, () => (G.phase !== ph && !(ph === "season" && G.phase === "playoffs" && !myPlayoff())) || G.year !== y); },
   close: () => { if (ASKING) return ACT.askno(); closeModal(); }, closebg: (el, e) => { if (e.target === el) ACT.close(); },
   club: el => clubModal(+el.dataset.id), player: el => playerModal(+el.dataset.id),
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "2" ? 2 : el.dataset.v === "1", false); render(); saveGame(); },

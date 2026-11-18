@@ -111,7 +111,11 @@ function checklist() {
 }
 function pgHome() {
   const c = my(), nf = nextFixture(), last = (G.myRes || []).slice(-6).reverse(), todo = checklist();
-  const fx = nf ? `<p class="lead">${nf.h === c.id ? "Home" : "Away"} to ${clubLink(CL(nf.h === c.id ? nf.a : nf.h))} <span class="muted">· week ${nf.w + 1}</span></p>` : G.phase === "summer" ? `<p class="lead">Pre-season. The first league game is in ${SUMMER_WEEKS - G.week} week${SUMMER_WEEKS - G.week > 1 ? "s" : ""}.</p>` : `<p class="lead">No more league games this season.</p>`;
+  const fx = nf ? `<p class="lead">${nf.h === c.id ? "Home" : "Away"} to ${clubLink(CL(nf.h === c.id ? nf.a : nf.h))} <span class="muted">· week ${nf.w + 1}</span></p>` : G.phase === "summer" ? `<p class="lead">Pre-season. The first league game is in ${SUMMER_WEEKS - G.week} week${SUMMER_WEEKS - G.week > 1 ? "s" : ""}.</p>` : G.phase === "playoffs" ? (() => { const m = myPlayoff(); if (!m) return `<p class="lead">The regular season is over: the play-offs are being played.</p>`;
+      const opp = id => clubLink(CL(id === G.club ? (m.h === G.club ? m.a : m.h) : id));
+      return m.stage === "semi" ? `<p class="lead">${LEAGUES[m.k].name} play-off semi-final: ${m.h === G.club ? "home to" : "away to"} ${opp(G.club)}</p><p class="small muted">One game; extra time and penalties if level. The winners go to the final at a neutral ground.</p>`
+        : m.stage === "final" ? `<p class="lead">${LEAGUES[m.k].name} play-off final v ${opp(G.club)}</p><p class="small muted">At a neutral ground. The winners are promoted.</p>`
+        : `<p class="lead">Out of the play-offs: beaten in the semi-final by ${clubLink(CL(m.opp))}.</p>`; })() : `<p class="lead">No more league games this season.</p>`;
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
   // Anything waiting on your decision (a bid, a choice) puts the inbox first; otherwise it sits further down.
   const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "choice") && (x.type !== "bid" || G.players[x.pid]));
@@ -425,14 +429,24 @@ function pgFac() {
 }
 
 /* ---------- League ---------- */
+/* The play-offs: each tie as a fixture until it's played, then the score. */
+function poHTML(po, last) {
+  if (!po) return "";
+  const nm = id => id === G.club ? `<b>${esc(CL(id).name)}</b>` : esc(CL(id).name);
+  const tie = (h, a, label) => { const r = po.res.find(x => x.h === h && x.a === a);
+    return `<div class="row between small" style="padding:4px 0;gap:8px"><span class="muted" style="min-width:5.5em">${label}</span><span style="flex:1">${nm(h)} ${r ? `<b class="num">${r.hg}–${r.ag}</b>${r.pens ? " (pens)" : ""}` : "v"} ${nm(a)}</span>${r ? `<span class="small">${r.w === G.club ? '<span class="good">Won</span>' : [h, a].includes(G.club) ? '<span class="bad">Lost</span>' : ""}</span>` : `<span class="small muted">to play</span>`}</div>`; };
+  return `<section class="card"><div class="card-h"><h3>${last ? "Last season's play-offs" : "Play-offs"}</h3>${po.win != null ? `<span class="small">Winners: ${nm(po.win)}</span>` : ""}</div>
+    ${po.semis.map(([h, a], i) => tie(h, a, `Semi-final ${i + 1}`)).join("")}
+    ${po.final ? tie(po.final[0], po.final[1], "Final") : `<div class="row small muted" style="padding:4px 0">Final: winners of the semi-finals, at a neutral ground</div>`}</section>`;
+}
 function pgLeagueInner() {
   const k = SUB.league || my().lg;
   const opts = LG_KEYS.map(x => `<option value="${x}" ${x === k ? "selected" : ""}>${LEAGUES[x].name}</option>`).join("");
   const scorers = Object.values(G.players).filter(p => p.club >= 0 && CL(p.club).lg === k && p.s.g > 0).sort((a, b) => b.s.g - a.s.g).slice(0, 8);
-  const po = G.po && G.po[k];
+  const po = (G.po && G.po[k]) || (G.phase === "summer" && G.poLast && G.poLast[k]) || null;
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${LEAGUES[k].name}</h2><select data-act="lgsel">${opts}</select></div>
     ${tableHTML(k, table(k))}<p class="small muted" style="margin-top:8px">${LEAGUES[k].auto ? `Top ${LEAGUES[k].auto} promoted` : "Champions"}${LEAGUES[k].po ? `, ${ord(LEAGUES[k].po[0])}–${ord(LEAGUES[k].po[1])} play-offs` : ""}, bottom ${LEAGUES[k].down} ${LEAGUES[k].tier === 7 ? "drop out of the pyramid" : "relegated"}.</p></section>
-    ${po ? `<section class="card"><div class="card-h"><h3>Play-offs</h3></div>${po.res.map(r => `<p>${esc(CL(r.h).name)} ${r.hg}–${r.ag} ${esc(CL(r.a).name)}${r.pens ? " (pens)" : ""}</p>`).join("") || "<p class='muted'>To come.</p>"}</section>` : ""}
+    ${poHTML(po, !G.po && G.poLast && G.poLast[k] === po)}
     ${k === my().lg ? `<section class="card"><div class="card-h"><h3>Your results</h3></div>${(G.myRes || []).length ? resultsList((G.myRes || []).slice().reverse()) : "<p class='muted'>None yet.</p>"}</section>` : ""}</div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Top scorers</h3></div>${scorers.length ? scorers.map(p => `<div class="row between small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><span class="muted">${esc(CL(p.club).short)}</span><b class="num">${p.s.g}</b></div>`).join("") : "<p class='muted'>None yet.</p>"}</section></div></div>`;
 }
