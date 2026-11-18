@@ -204,7 +204,7 @@ function playerModal(id) {
       <p class="small muted">Players are only sold when a club makes an offer. Transfer-listed players attract offers while a window is open, usually below their value; they arrive in your inbox with your head of recruitment's advice. Listing a player yourself goes over his head, and the manager won't like losing a first-choice player. Protected players are never sold by your staff and are offered new contracts.</p>`;
   } else {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
-    const lendable = loanable(p) && lendsTo(CL(p.club)) && windowOpen() && !inTheirXI(p), T = lendable && p.lt && p.lt.w === windowId() ? p.lt : null;
+    const lendable = loanable(p) && lendsTo(p) && windowOpen() && !inTheirXI(p), T = lendable && p.lt && p.lt.w === windowId() ? p.lt : null;
     const said = LOAN_SAY && LOAN_SAY.id === p.id ? LOAN_SAY.t : "", pick0 = T && T.tries ? Math.round(T.min * 10) * 10 : 50;
     acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button><span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${pw(wage)}.` : "He isn't interested in joining, whatever the money."}</span></div>
       ${lendable ? `<div class="sugg"><b class="small">Borrow him to the end of the season</b>${T && T.no ? `<p class="small muted">${esc(said || `${CL(p.club).name} won't lend him to you this window.`)}</p>` : `
@@ -434,7 +434,7 @@ function pgMarket() {
   const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"]];
   let base = F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
   if (F.tab === "listed") base = base.filter(p => p.list || p.req);
-  if (F.tab === "loans") base = base.filter(p => loanable(p) && lendsTo(CL(p.club)) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
+  if (F.tab === "loans") base = base.filter(p => loanable(p) && lendsTo(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
   if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
   if (F.lg) base = base.filter(p => p.club >= 0 && (F.lg === "ABROAD" ? CL(p.club).abroad : CL(p.club).lg === F.lg));
   // Cheap filters first; then each club's first team is worked out once for the asking prices.

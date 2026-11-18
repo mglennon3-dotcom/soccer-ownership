@@ -70,7 +70,8 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Negotiate loans.** On a loan target's card, choose what share of his wages you'll pay (0% to 100%) and ask. Each
   club has a figure in mind for the window: lower for your partner club and for youngsters who need games, higher for
   clubs abroad. Offer less and they tell you what they want; after three tries they stop listening, and about one club
-  in five won't lend at all. Clubs only lend to clubs within three divisions of their own.
+  in five won't lend at all. Lending is about ability, not club size: any club, even a Premier Division one, will lend a player to a club in
+  the division that suits his rating or one below it, but not further down.
 - **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against
   your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
 - **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually

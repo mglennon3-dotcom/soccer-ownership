@@ -237,7 +237,7 @@ function suggView(p, c = my(), loan = false) {
   if (p.club === c.id) return { ok: false, w: "He's ours." };
   if (loan) {
     if (!loanable(p)) return { ok: false, w: "Not a loan: clubs only lend players 23 or under." };
-    if (!lendsTo(CL(p.club), c)) return { ok: false, w: `${CL(p.club).name} won't lend that far down: they only lend to clubs within three divisions.` };
+    if (!lendsTo(p, c)) return { ok: false, w: `${CL(p.club).name} won't lend him this far down: he's a ${TIER_NAME[naturalTier(p)]} player and they want him playing at that level.` };
     if (inTheirXI(p)) return { ok: false, w: "He's in their first team: they won't lend him." };
     if (windowOpen() && loanTerms(p).no) return { ok: false, w: `${CL(p.club).name} won't lend him this window.` };
   } else {
