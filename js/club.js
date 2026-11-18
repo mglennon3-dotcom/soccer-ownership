@@ -141,11 +141,13 @@ function refreshOffers(c, force) {
   for (const s of Object.keys(SLOTS)) {
     if (SLOTS[s].need && !SLOTS[s].need(c)) continue;
     const deal = c.deals.find(d => d.slot === s), have = c.offers.filter(o => o.slot === s);
-    if ((!deal || deal.yrs <= 0) && (!have.length || force === s)) { c.offers = c.offers.filter(o => o.slot !== s).concat(makeOffers(s)); }
+    // Offers come when the slot is free, and on request in a deal's last year (a new deal replaces the old one from signing).
+    if (((!deal || deal.yrs <= 0) && !have.length) || (force === s && (!deal || deal.yrs <= 1))) { c.offers = c.offers.filter(o => o.slot !== s).concat(makeOffers(s)); }
   }
 }
 function acceptOffer(o) {
-  const c = my();
+  const c = my(), old = c.deals.find(d => d.slot === o.slot && d.yrs > 0);
+  if (old && old.brand !== o.brand) news(`${o.brand} replace ${old.brand}, whose deal had a year left.`);
   c.deals = c.deals.filter(d => d.slot !== o.slot).concat({ ...o, exp: undefined });
   c.offers = c.offers.filter(x => x.slot !== o.slot);
   if (o.slot === "stadium") c.fac.stadium.name = `The ${o.brand.split(" ")[0]} Stadium`;
