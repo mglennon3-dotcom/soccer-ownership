@@ -47,12 +47,21 @@ let DIRC = [];
 
 /* ---------- Network ---------- */
 function pgNet() {
-  const c = my(), N = net(), pt = N.partner && CL(N.partner.id);
-  const partner = `<section class="card"><div class="card-h"><h2>Partner club</h2></div>
-    <p class="small muted" style="margin-bottom:10px">A club at least two divisions above you. Each window they offer young players on loan (you pay half the wages). In return they get a first look at your best youngsters.</p>
-    ${pt ? `<div class="row between"><span>${crest(pt, 22)} ${clubLink(pt)} · ${LEAGUES[pt.lg].name}<br><span class="small muted">since ${N.partner.since}</span></span><span class="row">${moodBar(N.partner.rel)}<button class="btn sm danger" data-act="endpartner">End</button></span></div>` :
-      c.tier <= 2 ? `<p class="muted">There's no division two above you.</p>` : N.asked === G.year ? `<p class="muted">You've approached a club this year already.</p>` :
-      `<div class="stack" style="gap:6px">${partnerCands().slice(0, 8).map(x => `<div class="row between offer"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name}${x.own ? " · " + OWNER_STYLES[x.own.style].l.toLowerCase() : ""}</span></span><span class="row"><span class="small muted">${pctTxt(partnerChance(x) * 100)} chance</span><button class="btn sm" data-act="approach" data-id="${x.id}">Approach</button></span></div>`).join("")}</div><p class="small muted">One approach a year.</p>`}</section>`;
+  const c = my(), N = net(), PT = partners();
+  // Finding a partner: filter by country, and for England by division.
+  const cty = SUB.pcty || "", lg = SUB.plg || "", all = partnerCands();
+  const list = all.filter(x => (!cty || (cty === "ENG" ? !x.abroad : x.country === cty)) && (!lg || x.lg === lg));
+  const ctys = [...new Set(all.filter(x => x.abroad).map(x => x.country))];
+  const lgs = [...new Set(all.filter(x => !x.abroad).map(x => x.lg))];
+  const partner = `<section class="card"><div class="card-h"><h2>Partner clubs</h2><span class="small muted">${PT.length} of ${MAX_PARTNERS}</span></div>
+    <p class="small muted" style="margin-bottom:10px">Bigger clubs you're a feeder to: any English club in a division above you, or a club abroad. Each window they offer young players on loan at a wage share they're happy with. In return they get a first look at your best youngsters.</p>
+    ${PT.map(p => { const x = CL(p.id), xi = new Set(pickXI(x).map(o => o.p.id)), n = x.squad.map(P).filter(q => !q.acad && !q.loan && q.age <= 23 && !xi.has(q.id) && lendsTo(q, c)).length;
+      return `<div class="row between offer"><span>${crest(x, 22)} ${clubLink(x)}<br><span class="small muted">${esc(clubWhere(x))} · since ${p.since} · ${n ? `${n} young player${n > 1 ? "s" : ""} at your level` : "no young players at your level yet"}</span></span><span class="row">${moodBar(p.rel)}<button class="btn sm danger" data-act="endpartner" data-id="${x.id}">End</button></span></div>`; }).join("")}
+    ${PT.length >= MAX_PARTNERS ? "" : !all.length ? `<p class="muted">There's no club above you to partner with.</p>` : `<h3 style="margin:12px 0 6px">Find a partner</h3>
+      <div class="filters"><label class="f">Country<select data-act="pcty"><option value="">Anywhere</option><option value="ENG" ${cty === "ENG" ? "selected" : ""}>England</option>${ctys.map(k => `<option value="${k}" ${cty === k ? "selected" : ""}>${esc(COUNTRY[k].name)}</option>`).join("")}</select></label>
+        ${cty === "ENG" ? `<label class="f">Division<select data-act="plg"><option value="">Any</option>${lgs.sort().map(k => `<option value="${k}" ${lg === k ? "selected" : ""}>${esc(LEAGUES[k].name)}</option>`).join("")}</select></label>` : ""}</div>
+      <p class="small muted" style="margin:6px 0">${list.length} club${list.length === 1 ? "" : "s"}${list.length > 12 ? ": showing the 12 best known" : ""}. You can approach each club once a year.</p>
+      <div class="stack" style="gap:6px">${list.slice(0, 12).map(x => `<div class="row between offer" style="gap:8px"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${esc(clubWhere(x))}${x.own ? " · " + OWNER_STYLES[x.own.style].l.toLowerCase() : ""}</span></span><span class="row" style="flex-wrap:nowrap"><span class="small muted">${pctTxt(partnerChance(x) * 100)}</span>${askedPartner(x) ? `<span class="small muted">asked</span>` : `<button class="btn sm" data-act="approach" data-id="${x.id}">Approach</button>`}</span></div>`).join("") || `<p class="muted small">No clubs match.</p>`}</div>`}</section>`;
   const feeders = `<section class="card"><div class="card-h"><h2>Feeder clubs</h2><span class="small muted">${N.feeders.length} of ${MAX_FEEDERS}</span></div>
     <p class="small muted" style="margin-bottom:10px">Clubs in lower divisions that you fund. The money raises their standard and facilities each summer. They take your young players on loan first (they pay half the wages), and they give you first refusal on their best youngsters at a discount that grows with the relationship.</p>
     ${N.feeders.map(f => { const x = CL(f.id), out = (G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.to === x.id && p.loan.from === c.id);

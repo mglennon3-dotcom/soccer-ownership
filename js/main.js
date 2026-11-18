@@ -85,7 +85,7 @@ const ACT = {
   setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) o[k] = $("#obj-" + k).value; setObjectives(o); render(); saveGame(); },
   objreset: () => { G.obj = null; render(); },
   approach: el => { approachPartner(CL(+el.dataset.id)); render(); saveGame(); },
-  endpartner: async () => { if (await ask("End the partnership?")) { news(`The partnership with ${CL(net().partner.id).name} ends.`); net().partner = null; render(); } },
+  endpartner: async el => { const id = +el.dataset.id; if (await ask(`End the partnership with ${CL(id).name}?`)) { endPartner(id); render(); saveGame(); } },
   addfeeder: el => { addFeeder(CL(+el.dataset.id)); render(); saveGame(); },
   dropfeeder: async el => { if (await ask("End this feeder arrangement?")) { dropFeeder(+el.dataset.id); render(); } },
   repayloan: el => { repayLoan(+el.dataset.id); render(); saveGame(); },
@@ -174,6 +174,8 @@ const CHANGE = {
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
+  pcty: el => { SUB.pcty = el.value; SUB.plg = ""; render(); },
+  plg: el => { SUB.plg = el.value; render(); },
   hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis"].includes(k) ? el.value : +el.value || 0; render(); },
   mf: el => { const k = el.dataset.k; MARKET_F[k] = ["pos", "arch", "int", "lg"].includes(k) ? el.value : +el.value || 0;
     if (k === "pos" && MARKET_F.arch && !(ARCHETYPES[el.value] || []).some(a => a[0] === MARKET_F.arch)) MARKET_F.arch = "";

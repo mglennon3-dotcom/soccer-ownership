@@ -28,7 +28,7 @@ const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
    tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
 function loanTerms(p, from = CL(p.club)) {
   const w = windowId(); if (p.lt && p.lt.w === w) return p.lt;
-  const partner = net().partner && net().partner.id === from.id;
+  const partner = isPartner(from.id);
   const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
   return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, 1), tries: 0, no: R() < (partner ? .05 : .2) };
 }
@@ -74,26 +74,41 @@ function loanWageAdj(c) {
   return t;
 }
 
-/* ---------- the partner club ----------
-   A club at least two divisions above. They agree if you're a club worth having in their network. Each window they
-   offer a young player or two on loan; in return they expect first look at your best youngsters. */
+/* ---------- partner clubs ----------
+   You can be a feeder to up to three bigger clubs: English clubs in any division above you, or clubs abroad. A club
+   agrees if you're worth having in its network (your standing against theirs, your training ground, and multi-club
+   owners are keener). Each window a partner offers a young player or two on loan, at a wage share it's happy with;
+   in return they expect first look at your best youngsters. A partnership lapses if they're no longer above you. */
+const MAX_PARTNERS = 3;
+const partners = () => { const N = net(); if (!N.partners) { N.partners = N.partner ? [N.partner] : []; delete N.partner; } return N.partners; };
+const isPartner = id => partners().some(x => x.id === id);
+const clubWhere = x => x.abroad ? COUNTRY[x.country].name : LEAGUES[x.lg].name;
+const aboveMe = (x, c = my()) => x.abroad ? x.lvl > c.lvl + 2 : x.tier < c.tier;
 function partnerCands() {
-  const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier <= c.tier - 2 && !isFeeder(x.id)).sort((a, b) => a.tier - b.tier || b.rep - a.rep);
+  const c = my(); return G.clubs.filter(x => (!x.gone || x.abroad) && !isMine(x) && aboveMe(x, c) && !isFeeder(x.id) && !isPartner(x.id)).sort((a, b) => b.rep - a.rep);
 }
-function partnerChance(x) { const c = my(); return clamp(.25 + (c.rep - x.rep + 40) / 80 + (c.fac.train.lvl - 3) * .04 + (x.own && x.own.style === "multiclub" ? .2 : 0), .05, .95); }
+function partnerChance(x) { const c = my(); return clamp(.25 + (c.rep - x.rep + 40) / 80 + (c.fac.train.lvl - 3) * .04 + (x.own && x.own.style === "multiclub" ? .2 : 0) - (x.abroad ? .05 : 0), .05, .95); }
+const askedPartner = x => ((net().askedIds || {})[x.id]) === G.year;
 function approachPartner(x) {
-  if (R() < partnerChance(x)) { net().partner = { id: x.id, rel: 60, since: G.year }; news(`${x.name} agree a partnership. Expect loan offers each window.`, true); return true; }
-  net().asked = G.year; news(`${x.name} turn down a partnership for now.`); return false;
+  (net().askedIds ||= {})[x.id] = G.year;
+  if (R() < partnerChance(x)) { partners().push({ id: x.id, rel: 60, since: G.year }); news(`${x.name}${x.abroad ? ` (${COUNTRY[x.country].name})` : ""} agree a partnership: you're now one of their feeder clubs. Expect loan offers each window.`, true); return true; }
+  news(`${x.name} turn down a partnership for now.`); return false;
 }
+function endPartner(id) { net().partners = partners().filter(x => x.id !== id); news(`The partnership with ${CL(id).name} ends.`); }
 function partnerWindow() {
-  const N = net(); if (!N.partner) return; const x = CL(N.partner.id), c = my();
-  if (!x || x.gone || x.tier >= c.tier) { news(`The partnership with ${x ? x.name : "your partner"} lapses: they're no longer above you.`); N.partner = null; return; }
-  const myXI = avg(pickXI(c).map(o => o.p.ovr));
-  const cands = x.squad.map(P).filter(p => !p.acad && !p.loan && p.age <= 23 && p.ovr >= myXI - 2 && !pickXI(x).some(o => o.p === p)).sort((a, b) => b.pot - a.pot).slice(0, 2);
-  for (const p of cands) if (!G.inbox.some(m => m.key === "pLoan" && !m.done && m.data.pid === p.id))
-    addChoice("pLoan", `${x.name} offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. You'd pay half his ${pw(p.wage)} wage.`, ["Take him", "No thanks"], { pid: p.id, from: x.id }, 1);
+  const c = my(), myXI = avg(pickXI(c).map(o => o.p.ovr));
+  for (const pt of partners().slice()) {
+    const x = CL(pt.id);
+    if (!x || (x.gone && !x.abroad) || !aboveMe(x, c)) { net().partners = partners().filter(y => y !== pt); news(`The partnership with ${x ? x.name : "a partner"} lapses: they're no longer above you.`); continue; }
+    const xi = new Set(pickXI(x).map(o => o.p.id));
+    const cands = x.squad.map(P).filter(p => !p.acad && !p.loan && p.age <= 23 && p.ovr >= myXI - 2 && lendsTo(p, c) && !xi.has(p.id)).sort((a, b) => b.pot - a.pot).slice(0, 2);
+    for (const p of cands) if (!G.inbox.some(m => m.key === "pLoan" && !m.done && m.data.pid === p.id)) {
+      const share = Math.max(0, Math.min(.5, loanTerms(p, x).min));
+      addChoice("pLoan", `${clubLabel(x)} offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. You'd pay ${Math.round(share * 100)}% of his ${pw(p.wage)} wage (${pw(p.wage * share)}).`, ["Take him", "No thanks"], { pid: p.id, from: x.id, share }, 1);
+    }
+  }
 }
-DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id) { loanIn(p, x); if (net().partner) net().partner.rel += 3; } };
+DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id) { loanIn(p, x, m.data.share ?? .5); const pt = partners().find(y => y.id === x.id); if (pt) pt.rel += 3; } };
 
 /* ---------- feeders ---------- */
 function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && !isFeeder(x.id) && (x.half === c.half || x.tier <= 5)).sort((a, b) => a.tier - b.tier || b.rep - a.rep); }

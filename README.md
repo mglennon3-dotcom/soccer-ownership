@@ -68,7 +68,7 @@ Running locally: any static server works, for example `python3 -m http.server 80
   scouting reach and eye for potential, the academy budget and level, and whether he looks locally or wider. Boys from
   other academies or abroad cost a little compensation; trialists are free. A full academy takes no more.
 - **Negotiate loans.** On a loan target's card, choose what share of his wages you'll pay (0% to 100%) and ask. Each
-  club has a figure in mind for the window: lower for your partner club and for youngsters who need games, higher for
+  club has a figure in mind for the window: lower for your partner clubs and for youngsters who need games, higher for
   clubs abroad. Offer less and they tell you what they want; after three tries they stop listening, and about one club
   in five won't lend at all. The Finances overview lists every loan's wage share and what you pay; the wage bill everywhere (budgets,
   your head of recruitment's limits) counts only your share. Lending is about ability, not club size: any club, even a Premier Division one, will lend a player to a club in
@@ -164,7 +164,9 @@ crowds at higher prices. Players at foreign clubs can be signed too, and foreign
 
 ## The network
 
-A **partner club** two or more divisions above offers young players on loan each window. Up to three **feeder clubs**
+You can be a feeder to up to three **partner clubs**: English clubs in any division above you, or clubs abroad (filter
+by country and division to find them). Each window a partner offers young players at your level on loan, at a wage
+share it's happy with; the bigger the partner, the higher you need to climb before its youngsters suit you. Up to three **feeder clubs**
 below you take your funding (raising their standard and facilities), take your players on loan first, and give you first
 refusal on their best youngsters at a discount.
 
