@@ -62,6 +62,14 @@ Running locally: any static server works, for example `python3 -m http.server 80
   Deals get better as the club grows: promotion, standing, a bigger and happier support, league position and crowds
   all count. Outgrow a deal by a quarter and you can ask for new terms; outgrow it by half and brands approach you. Breaking a deal
   early costs half of what it still had to pay.
+- **Design your ground stand by stand.** A ground of your own is four stands (Main, East, North, South). Design a new
+  one stand by stand (or start from a size): places, seats or terrace, roof or open, a family stand and corporate seats.
+  Later, extend any stand by any number of places, roof it, switch between seats and terracing, move the family stand or
+  add corporate seats. Terraces are about half the cost a place, louder (a bigger home advantage, happier supporters)
+  and sell a fifth cheaper, but the Premier and First Divisions are all-seater, so terraces close there until seated. A
+  roof keeps the crowd coming in bad weather. A family stand grows the support faster and sells more shirts. Corporate
+  seats (up to 15% of the Main stand) sell to businesses by the season. Older grounds are split into four seated,
+  covered stands.
 - **Build the club.** You start renting a recreation ground. Build your own stadium (1,500 to 65,000), add stands,
   upgrade the facilities, add executive suites, look after the pitch (it wears with every home game; re-lay it with
   grass or a hybrid surface). Build a training ground and an academy, levels 1 to 10.

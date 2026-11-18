@@ -406,6 +406,20 @@ function pgComm() {
 }
 
 /* ---------- Facilities ---------- */
+/* The stand-by-stand designer for a new ground: capacity, seats or terrace, roof, for each stand; a family stand;
+   corporate seats. Each change re-quotes. */
+function standDesigner(d, c) {
+  return `<div class="tbl-wrap"><table class="sq designer"><thead><tr><th style="text-align:left">Stand</th><th>Places</th><th>Type</th><th>Roof</th></tr></thead><tbody>
+    ${Object.entries(SIDES).map(([k, l]) => { const x = d.stands[k]; return `<tr><td style="text-align:left">${l}</td>
+      <td><input type="text" inputmode="numeric" class="num-in" style="width:4.6em" data-act="sd" data-k="${k}.cap" value="${fmtNum(x.cap)}" aria-label="${l} places"></td>
+      <td><select data-act="sd" data-k="${k}.type"><option value="seat" ${x.type === "seat" ? "selected" : ""}>Seats</option><option value="terrace" ${x.type === "terrace" ? "selected" : ""}>Terrace</option></select></td>
+      <td><input type="checkbox" data-act="sd" data-k="${k}.roof" ${x.roof ? "checked" : ""} aria-label="Roof"></td></tr>`; }).join("")}
+    </tbody></table></div>
+    <div class="filters" style="margin-top:8px"><label class="f">Family stand<select data-act="sd" data-k="family"><option value="">None</option>${Object.entries(SIDES).map(([k, l]) => `<option value="${k}" ${d.family === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="f">Corporate seats (Main stand)<input type="text" inputmode="numeric" class="num-in" data-act="sd" data-k="corp" value="${d.corp || 0}"></label></div>
+    <p class="small muted" style="margin-top:6px">Terraces cost about half as much a place, are louder (a bigger home advantage, happier supporters) and sell a fifth cheaper; the Premier and First Divisions are all-seater. A roof keeps the crowd coming in bad weather (+20% to build). A family stand grows the support faster and sells more shirts. Corporate seats (up to 15% of the Main stand) are sold to businesses by the season.</p>`;
+}
+const closedNote = (d, c) => { const t = sum(Object.values(d.stands), x => x.type === "terrace" ? x.cap || 0 : 0); return t ? ` <span class="small muted">(${t.toLocaleString("en-GB")} on terraces${c.tier <= ALL_SEATER ? ": closed in this division" : ""})</span>` : ""; };
 function progress(b) { return `<p class="small">Under construction: ${b.total - b.left} of ${b.total} weeks ${bar(b.total - b.left, b.total)}</p>`; }
 function pgFac() {
   const c = my(), S = c.fac.stadium;
@@ -419,11 +433,22 @@ function pgFac() {
     ${S.own ? `<div class="row between offer"><span><b>${esc(S.name)}</b> (your own ground)<br><span class="small muted">${S.cap.toLocaleString("en-GB")} capacity · no rent · all the bar takings</span></span>${atHome(c) ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="home">Move back home</button>`}</div>` : ""}
     ${HOSTS.map((h, i) => `<div class="row between offer"><span>${esc(h.name[0].toUpperCase() + h.name.slice(1))}<br><span class="small muted">${h.cap.toLocaleString("en-GB")} capacity · ${money(h.rent)} a game · facilities ${h.amen}</span></span>${here(i) ? `<span class="good small">Current</span>` : `<button class="btn sm" data-act="host" data-i="${i}">Move here</button>`}</div>`).join("")}`;
   if (!S.own) {
-    if (!S.build) st += `<h3 style="margin:14px 0 6px">Build your own ground</h3><p class="small muted">Your own ground keeps all the bar takings, unlocks executive suites and naming rights, and has no rent; it has upkeep instead. You'll keep renting while it's built.</p>
-      <label class="small">Name <input id="st-name" value="${esc(c.town)} Park" maxlength="30"></label>
-      ${BUILD_SIZES.map(n => { const q = newStadiumQuote(n); return `<div class="row between offer"><span><b>${n.toLocaleString("en-GB")}</b> capacity<br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="buildst" data-n="${n}">Build</button></div>`; }).join("")}`;
+    if (!S.build) { const d = (G.stDraft ||= standPlan(1500)), q = groundQuote(d);
+      st += `<h3 style="margin:14px 0 6px">Build your own ground</h3><p class="small muted">Your own ground keeps all the bar takings, unlocks executive suites and naming rights, and has no rent; it has upkeep instead. You'll keep renting while it's built. Design it stand by stand, or start from a size.</p>
+      <label class="small">Name <input id="st-name" value="${esc(G.stName || c.town + " Park")}" maxlength="30" data-act="stname"></label>
+      <div class="chips" style="margin:8px 0">${BUILD_SIZES.map(n => `<button data-act="stplan" data-n="${n}">${n.toLocaleString("en-GB")}</button>`).join("")}</div>
+      ${standDesigner(d, c)}
+      <div class="row between offer" style="margin-top:8px"><span><b>${q.cap.toLocaleString("en-GB")}</b> capacity${closedNote(d, c)}<br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm primary" data-act="buildst" ${q.cap < 500 ? "disabled" : ""}>Build</button></div>`; }
   } else if (!S.build) {
-    st += `<h3 style="margin:14px 0 6px">Expand</h3>${[1000, 3000, 8000, 15000].map(a => { const q = expandQuote(c, a); return `<div class="row between offer"><span>New stand: <b>+${a.toLocaleString("en-GB")}</b><br><span class="small muted">${money(q.cost)} · about ${q.weeks} weeks</span></span><button class="btn sm" data-act="expand" data-n="${a}">Build</button></div>`; }).join("")}`;
+    st += `<h3 style="margin:14px 0 6px">The stands</h3><p class="small muted">Extend a stand by any number of places, put a roof on it, switch between seats and terracing, or make it the family stand. One job at a time.</p>
+      ${Object.entries(SIDES).map(([k, l]) => { const x = standsOf(S)[k], conv = convertQuote(c, k);
+        return `<div class="offer stand"><div class="row between"><b>${l}</b><span class="small">${x.cap.toLocaleString("en-GB")} · ${x.type === "terrace" ? "terrace" : "seated"} · ${x.roof ? "covered" : "open"}${x.family ? ' · <span class="good">family stand</span>' : ""}${k === "W" && x.corp ? ` · ${x.corp} corporate` : ""}</span></div>
+          ${x.type === "terrace" && c.tier <= ALL_SEATER ? `<p class="small bad">Closed: this division is all-seater.</p>` : ""}
+          <div class="row" style="margin-top:6px;flex-wrap:wrap"><span class="money-in"><input type="text" inputmode="numeric" class="num-in" id="ext-${k}" value="1,000" aria-label="Places to add"></span><button class="btn sm" data-act="extend" data-k="${k}">Extend</button>
+            ${x.roof ? "" : `<button class="btn sm" data-act="roof" data-k="${k}">Roof (${money(roofQuote(c, k).cost)})</button>`}
+            <button class="btn sm" data-act="convert" data-k="${k}">${conv.to === "seat" ? "Seat it" : "Terrace it"} (${money(conv.cost)})</button>
+            <button class="btn sm" data-act="family" data-k="${k}">${x.family ? "End family stand" : `Family stand (${money(familyCost(c, k))})`}</button></div></div>`; }).join("")}
+      <div class="row between offer"><span>Corporate seats in the Main stand<br><span class="small muted">${corpSeats(c)} of up to ${corpMax(c)} · ${corpLet(c)} sold at about ${money(REF_CORP[c.tier])} a season each · ${money(corpQuote(c, 1).cost)} a seat to fit</span></span>${corpSeats(c) < corpMax(c) ? `<span class="row" style="flex-wrap:nowrap"><input type="text" inputmode="numeric" class="num-in" id="corp-n" value="${Math.min(20, corpMax(c) - corpSeats(c))}" style="width:5em" aria-label="Corporate seats to add"><button class="btn sm" data-act="corp">Add</button></span>` : ""}</div>`;
     const aq = amenQuote(c); if (aq) st += `<div class="row between offer"><span>Upgrade facilities to level ${aq.lvl}<br><span class="small muted">Concourses, bars, toilets: more spent per fan. ${money(aq.cost)} · ${aq.weeks} weeks</span></span><button class="btn sm" data-act="amen">Upgrade</button></div>`;
     if (!S.heat) { const hq = heatQuote(c); st += `<div class="row between offer"><span>Undersoil heating<br><span class="small muted">Frost and snow won't postpone your home games. ${money(hq.cost)} · ${hq.weeks} weeks · upkeep ${money(hq.upkeep)}/yr</span></span><button class="btn sm" data-act="heat">Install</button></div>`; }
     const sq = suiteQuote(c); if (sq) st += `<div class="row between offer"><span>Add ${sq.add} executive suites<br><span class="small muted">Let to businesses by the season (demand about ${Math.round(suiteDemand(c))} at the going rate). ${money(sq.cost)} · ${sq.weeks} weeks</span></span><button class="btn sm" data-act="suites">Build</button></div>`;

@@ -41,7 +41,7 @@ function setGround(c, i) {
   if (S.own) S.away = i === "home" ? null : i; else S.host = i;
   c.cap = capacity(c);
 }
-const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, cap: c.fac.stadium.cap, amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.own ? c.fac.stadium.away : c.fac.stadium.host];
+const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, cap: groundCap(c), amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.own ? c.fac.stadium.away : c.fac.stadium.host];
 const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
 const perSeat = cap => 650 + cap * .055;
@@ -71,8 +71,11 @@ function buildWeek(c) {
   const S = c.fac.stadium;
   if (S.build && --S.build.left <= 0) {
     const b = S.build; S.build = null;
-    if (b.type === "new") { S.own = true; S.cap = b.cap; S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
-    else if (b.type === "expand") { S.cap += b.add; news(`The new stand is open. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    if (b.type === "new") { S.own = true; S.cap = b.cap; S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
+    else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    else if (b.type === "roof") { standsOf(S)[b.side].roof = true; news(`The ${SIDES[b.side]} has a roof: supporters there stay dry.`, true); }
+    else if (b.type === "convert") { standsOf(S)[b.side].type = b.to; news(`The ${SIDES[b.side]} is now ${b.to === "seat" ? "all-seated" : "a terrace"}.`, true); }
+    else if (b.type === "corp") { const W = standsOf(S).W; W.corp = (W.corp || 0) + b.add; news(`${b.add} corporate seats are ready in the Main stand (${W.corp} in all).`, true); }
     else if (b.type === "heat") { S.heat = true; news("Undersoil heating is installed: frost and snow won't stop games at home any more.", true); }
     else if (b.type === "suites") { S.suites = (S.suites || 0) + b.add; news(`${b.add} new executive suites are ready (${S.suites} in all).`, true); }
     else if (b.type === "amen") { S.amen = b.lvl; news(`Stadium facilities upgraded to level ${b.lvl}.`, true); }
@@ -86,7 +89,8 @@ function buildWeek(c) {
 function fanTarget(c) { return FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1); }
 function fansWeek(c) {
   const t = fanTarget(c);
-  c.fans = Math.max(50, Math.round(c.fans + (t - c.fans) * (t > c.fans ? .012 : .004)));
+  const fam = familyOn(c) ? 1.3 : 1;  // a family stand brings the next generation in
+  c.fans = Math.max(50, Math.round(c.fans + (t * (fam > 1 ? 1.04 : 1) - c.fans) * (t > c.fans ? .012 * fam : .004)));
 }
 function moodHit(c, d) { c.mood = clamp(c.mood + d, 0, 100); }
 const moodWord = m => m >= 75 ? ["Buoyant", "good"] : m >= 58 ? ["Happy", "good"] : m >= 42 ? ["Steady", ""] : m >= 28 ? ["Restless", "warn"] : ["Angry", "bad"];
@@ -96,10 +100,10 @@ const moodWord = m => m >= 75 ? ["Buoyant", "good"] : m >= 58 ? ["Happy", "good"
 function priceFactor(price, ref, el = 1.3) { return clamp(Math.pow(ref / Math.max(.5, price), el), 0, 1.35); }
 function crowdFor(c, opp, price = c.prices.ticket) {
   const pf = priceFactor(price * (G.sTrust && G.sTrust.u18 ? .93 : 1), REF_TICKET[c.tier]);
-  const turn = clamp(.5 + c.mood / 250, .35, .92) * pf;
+  const turn = clamp(.5 + c.mood / 250 + terraceShare(c) * .05, .35, .95) * pf;
   const draw = opp ? clamp(.85 + (opp.rep - c.rep) / 60 + (opp.half === c.half ? .05 : 0), .8, 1.6) : 1;
   const away = opp ? Math.round(Math.min(opp.fans * .06, 1500 * (8 - c.tier))) : 0;
-  const wx = G.wx ? wxAt(c).crowd : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp && isDerby(c, opp) ? 1.25 : 1;
+  const wx = G.wx ? 1 - (1 - wxAt(c).crowd) * openShare(c) : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp && isDerby(c, opp) ? 1.25 : 1;
   return Math.min(capacity(c), Math.round((c.fans * turn + c.fans * .35 * pf * draw + away) * wx * protest * derby));
 }
 function concessionsFor(c, crowd, price = c.prices.conc) {
@@ -108,7 +112,7 @@ function concessionsFor(c, crowd, price = c.prices.conc) {
   return { gross, net: gross * .55 * cut };
 }
 function merchFor(c, price = c.prices.shirt) {  // per week
-  const units = commMult() * c.fans * .007 * Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7) * (.8 + c.mood / 250) * merchMult(c);
+  const units = commMult() * c.fans * .007 * Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7) * (.8 + c.mood / 250) * merchMult(c) * (familyOn(c) ? 1.12 : 1);
   return units * price * .45 * shirtBoost(c);
 }
 /* Forecast for the finance page: a typical home game against an average side. */
@@ -133,7 +137,7 @@ const stHolders = c => c.st && c.st.y === G.year ? c.st.n : 0;
 function matchdayForecast(c, t = c.prices.ticket, k = c.prices.conc) {
   const avgOpp = { rep: c.rep, fans: FAN_T[c.tier], half: "" }, hold = Math.round((G.phase === "summer" ? stDemand(c) : stHolders(c)) * .92);
   const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, avgOpp, t)), con = concessionsFor(c, crowd, k);
-  return { crowd, gate: Math.max(0, crowd - hold) * t, conc: con.net, rent: ground(c).rent, hold };
+  return { crowd, gate: Math.max(0, crowd - hold) * t * (1 - .2 * terraceShare(c)), conc: con.net, rent: ground(c).rent, hold };
 }
 
 /* ---------- sponsors ---------- */
@@ -205,6 +209,7 @@ function weeklyAccounts(c) {
   earn("merch", merchFor(c));
   earn("events", ventureWeek(c)); concertWeek(c);
   if (G.phase === "season") earn("suites", suitesLet(c) * c.prices.suite / SEASON_WEEKS);
+  corpWeek(c);
   if (G.phase === "season") earn("tv", TV[c.tier] / 46);
   if (c.cash < 0) spend("interest", -c.cash * .1 / 52);  // an overdraft at 10% a year
   feedersWeek(); loansWeek(c);
@@ -212,9 +217,11 @@ function weeklyAccounts(c) {
 function homeGameMoney(c, opp, league) {
   const hold = league ? Math.round(stHolders(c) * .92) : 0;  // season-ticket holders at a league game: already paid
   const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, opp)), con = concessionsFor(c, crowd), paying = Math.max(0, crowd - hold);
-  earn("gate", paying * c.prices.ticket); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent);
+  const tp = c.prices.ticket * (1 - .2 * terraceShare(c));  // terrace tickets sell a fifth cheaper
+  if (terraceShare(c)) moodHit(c, terraceShare(c) * .15);
+  earn("gate", paying * tp); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent);
   // Home games on their own, for the per-game view (the season's gate total also holds away shares and friendly fees).
-  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * c.prices.ticket; H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
+  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
   // Prices supporters think unfair cost goodwill; cheap tickets earn a little.
   const r = c.prices.ticket / REF_TICKET[c.tier]; if (r > 1.25) moodHit(c, -(r - 1.25) * 3); else if (r < .8) moodHit(c, .3);
   c.att = c.att || []; c.att.push(crowd);
@@ -306,3 +313,57 @@ function concertWeek(c) {
     news(`A sold-out concert at ${S.name} earns the club ${money(fee)}. The groundsman is less pleased.`);
   }
 }
+
+/* ---------- stands ----------
+   A ground of your own is four stands: the Main stand (west), the East, North and South stands. Each has its own
+   capacity, is seated or terraced, and covered or open. One can be the family stand; the Main stand can hold
+   corporate seats.
+   - Terraces cost about half as much a place, make more noise (a bigger home advantage, happier supporters) and sell
+     a little cheaper. The Premier and First Divisions are all-seater: terraces are closed there until converted.
+   - A roof keeps the crowd coming when the weather turns.
+   - A family stand grows the support faster and sells more shirts.
+   - Corporate seats (up to 15% of the Main stand) are sold by the season to local businesses. */
+const SIDES = { W: "Main stand", E: "East stand", N: "North stand", S: "South stand" };
+const ALL_SEATER = 2;  // the Premier and First Divisions
+const TYPE_F = { seat: 1, terrace: .55 }, roofF = r => r ? 1.2 : 1;
+function standsOf(S) {  // a ground from before stands: four seated, covered stands sharing its capacity
+  if (!S.stands && S.own) {
+    const f = { W: .35, E: .25, N: .2, S: .2 }; S.stands = {};
+    for (const k in SIDES) S.stands[k] = { cap: Math.round(S.cap * f[k]), type: "seat", roof: true };
+    S.stands.W.cap += S.cap - sum(Object.values(S.stands), x => x.cap);
+  }
+  return S.stands || {};
+}
+const syncCap = S => { S.cap = sum(Object.values(standsOf(S)), x => x.cap); };
+const groundCap = c => sum(Object.values(standsOf(c.fac.stadium)), x => x.type === "terrace" && c.tier <= ALL_SEATER ? 0 : x.cap);
+const closedTerraces = c => c.tier <= ALL_SEATER ? sum(Object.values(standsOf(c.fac.stadium)), x => x.type === "terrace" ? x.cap : 0) : 0;
+const standShare = (c, f) => { const l = Object.values(standsOf(c.fac.stadium)), t = sum(l, x => x.cap) || 1; return sum(l.filter(f), x => x.cap) / t; };
+const terraceShare = c => atHome(c) && c.fac.stadium.own && c.tier > ALL_SEATER ? standShare(c, x => x.type === "terrace") : 0;
+const openShare = c => atHome(c) && c.fac.stadium.own ? standShare(c, x => !x.roof) : .5;
+const familyOn = c => atHome(c) && c.fac.stadium.own && Object.values(standsOf(c.fac.stadium)).some(x => x.family);
+const corpSeats = c => atHome(c) && c.fac.stadium.own ? (standsOf(c.fac.stadium).W || {}).corp || 0 : 0;
+const corpMax = c => Math.floor(((standsOf(c.fac.stadium).W || {}).cap || 0) * .15);
+const REF_CORP = [0, 9000, 3500, 1800, 1100, 700, 400, 250];  // a corporate seat for the season
+const corpLet = c => Math.min(corpSeats(c), Math.floor(suiteDemand(c) * 15));
+// Quotes.
+function groundQuote(d) {
+  const st = Object.values(d.stands), tot = sum(st, x => x.cap || 0);
+  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * 1800 + (d.family ? 25000 : 0);
+  return { cap: tot, cost: Math.round(cost / 1e4) * 1e4, weeks: Math.round(26 + tot / 700) };
+}
+function standQuote(c, side, add) {
+  const x = standsOf(c.fac.stadium)[side], to = c.fac.stadium.cap + add;
+  return { side, add, cost: Math.round(add * perSeat(to) * TYPE_F[x.type] * roofF(x.roof) * 1.1 / 1e4) * 1e4, weeks: Math.round(14 + add / 600) };
+}
+const roofQuote = (c, side) => { const n = standsOf(c.fac.stadium)[side].cap; return { side, cost: Math.round((50000 + n * 260) / 1e4) * 1e4, weeks: Math.round(8 + n / 2000) }; };
+const convertQuote = (c, side) => { const x = standsOf(c.fac.stadium)[side], to = x.type === "terrace" ? "seat" : "terrace"; return { side, to, cost: Math.round((40000 + x.cap * (to === "seat" ? 320 : 120)) / 1e4) * 1e4, weeks: Math.round(8 + x.cap / 2500) }; };
+const corpQuote = (c, n) => ({ add: n, cost: Math.round(n * 1800 / 1000) * 1000, weeks: 6 });
+const familyCost = (c, side) => Math.round((25000 + standsOf(c.fac.stadium)[side].cap * 20) / 1000) * 1000;
+function setFamily(c, side) {
+  const st = standsOf(c.fac.stadium); for (const k in st) st[k].family = k === side ? !st[k].family : false;
+  if (st[side].family) { const f = familyCost(c, side); spend("build", f); news(`The ${SIDES[side]} becomes the family stand (${money(f)} for the facilities): cheaper for children, and a new generation of supporters.`, true); }
+  else news(`The ${SIDES[side]} is no longer the family stand.`);
+}
+// A stand-by-stand plan for a new ground, from a total: a main stand, two sides and ends.
+function standPlan(tot) { const f = { W: .35, E: .25, N: .2, S: .2 }, d = { stands: {}, family: "", corp: 0 }; for (const k in SIDES) d.stands[k] = { cap: Math.round(tot * f[k] / 50) * 50, type: "seat", roof: true }; d.stands.W.cap += tot - sum(Object.values(d.stands), x => x.cap); return d; }
+function corpWeek(c) { if (G.phase === "season" && corpLet(c)) earn("suites", corpLet(c) * REF_CORP[c.tier] / SEASON_WEEKS); }

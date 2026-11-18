@@ -103,3 +103,7 @@ html,body{overflow-x:clip}
 .sugg-row:last-child{border-bottom:0}
 .sugg-row .row{gap:8px;flex-wrap:nowrap}
 .sugg-row p{margin-top:3px}
+.designer td{padding:4px 6px}
+.designer select{padding:4px 6px}
+.offer.stand{display:block}
+.offer.stand .row .btn{margin-top:4px}
