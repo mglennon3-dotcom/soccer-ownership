@@ -157,7 +157,7 @@ function addStat(p, k) { p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||
 function injuryCheck(p, pq) {
   const c = CL(p.club), tl = isMine(c) ? c.fac.train.lvl : c.train, surf = pq != null && pq < 60 ? 1 + (60 - pq) / 50 : 1;
   if (R() < .011 * (1.3 - tl * .05) * surf) {
-    const wks = R() < .8 ? ri(1, 4) : R() < .8 ? ri(5, 12) : ri(13, 30); p.inj = wks;
-    if (isMine(c)) news(`${p.name} is injured and out for ${wks} week${wks > 1 ? "s" : ""}.`, wks >= 8);
+    const wks = R() < .8 ? ri(1, 4) : R() < .8 ? ri(5, 12) : ri(13, 30); p.inj = wks; p.injT = wks;
+    if (isMine(c)) { const bill = wks >= 5 ? medBill(c, wks) : 0; if (bill) spend("medical", bill); news(`${p.name} is injured and out for ${wks} week${wks > 1 ? "s" : ""}${bill ? `: treatment costs ${money(bill)}` : ""}.`, wks >= 8); }
   }
 }

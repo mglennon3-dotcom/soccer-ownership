@@ -67,24 +67,31 @@ function aiEstimate(x) {
 function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
 const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
-const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c);  // wages, staff, ground and running costs
+// Travel, utilities, insurance and medical bills, and grading works on arriving in a new division.
+const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + 4000 * (c.train || 0) + aiBill(c) * INSURE * .7 + MED[c.tier] * 4 + (c.upNow ? gradingCost(c, c.tier) : 0);
+const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c);  // wages, staff, ground and running costs
 const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
 /* Every club budgets to break even: its wage budget is what its income leaves after staff, running and match-day costs.
    The owner then bends it: a profit-seeker budgets for a surplus, a spender for a loss (his tolerance), more again while
    chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
    as income, so they show up here. */
-const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c));
-// What he aims for: break-even, unless money is his thing: big spenders plan a loss, profit-seekers a surplus.
-// (His tolerance is separate: how far off target he'll stand before ordering cuts.)
-const spendTarget = c => { const l = lossTol(c); return l >= .5 ? l * .6 : l < 0 ? l : 0; };
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c));
+/* What he aims for. Like real football, most clubs spend beyond their means and the owner covers the gap: the planned
+   loss (a share of income) is deepest in the First Division, where everyone gambles on promotion, and smallest at the
+   top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
+   plan a surplus; big spenders lose far more. (His tolerance is separate: how far beyond the plan he'll stand before
+   ordering cuts.) */
+const TIER_LOSS = [0, .1, .5, .4, .35, .4, .3, .25];
+const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l < 0) return l;
+  return TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0); };
 function aiBudget(c) { return aiAfford(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageFor(p.ovr) : 0; });
-const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.8);
+const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 2);
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
-  const o = c.own, inc = aiIncome(c), cost = aiCosts(c), net = inc - cost, fan = o.style === "fanowned";
+  const o = c.own, inc = aiIncome(c), cost0 = aiCosts(c), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
   c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net) };
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
   o.lost = (o.lost || 0) + Math.max(0, -net);
@@ -96,14 +103,14 @@ function aiAccounts(c) {
     if (here) news(`${old} have run out of money and are forced to sell ${c.name}. ${c.own.name} take over.`, c.lg === my().lg);
     return;
   }
-  if (net < 0 && -net > Math.max(0, lossCap(c)) + inc * .1) {
+  if (net < 0 && -net > inc * Math.max(0, spendTarget(c)) + Math.max(0, lossCap(c)) + inc * .1) {
     c.cut = 2;
     const p = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0], b = p && buyerFor(p, 8);
     if (b && b !== c) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); }
     if (c.lg === my().lg) news(`${o.name} order cuts at ${c.name} after losing ${money(-net)} last season${b && b !== c ? `: ${p.name} is sold to ${b.name}` : ""}.`);
   } else if (c.cut) c.cut--;
 }
-const lossWord = c => { const t = lossTol(c); return t < 0 ? "Wants a profit" : t < .05 ? "Won't lose money" : t < .25 ? "Will lose a little" : t < .7 ? "Will lose a lot" : "Money no object"; };
+const lossWord = c => { const t = spendTarget(c); return t < 0 ? "Wants a profit" : t < .08 ? "Keeps losses small" : t < .2 ? "Covers the usual losses" : t < .5 ? "Will lose a lot" : "Money no object"; };
 function coachFor(c) { const co = aiCoach(clamp(c.rep + ownStyle(c).spend * 3, 1, 99)); if (c.own && c.own.style === "explayer") { co.tac = Math.max(5, co.tac - ri(8, 18)); co.mate = true; } return co; }
 const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "hostile" && x.own.target === c.id);
 function ownersSummer() {

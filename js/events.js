@@ -44,3 +44,12 @@ DECIDE.pressDocu = (m, i) => { if (i === 0) { G.docu = G.year; bumpMedia(18); tr
 DECIDE.pressAmb = (m, i) => { if (i === 0) { bumpMedia(5); moodHit(my(), 3); investorMood(null, 2); G.hype = (G.hype || 0) + 1; } };
 DECIDE.pressRival = (m, i) => { if (i === 0) { bumpMedia(4); moodHit(my(), 2); (my().rivals ||= {})[m.data.club] = ((my().rivals || {})[m.data.club] || 0) + 1; } };
 DECIDE.pressTrust = (m, i) => { if (i === 0) trustRel(8, "You promise the trust a meeting."); else { trustRel(-6); moodHit(my(), -2); } };
+
+// Away days (see club.js): helping supporters travel, and refunds after a heavy away defeat.
+DECIDE.awayHelp = (m, i) => { const c = my(), k = fanCare(c);
+  if (i === 0) { spend("travel", m.data.cost); moodHit(c, 2.5 * k); trustRel(6); news("The club pays for supporters' coaches to the away game. The trust is delighted."); }
+  else if (i === 1) { spend("travel", Math.round(m.data.cost / 2)); moodHit(c, 1.2 * k); trustRel(3); }
+  else { moodHit(c, -1.2 * k); trustRel(-4); } };
+DECIDE.awayRefund = (m, i) => { const c = my(), k = fanCare(c);
+  if (i === 0) { spend("refunds", m.data.cost); moodHit(c, 3 * k); trustRel(8); bumpMedia(2); news("The club refunds the travelling supporters after the heavy defeat. It goes down well."); }
+  else moodHit(c, -1 * k); };

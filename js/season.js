@@ -96,6 +96,7 @@ function seasonWeek() {
   if (w === JAN[0]) { partnerWindow(); aiListings(); }
   if (w === JAN[0] || w === JAN[2]) foreignLoans();
   if (JAN.includes(w)) marketWeek();
+  awayHelpWeek();
   youthScoutWeek();
   if (w % 3 === 2) devTick(1 / 16);
   G.week++;
@@ -104,7 +105,7 @@ function seasonWeek() {
 function afterMatch(r, k) {
   const c = my(); if (r.h !== c.id && r.a !== c.id) return;
   const home = r.h === c.id, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? r.a : r.h);
-  let crowd = null; if (home) { crowd = homeGameMoney(c, opp, true); c._home = true; }
+  let crowd = null; if (home) { crowd = homeGameMoney(c, opp, true); c._home = true; } else { awayTrip(c, opp); awayRefundCheck(c, opp, gf, ga); }
   const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = isDerby(c, opp) ? 2 : 1;
   c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 + vpt("results") - c.morale) * .1, 20, 95);
   moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);
@@ -176,6 +177,7 @@ function endSeason() {
   const wentDown = moves.some(([id, to]) => id === G.club && to === null);
   if (wentUp) { const b = sum(mine.deals, d => d.bonus); if (b) { earn("spons", b); news(`Sponsors pay ${money(b)} in promotion bonuses.`); } }
   judgeObjectives({ ...report, up: wentUp, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club) });
+  seasonTax(mine);
   // History
   const f = mine.fin;
   G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: [...Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }),
@@ -195,7 +197,8 @@ function endSeason() {
     const dest = to || leagueFor(LEAGUES[from].tier + 1, c.half);
     c.lg = dest; c.tier = LEAGUES[dest].tier; G.leagues[dest].clubs.push(id);
     if (isMine(c)) {
-      if (to) { moodHit(c, 18); news(`PROMOTED! ${c.name} will play in the ${LEAGUES[dest].name} next season.`, true); }
+      if (to) { moodHit(c, 18); news(`PROMOTED! ${c.name} will play in the ${LEAGUES[dest].name} next season.`, true);
+        const g = gradingCost(c, LEAGUES[dest].tier); if (g) { spend("grading", g); news(`The ${LEAGUES[dest].name} requires ground-grading works before the season: ${money(g)}${c.fac.stadium.own ? "" : " (your share of the work at your landlord's ground)"}.`, true); } }
       else { moodHit(c, -15); news(`Relegated. ${c.name} drop into the ${LEAGUES[dest].name}.`, true); }
     }
   }
@@ -256,8 +259,8 @@ function yearTurnover() {
     const club = p.loanedAt && p.loanedAt.y === G.year ? `${p.loanedAt.short} (loan)` : p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA";
     (p.prog ||= []).push([G.year, p.age, p.ovr, club, p.s.app, p.s.g, p.s.a, p.pot]); if (p.prog.length > 10) p.prog.shift();
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
-    // AI wages drift toward the going rate for the player's rating: a fifth of the gap a year, down as he declines, up as he improves.
-    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan) { const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .2) / 100) * 100; }
+    // AI wages drift toward what the club pays for the player's rating: about a third of the gap a year, down as he declines, up as he improves.
+    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan) { const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .35) / 100) * 100; }
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { p.yrs--; if (p.yrs <= 0) { if (R() < (p.ovr >= CL(p.club).lvl - 3 ? .95 : .6) && p.age < 34) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
     // Veterans nobody signs hang up their boots sooner.
     const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;

@@ -91,7 +91,7 @@ function buildWeek(c) {
 
 /* ---------- supporters ---------- */
 // Where the fanbase is heading: the division, the club's standing and whether it's winning.
-function fanTarget(c) { return FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1); }
+function fanTarget(c) { return FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1) * (1 + commK(c) * .04); }
 function fansWeek(c) {
   const t = fanTarget(c);
   const fam = familyOn(c) ? 1.3 : 1;  // a family stand brings the next generation in
@@ -136,7 +136,7 @@ const topFan = c => { const m = fanMix(c); return Object.keys(m).sort((a, b) => 
    fanbase also drifts toward its division's size: fast for fair-weather support on the way up, slowly for loyal
    support on the way down. */
 function aiFansSummer(c) {
-  const m = fanMix(c), last = c.lastTier ?? c.tier, up = c.tier < last, down = c.tier > last, pr = (OWNER_STYLES[(c.own || {}).style] || {}).prices || 1;
+  const m = fanMix(c), last = c.lastTier ?? c.tier, up = c.tier < last, down = c.tier > last; c.upNow = up; const pr = (OWNER_STYLES[(c.own || {}).style] || {}).prices || 1;
   if (up) m.fair += 4; if (down) { m.fair -= 4; m.loyal += 2; } if (!up && !down) m.loyal += 1;
   if (pr < .9) m.comm += 2; else if (pr > 1.2) { m.comm -= 2; m.fair += 1; }
   if (c.push) m.fair += 1;
@@ -158,6 +158,7 @@ function fanCultureSummer(c, up, down) {
   if (typeof terraceShare === "function" && S.own && standShare(c, x => x.type === "terrace") > .25) m.hard += 2;
   if (typeof familyOn === "function" && familyOn(c)) m.comm += 2;
   if (r < .9) m.comm += 2; else if (r > 1.2) { m.comm -= 2; m.fair += 1; }
+  m.comm += Math.round(commK(c) * 1.5);  // a funded community foundation brings families in
   const t = sum(Object.values(m), x => Math.max(5, x)); for (const k in m) m[k] = Math.round(Math.max(5, m[k]) / t * 100);
   const big = Object.keys(m).sort((a, b) => (m[b] - old[b]) - (m[a] - old[a]))[0];
   if (m[big] - old[big] >= 2) news(`Your support is changing: more ${FAN_KINDS[big][0].toLowerCase()} supporters this year (${m[big]}% now).`);
@@ -228,7 +229,7 @@ function commercialValue(c) {
   const t = G.leagues[c.lg] && G.leagues[c.lg].tab && G.leagues[c.lg].tab[c.id] && G.leagues[c.lg].tab[c.id].p >= 6 ? table(c.lg) : null;
   const posF = t ? 1 + (.5 - t.findIndex(r => r.id === c.id) / (t.length - 1)) * .3 : 1;  // top +15%, bottom -15%
   const att = (c.att || []).length ? avg(c.att.slice(-8)) : 0, attF = att ? clamp(Math.sqrt(att / Math.max(1, FAN_T[c.tier] * .6)), .8, 1.25) : 1;
-  return (1 + vpt("commercial") * .025) * mediaMult(c) * commMult() * sponsorSqueeze(c) * COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333) * posF * attF;
+  return (1 + vpt("commercial") * .025) * (1 + commK(c) * .03) * mediaMult(c) * commMult() * sponsorSqueeze(c) * COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333) * posF * attF;
 }
 // How far you've outgrown a deal: what the slot would fetch now against what it pays.
 const dealGrowth = (c, d) => commercialValue(c) * SLOTS[d.slot].share / Math.max(1, d.amt);
@@ -277,6 +278,7 @@ function weeklyAccounts(c) {
   spend("fac", upkeep(c) / 52);
   spend("acad", c.budget.acad / 52);
   spend("scout", c.budget.scout / 52);
+  spend("util", utilities(c) / 52); insureWeek(c); if (c.budget.comm) { spend("comm", c.budget.comm / 52); moodHit(c, commK(c) * .05); }
   earn("spons", sponsorTotal(c) / 52);
   earn("merch", merchFor(c));
   earn("events", ventureWeek(c)); concertWeek(c);
@@ -299,8 +301,8 @@ function homeGameMoney(c, opp, league) {
   c.att = c.att || []; c.att.push(crowd);
   return crowd;
 }
-const ledgerIncome = f => f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
-const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + (f.mdops || 0) + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
+const ledgerIncome = f => (f.insclaim || 0) + f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
+const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + (f.mdops || 0) + (f.travel || 0) + (f.refunds || 0) + (f.medical || 0) + (f.insure || 0) + (f.util || 0) + (f.grading || 0) + (f.comm || 0) + (f.tax || 0) + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
    reports suffer; well above it, they improve a little. */
@@ -464,4 +466,51 @@ function toggleReg(p, c = my()) {
   if (L.includes(p.id)) { c.reg = L.filter(id => id !== p.id); return null; }
   if (L.length >= REG_MAX) return "The list is full: unregister someone first.";
   L.push(p.id); return null;
+}
+
+/* ---------- the other costs of running a club ----------
+   Team travel to every away game (a coach in the non-league; coach and hotel further up; flights in Europe), medical
+   bills for serious injuries, insurance on players' wages (it pays out on long injuries), utilities for the ground and
+   training base, ground-grading works the league demands on promotion, a community foundation if you fund one, and
+   corporation tax on profits (losses carry forward). */
+const TRAVEL = [0, 45000, 14000, 6000, 3500, 1800, 900, 450];
+const tripF = (c, opp) => opp.abroad ? 3 : opp.region === c.region ? .6 : opp.half && c.half && opp.half !== c.half ? 1.6 : 1;
+const awayTrip = (c, opp) => spend("travel", Math.round(TRAVEL[c.tier] * tripF(c, opp)));
+// Supporters who make the trip: a share of the support, more for a short hop, fewer for a long haul.
+const travellers = (c, opp) => Math.round(Math.min(c.fans * .06 * (tripF(c, opp) < 1 ? 1.4 : tripF(c, opp) > 1.5 ? .6 : 1), 1500 * (8 - c.tier), (opp.cap || 5000) * .1));
+const MED = [0, 250000, 60000, 25000, 12000, 5000, 2000, 800];  // a serious injury's treatment, per five weeks out
+const medBill = (c, wks) => Math.round(MED[c.tier] * wks / 5 / 100) * 100;
+const INSURE = .03;  // premium: 3% of the wage bill a year; long injuries (6+ weeks) pay 70% of wages after the fourth week
+const insureWeek = c => { spend("insure", wageBill(c) * INSURE / 52); let back = 0;
+  for (const id of c.squad) { const p = P(id); if (p && p.inj > 0 && (p.injT || 0) >= 6 && p.injT - p.inj >= 4) back += p.wage / 52 * .7; } if (back) earn("insclaim", back); };
+const utilities = c => (atHome(c) ? 6000 + groundCap(c) * 6 : 2500) + (c.fac.train.lvl ? 4000 * c.fac.train.lvl : 1500);
+const GRADE = [0, 4e6, 1.5e6, 600e3, 250e3, 90e3, 30e3, 0];  // works the league demands on arriving in a division
+const gradingCost = (c, t) => Math.round(GRADE[t] * (isMine(c) ? (c.fac.stadium.own ? 1 : .3) : .7));
+const COMM_REF = [0, 2e6, 400e3, 150e3, 70e3, 30e3, 12e3, 5e3];  // what a club in each division usually puts into its foundation
+const commK = c => isMine(c) && c.budget.comm ? clamp(c.budget.comm / COMM_REF[c.tier], 0, 2) : 0;
+const TAX = .25;
+function seasonTax(c) {
+  const f = c.fin, profit = ledgerIncome(f) - ledgerCosts(f), carry = G.taxLoss || 0;
+  if (profit <= 0) { G.taxLoss = carry - profit; return 0; }
+  const taxable = Math.max(0, profit - carry); G.taxLoss = Math.max(0, carry - profit);
+  const tax = Math.round(taxable * TAX); if (tax) { spend("tax", tax); news(`Corporation tax on the season's profit: ${money(tax)}${carry ? ` (after ${money(Math.min(carry, profit))} of earlier losses set against it)` : ""}.`); }
+  return tax;
+}
+/* Away days. Fans ask for help with coaches to long trips and big games; after a heavy away defeat you can refund the
+   supporters who travelled. Loyal and hardcore fans care most. */
+const fanCare = c => 1 + fanShare(c, "loyal") + fanShare(c, "hard");
+function awayHelpWeek() {
+  const c = my(), nf = nextFixture(); if (!nf || nf.a !== c.id || nf.w > G.week + 1 || G.awayAsk === G.year * 100 + nf.w) return;
+  const opp = CL(nf.h), big = tripF(c, opp) > 1.5 || isDerby(c, opp) || opp.tier < c.tier; if (R() > (big ? .5 : .12)) return;
+  G.awayAsk = G.year * 100 + nf.w;
+  const n = travellers(c, opp), cost = Math.round(n * (tripF(c, opp) > 1.5 ? 25 : 12) / 100) * 100; if (cost < 200) return;
+  addChoice("awayHelp", `Supporters ask for help getting to ${opp.name}`, `About ${n.toLocaleString("en-GB")} fans want to travel${tripF(c, opp) > 1.5 ? " on a long trip" : isDerby(c, opp) ? " to the derby" : ""}. The supporters' trust asks the club to put on coaches: ${money(cost)} to pay for them all, or half that to share the cost.`,
+    ["Pay for the coaches", "Pay half", "Can't help this time"], { cost }, 1);
+}
+function awayRefundCheck(c, opp, gf, ga) {
+  const d = ga - gf; if (G.refundY === G.year || !(d >= 5 || (d === 4 && R() < .4) || (d === 3 && isDerby(c, opp) && R() < .5))) return;
+  G.refundY = G.year;  // at most once a season
+  const n = travellers(c, opp), cost = Math.round(n * REF_TICKET[opp.tier] / 100) * 100; if (cost < 100) return;
+  addChoice("awayRefund", `${n.toLocaleString("en-GB")} fans travelled to see a ${ga}-${gf} defeat at ${opp.name}`, `Some clubs refund the supporters who made the trip after a humiliation like that. Refunding their tickets would cost ${money(cost)}.`,
+    ["Refund the travelling fans", "Apologise, no refund"], { cost }, 1);
 }

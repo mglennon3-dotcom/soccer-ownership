@@ -47,6 +47,7 @@ function upgradeSave() {
   // 0.35.0: outliers: a few clubs have far bigger or smaller followings than their division suggests.
   if (!G.fans2) { G.fans2 = true; for (const c of G.clubs) { if (c.gone || isMine(c)) continue; const d = drawOf(c); if (d > 1.5 || d < .7) c.fans = Math.round(c.fans * d); if (d > 1.5) c.cap = Math.min(80000, Math.max(c.cap, Math.round(c.cap * Math.min(d, 2) / 100) * 100)); } }
   // 0.38.2: staff pay is set by the job (0.35.2): your current staff move onto it if they're paid more than it.
+  if (G.club != null) my().budget.comm ??= 0;  // 0.40.0: community foundation budget
   if (!G.pay8) { G.pay8 = true; if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) { const w = Math.ceil(effDemand(st) / 1000) * 1000; if (st.wage > w) st.wage = w; } }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }
