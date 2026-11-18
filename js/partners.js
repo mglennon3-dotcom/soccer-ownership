@@ -51,7 +51,7 @@ function redoLoan(p, share) {
 }
 function loanIn(p, from, share = .5, how) {
   const c = my(); logMove("loanin", p, { club: clubLabel(from), share, wage: p.wage, by: how || "you" }); p.loan = { from: from.id, to: c.id, share, neg: true };
-  from.squad = from.squad.filter(id => id !== p.id); c.squad.push(p.id); p.club = c.id;
+  from.squad = from.squad.filter(id => id !== p.id); c.squad.push(p.id); p.club = c.id; registerNew(p, c);
   (G.loanList ||= []).push(p.id);
   news(`${p.name} (${p.pos}, ${r20(p.ovr)}) joins on loan from ${from.name} until the end of the season; you pay ${Math.round(share * 100)}% of his wages.`, true);
 }

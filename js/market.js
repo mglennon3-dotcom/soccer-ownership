@@ -85,7 +85,8 @@ function shortlist(c, need, max = 6) {
     pool.push(q);
   }
   for (const q of abroadPool(TIER_LVL[c.tier])) if (q.pos === need.pos) pool.push(q);
-  const ok = pool.filter(q => { if (!willJoin(q, c) || q.age > 34 || negotiated(askingFee(q)) > left || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
+  const full = regList(c).length >= REG_MAX;  // a full 25-man list: only under-21s could play
+  const ok = pool.filter(q => { if ((full && !regExempt(q)) || !willJoin(q, c) || q.age > 34 || negotiated(askingFee(q)) > left || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
   return ok.map(q => ({ p: q, sc: scoutScore(q, need, c, phil) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, max);
 }
 
@@ -102,7 +103,7 @@ function signPlayer(p, fee, wage, byOwner, how) {
   logMove("in", p, { club: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" });
   if (p.club === -2) G.abroad = G.abroad.filter(id => id !== p.id);
   p.abroad = undefined;
-  moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4);
+  moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4); registerNew(p, c);
   signingBoost(p, c);
   spend("buys", fee); if (!byOwner) c.spentT += fee;
   if (seller && !seller.gone) aiSquadCheck(seller, true);
@@ -141,7 +142,7 @@ function headWeek(c) {
   const seniors = () => c.squad.map(P).filter(p => !p.acad && !p.loan);
   const xi = new Set(pickXI(c).map(o => o.p.id)), spare = seniors().filter(q => !xi.has(q.id) && !q.keep && canSell(q)).sort((a, b) => a.ovr - b.ovr);
   for (const p of spare.slice(0, Math.max(0, seniors().length - 26))) if (!p.list && coverOK(c, p)) { p.list = true; news(`${s.name} transfer-lists ${p.name}.`); }
-  if (lastWindowWeek()) for (const p of spare.filter(q => q.club === c.id && coverOK(c, q)).slice(0, Math.max(0, seniors().length - 28))) release(p, false);
+
 }
 const lastWindowWeek = () => (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
 /* A forced sale (administration): the administrators take what a club at his level will pay. */
@@ -345,7 +346,7 @@ function suggView(p, c = my(), loan = false) {
   const cover = depth <= coverNeed(c, p.pos) && eo >= T - 8;
   const prospect = p.age <= 21 && ep >= T + (s.phil === "potential" ? 3 : 7);
   if (!starter && !cover && !prospect) return { ok: false, w: st.length ? `He wouldn't improve us: I have him at about ${r20(eo)}, and our weakest starter there is ${r20(weakest)}.` : `He isn't good enough for this level.` };
-  if (c.squad.filter(id => !P(id).acad).length >= 28) return { ok: false, w: "I'd take him, but the squad is full: someone has to go first." };
+  if (!regExempt(p) && regList(c).length >= REG_MAX) return { ok: false, w: "I'd take him, but the 25-man list is full: he couldn't play. Unregister someone in a window first." };
   const what = starter ? "He'd go straight into the side" : prospect ? "A real prospect" : "Good cover";
   if (loan) {
     // He pays what the lending club has in mind, less a little if he's a good negotiator; outside a window he can only guess.
@@ -431,5 +432,5 @@ function marketWeek() {
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
   const last = (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
-  if (last) { clearAbroad(); news("The transfer window has closed."); }
+  if (last) { clearAbroad(); autoRegister(c); news("The transfer window has closed."); }
 }

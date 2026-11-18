@@ -367,3 +367,29 @@ function setFamily(c, side) {
 // A stand-by-stand plan for a new ground, from a total: a main stand, two sides and ends.
 function standPlan(tot) { const f = { W: .35, E: .25, N: .2, S: .2 }, d = { stands: {}, family: "", corp: 0 }; for (const k in SIDES) d.stands[k] = { cap: Math.round(tot * f[k] / 50) * 50, type: "seat", roof: true }; d.stands.W.cap += tot - sum(Object.values(d.stands), x => x.cap); return d; }
 function corpWeek(c) { if (G.phase === "season" && corpLet(c)) earn("suites", corpLet(c) * REF_CORP[c.tier] / SEASON_WEEKS); }
+
+/* ---------- squad registration ----------
+   No limit on how many players you hold, but only 25 registered seniors can play. Under-21s and academy players don't
+   need registering. You change the list only while a transfer window is open; your manager fills any empty places with
+   his best unregistered players when a window closes, and a new signing is registered straight away if there's room. */
+const REG_MAX = 25;
+const regExempt = p => p.acad || p.age <= 21;
+const regList = c => { c.reg ||= autoRegList(c); c.reg = c.reg.filter(id => c.squad.includes(id) && !regExempt(P(id))); return c.reg; };
+const isReg = (p, c = my()) => regExempt(p) || regList(c).includes(p.id);
+function autoRegList(c) { return c.squad.map(P).filter(p => !regExempt(p)).sort((a, b) => b.ovr - a.ovr).slice(0, REG_MAX).map(p => p.id); }
+function autoRegister(c, quiet) {
+  const L = regList(c), add = c.squad.map(P).filter(p => !regExempt(p) && !L.includes(p.id)).sort((a, b) => b.ovr - a.ovr).slice(0, REG_MAX - L.length);
+  for (const p of add) L.push(p.id);
+  const out = c.squad.map(P).filter(p => !isReg(p, c));
+  if (!quiet && (add.length || out.length)) news(`Squad registered: ${L.length} of ${REG_MAX}${add.length ? `, adding ${add.map(p => p.name).join(", ")}` : ""}.${out.length ? ` Not registered (can't play until the next window): ${out.map(p => p.name).join(", ")}.` : ""}`, !!out.length);
+}
+// A newcomer is registered if there's a place for him (an emergency signing always is).
+function registerNew(p, c = my(), force) { if (regExempt(p)) return; const L = regList(c); if (L.includes(p.id)) return; if (L.length < REG_MAX || force) L.push(p.id); else news(`${p.name} has signed but the 25-man list is full: he can't play until you register him (unregister someone while the window is open).`, true); }
+function toggleReg(p, c = my()) {
+  if (!windowOpen()) return "Registrations can only change while a transfer window is open.";
+  if (regExempt(p)) return `${p.name} doesn't need registering (under-21s and academy players can always play).`;
+  const L = regList(c);
+  if (L.includes(p.id)) { c.reg = L.filter(id => id !== p.id); return null; }
+  if (L.length >= REG_MAX) return "The list is full: unregister someone first.";
+  L.push(p.id); return null;
+}

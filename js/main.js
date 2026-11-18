@@ -197,6 +197,7 @@ const CHANGE = {
     render(); },
   stname: el => { G.stName = el.value.trim(); },
   msel: el => { SUB.my = el.value === "all" ? "all" : +el.value; render(); },
+  reg: el => { const p = P(+el.dataset.id), e = toggleReg(p); if (e) toast(e); render(); saveGame(); },
   pcty: el => { SUB.pcty = el.value; SUB.plg = ""; render(); },
   plg: el => { SUB.plg = el.value; render(); },
   hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis", "st"].includes(k) ? el.value : +el.value || 0; render(); },
