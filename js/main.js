@@ -65,10 +65,10 @@ const ACT = {
     const v = el.dataset.set != null ? +el.dataset.set : Math.max(0, Math.round((num(inp) + +el.dataset.d) * 100) / 100); inp.value = String(v); CHANGE[a](inp); },
   mfind: el => { Object.assign(MARKET_F, { tab: "all", pos: el.dataset.k, arch: "", int: "sign" }); PAGE = "market"; render(); scrollTo(0, 0); },
   mtab: el => { MARKET_F.tab = el.dataset.k; render(); },
-  loanask: el => { const p = P(+el.dataset.id), from = CL(p.club), partner = net().partner && net().partner.id === from.id;
-    if (R() < (partner ? .9 : .65)) { loanIn(p, from); toast(`${from.name} agree: ${p.name} joins on loan until the end of the season.`); }
-    else { toast(`${from.name} want to keep ${p.name}.`); }
-    closeModal(); render(); saveGame(); },
+  loanask: el => { const p = P(+el.dataset.id), share = +($("#lshare") ? $("#lshare").value : 50) / 100, r = askLoan(p, share);
+    LOAN_SAY = r.ok ? null : { id: p.id, t: r.t };
+    if (r.ok) { toast(r.t); closeModal(); } else playerModal(p.id);
+    render(); saveGame(); },
   sort: el => { const [id, k] = el.dataset.v.split("|"), cur = SORTS[id]; SORTS[id] = { k, d: cur && cur.k === k ? -cur.d : SORT_UP.includes(k) ? 1 : -1 }; render(); },
   choose: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerChoice(m, +el.dataset.i); render(); saveGame(); },
   seekinv: () => { G.board.offers = investmentOffers(); if (!G.board.offers.length) toast("You can't sell any more without losing control."); render(); },

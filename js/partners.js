@@ -15,11 +15,27 @@ function loanOut(p, to, share = .5) {
   (G.loanList ||= []).push(p.id);
   news(`${p.name} goes on loan to ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""} for the rest of the season. They pay ${share >= 1 ? "all" : "half"} his wages.`);
 }
+/* Borrowing: you name the share of his wages you'll pay. Each club has a figure in mind for this window (lower for your
+   partner club and for youngsters who need games, higher abroad); offer at least that and he comes. Below it they
+   tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
+function loanTerms(p) {
+  const w = windowId(); if (p.lt && p.lt.w === w) return p.lt;
+  const from = CL(p.club), partner = net().partner && net().partner.id === from.id;
+  const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
+  return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, 1), tries: 0, no: R() < (partner ? .05 : .2) };
+}
+function askLoan(p, share) {
+  const from = CL(p.club), T = loanTerms(p);
+  if (T.no) return { ok: false, t: `${from.name} want to keep ${p.name}: he isn't available on loan.` };
+  if (share >= T.min) { loanIn(p, from, share); return { ok: true, t: `${from.name} agree: ${p.name} joins on loan until the end of the season. You pay ${Math.round(share * 100)}% of his wages (${pw(p.wage * share)}).` }; }
+  if (++T.tries >= 3) { T.no = true; return { ok: false, t: `${from.name} have had enough of haggling: ${p.name} isn't available to you this window.` }; }
+  return { ok: false, t: `${from.name} say no: they want you to pay at least ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}). ${3 - T.tries} more ${3 - T.tries === 1 ? "try" : "tries"} before they give up.` };
+}
 function loanIn(p, from, share = .5) {
   const c = my(); p.loan = { from: from.id, to: c.id, share };
   from.squad = from.squad.filter(id => id !== p.id); c.squad.push(p.id); p.club = c.id;
   (G.loanList ||= []).push(p.id);
-  news(`${p.name} (${p.pos}, ${r20(p.ovr)}) joins on loan from ${from.name} until the end of the season.`, true);
+  news(`${p.name} (${p.pos}, ${r20(p.ovr)}) joins on loan from ${from.name} until the end of the season; you pay ${Math.round(share * 100)}% of his wages.`, true);
 }
 function endLoans() {
   for (const id of G.loanList || []) {

@@ -64,6 +64,10 @@ Running locally: any static server works, for example `python3 -m http.server 80
   boys in three more times a year: late summer, January and a spring trial day. How many and how good depends on his
   scouting reach and eye for potential, the academy budget and level, and whether he looks locally or wider. Boys from
   other academies or abroad cost a little compensation; trialists are free. A full academy takes no more.
+- **Negotiate loans.** On a loan target's card, choose what share of his wages you'll pay (0% to 100%) and ask. Each
+  club has a figure in mind for the window: lower for your partner club and for youngsters who need games, higher for
+  clubs abroad. Offer less and they tell you what they want; after three tries they stop listening, and about one club
+  in five won't lend at all.
 - **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against
   your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
 - **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually
