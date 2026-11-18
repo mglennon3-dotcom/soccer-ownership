@@ -73,6 +73,12 @@ Running locally: any static server works, for example `python3 -m http.server 80
   in five won't lend at all. The Finances overview lists every loan's wage share and what you pay; the wage bill everywhere (budgets,
   your head of recruitment's limits) counts only your share. Lending is about ability, not club size: any club, even a Premier Division one, will lend a player to a club in
   the division that suits his rating or one below it, but not further down.
+- **Negotiate bids.** Counter any offer for one of your players. Each bidder has a most it will pay: counter at or
+  under it and they agree; a little over and they come back with an improved (sometimes final) offer; too far over, or
+  a third time, and they may walk away.
+- **Bidding wars.** Accept a bid and word gets out: for a player in demand (a star, one coming off a fine season, one
+  sold below his value) other clubs may come in. Take the best offer, ask everyone once for best and final bids, or
+  keep him. Left alone for two weeks, he goes to the highest bidder.
 - **Not for sale.** Mark a player not for sale from his card: clubs stop bidding for him, any open bids are turned down,
   and he can't be transfer-listed until you make him available again.
 - **Pre-season tours.** Clubs abroad host English sides for a tour fee set by your division (about ten times what an

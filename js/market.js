@@ -219,11 +219,81 @@ function answerBid(m, accept, auto) {
     trust("recruit", -7, accept ? `unhappy you sold ${p.name} when he advised keeping him.` : `frustrated you turned down ${money(m.amt)} for ${p.name}.`);
   }
   if (accept) {
-    const starter = pickXI(my()).some(o => o.p === p);
-    if (starter && !auto) trust("manager", -6, `didn't want to lose ${p.name}.`);
-    leaveClub(p); moveTo(p, buyer); p.wage = wageFor(p.ovr); earn("sales", m.amt);
-    news(`${p.name} joins ${clubLabel(buyer)} for ${money(m.amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
+    if (!auto && maybeWar(m, p, buyer)) return;  // word gets out and other clubs come in
+    completeSale(p, buyer, m.amt, auto);
   } else if (auto) news(`A ${money(m.amt)} bid from ${buyer.name} for ${p.name} is turned down.`);
+}
+function completeSale(p, buyer, amt, auto) {
+  if (!auto && pickXI(my()).some(o => o.p === p)) trust("manager", -6, `didn't want to lose ${p.name}.`);
+  leaveClub(p); moveTo(p, buyer); p.wage = wageFor(p.ovr); earn("sales", amt);
+  news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
+}
+
+/* ---------- negotiating a bid ----------
+   Each bidder has a most it will pay (hidden): well above its opening bid for a player it really wants, not much above
+   it for a listed one. Counter at or under that and they agree. A little over it and they come back with an improved
+   offer; too far over, or a third time, and they may walk away. */
+// Rounding a fee to a sensible step for its size, so small fees still have room to negotiate.
+const feeRound = v => { const st = v < 10e3 ? 100 : v < 100e3 ? 500 : v < 1e6 ? 5000 : 50000; return Math.round(v / st) * st; };
+function bidMax(m) {
+  const p = G.players[m.pid];
+  return m.max ??= Math.max(m.amt, feeRound(m.amt * (p && p.list ? rf(1.04, 1.25) : rf(1.1, 1.5)) * (1 + Math.max(0, seasonForm(p || {})) * .1)));
+}
+function counterBid(m, ask) {
+  const p = G.players[m.pid], buyer = CL(m.club), max = bidMax(m);
+  if (!p || p.club !== G.club || m.done) return "That bid has lapsed.";
+  if (ask <= m.amt) { answerBid(m, true, false); return null; }
+  m.tries = (m.tries || 0) + 1; m.age = 0;
+  if (ask <= max) { m.amt = ask; m.title = `${clubLabel(buyer)} agree ${money(ask)} for ${p.name}`; answerBid(m, true, false); return `${buyer.name} agree to ${money(ask)}.`; }
+  if (m.tries >= 3 || ask > max * 1.35 || (ask > max * 1.15 && R() < .4)) {
+    m.done = true; m.answer = `you asked ${money(ask)}; they walked away`;
+    news(`${buyer.name} walk away from talks for ${p.name}: ${money(ask)} was too much.`);
+    return `${buyer.name} walk away: ${money(ask)} was too much.`;
+  }
+  let up = Math.min(max, feeRound((m.amt + max) / 2)); if (up <= m.amt) up = max;
+  m.amt = up; m.final = up >= max; m.title = `${clubLabel(buyer)} improve their bid to ${money(up)} for ${p.name}${m.final ? " (final offer)" : ""}`;
+  return `${buyer.name} won't pay ${money(ask)}, but they've improved their offer to ${money(up)}${m.final ? ". They say it's their final offer" : ""}.`;
+}
+
+/* ---------- bidding wars ----------
+   Accept a bid and word gets out: for a player in demand (a star, one coming off a fine season, one you're selling
+   below his value) other clubs may come in before the deal is done. You can take the best offer, ask everyone for
+   their best and final bids once, or call it off and keep him. Left alone, he goes to the highest bidder. */
+function maybeWar(m, p, buyer) {
+  const c = my(), star = p.ovr >= TIER_LVL[c.tier] + 5 || (p.age <= 21 && p.pot >= TIER_LVL[c.tier] + 10), form = Math.max(0, seasonForm(p));
+  const chance = clamp(.12 + (star ? .25 : 0) + form * .15 + (valueOf(p) > m.amt ? .1 : 0), 0, .6);
+  if (R() > chance) return false;
+  const rivals = shuffle(bidders().filter(x => x.id !== buyer.id && x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 8)).slice(0, R() < .4 ? 2 : 1);
+  if (!rivals.length) return false;
+  const bids = [{ id: buyer.id, amt: m.amt, max: bidMax(m) }, ...rivals.map(x => { const amt = feeRound(m.amt * rf(1.04, 1.2)); return { id: x.id, amt, max: feeRound(amt * rf(1.03, 1.35)) }; })];
+  m.answer = "accepted: then other clubs came in";
+  addMsg({ type: "war", pid: p.id, bids, keen: m.keen, rec: m.rec, title: `Bidding war for ${p.name}!` });
+  news(`Word gets out that you've accepted ${money(m.amt)} for ${p.name}: ${rivals.map(x => clubLabel(x)).join(" and ")} come in with higher offers.`, true);
+  return true;
+}
+const warTop = w => w.bids.filter(b => !b.out).sort((a, b) => b.amt - a.amt)[0];
+function warRaise(w) {
+  const top = warTop(w).amt;
+  for (const b of w.bids) if (!b.out) { if (b.amt >= top && b === warTop(w)) continue; if (b.max > top) b.amt = Math.min(b.max, Math.max(top + 100, feeRound(top * rf(1.03, 1.12)))); else b.out = true; }
+  // The leader may stretch once more if someone has passed him.
+  const t = warTop(w); for (const b of w.bids) if (!b.out && b !== t && b.max > t.amt && R() < .5) b.amt = Math.min(b.max, Math.max(t.amt + 100, feeRound(t.amt * rf(1.02, 1.08))));
+  w.final = true; w.age = 0;
+  const p = G.players[w.pid], T = warTop(w);
+  news(`Best and final offers for ${p.name}: ${w.bids.map(b => `${CL(b.id).name} ${b.out ? "drop out" : money(b.amt)}`).join(", ")}.`);
+  return T;
+}
+function warSell(w, auto) {
+  const p = G.players[w.pid], T = warTop(w); w.done = true;
+  if (!p || p.club !== G.club) { w.answer = "lapsed"; return; }
+  w.answer = `sold to ${CL(T.id).name} for ${money(T.amt)}`;
+  completeSale(p, CL(T.id), T.amt, auto);
+}
+function warKeep(w) {
+  const p = G.players[w.pid]; w.done = true; w.answer = "you kept him";
+  if (!p || p.club !== G.club) return;
+  if (w.keen && p.dealY !== G.year) { p.blocked = (p.blocked || 0) + 1; p.unsettled = 8 + p.blocked * 4; news(`${p.name} had clubs fighting over him and you kept him: he's unsettled.`, true); }
+  else news(`You call off the sale: ${p.name} stays.`);
+  G.meddle = (G.meddle || 0) + .5;
 }
 
 /* ---------- your suggestions ----------

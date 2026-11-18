@@ -388,5 +388,6 @@ function settleInbox() {
       // Turning down a club the player wants to join, he offers the improved deal if the wage budget allows it.
       const deal = m.rec !== "accept" && m.keen && p && p.dealY !== G.year && wageBill(c) + newDealWage(p) - p.wage <= c.budget.wages;
       answerBid(m, m.rec === "accept" ? true : deal ? 2 : false, true); }
+    if (m.type === "war" && m.age >= 2) warSell(m, true);
     if (m.type === "choice" && m.age >= 3) answerChoice(m, m.dflt); }
 }
