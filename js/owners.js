@@ -59,7 +59,7 @@ function moveOdds(c) {
   return p;
 }
 function aiMoveCheck(c) {
-  if (c.abroad || (c.moved && G.year - c.moved.y < 10) || R() > moveOdds(c)) return;
+  if (c.abroad || c.build || (c.moved && G.year - c.moved.y < 10) || R() > moveOdds(c)) return;
   const S = ownStyle(c), st = c.own.style, roots = fanShare(c, "loyal") + fanShare(c, "hard");  // a loyal, hardcore support wants to stay close
   const kind = st === "developer" ? (R() < .6 - roots * .4 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .55 + roots * .4 ? "near" : "edge")
     : wpick(["near", "edge", "far"], k => ({ near: 3 + roots * 6, edge: 4, far: Math.max(.5, 2.5 - roots * 4) })[k]);
@@ -70,14 +70,25 @@ function aiMoveCheck(c) {
   if (st !== "fanowned" && c.own.wealth < cost * (1 - share)) return;
   if (st !== "fanowned") c.own.wealth = Math.round(c.own.wealth - Math.max(0, cost) * (1 - share));
   c.debt = Math.round((c.debt || 0) + Math.max(0, cost) * share);
-  const old = c.cap; (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = cap; c.site = site; c.moved = { y: G.year, km, from: old }; c.opened = G.year;
-  let lost = 0; if (km > 9) { lost = Math.min(.25, km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m); }
-  if (c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c))
-    news(`${c.name} move to a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}${lost ? `; about ${Math.round(lost * 100)}% of their support won't follow` : ""}.`, c.lg === my().lg);
+  // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
+  c.build = { cap, site, km, open: G.year + (cap > 20000 ? 2 : 1) };
+  if (nearMe(c)) news(`${c.name} start building a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}, to open in ${c.build.open}.${squeeze(c) < .95 ? " They'll be spending less on the team while it goes up." : ""}`, c.lg === my().lg);
+}
+const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c);
+/* While a new ground goes up, the club tightens its belt, depending on who owns it: a billionaire doesn't notice, the
+   showmen and gamblers barely, most owners cut back a little, supporters' trusts and developers more, and absent
+   owners and asset strippers most. */
+const BUILD_SQUEEZE = { sugar: 1, celebrity: .95, gambler: .95, crypto: .95, hostile: .95, multiclub: .9, meddler: .9, explayer: .88, dynasty: .88, moneyball: .85, local: .85, academy: .85, fanowned: .8, developer: .8, absentee: .75, stripper: .7 };
+const squeeze = c => c.build ? BUILD_SQUEEZE[(c.own || {}).style] ?? .85 : 1;
+function aiMoveIn(c) {
+  const b = c.build, old = c.cap; c.build = null;
+  (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = b.cap; c.site = b.site; c.moved = { y: G.year, km: b.km, from: old }; c.opened = G.year;
+  let lost = 0; if (b.km > 9) { lost = Math.min(.25, b.km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m); }
+  if (nearMe(c)) news(`${c.name} move into their new ${b.cap.toLocaleString("en-GB")}-capacity ground${b.km > 3 ? `, ${b.km} km from the old one` : ""}${lost ? `; about ${Math.round(lost * 100)}% of their support won't follow` : ""}.`, c.lg === my().lg);
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
-function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0); }
+function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8; }
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
@@ -126,7 +137,7 @@ const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(
 const TIER_LOSS = [0, .12, .52, .42, .37, .42, .32, .27];
 const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l < 0) return l;
   return TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0); };
-function aiBudget(c) { return aiAfford(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
+function aiBudget(c) { return aiAfford(c) * squeeze(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageFor(p.ovr) : 0; });
 const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 2);
@@ -164,6 +175,7 @@ function ownersSummer() {
     if (c.gone || isMine(c)) continue;
     c.own ||= newOwner(c); const S = ownStyle(c);
     // Building: ground, training ground, academy.
+    if (c.build && G.year >= c.build.open) aiMoveIn(c);
     aiMoveCheck(c);
     if (R() < S.build) { c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.05, 1.2) / 100) * 100); c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0)); }
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
