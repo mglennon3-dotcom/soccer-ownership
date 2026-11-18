@@ -20,7 +20,10 @@ function pickXI(c) {
   // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position
   // gets the place over an older player rated the same, and a high-potential one (potential 4+ points above his
   // rating) gets it even a point below. Within the same shown rating the better player still comes first.
-  const youngFav = p => p.age <= 21 ? (r20(p.pot) - r20(p.ovr) >= 4 ? 16 : 6) : 0;
+  // How much he backs a youngster grows with the potential your staff see in him (their estimate, as on the Squad page):
+  // between two lads of the same rating, the one with more to come plays.
+  const potGap = new Map(), gapOf = p => { if (!potGap.has(p.id)) { const [a, b] = potEstimate(p); potGap.set(p.id, r20((a + b) / 2) - r20(p.ovr)); } return potGap.get(p.id); };
+  const youngFav = p => p.age <= 21 ? (gapOf(p) >= 4 ? 10 + Math.min(gapOf(p), 14) : 6) : 0;
   // A club that borrows a player agreed to give him games: yours start in their own position nearly every week.
   const lent = isMine(c) ? () => 0 : (p, s) => p.loan && p.loan.to === c.id ? (p.loan.from === G.club ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 200) : 0) : p.pos === s ? 4 : 0) : 0;
   // Tired players get rested: below 85% sharpness a player starts losing his place to a fresh deputy.
