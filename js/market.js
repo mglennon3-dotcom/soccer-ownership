@@ -238,8 +238,11 @@ function answerBid(m, accept, auto) {
     else { p.blocked = (p.blocked || 0) + 1; p.unsettled = 8 + p.blocked * 4; news(`${p.name} wanted the move to ${buyer.name} and is unsettled${p.blocked >= 2 ? ". He's been blocked before and it shows" : ""}.`, p.blocked >= 2); }
   }
   if (!auto && !deal && (accept ? "accept" : "reject") !== m.rec) {
-    G.meddle = (G.meddle || 0) + 1;
-    trust("recruit", -7, accept ? `unhappy you sold ${p.name} when he advised keeping him.` : `frustrated you turned down ${money(m.amt)} for ${p.name}.`);
+    // Answering a bid is your call: he only minds much when it's a big one (selling a first-choice player he wanted to
+    // keep, or turning down well over the odds). Small disagreements barely register.
+    const big = accept ? pickXI(my()).some(o => o.p === p) : m.amt >= valueOf(p) * 1.5;
+    G.meddle = (G.meddle || 0) + (big ? .3 : .1);
+    trust("recruit", big ? -3 : -1, big ? (accept ? `would rather have kept ${p.name}.` : `thinks ${money(m.amt)} for ${p.name} was worth taking.`) : null);
   }
   if (accept) {
     if (!auto && maybeWar(m, p, buyer)) return;  // word gets out and other clubs come in

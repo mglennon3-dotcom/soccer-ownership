@@ -77,6 +77,8 @@ function trust(role, d, why) {
   if (why && Math.abs(d) >= 5) news(`${s.name} (${ROLES_STAFF[role].l.toLowerCase()}): ${why}`, d <= -8);
   if (s.trust < 20) { news(`${s.name} has resigned as ${ROLES_STAFF[role].l.toLowerCase()}, saying the club isn't run the way he was promised.`, true); my().staff[role] = null; }
 }
+// Grudges fade: a staff member's trust drifts back toward 60 a little each week.
+function staffTrustWeek() { for (const s of Object.values(my().staff).filter(Boolean)) if (s.trust < 60) s.trust = Math.min(60, s.trust + .3); }
 const trustWord = t => t >= 75 ? ["Loyal", "good"] : t >= 55 ? ["Content", "good"] : t >= 40 ? ["Uneasy", "warn"] : ["Unhappy", "bad"];
 
 /* The caretaker: if you have no manager, the club captain picks the side. */
