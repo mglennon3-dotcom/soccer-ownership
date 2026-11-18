@@ -43,6 +43,7 @@ const HOSTS = [
 const atHome = c => c.fac.stadium.own && c.fac.stadium.away == null;
 function setGround(c, i) {
   const S = c.fac.stadium;
+  if (i === "home" && S.rebuilding) return;  // the ground is a building site
   if (S.own) S.away = i === "home" ? null : i; else S.host = i;
   c.cap = capacity(c);
 }
@@ -78,6 +79,8 @@ function buildWeek(c) {
     const b = S.build; S.build = null;
     if (b.type === "new") { S.own = true; S.cap = b.cap; S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
     else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    else if (b.type === "reground") { S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
     else if (b.type === "roof") { standsOf(S)[b.side].roof = true; news(`The ${SIDES[b.side]} has a roof: supporters there stay dry.`, true); }
     else if (b.type === "convert") { standsOf(S)[b.side].type = b.to; news(`The ${SIDES[b.side]} is now ${b.to === "seat" ? "all-seated" : "a terrace"}.`, true); }
     else if (b.type === "corp") { const W = standsOf(S).W; W.corp = (W.corp || 0) + b.add; news(`${b.add} corporate seats are ready in the Main stand (${W.corp} in all).`, true); }
@@ -420,13 +423,15 @@ function standsOf(S) {  // a ground from before stands: four seated, covered sta
   return S.stands || {};
 }
 const syncCap = S => { S.cap = sum(Object.values(standsOf(S)), x => x.cap); };
-const groundCap = c => sum(Object.values(standsOf(c.fac.stadium)), x => x.type === "terrace" && c.tier <= ALL_SEATER ? 0 : x.cap);
+/* Building work closes the stand it's on (an extension, roof, conversion or rebuild) until it's finished. */
+const closedSide = S => S.build && S.build.side && ["expand", "roof", "convert", "rebuild"].includes(S.build.type) ? S.build.side : null;
+const groundCap = c => { const S = c.fac.stadium, shut = closedSide(S); return sum(Object.entries(standsOf(S)), ([k, x]) => k === shut || (x.type === "terrace" && c.tier <= ALL_SEATER) ? 0 : x.cap); };
 const closedTerraces = c => c.tier <= ALL_SEATER ? sum(Object.values(standsOf(c.fac.stadium)), x => x.type === "terrace" ? x.cap : 0) : 0;
 const standShare = (c, f) => { const l = Object.values(standsOf(c.fac.stadium)), t = sum(l, x => x.cap) || 1; return sum(l.filter(f), x => x.cap) / t; };
 const terraceShare = c => atHome(c) && c.fac.stadium.own && c.tier > ALL_SEATER ? standShare(c, x => x.type === "terrace") : 0;
 const openShare = c => atHome(c) && c.fac.stadium.own ? standShare(c, x => !x.roof) : .5;
 const familyOn = c => atHome(c) && c.fac.stadium.own && Object.values(standsOf(c.fac.stadium)).some(x => x.family);
-const corpSeats = c => atHome(c) && c.fac.stadium.own ? (standsOf(c.fac.stadium).W || {}).corp || 0 : 0;
+const corpSeats = c => atHome(c) && c.fac.stadium.own && closedSide(c.fac.stadium) !== "W" ? (standsOf(c.fac.stadium).W || {}).corp || 0 : 0;
 const corpMax = c => Math.floor(((standsOf(c.fac.stadium).W || {}).cap || 0) * .15);
 const REF_CORP = [0, 9000, 3500, 1800, 1100, 700, 400, 250];  // a corporate seat for the season
 const corpLet = c => Math.min(corpSeats(c), Math.floor(suiteDemand(c) * 15));
@@ -440,6 +445,15 @@ function standQuote(c, side, add) {
   const x = standsOf(c.fac.stadium)[side], to = c.fac.stadium.cap + add;
   return { side, add, cost: Math.round(add * perSeat(to) * TYPE_F[x.type] * roofF(x.roof) * 1.1 / 1e4) * 1e4, weeks: Math.round(14 + add / 600) };
 }
+// Demolish a stand and build a new one in its place: clearing the old one, then the new stand at the going rate.
+function rebuildQuote(c, side, cap, type, roof) {
+  const S = c.fac.stadium, x = standsOf(S)[side], to = S.cap - x.cap + cap, demo = 20000 + x.cap * 40;
+  return { side, cap, to: type, roof, demo: Math.round(demo / 1e3) * 1e3, cost: Math.round((demo + cap * perSeat(to) * TYPE_F[type] * roofF(roof) * 1.15) / 1e4) * 1e4, weeks: Math.round(16 + cap / 500) };
+}
+// Knock the whole ground down and build a new one on the site; the club plays at a rented ground meanwhile.
+function regroundQuote(c, d) { const q = groundQuote(d), demo = 100000 + c.fac.stadium.cap * 30; return { ...q, demo: Math.round(demo / 1e4) * 1e4, cost: Math.round((q.cost + demo) / 1e4) * 1e4, weeks: q.weeks + 6 }; }
+// Where you'd play meanwhile: the smallest rented ground that holds most of your crowd.
+const tempHost = c => { const need = Math.min(c.fac.stadium.cap * .6, 30000); const i = HOSTS.findIndex(h => h.cap >= need); return i < 0 ? HOSTS.length - 1 : i; };
 const roofQuote = (c, side) => { const n = standsOf(c.fac.stadium)[side].cap; return { side, cost: Math.round((50000 + n * 260) / 1e4) * 1e4, weeks: Math.round(8 + n / 2000) }; };
 const convertQuote = (c, side) => { const x = standsOf(c.fac.stadium)[side], to = x.type === "terrace" ? "seat" : "terrace"; return { side, to, cost: Math.round((40000 + x.cap * (to === "seat" ? 320 : 120)) / 1e4) * 1e4, weeks: Math.round(8 + x.cap / 2500) }; };
 const corpQuote = (c, n) => ({ add: n, cost: Math.round(n * 1800 / 1000) * 1000, weeks: 6 });
