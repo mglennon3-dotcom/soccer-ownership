@@ -21,9 +21,11 @@ function pickXI(c) {
   // gets the place over an older player rated the same, and a high-potential one (potential 4+ points above his
   // rating) gets it even a point below. Within the same shown rating the better player still comes first.
   const youngFav = p => p.age <= 21 ? (r20(p.pot) - r20(p.ovr) >= 4 ? 16 : 6) : 0;
+  // A club that borrows a player agreed to give him games: yours start in their own position nearly every week.
+  const lent = isMine(c) ? () => 0 : (p, s) => p.loan && p.loan.to === c.id ? (p.loan.from === G.club ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 200) : 0) : p.pos === s ? 4 : 0) : 0;
   const score = youth
     ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + (p.id % 7) * .0001;
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
