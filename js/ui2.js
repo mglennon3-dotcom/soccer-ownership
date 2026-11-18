@@ -356,7 +356,7 @@ function pgMoves() {
     ${rows.length ? sortTable("moves", [
       { k: "when", l: "When", left: true, v: m => m.y * 1000 + (m.ph === "summer" ? 0 : m.ph === "playoffs" ? 900 : 100 + m.w), f: m => `<span class="small">${y === "all" ? seasonLabel(m.y) + "<br>" : ""}${moveWhen(m)}</span>` },
       { k: "name", l: "Player", left: true, v: m => m.name, f: m => `${G.players[m.id] ? `<button class="lnk" data-act="player" data-id="${m.id}">${esc(m.name)}</button>` : esc(m.name)}<br><span class="small muted">${m.pos} · ${m.age} · rated ${m.r}</span>` },
-      { k: "kind", l: "Move", left: true, v: m => MOVE_KIND[m.kind][0], f: m => `<span class="small ${MOVE_KIND[m.kind][1]}">${MOVE_KIND[m.kind][0]}</span>${m.share != null ? `<br><span class="small muted">you pay ${Math.round((m.kind === "loanout" ? 1 - m.share : m.share) * 100)}% of his wages`</span>` : ""}` },
+      { k: "kind", l: "Move", left: true, v: m => MOVE_KIND[m.kind][0], f: m => `<span class="small ${MOVE_KIND[m.kind][1]}">${MOVE_KIND[m.kind][0]}</span>${m.share != null ? `<br><span class="small muted">you pay ${Math.round((m.kind === "loanout" ? 1 - m.share : m.share) * 100)}% of his wages</span>` : ""}` },
       { k: "club", l: "From / to", left: true, v: m => m.club || "", f: m => `<span class="small">${esc(m.club || "—")}</span>` },
       { k: "fee", l: "Fee", r: true, v: m => m.fee || 0, f: m => m.fee ? `<span class="${m.kind === "out" ? "good" : ""}">${m.kind === "release" ? "−" : ""}${money(m.fee)}</span>` : m.kind === "in" ? "Free" : "—" },
       { k: "wage", l: "Wage", r: true, v: m => m.wage || 0, f: m => m.wage ? pw(m.wage) : "—" },
