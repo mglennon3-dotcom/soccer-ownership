@@ -118,7 +118,8 @@ function headWeek(c) {
     const p = G.players[x.id];
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
     const v = suggView(p, c, x.loan); if (!v.ok) continue;
-    if (x.loan) loanIn(p, CL(p.club), v.share); else signPlayer(p, v.fee, v.ask, false);
+    if (x.loan) loanIn(p, CL(p.club), v.share);
+    else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, he paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, he agreed ${pw(v.ask)}.`); }
     G.sugg = sugg().filter(y => y !== x);
     news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null);
   }
@@ -258,14 +259,27 @@ function suggView(p, c = my(), loan = false) {
     if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
     const T = loanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
     if (p.wage * share > room) return { ok: false, money: true, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
-    return { ok: true, loan: true, share, w: `${what} on loan. I'll borrow him this week, paying ${Math.round(share * 100)}% of his wages (${pw(p.wage * share)}).` };
+    return { ok: true, loan: true, share, w: `${what} on loan. ${share < T.min ? `They want us to pay ${Math.round(T.min * 100)}% of his wages; I can talk them down to ${Math.round(share * 100)}%` : `They want us to pay ${Math.round(share * 100)}% of his wages`} (${pw(p.wage * share)}). I'll borrow him this week.` };
   }
-  const fee = negotiated(askingFee(p)), left = c.budget.transfer - c.spentT;
-  if (fee > left) return { ok: false, money: true, w: `I'd take him, but his fee (about ${money(fee)}) is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
-  const ask = playerAsk(p, c), room = c.budget.wages - wageBill(c);
-  if (ask == null) return { ok: false, w: "He isn't interested in joining us." };
-  if (ask > room) return { ok: false, money: true, w: `I'd take him, but he wants about ${pw(ask)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
-  return { ok: true, fee, ask, w: `${what}. ${windowOpen() ? "I'll go after him this week." : "I'll go after him when the window opens."}` };
+  const N = negotiate(p, c);
+  if (!N) return { ok: false, w: "He isn't interested in joining us." };
+  const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT, room = c.budget.wages - wageBill(c);
+  const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I can get him for about ${money(fee)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on ${pw(ask)} (his agent's asking ${pw(N.agent)})`;
+  if (fee > left) return { ok: false, money: true, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
+  if (ask > room) return { ok: false, money: true, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare.` };
+  return { ok: true, fee, ask, N, w: `${what}. ${deal}. ${windowOpen() ? "I'll go after him this week." : "I'll go after him when the window opens."}` };
+}
+/* His negotiation on a deal you suggested. The fee: he talks the asking price down, more the better a negotiator he is
+   and the weaker the seller's hand (a listed player, one with a year or less left, one who's asked to leave); a little
+   luck either way. The wage: the agent opens a quarter above the least the player would take, and he talks it down
+   toward that floor. Settled once per window, so the figures don't jump about each time you look. */
+function negotiate(p, c = my()) {
+  const s = staffOf("recruit"), neg = s ? s.at.neg : 30, min = playerAsk(p, c); if (min == null) return null;
+  const w = windowId(); if (!p.ng || p.ng.w !== w) p.ng = { w, n: normal(), m: normal() };
+  const lever = (neg - 50) / 250 + (p.list ? .08 : 0) + (p.club >= 0 && p.yrs <= 1 ? .1 : 0) + (p.req ? .08 : 0);
+  const ask = askingFee(p), fee = Math.round(ask * clamp(1 - lever + p.ng.n * .03, .55, 1) / 1000) * 1000;
+  const agent = Math.round(min * 1.25 / 100) * 100, wage = Math.round((min + (agent - min) * clamp(1 - neg / 100 + p.ng.m * .1, 0, 1)) / 100) * 100;
+  return { ask, fee, agent, wage };
 }
 function suggest(p, loan) {
   const s = staffOf("recruit"); if (!s) return;

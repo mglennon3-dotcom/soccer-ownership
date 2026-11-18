@@ -59,7 +59,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Suggest signings.** Tap *Suggest* on any player's card and your head of recruitment tells you what he thinks: he'd
   start, he's a prospect, he's good cover, or why not (not good enough, won't come, too dear for the budget). While a
   window is open he goes after the ones he agrees with before his own targets. Asking isn't overruling, and he's pleased
-  when a tip comes off. You can suggest a loan instead for players 23 or under: he borrows him during the window, paying
+  when a tip comes off. He negotiates the deal: he talks the asking fee down (more the better a negotiator he is, and
+  more if the player is listed, has a year or less left or has asked to leave) and the agent's wage demand down toward
+  the least the player will take, and tells you the figures before and after. You can suggest a loan instead for players 23 or under: he borrows him during the window, paying
   what the lending club wants (a good negotiator knocks 10% off). Your suggestions are listed on the Transfers page.
 - **Youth recruitment all year.** As well as the summer intake (at least three boys), your youth manager's scouts bring
   boys in three more times a year: late summer, January and a spring trial day. How many and how good depends on his
