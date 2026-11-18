@@ -81,7 +81,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
   sold below his value) other clubs may come in. Take the best offer, ask everyone once for best and final bids, or
   keep him. Left alone for two weeks, he goes to the highest bidder.
 - **Not for sale.** Mark a player not for sale from his card: open bids are turned down, he can't be transfer-listed,
-  and only a club that really wants him will bid, at two to five times his value (your head of recruitment advises
+  and bids only come for a star for your division (at the top of its rating range: Regional League 5+, National
+  Division 7+, Third 9+, Second 10+, First 13+, Premier 18+) or a player coming off a big season, at two to five times
+  his value (a little more after a huge season) (your head of recruitment advises
   rejecting; it's still your call). A player who has outgrown the club or is paid well under his worth resents it: he's
   unsettled for a while and more likely to hand in a transfer request, and turning down a big club he wants to join
   unsettles him further.
