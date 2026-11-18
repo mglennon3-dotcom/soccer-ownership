@@ -48,8 +48,25 @@ function upgradeSave() {
   if (!G.fans2) { G.fans2 = true; for (const c of G.clubs) { if (c.gone || isMine(c)) continue; const d = drawOf(c); if (d > 1.5 || d < .7) c.fans = Math.round(c.fans * d); if (d > 1.5) c.cap = Math.min(80000, Math.max(c.cap, Math.round(c.cap * Math.min(d, 2) / 100) * 100)); } }
   // 0.38.2: staff pay is set by the job (0.35.2): your current staff move onto it if they're paid more than it.
   if (G.club != null) my().budget.comm ??= 0;  // 0.40.0: community foundation budget
+  // 0.40.2: this season's share of the new costs (match-day operations, travel, utilities, insurance, medical bills for
+  // current long injuries, grading works if you came up this summer), less anything already booked under them.
+  // 0.40.2: smaller clubs abroad could end up with a negative ground and fanbase (0.38.0); repair them.
+  for (const id of G.foreign || []) { const c = CL(id); if (!c) continue; if (!(c.cap > 0)) c.cap = foreignCap(c.base ?? c.lvl); if (!(c.fans > 0)) c.fans = foreignFans(c.base ?? c.lvl); }
+  if (!G.retro40) { G.retro40 = true; if (G.club != null) retroCosts(my()); }
   if (!G.pay8) { G.pay8 = true; if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) { const w = Math.ceil(effDemand(st) / 1000) * 1000; if (st.wage > w) st.wage = w; } }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
+}
+function retroCosts(c) {
+  const f = c.fin, res = (G.myRes || []).filter(r => !r.neutral || r.comp), wk = G.phase === "summer" ? G.week : G.phase === "season" ? SUMMER_WEEKS + G.week : SUMMER_WEEKS + SEASON_WEEKS + G.week;
+  const due = { mdops: 0, travel: 0, util: utilities(c) / 52 * wk, insure: wageBill(c) * INSURE / 52 * wk, medical: 0, grading: 0 };
+  for (const r of res) { const opp = CL(r.opp); if (!opp) continue; if (r.home && r.crowd) due.mdops += opsCost(c, r.crowd); else if (!r.home) due.travel += TRAVEL[c.tier] * tripF(c, opp); }
+  for (const id of c.squad) { const p = P(id); if (p && p.inj >= 5 && p.injT == null) { due.medical += medBill(c, p.inj); p.injT = p.inj; } }
+  const h = G.history[0]; if (h && h.up && h.y === G.year - 1 && !f.grading) due.grading = gradingCost(c, c.tier);
+  let tot = 0; const parts = [];
+  const NAME = { mdops: "match-day operations", travel: "team travel", util: "utilities", insure: "insurance", medical: "medical treatment", grading: "ground grading" };
+  for (const [k, v] of Object.entries(due)) { const add = Math.round(Math.max(0, v - (f[k] || 0))); if (add >= 1) { spend(k, add); tot += add; parts.push(`${NAME[k]} ${money(add)}`); } }
+  if (tot) news(`New running costs have been applied to this season so far: ${money(tot)} (${parts.join(", ")}).`, true);
+  return { tot, parts };
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }
 async function start() { G = null; renderStart(await listSaves()); }

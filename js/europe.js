@@ -25,6 +25,9 @@ function foreignTown(K) {
   for (let g = 0; g < 300; g++) { let t = pick(K.pre) + pick(K.suf); t = t[0].toUpperCase() + t.slice(1); if (!TOWN_BLOCK.has(t) && !G.towns[t]) { G.towns[t] = 1; return t; } }
   return pick(K.pre) + pick(K.suf);
 }
+// Ground and support for a club abroad by its standard: big clubs as before, smaller ones scaled down (never below a few thousand).
+const foreignCap = lvl => Math.round(Math.max(15000 + (lvl - 70) * 2800, 15000 * Math.pow(1.07, lvl - 70), 3000) * rf(.8, 1.2) / 500) * 500;
+const foreignFans = lvl => Math.round(Math.max(12000 + (lvl - 70) * 2600, 12000 * Math.pow(1.08, lvl - 70), 2000) * rf(.8, 1.2));
 function makeForeign() {
   G.foreign = [];
   for (const [code, [n, top]] of Object.entries(FOREIGN)) {
@@ -34,7 +37,7 @@ function makeForeign() {
       const c = { id: G.clubs.length, name: pick(K.fmt).replace("{t}", t), town: t, short: stripAcc(t).replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase(), country: code,
         abroad: true, gone: true, lg: null, tier: 1, half: null, region: pick(K.regions)[0], rep, lvl, color: CLUB_COLORS[G.clubs.length % CLUB_COLORS.length],
         coach: aiCoach(rep), squad: [], train: clamp(Math.round(lvl / 10), 4, 10), acadLvl: clamp(Math.round(lvl / 11), 3, 10),
-        cap: Math.round((15000 + (lvl - 70) * 2800) * rf(.8, 1.2) / 500) * 500, fans: Math.round((12000 + (lvl - 70) * 2600) * rf(.8, 1.2)), founded: G.year - ri(60, 130), trophies: [] };
+        cap: foreignCap(lvl), fans: foreignFans(lvl), founded: G.year - ri(60, 130), trophies: [] };
       c.base = lvl; c.own = newOwner(c);
       G.clubs.push(c); G.foreign.push(c.id); foreignSquad(c);
     }
