@@ -71,7 +71,7 @@ const facWeeks = lvl => 8 + lvl * 5;
 const facUpkeep = (kind, lvl) => lvl === 0 ? (kind === "train" ? 20000 : 0) : Math.round((kind === "acad" ? 25000 : 18000) * Math.pow(1.55, lvl - 1));
 const FAC_NAME = { train: "Training ground", acad: "Academy" };
 const TRAIN_DESC = ["Hired council pitches", "Basic grass pitches and a portacabin", "Floodlit pitches and changing rooms", "A modest training base", "A good base with a gym", "Several pitches, gym and physio", "A modern complex with sports science", "An excellent complex", "A superb complex", "One of the best in the country", "World class"];
-const ACAD_DESC = ["No academy", "Evening sessions for local boys", "A small youth set-up", "A recognised academy", "A solid academy", "A good academy", "A category-two academy", "A strong category-two academy", "A category-one academy", "An elite academy", "World class"];
+const ACAD_DESC = ["No academy", "Evening sessions for local young players", "A small youth set-up", "A recognised academy", "A solid academy", "A good academy", "A category-two academy", "A strong category-two academy", "A category-one academy", "An elite academy", "World class"];
 
 function startBuild(kind, q) {
   const c = my(), block = boardBlocks(q.cost); if (block) { news(block, true); return block; }

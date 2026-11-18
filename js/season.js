@@ -259,7 +259,7 @@ function yearTurnover() {
   // Youth pedigree: your own graduates who were first-team regulars this season build the academy's name.
   { const grads = mine.squad.map(P).filter(p => p && p.yAcad === mine.id && !p.acad && p.s.app >= 20).length;
     const before = youthPedigree(mine); mine.ypd = Math.round(clamp(before * .92 + grads * .6, -3, 10) * 10) / 10;
-    if (grads && Math.floor(mine.ypd) > Math.floor(before)) news(`${grads} academy graduate${grads > 1 ? "s were" : " was a"} first-team regular${grads > 1 ? "s" : ""} this season: the academy's reputation grows, and better boys will want to join.`); }
+    if (grads && Math.floor(mine.ypd) > Math.floor(before)) news(`${grads} academy graduate${grads > 1 ? "s were" : " was a"} first-team regular${grads > 1 ? "s" : ""} this season: the academy's reputation grows, and better players will want to join.`); }
   for (const p of Object.values(G.players)) {
     // Progression: one compact row a season [season, age, rating, club, apps, goals, assists, potential], last ten kept.
     const club = p.loanedAt && p.loanedAt.y === G.year ? `${p.loanedAt.short} (loan)` : p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA";
@@ -311,8 +311,8 @@ function buyerFor(p, belowTier) {
 }
 
 /* ---------- youth intakes ---------- */
-/* Where an intake centres: the academy's level matters most (better coaching, better boys choose it), and so does the
-   club's division (a bigger club draws better boys). Most still won't make it: a typical boy's potential sits a few
+/* Where an intake centres: the academy's level matters most (better coaching, better players choose it), and so does the
+   club's division (a bigger club draws better players). Most still won't make it: a typical player's potential sits a few
    divisions below the first team; the best in ten reaches about the club's own level, the best in a hundred well above. */
 const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2 + youthPedigree(c);
 /* Youth pedigree: some clubs have always produced players, whatever their division; a few never have. AI clubs have it
@@ -321,7 +321,7 @@ const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2 + youthPedigre
 const youthPedigree = c => c.ypd ??= isMine(c) ? 0 : R() < .12 ? Math.round(rf(4, 9) * 10) / 10 : R() < .11 ? Math.round(rf(-3, -1) * 10) / 10 : Math.round(rf(-.5, 1.5) * 10) / 10;
 const pedigreeWord = c => { const v = youthPedigree(c); return v >= 4 ? ["Renowned for developing youth", "good"] : v >= 2 ? ["A good record with youth", "good"] : v <= -1 ? ["A poor record with youth", "warn"] : null; };
 const gemMult = c => 1 + Math.max(0, youthPedigree(c)) / 5;
-// An AI club's youth scouting (its youth manager's scouting, as yours has): how well it finds boys (staff-style 0-100). Better at clubs known for youth
+// An AI club's youth scouting (its youth manager's scouting, as yours has): how well it finds players (staff-style 0-100). Better at clubs known for youth
 // and further up the pyramid; it lifts their intakes like a youth manager's scouting does yours.
 const aiYouthScout = c => c.yscout ??= clamp(Math.round(35 + normal() * 12 + youthPedigree(c) * 4 + (7 - c.tier) * 3), 10, 95);
 function intakeSpec(c) {
@@ -353,15 +353,15 @@ function youthIntake(c) {
   }
 }
 /* ---------- youth scouting ----------
-   Besides the summer intake, the youth manager brings in boys his scouts find, three times a year: late summer,
+   Besides the summer intake, the youth manager brings in players his scouts find, three times a year: late summer,
    January and a spring trial day. How many, and how good, depends on his scouting reach and eye for potential, the
-   academy budget and level, and whether he looks locally or nationally and abroad. Trialists cost nothing; boys from
+   academy budget and level, and whether he looks locally or nationally and abroad. Trialists cost nothing; players from
    other academies cost a little compensation. */
 const YOUTH_SCOUT = [["summer", 4, "Late-summer scouting"], ["season", 20, "January scouting"], ["season", 34, "Spring trial day"]];
 const YOUTH_COMP = [0, 60e3, 40e3, 25e3, 15e3, 8e3, 5e3, 3e3];
-/* Academy boys who stop improving drift away. Each summer, a boy of 16 or older who's been with you a year and gained
+/* Academy players who stop improving drift away. Each summer, a player of 16 or older who's been with you a year and gained
    less than 3 rating points may leave: likelier the less he improved, once he's 18, when his prospects look bleak and
-   with no youth manager; a good youth manager keeps more of them. A boy your staff still rate highly asks first (you can try to talk him round); the rest
+   with no youth manager; a good youth manager keeps more of them. A player your staff still rate highly asks first (you can try to talk him round); the rest
    move to another club's academy (a little compensation) or give up the game. */
 function acadDropouts(c) {
   const y = staffOf("youth"), keep = y ? staffAvg(y) / 100 * .12 + (y.at.dev - 50) / 100 * .1 : -.08, asked = [];
@@ -384,7 +384,7 @@ function youthScoutWeek() {
   const c = my(), y = staffOf("youth"), lvl = c.fac.acad.lvl; if (!y || !lvl) return;
   const r = YOUTH_SCOUT.find(([ph, w]) => G.phase === ph && G.week === w); if (!r) return;
   const sp = intakeSpec(c), bf = budgetFactor(c.budget.acad, acadRef(lvl)), wide = y.focus === "wide", trial = r[1] === 34;
-  const room = 14 + lvl * 2 - c.squad.filter(id => P(id).acad).length;  // a bigger academy holds more boys
+  const room = 14 + lvl * 2 - c.squad.filter(id => P(id).acad).length;  // a bigger academy holds more players
   const n = Math.min(room, clamp(Math.round(.5 + y.at.reach / 45 + bf * .3 + lvl * .15 + (wide ? .8 : 0) + rf(-.6, .6)), 1, 4)), got = [];
   if (n <= 0) return;
   const asks = [];
@@ -393,7 +393,7 @@ function youthScoutWeek() {
     const pot = drawPotential(sp.mean - 2 + (y.at.judge - 50) * .04 + (from === "academy" ? 1 : 0), sp.exc, gemMult(c)), age = trial ? ri(15, 16) : ri(15, 17);
     const ovr = clamp(Math.round(pot * rf(.48, .6) + (age - 15) * 2 + normal() * 3), 12, pot);
     const fee = from === "trial" ? 0 : Math.round(YOUTH_COMP[c.tier] * rf(.6, 1.4) * (from === "abroad" ? 1.5 : 1) / 500) * 500;
-    // Trialists join straight away. A boy from another academy (or abroad) costs compensation, so he waits for your say:
+    // Trialists join straight away. A player from another academy (or abroad) costs compensation, so he waits for your say:
     // until then he's nobody's (club -3).
     const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat: from === "abroad" ? pickNat("ENG") : "ENG", club: fee ? -3 : c.id, pot, acad: true, lean: LEAN[sp.phil], wage: 500 });
     p.yrs = 3;
@@ -401,8 +401,8 @@ function youthScoutWeek() {
     joinAcademy(p, c); got.push({ p, from, fee });
   }
   const where = { trial: "from a trial", academy: "from another academy", abroad: "from abroad" };
-  if (got.length) addMsg({ type: "intake", title: `${r[2]}: ${got.length} boy${got.length > 1 ? "s" : ""} join${got.length > 1 ? "" : "s"} the academy`,
-    body: got.map(({ p, from }) => `${p.name} (${p.pos}, ${p.age}) ${where[from]}, potential ${est20(potEstimate(p))}`).join("; ") + "." + (asks.length ? ` ${y.name} also wants to sign ${asks.length} boy${asks.length > 1 ? "s" : ""} who would cost compensation: see your inbox.` : ""),
+  if (got.length) addMsg({ type: "intake", title: `${r[2]}: ${got.length} player${got.length > 1 ? "s" : ""} join${got.length > 1 ? "" : "s"} the academy`,
+    body: got.map(({ p, from }) => `${p.name} (${p.pos}, ${p.age}) ${where[from]}, potential ${est20(potEstimate(p))}`).join("; ") + "." + (asks.length ? ` ${y.name} also wants to sign ${asks.length} player${asks.length > 1 ? "s" : ""} who would cost compensation: see your inbox.` : ""),
     pid: got.slice().sort((a, b) => potEstimate(b.p)[1] - potEstimate(a.p)[1])[0].p.id });
   for (const { p, from, fee } of asks)
     addChoice("ySign", `${y.name} wants to sign ${p.name} (${p.pos}, ${p.age}) ${where[from]}`, `${y.name} rates his potential ${est20(potEstimate(p))} (rating now ${r20(p.ovr)}). His ${from === "abroad" ? "club abroad" : "academy"} wants ${money(fee)} in compensation. If you don't answer within three weeks, the chance goes.`, [`Sign him (${money(fee)})`, "Pass"], { pid: p.id, fee, from }, 1);
@@ -412,10 +412,10 @@ function joinAcademy(p, c) {
   if (p.pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot: p.pot, club: c.id, y: G.year });
 }
 /* ---------- overruling the youth manager ----------
-   The youth manager judges each academy boy as at graduation: keep him if he's close to first-team level or his
+   The youth manager judges each academy player as at graduation: keep him if he's close to first-team level or his
    potential (as estimated) is clearly above the division; ready for a pro contract if close to first-team level, or 18+
    with that potential. Going against that costs trust (scaled by how she or he takes a hands-on owner), and counts as
-   stepping in: releasing a boy rated highly (4 each), promoting one not ready (2), keeping one marked to go (1), or
+   stepping in: releasing a player rated highly (4 each), promoting one not ready (2), keeping one marked to go (1), or
    turning down a signing asked for (0.5). A bulk action costs at most 10. */
 const youthRates = (p, c = my()) => p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4;
 const youthReady = (p, c = my()) => p.ovr >= TIER_LVL[c.tier] - 8 || (p.age >= 18 && potEstimate(p)[0] >= TIER_LVL[c.tier] + 4);
@@ -448,7 +448,7 @@ function freshFreeAgents(target = 130) {
   }
 }
 /* Promotion and relegation clauses: every contract at your club pays 25% more after a promotion and 25% less after a
-   relegation (loanees are paid by their own clubs; academy boys are on youth terms). Money-motivated players don't
+   relegation (loanees are paid by their own clubs; academy players are on youth terms). Money-motivated players don't
    take a cut quietly: the greedier they are, the likelier they hand in a transfer request, and the rest grumble. */
 const CLAUSE = .25;
 function wageClauses(c, up, down) {

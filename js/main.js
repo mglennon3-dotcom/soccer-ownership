@@ -22,7 +22,7 @@ function upgradeSave() {
   if (!G.foreign3) { G.foreign3 = true; const by = {}; for (const id of G.foreign || []) { const c = CL(id); (by[c.country] ||= []).push(c); }
     for (const [k, l] of Object.entries(by)) { const top = (FOREIGN[k] || [0, 85])[1]; l.sort((a, b) => b.lvl - a.lvl).forEach((c, i) => c.base = top - i * 2.2); } }
   if (!G.foreign2) { for (const id of G.foreign) CL(id).lvl = Math.max(CL(id).lvl, 72) + 1.5; G.foreign2 = true; }
-  // 0.14.2: intakes got bigger, so a career from before runs this year's intake again, once (on top of the boys it has).
+  // 0.14.2: intakes got bigger, so a career from before runs this year's intake again, once (on top of the players it has).
   // 0.14.12: loans agreed before wage shares were negotiable get one chance to be renegotiated.
   for (const id of G.loanList || []) { const p = G.players[id]; if (p && p.loan && p.loan.to === G.club && !p.loan.neg) { p.loan.neg = true; p.loan.redo = true; if (p.lt) p.lt = null; } }
   // 0.17.1: the free-agent pool had drained of younger players; top it up once.
@@ -51,7 +51,7 @@ function upgradeSave() {
   // than what's on it now (stands and extras), and work in progress is grandfathered.
   // 0.46.6: no planning stage: work already under way drops any planning weeks it had left.
   if (G.club != null) { const b = my().fac.stadium.build; if (b && b.plan) { const done = b.total - b.left; b.left = Math.max(1, b.left - Math.max(0, b.plan - done)); b.total -= b.plan; b.plan = 0; } }
-  // 0.47.3: your academy boys' potential is re-drawn once under the new intake rules (academy level, division, gems).
+  // 0.47.3: your academy players' potential is re-drawn once under the new intake rules (academy level, division, gems).
   if (!G.reroll1) { G.reroll1 = true; if (G.club != null) { const c = my(), ps = c.squad.map(P).filter(p => p && p.acad);
     if (ps.length) { const lvl = Math.max(1, c.fac.acad.lvl), y = staffOf("youth"), mean = youthBase(c, lvl) + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3);
       for (const p of ps) { p.pot = Math.max(p.ovr, drawPotential(mean, 1 + lvl * .1, gemMult(c))); p.yAcad = c.id; }

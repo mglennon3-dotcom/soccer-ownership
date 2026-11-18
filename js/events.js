@@ -45,7 +45,7 @@ DECIDE.pressAmb = (m, i) => { if (i === 0) { bumpMedia(5); moodHit(my(), 3); inv
 DECIDE.pressRival = (m, i) => { if (i === 0) { bumpMedia(4); moodHit(my(), 2); (my().rivals ||= {})[m.data.club] = ((my().rivals || {})[m.data.club] || 0) + 1; } };
 DECIDE.pressTrust = (m, i) => { if (i === 0) trustRel(8, "You promise the trust a meeting."); else { trustRel(-6); moodHit(my(), -2); } };
 
-// An academy boy who's stopped improving wants to leave: let him go, or the youth manager tries to talk him round.
+// An academy player who's stopped improving wants to leave: let him go, or the youth manager tries to talk him round.
 DECIDE.acadLeave = (m, i) => { const p = G.players[m.data.pid], c = my(); if (!p || p.club !== c.id || !p.acad) return;
   if (i === 0) { acadLeave(p, c); return; }
   const y = staffOf("youth"), ok = R() < (y ? .35 + staffAvg(y) / 200 : .25);

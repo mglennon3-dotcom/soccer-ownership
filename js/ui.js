@@ -530,7 +530,7 @@ const ageWord = a => a >= 80 ? ["historic, badly dated", "bad"] : a >= 60 ? ["ol
 function pedigreeCard(c) {
   const v = youthPedigree(c), w = pedigreeWord(c), top = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && youthPedigree(x) >= 4).sort((a, b) => youthPedigree(b) - youthPedigree(a)).slice(0, 5);
   return `<section class="card"><div class="card-h"><h2>Academy reputation</h2><span class="small ${w ? w[1] : "muted"}">${w ? w[0] : "No reputation yet"}</span></div>
-    <p class="small muted">Boys choose academies with a name for bringing players through. Yours grows each season your own graduates are first-team regulars (20+ games), and fades slowly without them. A better reputation lifts every intake and finds more gems.${v ? ` Right now it adds about ${v > 0 ? "+" : ""}${v.toFixed(1)} to each boy's potential.` : ""}</p>
+    <p class="small muted">Young players choose academies with a name for bringing players through. Yours grows each season your own graduates are first-team regulars (20+ games), and fades slowly without them. A better reputation lifts every intake and finds more gems.${v ? ` Right now it adds about ${v > 0 ? "+" : ""}${v.toFixed(1)} to each player's potential.` : ""}</p>
     ${top.length ? `<p class="small" style="margin-top:8px">Clubs renowned for youth: ${top.map(x => `<button class="lnk" data-act="club" data-id="${x.id}">${esc(x.name)}</button> <span class="muted">(${TIER_NAME[x.tier]})</span>`).join(", ")}.</p>` : ""}</section>`;
 }
 function groundHistory(c) {
