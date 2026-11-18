@@ -38,7 +38,7 @@ function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = fals
 
 /* ---------- start screen ---------- */
 function renderStart(saves) {
-  $("#app").innerHTML = `<div class="wrap gut"><div class="hero"><p class="eyebrow">The Owner's Box</p><h1>Build a club <span>from nothing</span></h1>
+  $("#app").innerHTML = `<div class="wrap gut"><div class="hero"><p class="eyebrow">The Owner's Box <span style="opacity:.7">· version ${VERSION}</span></p><h1>Build a club <span>from nothing</span></h1>
     <p>You own a brand-new football club at the bottom of the pyramid. Hire the people who run it, set the prices and budgets, find sponsors,
     build a ground, and grow it — season by season — toward the Premier Division. You don't pick the team. You pick who picks the team.</p></div>
     ${saves.length ? `<section class="card" style="margin-bottom:16px"><div class="card-h"><h2>Continue</h2></div><div class="stack">${saves.map(s => `<div class="row between"><div><b>${esc(s.name)}</b> <span class="muted small">${esc(s.info)}</span></div><div class="row"><button class="btn primary" data-act="load" data-id="${s.id}">Continue</button><button class="btn sm danger" data-act="delsave" data-id="${s.id}">Delete</button></div></div>`).join("")}</div></section>` : ""}
@@ -57,7 +57,7 @@ function renderStart(saves) {
     <div class="pick-cards" id="f-wealth">${Object.entries(WEALTH).map(([k, w], i) => `<button class="pick-card" data-v="${k}" aria-pressed="${i === 1}"><b>${w.l}</b><span class="num">${money(w.amt)}</span><small>${w.d}</small></button>`).join("")}</div>
     ${visionCard(START_V, true)}
     <div class="row" style="margin-top:18px"><button class="btn primary" data-act="found">Found the club</button><span class="muted small">Building the leagues takes a few seconds.</span></div>
-    </section><p class="muted small" style="margin:18px 0">Version ${VERSION}. All clubs, players and staff are fictional.</p></div>`;
+    </section><p class="muted small" style="margin:18px 0">All clubs, players and staff are fictional.</p></div>`;
 }
 
 /* ---------- masthead ---------- */
