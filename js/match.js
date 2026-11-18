@@ -23,9 +23,11 @@ function pickXI(c) {
   const youngFav = p => p.age <= 21 ? (r20(p.pot) - r20(p.ovr) >= 4 ? 16 : 6) : 0;
   // A club that borrows a player agreed to give him games: yours start in their own position nearly every week.
   const lent = isMine(c) ? () => 0 : (p, s) => p.loan && p.loan.to === c.id ? (p.loan.from === G.club ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 200) : 0) : p.pos === s ? 4 : 0) : 0;
+  // Tired players get rested: below 85% sharpness a player starts losing his place to a fresh deputy.
+  const tired = p => Math.max(0, 88 - (p.fit ?? 100)) * .3;
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) - tired(p) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
@@ -102,9 +104,34 @@ function playMatch(h, a, neutral, fr) {
     if (R() < .7) { as = scorer(xi.filter(o => o.p !== g), "a"); if (as && !fr) as.s.a++; }
     ev.push({ m: ri(1, 90), side, g: g.name, a: as ? as.name : null });
   }
-  for (const xi of [xh, xa]) for (const { p } of xi) { if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; p.s.app++; injuryCheck(p, pq); }
+  /* Substitutions: up to three (five in a friendly). The most tired outfield starters come off, each replaced by a
+     bench player from the same part of the pitch; the manager spreads the minutes, favouring those who've played least. */
+  const subsFor = (c, xi) => {
+    const n = fr ? 5 : xi.length >= 11 ? 3 : 0; if (!n) return { off: new Set(), on: [] };
+    const used = new Set(xi.map(o => o.p.id)), bench = c.squad.map(P).filter(p => avail(p) && !used.has(p.id) && p.pos !== "GK" && (!p.acad || p.age >= 17) && (!isMine(c) || isReg(p, c)) && !(p.loan && p.loan.from === c.id));
+    const off = new Set(), on = [];
+    for (const o of xi.filter(o => o.slot !== "GK").sort((a, b) => (a.p.fit ?? 100) - (b.p.fit ?? 100))) {
+      if (on.length >= n) break;
+      const pick = bench.filter(q => !on.includes(q) && POS_LINE[q.pos] === POS_LINE[o.slot]).sort((a, b) => (b.ovr - b.s.app * .5) - (a.ovr - a.s.app * .5))[0]
+        || bench.filter(q => !on.includes(q)).sort((a, b) => (b.ovr - b.s.app * .5) - (a.ovr - a.s.app * .5))[0];
+      if (!pick) break; off.add(o.p.id); on.push(pick);
+    }
+    return { off, on };
+  };
+  for (const [c, xi] of [[H, xh], [A, xa]]) {
+    const { off, on: subs } = subsFor(c, xi);
+    for (const { p } of xi) { tire(p, off.has(p.id) ? .7 : 1, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; p.s.app++; injuryCheck(p, pq); }
+    for (const p of subs) { tire(p, .35, fr); if (fr) continue; if (!p.tot[0] && !p.s.app) p.debut = G.year; p.s.app++; p.s.sub = (p.s.sub || 0) + 1; if (R() < .4) injuryCheck(p, pq); }
+  }
   ev.sort((x, y) => x.m - y.m);
   return { h, a, hg, ag, ev, fit: [fh, fa], xg: [r1(lh), r1(la)] };
+}
+/* Sharpness (fitness, 0-100): a full game costs 6-16 points (less with stamina), a friendly half that; it comes back
+   each week, faster with better training. Managers rest players who drop below about 85. */
+function tire(p, part, fr) { p.fit = clamp((p.fit ?? 100) - (16 - (p.at.sta || 50) / 10) * part * (fr ? .5 : 1) * (p.pos === "GK" ? .3 : 1), 30, 100); }
+function recoverWeek() {
+  for (const c of G.clubs) { if (c.gone && !c.abroad) continue; const back = 7.5 + (isMine(c) ? c.fac.train.lvl : c.train || 3) * .4;
+    for (const id of c.squad) { const p = P(id); if (p && p.fit != null && p.fit < 100) p.fit = Math.min(100, p.fit + back); } }
 }
 function injuryCheck(p, pq) {
   const c = CL(p.club), tl = isMine(c) ? c.fac.train.lvl : c.train, surf = pq != null && pq < 60 ? 1 + (60 - pq) / 50 : 1;

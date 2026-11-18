@@ -82,7 +82,7 @@ function foreignDomestic(w) {
   if (REST20.has(w)) return;
   for (const id of G.foreign || []) {
     const c = CL(id), xi = pickXI(c); c.gp = (c.gp || 0) + 1;
-    for (const { p } of xi) { p.s.app++; injuryCheck(p, null); }
+    for (const { p } of xi) { p.s.app++; tire(p, 1); injuryCheck(p, null); }
     for (let i = poisson(1.45); i > 0; i--) { const g = scorer(xi, "g"); if (!g) break; g.s.g++; if (R() < .7) { const a = scorer(xi.filter(o => o.p !== g), "a"); if (a) a.s.a++; } }
   }
 }

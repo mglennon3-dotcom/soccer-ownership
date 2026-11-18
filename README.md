@@ -93,6 +93,11 @@ Running locally: any static server works, for example `python3 -m http.server 80
   in five won't lend at all. The Finances overview lists every loan's wage share and what you pay; the wage bill everywhere (budgets,
   your head of recruitment's limits) counts only your share. Lending is about ability, not club size: any club, even a Premier Division one, will lend a player to a club in
   the division that suits his rating or one below it, but not further down.
+- **Rotation and substitutes.** Players tire with every game (less with good stamina, a keeper hardly at all) and
+  recover each week (faster with better training). Below about 88% sharpness the manager starts resting a player for a
+  fresh deputy. Every match has up to three substitutes (five in a friendly): the most tired starters come off for a
+  bench player in the same part of the pitch, the manager spreading the minutes among those who've played least. The
+  Squad page shows appearances with sub appearances in brackets, and each player's fitness.
 - **Squad registration.** Hold as many players as you like, but only 25 registered seniors can play; under-21s and
   academy players don't need registering. Tick or untick players in the Squad page's Reg. column while a transfer
   window is open. New signings are registered if there's room, and your manager fills any empty places when a window
