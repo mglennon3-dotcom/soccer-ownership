@@ -306,15 +306,19 @@ function buyerFor(p, belowTier) {
 }
 
 /* ---------- youth intakes ---------- */
+/* Where an intake centres: the academy's level matters most (better coaching, better boys choose it), and so does the
+   club's division (a bigger club draws better boys). Most still won't make it: a typical boy's potential sits a few
+   divisions below the first team; the best in ten reaches about the club's own level, the best in a hundred well above. */
+const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2;
 function intakeSpec(c) {
   if (isMine(c)) {
     const lvl = c.fac.acad.lvl; if (!lvl) return null;
     const y = staffOf("youth"), bf = budgetFactor(c.budget.acad, acadRef(lvl)), wide = y && y.focus === "wide";
     return { n: Math.max(3, Math.round(2 + lvl * .45 + (y ? y.at.reach / 40 : 0) + bf * .4 + (wide ? 1 : 0))),
-      mean: 37 + vpt("youth") * .4 + lvl * 1.3 + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3) + bf + (wide ? 1.5 : 0),
+      mean: youthBase(c, lvl) + vpt("youth") * .4 + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3) + bf + (wide ? 1.5 : 0),
       exc: 1 + lvl * .1 + (wide ? .5 : 0), phil: y ? y.phil : "balanced", wide };
   }
-  return { n: Math.round(2 + c.acadLvl * .3 + R()), mean: 37 + c.acadLvl * 1.3, exc: 1 + c.acadLvl * .1, phil: "balanced", wide: c.tier <= 2 };
+  return { n: Math.round(2 + c.acadLvl * .3 + R()), mean: youthBase(c, c.acadLvl), exc: 1 + c.acadLvl * .1, phil: "balanced", wide: c.tier <= 2 };
 }
 const LEAN = { technical: { pas: 5, tec: 6, vis: 5, dri: 3, str: -4, pac: -2 }, physical: { pac: 5, str: 6, sta: 5, hea: 3, tec: -4, vis: -3 }, balanced: null };
 function youthIntake(c) {
