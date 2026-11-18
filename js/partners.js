@@ -27,14 +27,14 @@ const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
 /* Borrowing: you name the share of his wages you'll pay. Each club has a figure in mind for this window (lower for your
    partner club and for youngsters who need games, higher abroad); offer at least that and he comes. Below it they
    tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
-function loanTerms(p, from = CL(p.club)) {
+function playerLoanTerms(p, from = CL(p.club)) {
   const w = windowId(); if (p.lt && p.lt.w === w) return p.lt;
   const partner = isPartner(from.id);
   const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
   return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, 1), tries: 0, no: R() < (partner ? .05 : .2) };
 }
 function askLoan(p, share) {
-  const from = CL(p.club), T = loanTerms(p);
+  const from = CL(p.club), T = playerLoanTerms(p);
   if (!lendsTo(p)) return { ok: false, t: `${from.name} won't send ${p.name} that far down: he's a ${TIER_NAME[naturalTier(p)]} player and they want him playing at that level.` };
   if (T.no) return { ok: false, t: `${from.name} want to keep ${p.name}: he isn't available on loan.` };
   if (share >= T.min) { loanIn(p, from, share); return { ok: true, t: `${from.name} agree: ${p.name} joins on loan until the end of the season. You pay ${Math.round(share * 100)}% of his wages (${pw(p.wage * share)}).` }; }
@@ -44,7 +44,7 @@ function askLoan(p, share) {
 /* A loan agreed before shares could be negotiated was fixed at half his wages: you get one chance to renegotiate it,
    on the same terms as a new loan (offer at least what his club has in mind; three tries). */
 function redoLoan(p, share) {
-  const from = CL(p.loan.from), T = loanTerms(p, from), was = p.loan.share;
+  const from = CL(p.loan.from), T = playerLoanTerms(p, from), was = p.loan.share;
   if (share >= T.min) { p.loan.share = share; p.loan.redo = false; return { ok: true, t: `${from.name} agree: you now pay ${Math.round(share * 100)}% of ${p.name}'s wages (${pw(p.wage * share)}), down from ${Math.round(was * 100)}%.` }; }
   if (++T.tries >= 3) { p.loan.redo = false; return { ok: false, t: `${from.name} won't discuss it any more: you keep paying ${Math.round(was * 100)}% of his wages.` }; }
   return { ok: false, t: `${from.name} say no: they want you to pay at least ${Math.round(T.min * 100)}% (${pw(p.wage * T.min)}). ${3 - T.tries} more ${3 - T.tries === 1 ? "try" : "tries"}.` };
@@ -110,7 +110,7 @@ function partnerWindow() {
     const xi = new Set(pickXI(x).map(o => o.p.id));
     const cands = x.squad.map(P).filter(p => !p.acad && !p.loan && p.age <= 23 && p.ovr >= myXI - 2 && lendsTo(p, c) && !xi.has(p.id)).sort((a, b) => b.pot - a.pot).slice(0, 2);
     for (const p of cands) if (!G.inbox.some(m => m.key === "pLoan" && !m.done && m.data.pid === p.id)) {
-      const share = Math.max(0, Math.min(.5, loanTerms(p, x).min));
+      const share = Math.max(0, Math.min(.5, playerLoanTerms(p, x).min));
       addChoice("pLoan", `${clubLabel(x)} offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. You'd pay ${Math.round(share * 100)}% of his ${pw(p.wage)} wage (${pw(p.wage * share)}).`, ["Take him", "No thanks"], { pid: p.id, from: x.id, share }, 1);
     }
   }

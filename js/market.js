@@ -337,7 +337,7 @@ function suggView(p, c = my(), loan = false) {
     if (!loanable(p)) return { ok: false, w: "Not a loan: clubs only lend players 23 or under." };
     if (!lendsTo(p, c)) return { ok: false, w: `${CL(p.club).name} won't lend him this far down: he's a ${TIER_NAME[naturalTier(p)]} player and they want him playing at that level.` };
     if (inTheirXI(p)) return { ok: false, w: "He's in their first team: they won't lend him." };
-    if (windowOpen() && loanTerms(p).no) return { ok: false, w: `${CL(p.club).name} won't lend him this window.` };
+    if (windowOpen() && playerLoanTerms(p).no) return { ok: false, w: `${CL(p.club).name} won't lend him this window.` };
   } else {
     if (p.age > 34) return { ok: false, w: "Too old to sign: he'd be gone within a season." };
     if (!willJoin(p, c)) return { ok: false, w: "He wouldn't come here: he's too good for our level." };
@@ -355,7 +355,7 @@ function suggView(p, c = my(), loan = false) {
     // He pays what the lending club has in mind, less a little if he's a good negotiator; outside a window he can only guess.
     const room = c.budget.wages - wageBill(c);
     if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
-    const T = loanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
+    const T = playerLoanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
     if (p.wage * share > room) return { ok: false, money: true, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
     return { ok: true, loan: true, share, w: `${what} on loan. ${share < T.min ? `They want us to pay ${Math.round(T.min * 100)}% of his wages; I can talk them down to ${Math.round(share * 100)}%` : `They want us to pay ${Math.round(share * 100)}% of his wages`} (${pw(p.wage * share)}). I'll borrow him this week.` };
   }
