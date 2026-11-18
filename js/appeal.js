@@ -3,11 +3,11 @@
    offer can make up for a weak spot, but not for everything: some people won't come at any price. */
 "use strict";
 
-const P_FACTORS = [["money", "Wages"], ["time", "Playing time"], ["form", "Formation fit"], ["prest", "Club prestige"], ["fac", "Training facilities"], ["home", "Close to home"], ["proj", "The project"]];
+const P_FACTORS = [["money", "Wages"], ["time", "Playing time"], ["form", "Fits the manager's system"], ["prest", "Club prestige"], ["fac", "Training facilities"], ["home", "Close to home"], ["proj", "The project"]];
 const S_FACTORS = [["money", "Salary"], ["prest", "Club prestige"], ["fac", "Facilities"], ["budget", "Budgets"], ["squad", "The squad"], ["proj", "Owner's ambition"], ["auto", "Freedom to work"], ["vision", "Shared vision"]];
 const FACTOR_HELP = {
   money: "The wage on offer against what he's after.", time: "Whether he'd start: the players ahead of him at his position.",
-  form: "How many places the manager's formation has for his position.", prest: "The club's standing against what he's used to.",
+  form: "How many places the manager's formation has for his position, and whether his style of play suits him.", prest: "The club's standing against what he's used to.",
   fac: "The training ground (managers and players), the academy (youth managers) or the scouting budget (recruitment).",
   home: "Whether the club is in his part of the country. Players from abroad mind less if they're open to moving.",
   proj: "Your fortune, and whether the club is on the way up.", budget: "The budget he'd work with against what's normal in the division.",
@@ -67,7 +67,8 @@ function playerFactors(p, c) {
   const expFac = clamp(Math.round((p.ovr - 40) / 5), 0, 10), tl = c.fac.train.lvl;
   return {
     time: ahead < Math.max(1, slots) ? 1 : ahead < slots + 1 ? .55 : ahead < slots + 2 ? .25 : .05,
-    form: slots >= 2 ? 1 : slots === 1 ? .65 : .1,
+    // The manager's system: places for his position, and whether the style suits his game (for your club, your manager's).
+    form: clamp((slots >= 2 ? 1 : slots === 1 ? .65 : .1) + (isMine(c) ? systemFit(p).style * .25 : 0), 0, 1),
     prest: clamp(.5 + (c.rep - refRep) / 25, 0, 1),
     fac: clamp(.5 + (tl - expFac) / 6, 0, 1),
     home: p.nat === "ENG" ? (homeOf(p) === c.region ? 1 : half === c.half ? .7 : .35) : .3 + prefsOf(p, P_FACTORS).open * .5,

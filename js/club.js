@@ -90,16 +90,43 @@ function fanTarget(c) { return FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood
 function fansWeek(c) {
   const t = fanTarget(c);
   const fam = familyOn(c) ? 1.3 : 1;  // a family stand brings the next generation in
-  c.fans = Math.max(50, Math.round(c.fans + (t * (fam > 1 ? 1.04 : 1) - c.fans) * (t > c.fans ? .012 * fam : .004)));
+  const up = (1 + fanShare(c, "fair")) * fam, dn = (1 - fanShare(c, "loyal") * .7) * (1 + fanShare(c, "fair") * .8);  // fair-weather swing, loyal stay
+  c.fans = Math.max(50, Math.round(c.fans + (t * (fam > 1 ? 1.04 : 1) - c.fans) * (t > c.fans ? .012 * up : .004 * dn)));
 }
-function moodHit(c, d) { c.mood = clamp(c.mood + d, 0, 100); }
+/* ---------- supporter culture ----------
+   Your support is a mix of four kinds (shares add to 100), and it shifts with how the club is run:
+   - Hardcore: loud and partisan. A bigger home advantage. Grows with terraces and long, honest seasons.
+   - Loyal: stick with you. Bad results hurt the mood less, and the support shrinks more slowly.
+   - Fair-weather: come for success. Mood and numbers swing harder both ways. Grows with promotions and titles.
+   - Community: local families. Notice prices more; cheap tickets and a family stand win them over. */
+const FAN_KINDS = { hard: ["Hardcore", "Loud and partisan: a bigger home advantage."], loyal: ["Loyal", "Stand by the club: bad results hurt less, and they don't drift away."],
+  fair: ["Fair-weather", "Come for success: mood and numbers swing harder both ways."], comm: ["Community", "Local families: they want fair prices, and reward cheap tickets and a family stand."] };
+const fanMix = c => c.fanMix ||= { hard: 20, loyal: 25, fair: 20, comm: 35 };
+const fanShare = (c, k) => isMine(c) ? fanMix(c)[k] / 100 : .25;
+function moodHit(c, d) {
+  if (isMine(c)) d *= d < 0 ? (1 - fanShare(c, "loyal") * .8) * (1 + fanShare(c, "fair") * .8) : 1 + fanShare(c, "fair") * .5;
+  c.mood = clamp(c.mood + d, 0, 100);
+}
+// Each summer the mix shifts a little with the season and the way the club is run.
+function fanCultureSummer(c, up, down) {
+  const m = fanMix(c), S = c.fac.stadium, r = c.prices.ticket / REF_TICKET[c.tier], old = { ...m };
+  if (up) m.fair += 4; if (down) { m.fair -= 4; m.loyal += 2; }
+  if (!up && !down) m.loyal += 1;
+  if (c.mood >= 65) m.loyal += 1; if (c.mood < 35) m.fair -= 1;
+  if (typeof terraceShare === "function" && S.own && standShare(c, x => x.type === "terrace") > .25) m.hard += 2;
+  if (typeof familyOn === "function" && familyOn(c)) m.comm += 2;
+  if (r < .9) m.comm += 2; else if (r > 1.2) { m.comm -= 2; m.fair += 1; }
+  const t = sum(Object.values(m), x => Math.max(5, x)); for (const k in m) m[k] = Math.round(Math.max(5, m[k]) / t * 100);
+  const big = Object.keys(m).sort((a, b) => (m[b] - old[b]) - (m[a] - old[a]))[0];
+  if (m[big] - old[big] >= 2) news(`Your support is changing: more ${FAN_KINDS[big][0].toLowerCase()} supporters this year (${m[big]}% now).`);
+}
 const moodWord = m => m >= 75 ? ["Buoyant", "good"] : m >= 58 ? ["Happy", "good"] : m >= 42 ? ["Steady", ""] : m >= 28 ? ["Restless", "warn"] : ["Angry", "bad"];
 
 /* Attendance: regulars (the fanbase, turning out by mood) plus casual fans, both put off by expensive tickets,
    capped by the ground. A big or local opponent brings more. */
 function priceFactor(price, ref, el = 1.3) { return clamp(Math.pow(ref / Math.max(.5, price), el), 0, 1.35); }
 function crowdFor(c, opp, price = c.prices.ticket) {
-  const pf = priceFactor(price * (G.sTrust && G.sTrust.u18 ? .93 : 1), REF_TICKET[c.tier]);
+  const pf = priceFactor(price * (G.sTrust && G.sTrust.u18 ? .93 : 1), REF_TICKET[c.tier], 1.3 + fanShare(c, "comm") * .8);  // families notice prices
   const turn = clamp(.5 + c.mood / 250 + terraceShare(c) * .05, .35, .95) * pf;
   const draw = opp ? clamp(.85 + (opp.rep - c.rep) / 60 + (opp.half === c.half ? .05 : 0), .8, 1.6) : 1;
   const away = opp ? Math.round(Math.min(opp.fans * .06, 1500 * (8 - c.tier))) : 0;
@@ -226,7 +253,7 @@ function homeGameMoney(c, opp, league) {
   // Home games on their own, for the per-game view (the season's gate total also holds away shares and friendly fees).
   const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.hold = (H.hold || 0) + hold; H.stg = (H.stg || 0) + (league && stHolders(c) ? c.st.n * c.st.price / homeGames(c) : 0); H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
   // Prices supporters think unfair cost goodwill; cheap tickets earn a little.
-  const r = c.prices.ticket / REF_TICKET[c.tier]; if (r > 1.25) moodHit(c, -(r - 1.25) * 3); else if (r < .8) moodHit(c, .3);
+  const r = c.prices.ticket / REF_TICKET[c.tier], cm = 1 + fanShare(c, "comm") * 1.5; if (r > 1.25) moodHit(c, -(r - 1.25) * 3 * cm); else if (r < .8) moodHit(c, .3 * cm);
   c.att = c.att || []; c.att.push(crowd);
   return crowd;
 }

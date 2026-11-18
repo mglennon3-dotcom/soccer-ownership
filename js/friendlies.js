@@ -104,6 +104,15 @@ function payReviews() {
   for (const p of c.squad.map(P)) {
     if (n >= 2) break;
     if (p.acad || p.loan || p.age > 35 || p.payY === G.year || G.inbox.some(m => m.key === "raise" && !m.done && m.data.pid === p.id)) continue;
+    const form = Math.max(0, seasonForm(p)), star = form >= .9 && p.s.app >= 10;
+    // A breakout season: he wants paying like the player he's become, and he'll threaten to go if you won't.
+    if (star && p.dealY !== G.year && p.wage < demandWage(p, c) * (1.2 + form * .2) && R() < .5) {
+      const ask = Math.round(demandWage(p, c) * (1.2 + form * .2) / 100) * 100, half = Math.round((p.wage + ask) / 2 / 100) * 100;
+      p.payY = G.year; n++;
+      addChoice("raise", `${p.name} wants a new deal after ${formWord(form) || "a great season"}`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}: ${p.s.g} goals and ${p.s.a} assists in ${p.s.app} games. He earns ${pw(p.wage)} and wants ${pw(ask)}. His agent says he'll hand in a transfer request if he doesn't get it.`,
+        [`Give him ${pw(ask)}`, `Offer ${pw(half)}`, "Refuse"], { pid: p.id, worth: ask, half, threat: true }, 0);
+      continue;
+    }
     const worth = Math.round(demandWage(p, c) / 100) * 100; if (p.wage >= worth * .8 || R() > .35) continue;
     p.payY = G.year; n++;
     const half = Math.round((p.wage + worth) / 2 / 100) * 100, room = c.budget.wages - wageBill(c) >= worth - p.wage;
@@ -113,8 +122,13 @@ function payReviews() {
 }
 DECIDE.raise = (m, i) => {
   const p = G.players[m.data.pid]; if (!p || p.club !== G.club) return;
-  if (i === 0) { p.wage = Math.max(p.wage, m.data.worth); p.unsettled = 0; p.payGrudge = 0; news(`${p.name} gets his pay rise: ${pw(p.wage)}.`); }
-  else if (i === 1) { p.wage = Math.max(p.wage, m.data.half); news(`${p.name} accepts ${pw(p.wage)}, though he wanted more.`); }
+  if (i === 0) { p.wage = Math.max(p.wage, m.data.worth); p.unsettled = 0; p.payGrudge = 0; if (m.data.threat) { p.dealY = G.year; p.yrs = Math.max(p.yrs, 3); } news(`${p.name} gets his pay rise: ${pw(p.wage)}.`); }
+  else if (i === 1 && !(m.data.threat && R() < .4)) { p.wage = Math.max(p.wage, m.data.half); if (m.data.threat) p.dealY = G.year; news(`${p.name} accepts ${pw(p.wage)}, though he wanted more.`); }
+  else if (m.data.threat) {
+    // He carries out the threat (a half-hearted offer can do it too).
+    p.req = G.year; p.list = true; p.unsettled = Math.max(p.unsettled || 0, 10); p.payGrudge = (p.payGrudge || 0) + 1;
+    news(`${p.name} hands in a transfer request after ${i === 1 ? "your offer fell short" : "his demands were turned down"}. He's on the transfer list.`, true);
+  }
   else { p.unsettled = Math.max(p.unsettled || 0, 6); p.payGrudge = (p.payGrudge || 0) + 1; news(`${p.name}'s request for a pay rise is turned down. He's unsettled.`, true); }
 };
 function requestsCheck() {

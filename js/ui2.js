@@ -435,3 +435,12 @@ function prestigeCard() {
       ${nextTier ? `<dt>Next: ${esc(nextTier[1])}</dt><dd>${nextTier[0]}</dd>` : ""}</dl>
     <details style="margin-top:6px"><summary class="small">What moves it</summary><p class="small muted" style="margin-top:4px">Prestige drifts each summer toward your division's standing, plus up to four for finishing near the top (or minus for near the bottom). Promotion lifts the standing it drifts toward; European football adds a point, a European trophy four. It decides who'll join you, what sponsors pay, how fast your support grows and how many come through the gate.</p></details></section>`;
 }
+
+/* Your supporters: the mix of kinds, what each does, and what shifts it. */
+function supportersCard(c) {
+  const m = fanMix(c), top = Object.keys(m).sort((a, b) => m[b] - m[a])[0], col = { hard: "var(--loss)", loyal: "var(--win)", fair: "var(--accent)", comm: "#5b8def" };
+  return `<section class="card"><div class="card-h"><h3>Your supporters</h3><span class="small muted">${c.fans.toLocaleString("en-GB")} · ${word(moodWord(c.mood))}</span></div>
+    <div class="fanbar">${Object.keys(FAN_KINDS).map(k => `<i style="width:${m[k]}%;background:${col[k]}" title="${FAN_KINDS[k][0]} ${m[k]}%"></i>`).join("")}</div>
+    ${Object.entries(FAN_KINDS).map(([k, [l, d]]) => `<div class="row between small" style="padding:3px 0;gap:8px;flex-wrap:nowrap"><span><span class="dot" style="background:${col[k]}"></span> <b>${l}</b> <span class="muted">${d}</span></span><b class="num">${m[k]}%</b></div>`).join("")}
+    <details style="margin-top:6px"><summary class="small">Mostly ${FAN_KINDS[top][0].toLowerCase()}. What shifts it</summary><p class="small muted" style="margin-top:4px">The mix shifts each summer: promotions bring fair-weather fans (relegation sends them away and leaves the loyal), steady seasons and a happy crowd build loyalty, terraces build a hardcore, and cheap tickets and a family stand bring in the community.</p></details></section>`;
+}

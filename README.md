@@ -103,6 +103,13 @@ Running locally: any static server works, for example `python3 -m http.server 80
   third over the going rate; home birds take up to a fifth less to play in their own region. A player with no place in
   the manager's formation, or a style that doesn't suit him, is unhappy (more so if he cares about playing), may hand in
   a transfer request, and may turn down a new contract.
+- **Your supporters.** The Office shows the mix of your support: hardcore (a bigger home advantage), loyal (bad
+  results hurt less, and they stay), fair-weather (mood and numbers swing harder both ways) and community (they notice
+  prices, and reward cheap tickets and a family stand). It shifts each summer with promotions, relegations, steady
+  seasons, terraces, prices and a family stand.
+- **Breakout seasons.** A player coming off a very good season wants paying like it, well above the going rate, and
+  threatens a transfer request: pay him, offer less (he may still go), or refuse and he's on the list. Whether the
+  manager's system suits him also counts when a player decides whether to join you.
 - **Fair wages.** Contracts are renewed at the going rate for a player's rating. A player paid under 80% of his worth
   may ask for a pay rise: give it, meet him halfway, or refuse (he's unsettled, and it counts toward a transfer
   request). AI clubs' wages drift toward the going rate each summer, so comparisons are fair.
