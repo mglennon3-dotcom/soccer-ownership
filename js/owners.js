@@ -71,7 +71,7 @@ function aiMoveCheck(c) {
   if (st !== "fanowned") c.own.wealth = Math.round(c.own.wealth - Math.max(0, cost) * (1 - share));
   c.debt = Math.round((c.debt || 0) + Math.max(0, cost) * share);
   // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
-  c.build = { cap, site, km, open: G.year + (cap > 20000 ? 2 : 1) };
+  c.build = { cap, site, km, open: G.year + Math.max(1, Math.round((groundWeeks(cap) + planWeeks(cap)) / 54)) };
   if (nearMe(c)) news(`${c.name} start building a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}, to open in ${c.build.open}.${squeeze(c) < .95 ? " They'll be spending less on the team while it goes up." : ""}`, c.lg === my().lg);
 }
 const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c);

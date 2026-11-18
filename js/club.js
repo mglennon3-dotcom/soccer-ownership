@@ -51,9 +51,14 @@ const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, 
 const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
 const perSeat = cap => 650 + cap * .055;
+/* How long building takes, like real life: construction grows with size (about a year for a small ground, nearly four
+   for a 60,000 one), after planning and approvals (about six months for a small ground, over a year for a big one).
+   A season is 54 weeks. */
+const groundWeeks = cap => Math.round(45 + cap / 400);
+const planWeeks = cap => Math.round(16 + cap / 1500);
 const BUILD_SIZES = [1500, 3000, 6000, 12000, 25000, 45000, 65000];
-function newStadiumQuote(cap) { return { cap, cost: Math.round((1.5e6 + cap * perSeat(cap)) / 1e4) * 1e4, weeks: Math.round(26 + cap / 700) }; }
-function expandQuote(c, add) { const cur = c.fac.stadium.cap, to = cur + add; return { add, cost: Math.round(add * perSeat(to) * 1.1 / 1e4) * 1e4, weeks: Math.round(14 + add / 600) }; }
+function newStadiumQuote(cap) { return { cap, cost: Math.round((1.5e6 + cap * perSeat(cap)) / 1e4) * 1e4, weeks: groundWeeks(cap), plan: planWeeks(cap) }; }
+function expandQuote(c, add) { const cur = c.fac.stadium.cap, to = cur + add; return { add, cost: Math.round(add * perSeat(to) * 1.1 / 1e4) * 1e4, weeks: Math.round(20 + add / 300) }; }
 function amenQuote(c) { const l = c.fac.stadium.amen; return l >= 5 ? null : { lvl: l + 1, cost: Math.round(c.fac.stadium.cap * 90 * l * Math.pow(1.6, l) / 1e4) * 1e4 + 50000, weeks: 10 + l * 4 }; }
 /* Old grounds cost more to keep up: each stand's upkeep rises after 20 years, about doubling by 100 (repairs, safety
    work, worn concrete and roofs). Rebuilding a stand resets it. */
@@ -79,6 +84,7 @@ function startBuild(kind, q) {
 }
 function buildWeek(c) {
   const S = c.fac.stadium;
+  if (S.build && S.build.type === "reground" && !S.rebuilding && S.build.total - S.build.left >= (S.build.plan || 0)) { S.rebuilding = true; S.away = S.build.host ?? tempHost(c); c.cap = capacity(c); news(`Planning is approved and ${S.name} closes for rebuilding. Home games move to ${HOSTS[S.away].name}.`, true); }
   if (S.build && --S.build.left <= 0) {
     const b = S.build; S.build = null;
     if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
@@ -455,11 +461,11 @@ const corpLet = c => Math.min(corpSeats(c), Math.floor(suiteDemand(c) * 15));
 function groundQuote(d) {
   const st = Object.values(d.stands), tot = sum(st, x => x.cap || 0);
   const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * 1800 + (d.family ? 25000 : 0);
-  return { cap: tot, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, weeks: Math.round(26 + tot / 700), space: tot + designSpace(d, tot), vent: (d.vent || []).slice() };
+  return { cap: tot, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, weeks: groundWeeks(tot) + planWeeks(tot), plan: planWeeks(tot), space: tot + designSpace(d, tot), vent: (d.vent || []).slice() };
 }
 function standQuote(c, side, add) {
   const x = standsOf(c.fac.stadium)[side], to = c.fac.stadium.cap + add;
-  return { side, add, cost: Math.round(add * perSeat(to) * TYPE_F[x.type] * roofF(x.roof) * 1.1 / 1e4) * 1e4, weeks: Math.round(14 + add / 600) };
+  return { side, add, cost: Math.round(add * perSeat(to) * TYPE_F[x.type] * roofF(x.roof) * 1.1 / 1e4) * 1e4, weeks: Math.round(20 + add / 300) };
 }
 /* The site: how big a ground the land will take (access, neighbours, planning), set when the ground is first built
    with room to grow, never more than 90,000. Extensions and rebuilds have to fit on it. */
@@ -531,13 +537,13 @@ function moveIn(c, b) {
 // Demolish a stand and build a new one in its place: clearing the old one, then the new stand at the going rate.
 function rebuildQuote(c, side, cap, type, roof) {
   const S = c.fac.stadium, x = standsOf(S)[side], to = S.cap - x.cap + cap, demo = 20000 + x.cap * 40;
-  return { side, cap, to: type, roof, demo: Math.round(demo / 1e3) * 1e3, cost: Math.round((demo + cap * perSeat(to) * TYPE_F[type] * roofF(roof) * 1.15) / 1e4) * 1e4, weeks: Math.round(16 + cap / 500) };
+  return { side, cap, to: type, roof, demo: Math.round(demo / 1e3) * 1e3, cost: Math.round((demo + cap * perSeat(to) * TYPE_F[type] * roofF(roof) * 1.15) / 1e4) * 1e4, weeks: Math.round(26 + cap / 300) };
 }
 // Knock the whole ground down and build a new one on the site; the club plays at a rented ground meanwhile.
 function regroundQuote(c, d) { const q = groundQuote(d), demo = 100000 + c.fac.stadium.cap * 30; return { ...q, demo: Math.round(demo / 1e4) * 1e4, cost: Math.round((q.cost + demo) / 1e4) * 1e4, weeks: q.weeks + 6 }; }
 // Where you'd play meanwhile: the smallest rented ground that holds most of your crowd.
 const tempHost = c => { const need = Math.min(c.fac.stadium.cap * .6, 30000); const i = HOSTS.findIndex(h => h.cap >= need); return i < 0 ? HOSTS.length - 1 : i; };
-const roofQuote = (c, side) => { const n = standsOf(c.fac.stadium)[side].cap; return { side, cost: Math.round((50000 + n * 260) / 1e4) * 1e4, weeks: Math.round(8 + n / 2000) }; };
+const roofQuote = (c, side) => { const n = standsOf(c.fac.stadium)[side].cap; return { side, cost: Math.round((50000 + n * 260) / 1e4) * 1e4, weeks: Math.round(12 + n / 1500) }; };
 const convertQuote = (c, side) => { const x = standsOf(c.fac.stadium)[side], to = x.type === "terrace" ? "seat" : "terrace"; return { side, to, cost: Math.round((40000 + x.cap * (to === "seat" ? 320 : 120)) / 1e4) * 1e4, weeks: Math.round(8 + x.cap / 2500) }; };
 const corpQuote = (c, n) => ({ add: n, cost: Math.round(n * 1800 / 1000) * 1000, weeks: 6 });
 const familyCost = (c, side) => Math.round((25000 + standsOf(c.fac.stadium)[side].cap * 20) / 1000) * 1000;

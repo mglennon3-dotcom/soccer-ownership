@@ -522,7 +522,8 @@ function standDesigner(d, c) {
     <p class="small muted" style="margin-top:6px">Terraces cost about half as much a place, are louder (a bigger home advantage, happier supporters) and sell a fifth cheaper; the Premier and First Divisions are all-seater. A roof keeps the crowd coming in bad weather (+20% to build). A family stand grows the support faster and sells more shirts. Corporate seats (up to 15% of the Main stand) are sold to businesses by the season.</p>`;
 }
 const closedNote = (d, c) => { const t = sum(Object.values(d.stands), x => x.type === "terrace" ? x.cap || 0 : 0); return t ? ` <span class="small muted">(${t.toLocaleString("en-GB")} on terraces${c.tier <= ALL_SEATER ? ": closed in this division" : ""})</span>` : ""; };
-function progress(b) { return `<p class="small">Under construction: ${b.total - b.left} of ${b.total} weeks ${bar(b.total - b.left, b.total)}</p>`; }
+function progress(b) { const done = b.total - b.left, plan = b.plan || 0;
+  return done < plan ? `<p class="small">Planning and approvals: ${done} of ${plan} weeks ${bar(done, plan)}<br><span class="muted">Then about ${b.total - plan} weeks of construction.</span></p>` : `<p class="small">Under construction: ${done - plan} of ${b.total - plan} weeks ${bar(done - plan, b.total - plan)}</p>`; }
 // Ground ages and history: your grounds (opened, closed, capacity) and each stand's build year.
 const ageWord = a => a >= 80 ? ["historic, badly dated", "bad"] : a >= 60 ? ["old and dated", "warn"] : a >= 30 ? ["mature", ""] : a >= 10 ? ["modern", "good"] : ["brand new", "good"];
 function groundHistory(c) {
