@@ -113,7 +113,10 @@ function pgHome() {
   const c = my(), nf = nextFixture(), last = (G.myRes || []).slice(-6).reverse(), todo = checklist();
   const fx = nf ? `<p class="lead">${nf.h === c.id ? "Home" : "Away"} to ${clubLink(CL(nf.h === c.id ? nf.a : nf.h))} <span class="muted">· week ${nf.w + 1}</span></p>` : G.phase === "summer" ? `<p class="lead">Pre-season. The first league game is in ${SUMMER_WEEKS - G.week} week${SUMMER_WEEKS - G.week > 1 ? "s" : ""}.</p>` : `<p class="lead">No more league games this season.</p>`;
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
+  // Anything waiting on your decision (a bid, a choice) puts the inbox first; otherwise it sits further down.
+  const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "choice") && (x.type !== "bid" || G.players[x.pid]));
   return `<div class="grid2"><div class="stack">
+    ${act ? inboxCard(true) : ""}
     <section class="card"><div class="card-h"><h2>Next up</h2><span class="muted small">${esc(mgr().name)} · ${STYLES[mgr().phil].l} · ${mgr().form}</span></div>${fx}
       ${myCupTie().map(({ k, K, t }) => `<p>${CUP_DEF[k].name} ${K.name.toLowerCase()}: ${t.h === G.club ? "home to" : "away to"} ${clubLink(CL(t.h === G.club ? t.a : t.h))} <span class="muted small">· week ${CUP_DEF[k].weeks[K.round] + 1}</span></p>`).join("")}
       ${Object.values(G.cont || {}).filter(K => K.teams.includes(G.club) && K.win == null).map(K => { const D = CONT[K.key], md = CONT_GROUP_WEEKS.findIndex(w => w >= G.week);
@@ -125,7 +128,7 @@ function pgHome() {
     ${performersCard(c)}
     ${needsCard(c)}
     ${todo.length ? `<section class="card"><div class="card-h"><h2>Needs your attention</h2></div><ul class="todo">${todo.map(([t, p]) => `<li><button class="lnk" data-act="page" data-p="${p}">${esc(t)}</button></li>`).join("")}</ul></section>` : ""}
-    ${inboxCard()}
+    ${act ? "" : inboxCard()}
     ${G.phase === "summer" && !(G.obj && G.obj.y === G.year) ? objectivesCard() : ""}
     <section class="card"><div class="card-h"><h2>Results</h2><button class="lnk small" data-act="page" data-p="league">All results</button></div>${last.length ? resultsList(last) : `<p class="muted">No games yet.</p>`}</section>
     <section class="card"><div class="card-h"><h2>News</h2></div><ul class="news">${G.news.slice(0, 25).map(n => `<li class="${n.hi ? "hi" : ""}">${esc(n.t)}<small>${n.y} · ${n.w}</small></li>`).join("")}</ul></section>
@@ -141,10 +144,12 @@ function pgHome() {
   </div></div>`;
 }
 const fitText = f => f >= .35 ? `<span class="good">great</span>` : f >= .1 ? `<span class="good">good</span>` : f > -.1 ? "average" : f > -.35 ? `<span class="warn">poor</span>` : `<span class="bad">very poor</span>`;
-function inboxCard() {
-  const m = G.inbox.filter(x => !x.done && (x.type === "bid" || x.type === "choice" || x.age < 4)).slice(0, 8);
+function inboxCard(urgent) {
+  // Decisions first, then recent news items.
+  const m = G.inbox.filter(x => !x.done && (x.type === "bid" || x.type === "choice" || x.age < 4)).sort((a, b) => (b.type === "bid" || b.type === "choice") - (a.type === "bid" || a.type === "choice")).slice(0, 8);
   if (!m.length) return "";
-  return `<section class="card summary"><div class="card-h"><h2>Inbox</h2></div><div class="stack">${m.map(x => {
+  const n = m.filter(x => x.type === "bid" || x.type === "choice").length;
+  return `<section class="card summary"><div class="card-h"><h2>Inbox</h2>${urgent ? `<span class="chip req">${n} to decide</span>` : ""}</div><div class="stack">${m.map(x => {
     if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
       return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(p.name)}: ${p.pos}, ${p.age}, rated ${r20(p.ovr)}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? "he" : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ""}</p>
