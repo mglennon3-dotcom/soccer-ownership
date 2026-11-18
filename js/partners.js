@@ -13,7 +13,8 @@ function loanOut(p, to, share = .5) {
   const c = my(); logMove("loanout", p, { club: to.name, share, wage: p.wage, by: "you" }); p.loan = { from: c.id, to: to.id, share };
   c.squad = c.squad.filter(id => id !== p.id); to.squad.push(p.id); p.club = to.id;
   (G.loanList ||= []).push(p.id);
-  news(`${p.name} goes on loan to ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""} for the rest of the season. They pay ${share >= 1 ? "all" : "half"} his wages.`);
+  p.loanList = false;
+  news(`${p.name} goes on loan to ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""} for the rest of the season. They pay ${share >= 1 ? "all" : Math.round(share * 100) + "%"} of his wages.`);
 }
 // Loan targets: young players a club would lend (not in its first team), from English or foreign clubs.
 const loanable = p => p.club >= 0 && p.club !== G.club && !p.loan && !p.acad && p.age <= 23 && (!CL(p.club).gone || CL(p.club).abroad);
@@ -138,3 +139,22 @@ function feedersSummer() {
 DECIDE.fFirst = (m, i) => { const p = G.players[m.data.pid]; if (i !== 0 || !p || p.club !== m.data.from) return; signPlayer(p, m.data.fee, Math.max(p.wage, demandWage(p, my())), false, "first refusal"); };
 // What's spent on feeders each week.
 function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / 52); partnersWeek(); }
+
+/* ---------- your loan list ----------
+   Make a player available for loan and clubs at his level come in during a window: a club where he'd play (its
+   standard close to his), English or abroad, offering to pay a share of his wages (more for a better player, more from
+   a richer club). Offers wait in your inbox; one at a time for each player. */
+function loanListToggle(p) { p.loanList = !p.loanList; news(p.loanList ? `${p.name} is available for loan. Clubs will make offers while a window is open.` : `${p.name} is no longer available for loan.`); }
+function loanOffersWeek(c) {
+  for (const p of c.squad.map(P)) {
+    if (!p.loanList || p.loan || p.acad || G.inbox.some(m => m.key === "loanOffer" && !m.done && m.data.pid === p.id)) continue;
+    if (R() > .45) continue;
+    // A player below every club's standard still finds a taker among the weakest clubs, as a squad player.
+    const floor = Math.min(...G.clubs.filter(x => !x.gone && !isMine(x)).map(x => x.lvl)), hi = Math.max(p.ovr + 6, floor + 3);
+    const want = G.clubs.filter(x => (!x.gone || x.abroad) && !isMine(x) && x.lvl >= p.ovr - 8 && x.lvl <= hi && (x.abroad ? p.age <= 25 || R() < .3 : true));
+    if (!want.length) continue;
+    const x = pick(want), share = clamp(Math.round((.4 + (p.ovr - x.lvl + 4) * .05 + (x.abroad || x.tier <= 2 ? .2 : 0) + rf(-.1, .15)) * 10) / 10, .2, 1);
+    addChoice("loanOffer", `${clubLabel(x)} want ${p.name} on loan`, `${x.abroad ? "A club abroad" : LEAGUES[x.lg].name}, standard about ${r20(x.lvl)}: he'd be playing at his level (rated ${r20(p.ovr)}). They'd take him to the end of the season and pay ${Math.round(share * 100)}% of his ${pw(p.wage)} wage; you'd pay ${pw(p.wage * (1 - share))}.`, ["Loan him", "No thanks"], { pid: p.id, club: x.id, share }, 1);
+  }
+}
+DECIDE.loanOffer = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.club); if (i !== 0 || !p || p.club !== G.club || p.loan || !x) return; loanOut(p, x, m.data.share); };
