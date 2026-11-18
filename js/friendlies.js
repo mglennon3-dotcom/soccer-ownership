@@ -27,16 +27,22 @@ function homeFriendly(x, c = my()) {
   const gate = crowd * c.prices.ticket * .6, fee = x.tier < c.tier ? Math.round(gate / 3) : 0;
   return { crowd, gate: Math.round(gate), fee };
 }
-// Opponents worth asking: neighbours, plenty of clubs around your level, and a few big names. The list is fixed for
-// the pre-season (G.fOpts) so it doesn't reshuffle while you work through it.
+/* Opponents worth asking: neighbours, plenty of clubs around your level, a few from every division above you (the
+   nearest first), and a couple of clubs abroad for a pre-season tour. The list is fixed for the pre-season (G.fOpts)
+   so it doesn't reshuffle while you work through it. */
 function friendlyOptions() {
-  if (G.fOpts && G.fOpts.y === G.year) return G.fOpts.ids.map(CL).filter(x => x && !x.gone);
-  const c = my(), lv = myLevel(c), all = G.clubs.filter(x => !x.gone && !isMine(x));
-  const near = all.filter(x => x.region === c.region).sort((a, b) => Math.abs(a.lvl - lv) - Math.abs(b.lvl - lv)).slice(0, 6);
-  const level = all.filter(x => !near.includes(x)).sort((a, b) => Math.abs(a.lvl - lv) - Math.abs(b.lvl - lv)).slice(0, 14);  // the closest to your level, however weak you are
-  const big = all.filter(x => x.tier <= Math.max(1, c.tier - 2) && x.half === c.half && !near.includes(x)).sort((a, b) => a.tier - b.tier).slice(0, 4);
-  const list = [...near, ...level, ...big];
-  G.fOpts = { y: G.year, ids: list.map(x => x.id) };
+  if (G.fOpts && G.fOpts.y === G.year && G.fOpts.v === 2) return G.fOpts.ids.map(CL).filter(x => x && (!x.gone || x.abroad));
+  const c = my(), lv = myLevel(c), all = G.clubs.filter(x => !x.gone && !isMine(x)), taken = new Set();
+  const take = l => l.filter(x => !taken.has(x.id)).map(x => (taken.add(x.id), x));
+  const near = take(all.filter(x => x.region === c.region).sort((a, b) => Math.abs(a.lvl - lv) - Math.abs(b.lvl - lv)).slice(0, 6));
+  const level = take(all.filter(x => !taken.has(x.id)).sort((a, b) => Math.abs(a.lvl - lv) - Math.abs(b.lvl - lv)).slice(0, 12));  // the closest to your level, however weak you are
+  // Every division above: three from each, those nearest you (same region, then same half) first.
+  const above = [];
+  for (let t = c.tier - 1; t >= 1; t--) above.push(...take(shuffle(all.filter(x => x.tier === t && !taken.has(x.id)))
+    .sort((a, b) => (b.region === c.region) - (a.region === c.region) || (b.half === c.half) - (a.half === c.half)).slice(0, 3)));
+  const tour = take(shuffle((G.foreign || []).map(CL).filter(Boolean)).slice(0, 3));
+  const list = [...near, ...level, ...above, ...tour];
+  G.fOpts = { y: G.year, v: 2, ids: list.map(x => x.id) };
   return list;
 }
 const freeWeeks = () => { const used = new Set((G.friendlies || []).map(f => f.w)); const out = []; for (let w = G.phase === "summer" ? G.week : SUMMER_WEEKS; w < SUMMER_WEEKS; w++) if (!used.has(w)) out.push(w); return out; };
