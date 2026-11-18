@@ -211,8 +211,8 @@ const ACT = {
   buildst: async () => { const d = G.stDraft || standPlan(1500), q = groundQuote(d), name = ($("#st-name").value || my().town + " Park").trim();
     if (q.cap > SITE_MAX) return toast(`No site takes more than ${SITE_MAX.toLocaleString()}.`);
     if (!await ask(`Build ${name} (${q.cap.toLocaleString()} capacity) for ${money(q.cost)}?`)) return;
-    built(startBuild("stadium", { type: "new", ...q, name, stands: d.stands, family: d.family, corp: d.corp, label: `building ${name}, ${q.cap.toLocaleString()} capacity` })); G.stDraft = null; render(); saveGame(); },
-  stplan: el => { if (my().fac.stadium.own) G.rgOpen = true; const keep = G.stDraft; G.stDraft = standPlan(+el.dataset.n); if (keep) { G.stDraft.family = keep.family; for (const k in SIDES) { G.stDraft.stands[k].type = keep.stands[k].type; G.stDraft.stands[k].roof = keep.stands[k].roof; } } render(); },
+    built(startBuild("stadium", { type: "new", ...q, vent: d.vent || [], name, stands: d.stands, family: d.family, corp: d.corp, label: `building ${name}, ${q.cap.toLocaleString()} capacity` })); G.stDraft = null; render(); saveGame(); },
+  stplan: el => { if (my().fac.stadium.own) G.rgOpen = true; const keep = G.stDraft; G.stDraft = standPlan(+el.dataset.n); if (keep) { G.stDraft.family = keep.family; G.stDraft.vent = keep.vent || []; for (const k in SIDES) { G.stDraft.stands[k].type = keep.stands[k].type; G.stDraft.stands[k].roof = keep.stands[k].roof; } } render(); },
   sdnofam: () => { G.stDraft.family = ""; render(); },
   extend: async el => { const k = el.dataset.k, n = Math.round(num($("#ext-" + k)) / 50) * 50; if (n < 50) return toast("Add at least 50 places.");
     if (n > siteRoom(my().fac.stadium)) return toast(`Only room for ${siteRoom(my().fac.stadium).toLocaleString()} more places on this site.`);
@@ -224,17 +224,17 @@ const ACT = {
     built(startBuild("stadium", { type: "rebuild", ...q, label: `rebuilding the ${SIDES[k]} (${r.cap.toLocaleString()})` })); G.rb = {}; G.rbOpen = null; render(); saveGame(); },
   mvsite: el => { G.moveK = el.dataset.k; G.plotN = null; G.mvOpen = true; render(); },
   mvplot: el => { G.plotN = +el.dataset.n; G.mvOpen = true; render(); },
-  mvplan: el => { G.mvOpen = true; const keep = G.mvDraft; G.mvDraft = standPlan(+el.dataset.n); if (keep) { G.mvDraft.family = keep.family; for (const k in SIDES) { G.mvDraft.stands[k].type = keep.stands[k].type; G.mvDraft.stands[k].roof = keep.stands[k].roof; } } render(); },
+  mvplan: el => { G.mvOpen = true; const keep = G.mvDraft; G.mvDraft = standPlan(+el.dataset.n); if (keep) { G.mvDraft.family = keep.family; G.mvDraft.vent = keep.vent || []; for (const k in SIDES) { G.mvDraft.stands[k].type = keep.stands[k].type; G.mvDraft.stands[k].roof = keep.stands[k].roof; } } render(); },
   movebuild: async () => { const c = my(), sites = newSites(c), site = sites.find(x => x.k === G.moveK) || sites[1], plots = plotSizes(c, site), plot = plots.includes(G.plotN) ? G.plotN : plots[Math.min(1, plots.length - 1)], d = G.mvDraft, q = moveQuote(c, d, site, plot), name = ($("#mv-name").value || c.town + " Stadium").trim();
-    if (q.cap > plot) return toast(`This plot takes at most ${plot.toLocaleString()}.`);
+    if (q.space > plot) return toast(`The stands and extras need room for ${q.space.toLocaleString()}; this plot takes ${plot.toLocaleString()}.`);
     if (!await ask(`Buy a plot ${site.km} km away (room for ${plot.toLocaleString()}) and build ${name} (${q.cap.toLocaleString()}) for ${money(q.cost)}? About ${q.weeks} weeks. ${c.fac.stadium.name} is sold now for about ${money(q.sell)} and leased back at ${money(q.lease)} a home game until you move.${site.km > 9 ? " Supporters won't like it." : ""}`)) return;
-    const res = startBuild("stadium", { type: "move", ...q, sold: true, name, stands: d.stands, family: d.family, corp: d.corp, label: `building ${name} (${q.cap.toLocaleString()}), ${site.km} km away` });
+    const res = startBuild("stadium", { type: "move", ...q, vent: d.vent || [], sold: true, name, stands: d.stands, family: d.family, corp: d.corp, label: `building ${name} (${q.cap.toLocaleString()}), ${site.km} km away` });
     if (c.fac.stadium.build && c.fac.stadium.build.type === "move") { earn("oldground", q.sell); c.fac.stadium.lease = q.lease; news(`${c.fac.stadium.name} is sold for ${money(q.sell)} and leased back at ${money(q.lease)} a home game until the new ground is ready.`, true); moveAnnounced(c, site.km); }
     built(res); G.mvDraft = null; G.mvOpen = false; G.sites = null; render(); saveGame(); },
   reground: async () => { const c = my(), S = c.fac.stadium, d = G.stDraft || standPlan(S.cap), q = regroundQuote(c, d), h = tempHost(c);
-    if (q.cap > siteCap(S)) return toast(`The site takes at most ${siteCap(S).toLocaleString()}.`);
+    if (q.space > siteCap(S)) return toast(`The stands and extras need room for ${q.space.toLocaleString()}; the site takes ${siteCap(S).toLocaleString()}.`);
     if (!await ask(`Demolish ${S.name} and build a new ${q.cap.toLocaleString()}-capacity ground for ${money(q.cost)}? About ${q.weeks} weeks, playing at ${HOSTS[h].name} meanwhile.`)) return;
-    const res = startBuild("stadium", { type: "reground", ...q, name: S.name, stands: d.stands, family: d.family, corp: d.corp, label: `rebuilding ${S.name}, ${q.cap.toLocaleString()} capacity` });
+    const res = startBuild("stadium", { type: "reground", ...q, vent: d.vent || [], name: S.name, stands: d.stands, family: d.family, corp: d.corp, label: `rebuilding ${S.name}, ${q.cap.toLocaleString()} capacity` });
     if (S.build && S.build.type === "reground") { S.rebuilding = true; S.away = h; c.cap = capacity(c); news(`${S.name} closes for rebuilding. Home games move to ${HOSTS[h].name}.`, true); }
     built(res); G.stDraft = null; G.rgOpen = false; render(); saveGame(); },
   roof: async el => { const k = el.dataset.k, q = roofQuote(my(), k); if (!await ask(`Put a roof on the ${SIDES[k]} for ${money(q.cost)}? It closes for about ${q.weeks} weeks.`)) return; built(startBuild("stadium", { type: "roof", ...q, label: `a roof for the ${SIDES[k]}` })); render(); saveGame(); },
@@ -284,6 +284,7 @@ const CHANGE = {
   lgsel: el => { SUB.league = el.value; render(); },
   sd: el => { const d = (G.stDraft ||= standPlan(my().fac.stadium.own ? my().fac.stadium.cap : 1500)), k = el.dataset.k; if (my().fac.stadium.own) G.rgOpen = true;
     if (k === "family") d.family = el.value; else if (k === "corp") d.corp = Math.max(0, Math.min(Math.round(num(el)), Math.floor((d.stands.W.cap || 0) * .15)));
+    else if (k.startsWith("vent.")) { const v = k.slice(5); d.vent = (d.vent || []).filter(x => x !== v); if (el.checked) d.vent.push(v); if (!el.checked && v === "shop") d.vent = d.vent.filter(x => x !== "mega"); }
     else { const [s, f] = k.split("."); d.stands[s][f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; }
     render(); },
   stname: el => { G.stName = el.value.trim(); },
@@ -292,6 +293,7 @@ const CHANGE = {
   mvname: el => { G.mvName = el.value.trim(); },
   mvsd: el => { const d = G.mvDraft, k = el.dataset.k; G.mvOpen = true; if (!d) return;
     if (k === "family") d.family = el.value; else if (k === "corp") d.corp = Math.max(0, Math.min(Math.round(num(el)), Math.floor((d.stands.W.cap || 0) * .15)));
+    else if (k.startsWith("vent.")) { const v = k.slice(5); d.vent = (d.vent || []).filter(x => x !== v); if (el.checked) d.vent.push(v); if (!el.checked && v === "shop") d.vent = d.vent.filter(x => x !== "mega"); }
     else { const [s, f] = k.split("."); d.stands[s][f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; }
     render(); },
   rb: el => { const [s, f] = el.dataset.k.split("."), x = standsOf(my().fac.stadium)[s], r = ((G.rb ||= {})[s] ||= { cap: x.cap, type: x.type, roof: x.roof });
