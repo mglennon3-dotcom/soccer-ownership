@@ -276,7 +276,18 @@ function leaveClub(p) { if (p.club >= 0 && typeof favLeaves === "function") favL
 /* Transfer windows: a player who joins a club in a window can't be sold on in the same window. */
 const windowId = () => (G.phase === "summer" ? "S" : "J") + G.year;
 const canSell = p => !(p.inW && p.inW === windowId() && windowOpen());
-function moveTo(p, c) { p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]); }
+/* AI clubs, English and foreign, hold at most 28 senior players (loanees included; academy players don't count). Over
+   that, the least valuable of their own players are released, never one who has just arrived or a loanee. */
+const AI_MAX = 28;
+function capSquad(c, keep) {
+  if (!c || isMine(c)) return;
+  const seniors = () => c.squad.map(P).filter(p => p && !p.acad);
+  while (seniors().length > AI_MAX) {
+    const p = seniors().filter(q => q !== keep && !q.loan).sort((a, b) => valueOf(a) - valueOf(b))[0]; if (!p) break;
+    leaveClub(p); toFreeAgent(p);
+  }
+}
+function moveTo(p, c) { p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
 /* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
    below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
 function newcomerFor(p) {

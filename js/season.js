@@ -381,7 +381,7 @@ function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 function aiSquadCheck(c, light) {
   const sq = () => c.squad.map(P).filter(p => !p.acad && !p.loan);
   // Too many: release the weakest
-  while (sq().length > 26) { const p = sq().sort((a, b) => valueOf(a) - valueOf(b))[0]; leaveClub(p); toFreeAgent(p); }
+  capSquad(c);
   // Too few at a position: sign
   for (const [pos, n] of Object.entries(SQUAD_MIX)) {
     let have = sq().filter(p => p.pos === pos && (!p.retiring)).length, guard = 0;

@@ -11,7 +11,7 @@ const isFeeder = id => net().feeders.some(f => f.id === id);
 // share: the part of his wage the borrowing club pays.
 function loanOut(p, to, share = .5) {
   const c = my(); logMove("loanout", p, { club: to.name, share, wage: p.wage, by: "you" }); p.loan = { from: c.id, to: to.id, share };
-  c.squad = c.squad.filter(id => id !== p.id); to.squad.push(p.id); p.club = to.id;
+  c.squad = c.squad.filter(id => id !== p.id); to.squad.push(p.id); p.club = to.id; capSquad(to, p);
   (G.loanList ||= []).push(p.id);
   p.loanList = false;
   news(`${p.name} goes on loan to ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""} for the rest of the season. They pay ${share >= 1 ? "all" : Math.round(share * 100) + "%"} of his wages.`);
@@ -61,7 +61,7 @@ function endLoans() {
     const at = CL(p.club), home = CL(p.loan.from);
     if (home && isMine(home)) logMove("loanback", p, { club: at ? at.name : "" }); else if (at && isMine(at)) logMove("loanend", p, { club: home ? home.name : "" });
     if (at) at.squad = at.squad.filter(x => x !== id);
-    if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; } else toFreeAgent(p);  // foreign clubs count as still going
+    if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; p.loan = null; capSquad(home, p); } else toFreeAgent(p);  // foreign clubs count as still going
     if (home && isMine(home)) news(`${p.name} returns from his loan at ${at ? at.name : "his loan club"} (${p.s.app} games).`);
     p.loan = null;
   }
