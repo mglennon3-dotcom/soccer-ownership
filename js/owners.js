@@ -115,11 +115,17 @@ function sponsorSqueeze(c) {
   return Math.max(.6, (near.length ? Math.max(.7, 1 - near.length * .1) : 1) * (hostileOf(c) ? .88 : 1));
 }
 /* Poaching: ambitious owners above you come for your staff. */
+/* Other clubs coming for your staff: rare (about one approach a season across all your staff), aimed at people who are
+   good for your level or doing well, and never the same person twice within a year. */
 function poachWeek() {
   const c = my();
-  if (G.phase !== "season" || R() > .03) return;
+  if (G.phase !== "season" || R() > .02) return;
   const role = pick(["manager", "manager", "recruit", "youth"]), s = staffOf(role); if (!s) return;
   if (G.inbox.some(m => m.key === "poach" && !m.done)) return;
+  const now = G.year * 100 + G.week; if (s.poached && now - s.poached < 100) return;  // a year's peace after an approach
+  const pos = table(c.lg).findIndex(r => r.id === c.id), doingWell = pos >= 0 && pos < G.leagues[c.lg].clubs.length / 4;
+  if (staffAvg(s) < attraction() + 5 && !doingWell && R() > .3) return;  // ordinary staff at an ordinary club rarely draw interest
+  s.poached = now;
   const h = hostileOf(c), q = staffAvg(s), suitors = h && R() < .5 ? [h] : G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.tier < c.tier && OWNER_STYLES[x.own.style].poach > R() && Math.abs(TIER_REP[x.tier] + 15 - q) < 25);
   if (!suitors.length) return;
   // Compensation: what's left of his contract, and a premium on top that rises with how badly they want him.
@@ -130,7 +136,7 @@ function poachWeek() {
 DECIDE.poach = (m, i) => {
   const s = staffOf(m.data.role), x = CL(m.data.club); if (!s) return;
   if (i === 0) { my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
-  else trust(m.data.role, -10, `is unhappy you blocked his move to ${x.name}.`);
+  else trust(m.data.role, x.tier < my().tier ? -6 : -2, x.tier < my().tier ? `is unhappy you blocked his move to ${x.name}.` : null);
 };
 
 /* AI clubs transfer-list players they can do without: well below the club's standard and out of the side, ageing
