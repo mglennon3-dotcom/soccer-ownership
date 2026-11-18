@@ -15,6 +15,11 @@ function loanOut(p, to, share = .5) {
   (G.loanList ||= []).push(p.id);
   news(`${p.name} goes on loan to ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""} for the rest of the season. They pay ${share >= 1 ? "all" : "half"} his wages.`);
 }
+// Loan targets: young players a club would lend (not in its first team), from English or foreign clubs.
+const loanable = p => p.club >= 0 && p.club !== G.club && !p.loan && !p.acad && p.age <= 23 && (!CL(p.club).gone || CL(p.club).abroad);
+// Clubs lend to clubs within three divisions of their own (clubs abroad count as top flight).
+const lendsTo = (from, c = my()) => c.tier - (from.abroad ? 1 : from.tier) <= 3;
+const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
 /* Borrowing: you name the share of his wages you'll pay. Each club has a figure in mind for this window (lower for your
    partner club and for youngsters who need games, higher abroad); offer at least that and he comes. Below it they
    tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
@@ -26,6 +31,7 @@ function loanTerms(p) {
 }
 function askLoan(p, share) {
   const from = CL(p.club), T = loanTerms(p);
+  if (!lendsTo(from)) return { ok: false, t: `${from.name} won't send ${p.name} that far down: they lend to clubs within three divisions of their own.` };
   if (T.no) return { ok: false, t: `${from.name} want to keep ${p.name}: he isn't available on loan.` };
   if (share >= T.min) { loanIn(p, from, share); return { ok: true, t: `${from.name} agree: ${p.name} joins on loan until the end of the season. You pay ${Math.round(share * 100)}% of his wages (${pw(p.wage * share)}).` }; }
   if (++T.tries >= 3) { T.no = true; return { ok: false, t: `${from.name} have had enough of haggling: ${p.name} isn't available to you this window.` }; }

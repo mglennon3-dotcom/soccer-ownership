@@ -59,7 +59,8 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Suggest signings.** Tap *Suggest* on any player's card and your head of recruitment tells you what he thinks: he'd
   start, he's a prospect, he's good cover, or why not (not good enough, won't come, too dear for the budget). While a
   window is open he goes after the ones he agrees with before his own targets. Asking isn't overruling, and he's pleased
-  when a tip comes off. Your suggestions are listed on the Transfers page.
+  when a tip comes off. You can suggest a loan instead for players 23 or under: he borrows him during the window, paying
+  what the lending club wants (a good negotiator knocks 10% off). Your suggestions are listed on the Transfers page.
 - **Youth recruitment all year.** As well as the summer intake (at least three boys), your youth manager's scouts bring
   boys in three more times a year: late summer, January and a spring trial day. How many and how good depends on his
   scouting reach and eye for potential, the academy budget and level, and whether he looks locally or wider. Boys from
@@ -67,7 +68,7 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Negotiate loans.** On a loan target's card, choose what share of his wages you'll pay (0% to 100%) and ask. Each
   club has a figure in mind for the window: lower for your partner club and for youngsters who need games, higher for
   clubs abroad. Offer less and they tell you what they want; after three tries they stop listening, and about one club
-  in five won't lend at all.
+  in five won't lend at all. Clubs only lend to clubs within three divisions of their own.
 - **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against
   your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
 - **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually

@@ -204,14 +204,17 @@ function playerModal(id) {
       <p class="small muted">Players are only sold when a club makes an offer. Transfer-listed players attract offers while a window is open, usually below their value; they arrive in your inbox with your head of recruitment's advice. Listing a player yourself goes over his head, and the manager won't like losing a first-choice player. Protected players are never sold by your staff and are offered new contracts.</p>`;
   } else {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
-    const lendable = loanable(p) && windowOpen() && !inTheirXI(p), T = lendable && p.lt && p.lt.w === windowId() ? p.lt : null;
+    const lendable = loanable(p) && lendsTo(CL(p.club)) && windowOpen() && !inTheirXI(p), T = lendable && p.lt && p.lt.w === windowId() ? p.lt : null;
     const said = LOAN_SAY && LOAN_SAY.id === p.id ? LOAN_SAY.t : "", pick0 = T && T.tries ? Math.round(T.min * 10) * 10 : 50;
     acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button><span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${pw(wage)}.` : "He isn't interested in joining, whatever the money."}</span></div>
       ${lendable ? `<div class="sugg"><b class="small">Borrow him to the end of the season</b>${T && T.no ? `<p class="small muted">${esc(said || `${CL(p.club).name} won't lend him to you this window.`)}</p>` : `
         <div class="row" style="margin-top:6px"><label class="small">You pay <select id="lshare">${[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(v => `<option value="${v}" ${v === pick0 ? "selected" : ""}>${v}% · ${pw(p.wage * v / 100)}</option>`).join("")}</select></label><button class="btn sm" data-act="loanask" data-id="${p.id}">Ask</button></div>
         <p class="small ${said ? "warn" : "muted"}">${esc(said || `He earns ${pw(p.wage)}. Offer to cover less and they may say no; they'll tell you what they want.`)}</p>`}</div>` : ""}
-      ${(() => { const s = staffOf("recruit"); if (!s) return `<p class="small muted">Hire a head of recruitment and you can suggest players to him.</p>`; const v = suggView(p), on = suggested(p);
-        return `<div class="sugg"><div class="row between"><b class="small">${on ? "You've suggested him" : "Suggest him to your head of recruitment"}</b><button class="btn sm" data-act="suggest" data-id="${p.id}">${on ? "Withdraw" : "Suggest"}</button></div><p class="small ${v.ok ? "good" : v.money ? "warn" : "muted"}"><b>${esc(s.name)}:</b> ${esc(v.w)}</p></div>`; })()}
+      ${(() => { const s = staffOf("recruit"); if (!s) return `<p class="small muted">Hire a head of recruitment and you can suggest players to him.</p>`; const on = suggested(p), canLoan = loanable(p), v = suggView(p, my(), false), vl = canLoan ? suggView(p, my(), true) : null;
+        const cls = x => x.ok ? "good" : x.money ? "warn" : x.wait ? "" : "muted";
+        return `<div class="sugg"><b class="small">${on ? `You've suggested ${on.loan ? "borrowing" : "signing"} him` : "Suggest him to your head of recruitment"}</b>
+          <div class="row" style="margin-top:6px"><button class="btn sm" data-act="suggest" data-id="${p.id}">${on && !on.loan ? "Withdraw" : "Suggest signing"}</button>${canLoan ? `<button class="btn sm" data-act="suggest" data-id="${p.id}" data-loan="1">${on && on.loan ? "Withdraw" : "Suggest a loan"}</button>` : ""}</div>
+          <p class="small ${cls(v)}"><b>${esc(s.name)}${canLoan ? " on signing" : ""}:</b> ${esc(v.w)}</p>${vl ? `<p class="small ${cls(vl)}"><b>On a loan:</b> ${esc(vl.w)}</p>` : ""}</div>`; })()}
       <details><summary class="small">What he's weighing up</summary>${factorBars(playerAppeal(p, wage || demandWage(p, my())), P_FACTORS)}</details>`;
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
@@ -423,9 +426,6 @@ function interestOf(p) {
   const sc = playerAppeal(p, demandWage(p, my())), m = sc.score - sc.pr.thr;
   return m >= .08 ? { w: "Keen", k: "keen", cls: "good", ask } : m >= 0 ? { w: "Open", k: "open", cls: "", ask } : { w: "For more money", k: "sign", cls: "warn", ask };
 }
-// Loan targets: young players a club would lend (not in its first team), from English or foreign clubs.
-const loanable = p => p.club >= 0 && p.club !== G.club && !p.loan && !p.acad && p.age <= 23 && (!CL(p.club).gone || CL(p.club).abroad);
-const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
 // Where a player plays (or, for a free agent, where he's from): the country chips on the market filter.
 const MKT_COUNTRIES = ["ENG", "ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "ROW"];
 const playerCountry = p => p.club >= 0 ? (CL(p.club).abroad ? CL(p.club).country : "ENG") : MKT_COUNTRIES.includes(p.nat) ? p.nat : "ROW";
@@ -434,7 +434,7 @@ function pgMarket() {
   const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"]];
   let base = F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
   if (F.tab === "listed") base = base.filter(p => p.list || p.req);
-  if (F.tab === "loans") base = base.filter(p => loanable(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
+  if (F.tab === "loans") base = base.filter(p => loanable(p) && lendsTo(CL(p.club)) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
   if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
   if (F.lg) base = base.filter(p => p.club >= 0 && (F.lg === "ABROAD" ? CL(p.club).abroad : CL(p.club).lg === F.lg));
   // Cheap filters first; then each club's first team is worked out once for the asking prices.
@@ -480,8 +480,8 @@ function pgMarket() {
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section>
     ${s ? `<section class="card"><div class="card-h"><h3>Your suggestions</h3><span class="small muted">${sugg().length}</span></div>
-      ${sugg().length ? sugg().map(x => G.players[x.id]).filter(Boolean).map(p => { const v = suggView(p); return `<div class="sugg-row"><div class="row between"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> <span class="small muted">${p.age} · ${esc(fromName(p))}</span></span><button class="lnk small" data-act="suggest" data-id="${p.id}">Withdraw</button></div><p class="small ${v.ok ? "good" : v.money ? "warn" : "muted"}">${esc(v.w)}</p></div>`; }).join("")
-        : `<p class="small muted">Open a player's card and tap <b>Suggest</b> to point ${esc(s.name)} at him. He goes after the ones he agrees with while a window is open, before his own targets, and tells you why if he won't.</p>`}</section>` : ""}</div></div>`;
+      ${sugg().length ? sugg().filter(x => G.players[x.id]).map(x => { const p = G.players[x.id], v = suggView(p, my(), x.loan); return `<div class="sugg-row"><div class="row between"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${x.loan ? ' <span class="chip acad">LOAN</span>' : ""} <span class="small muted">${p.age} · ${esc(fromName(p))}</span></span><button class="lnk small" data-act="suggest" data-id="${p.id}"${x.loan ? ' data-loan="1"' : ""}>Withdraw</button></div><p class="small ${v.ok ? "good" : v.money ? "warn" : v.wait ? "" : "muted"}">${esc(v.w)}</p></div>`; }).join("")
+        : `<p class="small muted">Open a player's card and tap <b>Suggest signing</b> or <b>Suggest a loan</b> to point ${esc(s.name)} at him. He goes after the ones he agrees with while a window is open, before his own targets, and tells you why if he won't.</p>`}</section>` : ""}</div></div>`;
 }
 function buyModal(id) {
   const p = G.players[id], fee = askingFee(p), wage = playerAsk(p) || demandWage(p, my()), s = staffOf("recruit");

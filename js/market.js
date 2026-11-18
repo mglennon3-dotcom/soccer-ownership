@@ -117,8 +117,9 @@ function headWeek(c) {
   for (const x of sugg().slice()) {
     const p = G.players[x.id];
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
-    const v = suggView(p, c); if (!v.ok) continue;
-    signPlayer(p, v.fee, v.ask, false); G.sugg = sugg().filter(y => y !== x);
+    const v = suggView(p, c, x.loan); if (!v.ok) continue;
+    if (x.loan) loanIn(p, CL(p.club), v.share); else signPlayer(p, v.fee, v.ask, false);
+    G.sugg = sugg().filter(y => y !== x);
     news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null);
   }
   for (const need of squadNeeds(c)) {
@@ -228,13 +229,20 @@ function answerBid(m, accept, auto) {
    thinks; while a window is open he goes after the ones he agrees with before his own list. Asking isn't overruling:
    he doesn't mind being asked, and he's pleased when a tip comes off. */
 const sugg = () => (G.sugg ||= []);
-const suggested = p => sugg().some(x => x.id === p.id);
-function suggView(p, c = my()) {
+const suggested = (p, loan) => sugg().find(x => x.id === p.id && (loan == null || !!x.loan === !!loan));
+function suggView(p, c = my(), loan = false) {
   const s = staffOf("recruit");
   if (!s) return { ok: false, w: "There's no head of recruitment to ask." };
   if (p.club === c.id) return { ok: false, w: "He's ours." };
-  if (p.age > 34) return { ok: false, w: "Too old to sign: he'd be gone within a season." };
-  if (!willJoin(p, c)) return { ok: false, w: "He wouldn't come here: he's too good for our level." };
+  if (loan) {
+    if (!loanable(p)) return { ok: false, w: "Not a loan: clubs only lend players 23 or under." };
+    if (!lendsTo(CL(p.club), c)) return { ok: false, w: `${CL(p.club).name} won't lend that far down: they only lend to clubs within three divisions.` };
+    if (inTheirXI(p)) return { ok: false, w: "He's in their first team: they won't lend him." };
+    if (windowOpen() && loanTerms(p).no) return { ok: false, w: `${CL(p.club).name} won't lend him this window.` };
+  } else {
+    if (p.age > 34) return { ok: false, w: "Too old to sign: he'd be gone within a season." };
+    if (!willJoin(p, c)) return { ok: false, w: "He wouldn't come here: he's too good for our level." };
+  }
   const [o1, o2] = ovrEstimate(p), eo = (o1 + o2) / 2, [p1, p2] = potEstimate(p), ep = (p1 + p2) / 2, T = TIER_LVL[c.tier];
   const st = pickXI(c).filter(o => o.slot === p.pos).map(o => roleRating(o.p, p.pos)), weakest = st.length ? Math.min(...st) : 0;
   const depth = c.squad.map(P).filter(q => q.pos === p.pos && !q.acad && !q.list && !(q.inj > 4)).length;
@@ -243,18 +251,28 @@ function suggView(p, c = my()) {
   const prospect = p.age <= 21 && ep >= T + (s.phil === "potential" ? 3 : 7);
   if (!starter && !cover && !prospect) return { ok: false, w: st.length ? `He wouldn't improve us: I have him at about ${r20(eo)}, and our weakest starter there is ${r20(weakest)}.` : `He isn't good enough for this level.` };
   if (c.squad.filter(id => !P(id).acad).length >= 28) return { ok: false, w: "I'd take him, but the squad is full: someone has to go first." };
+  const what = starter ? "He'd go straight into the side" : prospect ? "A real prospect" : "Good cover";
+  if (loan) {
+    // He pays what the lending club has in mind, less a little if he's a good negotiator; outside a window he can only guess.
+    const room = c.budget.wages - wageBill(c);
+    if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
+    const T = loanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
+    if (p.wage * share > room) return { ok: false, money: true, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
+    return { ok: true, loan: true, share, w: `${what} on loan. I'll borrow him this week, paying ${Math.round(share * 100)}% of his wages (${pw(p.wage * share)}).` };
+  }
   const fee = negotiated(askingFee(p)), left = c.budget.transfer - c.spentT;
   if (fee > left) return { ok: false, money: true, w: `I'd take him, but his fee (about ${money(fee)}) is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
   const ask = playerAsk(p, c), room = c.budget.wages - wageBill(c);
   if (ask == null) return { ok: false, w: "He isn't interested in joining us." };
   if (ask > room) return { ok: false, money: true, w: `I'd take him, but he wants about ${pw(ask)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
-  return { ok: true, fee, ask, w: `${starter ? "He'd go straight into the side" : prospect ? "A real prospect" : "Good cover"}. ${windowOpen() ? "I'll go after him this week." : "I'll go after him when the window opens."}` };
+  return { ok: true, fee, ask, w: `${what}. ${windowOpen() ? "I'll go after him this week." : "I'll go after him when the window opens."}` };
 }
-function suggest(p) {
+function suggest(p, loan) {
   const s = staffOf("recruit"); if (!s) return;
-  if (suggested(p)) { G.sugg = sugg().filter(x => x.id !== p.id); return news(`You withdraw your suggestion of ${p.name}.`); }
-  sugg().push({ id: p.id, y: G.year, w: G.week });
-  news(`You suggest ${p.name} to ${s.name}: "${suggView(p).w}"`);
+  if (suggested(p, loan)) { G.sugg = sugg().filter(x => x.id !== p.id); return news(`You withdraw your suggestion of ${p.name}.`); }
+  G.sugg = sugg().filter(x => x.id !== p.id);  // a player is suggested as a signing or a loan, not both
+  sugg().push({ id: p.id, y: G.year, w: G.week, loan: !!loan });
+  news(`You suggest ${loan ? "borrowing" : "signing"} ${p.name} to ${s.name}: "${suggView(p, my(), loan).w}"`);
 }
 
 /* ---------- you, overruling your staff ---------- */
