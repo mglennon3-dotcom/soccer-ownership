@@ -84,7 +84,7 @@ function staffAsk(s) {
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
-  return Math.ceil(s.demand * Math.max(.85, ratioFor(Math.max(0, need)) + .001) / 1000) * 1000;
+  return Math.ceil(s.demand * Math.max(.85, ratioFor(Math.max(0, need)) + .001) * (s.emp != null && s !== staffOf(s.role) ? 1.15 : 1) / 1000) * 1000;
 }
 function staffAppeal(s, wage) {
   const pr = prefsOf(s, S_FACTORS), f = { ...staffFactors(s), money: moneyF(wage / s.demand) };

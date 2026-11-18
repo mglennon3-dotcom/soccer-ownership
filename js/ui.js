@@ -271,14 +271,15 @@ function factorBars(a, factors) {
 }
 let CANDS = null, LOAN_SAY = null, BID_SAY = null;
 /* ---------- the staff search: a page like the transfer market ---------- */
-const HIRE_F = { role: "manager", who: "yes", phil: "", focus: "", form: "", min: 0, wage: 0, age: 99, vis: "" };
+const HIRE_F = { role: "manager", who: "yes", phil: "", focus: "", form: "", min: 0, wage: 0, age: 99, vis: "", st: "" };
 function pgHire() {
   const F = HIRE_F, role = F.role, R0 = ROLES_STAFF[role], all = candidates(role), cur = staffOf(role);
   const rows = all.map(s => ({ s, ask: staffAsk(s), vm: visionMatch(s), avg: staffAvg(s) }));
   const yes = rows.filter(x => x.ask != null).length;
   let pool = F.who === "yes" ? rows.filter(x => x.ask != null) : rows;
   pool = pool.filter(x => (!F.phil || x.s.phil === F.phil) && (!F.focus || x.s.focus === F.focus) && (!F.form || x.s.form === F.form) && s20(x.avg) >= F.min && x.s.age <= F.age
-    && (!F.wage || (x.ask != null && x.ask <= F.wage)) && (!F.vis || (F.vis === "full" ? x.vm >= .75 : x.vm >= .5)));
+    && (!F.wage || (x.ask != null && x.ask <= F.wage)) && (!F.vis || (F.vis === "full" ? x.vm >= .75 : x.vm >= .5))
+    && (!F.st || (F.st === "free" ? x.s.emp == null : x.s.emp != null)));
   const sel = (k, opts) => `<select data-act="hf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
   const WAGES = [0, 5e3, 10e3, 15e3, 25e3, 50e3, 100e3, 250e3, 500e3, 1e6, 2.5e6, 5e6];
   const attrCols = Object.entries(R0.attrs).map(([k, l]) => ({ k: "a_" + k, l: { tac: "Tactics", mot: "Motiv.", dev: "Develop", judge: "Judge", reach: "Scouting", neg: "Negot.", net: "Contacts" }[k] || l, r: true, v: x => x.s.at[k], f: x => `<b class="num">${s20(x.s.at[k])}</b>` }));
@@ -293,7 +294,8 @@ function pgHire() {
       <label class="f">Min average${sel("min", [[0, "Any"], [5, "5+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
       <label class="f">Max wage${sel("wage", WAGES.map(v => [v, v ? money(v) + "/yr" : "Any"]))}</label>
       <label class="f">Max age${sel("age", [[99, "Any"], [60, 60], [50, 50], [45, 45], [40, 40]])}</label>
-      <label class="f">Vision${sel("vis", [["", "Any"], ["part", "At least partly shares it"], ["full", "Shares your vision"]])}</label></div>
+      <label class="f">Vision${sel("vis", [["", "Any"], ["part", "At least partly shares it"], ["full", "Shares your vision"]])}</label>
+      <label class="f">Status${sel("st", [["", "Anyone"], ["free", "Out of work"], ["emp", "At another club (poach)"]])}</label></div>
     <p class="small muted" style="margin-bottom:8px">${pool.length} match${pool.length === 1 ? "es" : ""}. Tap a column to sort; tap a name to see him and offer the job. "Wants" is the least he'd accept.</p>
     ${sortTable("hire-" + role, [
       { k: "name", l: "Name", left: true, v: x => x.s.name, f: x => `<button class="lnk" data-act="cand" data-r="${role}" data-n="${all.indexOf(x.s)}">${esc(x.s.name)}</button>${x.s.ex ? ' <span class="chip acad">EX-PRO</span>' : ""}<br><span class="small muted">${esc(R0.phil[x.s.phil].l)}${x.s.form ? " · " + x.s.form : ""}</span>` },
@@ -303,6 +305,7 @@ function pgHire() {
       { k: "avg", l: "Avg", r: true, v: x => x.avg, f: x => `<b class="num">${s20(x.avg)}</b>` },
       { k: "vis", l: "Vision", v: x => x.vm, f: x => `<span class="small ${matchWord(x.vm)[1]}">${x.vm >= .75 ? "Shares" : x.vm >= .5 ? "Partly" : "Differs"}</span>` },
       { k: "ask", l: "Wants", r: true, v: x => x.ask ?? 1e12, f: x => x.ask != null ? money(x.ask) : `<span class="small muted">${staffDropOK(x.s) ? "No" : "Won't drop"}</span>` },
+      { k: "club", l: "Now at", left: true, v: x => x.s.emp != null ? CL(x.s.emp).name : "", f: x => x.s.emp != null ? `<span class="small">${esc(CL(x.s.emp).name)}<br><span class="muted">comp. ${money(poachFee(x.s))}</span></span>` : `<span class="small muted">Out of work</span>` },
     ], pool, { sort: { k: "avg", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}
     <p class="small muted" style="margin-top:10px">Like players, coaches weigh up the whole job: the money, your club's standing, facilities, budgets, the squad, your ambition, and whether you let staff do their jobs. They won't drop more than two divisions below their standing.</p></section></div>`;
 }
@@ -315,10 +318,11 @@ function candModal(role, n) {
     <div class="modal-b"><p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
       <p class="small muted">${esc(ph.d || "")}</p>
       ${exLine(s)}
+      ${s.emp != null ? `<p class="small warn" style="margin-top:6px">${s.coachOf != null ? "Manager" : "Working"} at ${esc(clubLabel(CL(s.emp)))}. To bring him in you pay them ${money(poachFee(s))} in compensation, on top of his wages, and he wants a little more to leave a job.</p>` : ""}
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${staff20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
-      ${no ? "" : `<div class="row" style="margin-top:10px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw0" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy0">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="0">Offer the job</button></div>`}</div>`);
+      ${no ? "" : `<div class="row" style="margin-top:10px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw0" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy0">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="0">${s.emp != null ? `Poach him (${money(poachFee(s))})` : "Offer the job"}</button></div>`}</div>`);
 }
 
 /* Loan wages: who you've borrowed and lent, and the share of each wage you actually pay. */
@@ -369,7 +373,7 @@ function pgFin() {
       ${budgetIn("scout", "Scouting (per year)", "More lets your recruitment team see further and judge players better.", { ref: scoutRef(T), fig: `normal ${money(scoutRef(T))}` })}
     </div></section>`,
     accounts: () => `<section class="card"><div class="card-h"><h2>Accounts</h2><span class="muted small">this season · last season</span></div><div class="tbl-wrap"><table class="proj"><tbody>
-      <tr class="sec"><td colspan="3">Income</td></tr>${row("gate", "Gate receipts")}${row("conc", "Food & drink")}${row("suites", "Executive suites")}${row("events", "Stadium ventures & events")}${row("merch", "Merchandise")}${row("spons", "Sponsorship")}${row("tv", "Central (TV) money")}${row("prize", "Prize money")}${row("sales", "Player sales")}
+      <tr class="sec"><td colspan="3">Income</td></tr>${row("gate", "Gate receipts")}${row("conc", "Food & drink")}${row("suites", "Executive suites")}${row("events", "Stadium ventures & events")}${row("merch", "Merchandise")}${row("spons", "Sponsorship")}${row("network", "Partner club fees")}${row("tv", "Central (TV) money")}${row("prize", "Prize money")}${row("sales", "Player sales")}
       <tr class="tot"><td style="text-align:left">Total income</td><td class="num">${money(ledgerIncome(c.fin))}</td><td class="num muted">${L ? money(ledgerIncome(L)) : "—"}</td></tr>
       <tr class="sec"><td colspan="3">Costs</td></tr>${row("wages", "Player wages")}${row("staff", "Staff wages")}${row("buys", "Transfer fees")}${row("rent", "Ground rent")}${row("fac", "Facility upkeep")}${row("build", "Construction")}${row("acad", "Academy")}${row("scout", "Scouting")}${row("interest", "Interest")}${row("directors", "Directors")}${row("feeders", "Feeder funding")}${row("dividend", "Dividends")}
       <tr class="tot"><td style="text-align:left">Total costs</td><td class="num">${money(ledgerCosts(c.fin))}</td><td class="num muted">${L ? money(ledgerCosts(L)) : "—"}</td></tr>

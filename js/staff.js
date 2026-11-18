@@ -52,6 +52,8 @@ function hire(s, wage, yrs) {
   const c = my(), cur = c.staff[s.role];
   if (cur && cur !== s) dismiss(s.role, true);
   const ask = staffAsk(s) || wage;
+  if (s.emp != null) poachPay(s);  // he was working elsewhere: his club gets compensation
+  s.poached = G.year * 100 + G.week;  // nobody comes for a new appointment in his first year
   s.wage = wage; s.yrs = yrs; s.expiring = false; s.trust = clamp(60 + Math.round((wage / ask - 1) * 40), 40, 80); s.since = G.year;
   c.staff[s.role] = s;
   hiredExPro(s);
@@ -155,6 +157,29 @@ const matchWord = m => m >= .75 ? ["Shares your vision", "good"] : m >= .5 ? ["P
    is up to him (see appeal.js); there are always at least ten who would. */
 const STAFF_UNIVERSE = 110;
 function staffLevel() { const a = attraction(), r = R(); return clamp(Math.round(r < .45 ? a + normal() * 12 : r < .75 ? 3 + R() * Math.max(5, a) : a + R() * (95 - a)), 3, 95); }
+// A club whose standing suits a reputation: where someone of that standing would be working.
+function employerFor(rep) {
+  const l = G.clubs.filter(x => (!x.gone || x.abroad) && !isMine(x) && Math.abs((x.abroad ? x.rep : TIER_REP[x.tier] + 6) - rep) < 10);
+  return l.length ? pick(l).id : null;
+}
+// Other clubs' managers as candidates you could approach.
+function coachCands() {
+  return G.clubs.filter(x => (!x.gone || x.abroad) && !isMine(x) && x.coach).map(x => {
+    const co = x.coach, rep = clamp(Math.round(x.abroad ? x.rep : TIER_REP[x.tier] + (co.tac - 50) / 4 + 6), 3, 95), m = genStaff("manager", rep);
+    Object.assign(m, { name: co.name, age: co.age || m.age, phil: co.style, form: co.form, emp: x.id, coachOf: x.id });
+    m.at.tac = co.tac; if (co.dev != null) m.at.dev = co.dev;
+    return m;
+  });
+}
+/* Poaching: what his club wants to let him go. A year or two of his wages, more for a bigger club and for its manager. */
+const poachFee = s => { const x = CL(s.emp); return Math.round(s.demand * (1.2 + (x && x.abroad ? .5 : 0) + (s.coachOf != null ? .6 : 0) + Math.max(0, s.rep - 40) / 60) / 1000) * 1000; };
+function poachPay(s) {
+  const x = CL(s.emp), fee = poachFee(s); spend("staff", fee);
+  if (s.coachOf != null && x && x.coach) { x.coach = coachFor(x); }
+  news(`You pay ${x ? x.name : "his club"} ${money(fee)} in compensation to bring ${s.name} in.`, true);
+  const U = (G.pools || {})[s.role]; if (U && U.emp) U.emp = U.emp.filter(y => y !== s);
+  s.emp = null; s.coachOf = null;
+}
 function candidates(role) {
   const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
   let U = P[role];
@@ -166,5 +191,9 @@ function candidates(role) {
     for (let k = 0; w < 10 && k < 60; k++) { const s = genStaff(role, clamp(Math.round(a - 4 - k / 3 - R() * 10), 3, 95)); U.list.push(s); if (!wontCome(s)) w++; }
     U.t = now;
   }
-  return [...exProCands(role), ...U.list];  // former players moving into coaching (your own favourites first), then everyone else
+  // About a third of the universe is in work somewhere: you can approach them, but their club wants compensation.
+  // Managers in work are the real managers of other clubs (refreshed with the universe).
+  for (const s of U.list) if (s.emp === undefined) s.emp = role !== "manager" && R() < .3 ? employerFor(s.rep) : null;
+  if (role === "manager" && (!U.empT || now - U.empT >= 6)) { U.emp = coachCands(); U.empT = now; }
+  return [...exProCands(role), ...U.list, ...(role === "manager" ? U.emp || [] : [])];  // former players moving into coaching (your own favourites first), then everyone else
 }

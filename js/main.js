@@ -179,7 +179,7 @@ const CHANGE = {
   lgsel: el => { SUB.league = el.value; render(); },
   pcty: el => { SUB.pcty = el.value; SUB.plg = ""; render(); },
   plg: el => { SUB.plg = el.value; render(); },
-  hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis"].includes(k) ? el.value : +el.value || 0; render(); },
+  hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis", "st"].includes(k) ? el.value : +el.value || 0; render(); },
   mf: el => { const k = el.dataset.k; MARKET_F[k] = ["pos", "arch", "int", "lg"].includes(k) ? el.value : +el.value || 0;
     if (k === "pos" && MARKET_F.arch && !(ARCHETYPES[el.value] || []).some(a => a[0] === MARKET_F.arch)) MARKET_F.arch = "";
     if (k === "arch" && el.value && MARKET_F.pos && !(ARCHETYPES[MARKET_F.pos] || []).some(a => a[0] === el.value)) MARKET_F.pos = "";

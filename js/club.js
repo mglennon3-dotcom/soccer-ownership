@@ -183,7 +183,7 @@ function homeGameMoney(c, opp) {
   c.att = c.att || []; c.att.push(crowd);
   return crowd;
 }
-const ledgerIncome = f => f.gate + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales;
+const ledgerIncome = f => f.gate + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
 const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and

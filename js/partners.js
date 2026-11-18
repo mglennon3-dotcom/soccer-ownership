@@ -94,6 +94,11 @@ function approachPartner(x) {
   if (R() < partnerChance(x)) { partners().push({ id: x.id, rel: 60, since: G.year }); news(`${x.name}${x.abroad ? ` (${COUNTRY[x.country].name})` : ""} agree a partnership: you're now one of their feeder clubs. Expect loan offers each window.`, true); return true; }
   news(`${x.name} turn down a partnership for now.`); return false;
 }
+/* Being a feeder pays: each partner pays you a yearly affiliation fee, set by your division (more from a club abroad
+   or in the Premier Division, less from a club just above you), paid weekly. */
+const AFFIL_FEE = [0, 1.5e6, 750e3, 350e3, 150e3, 60e3, 30e3, 15e3];
+const affilFee = (x, c = my()) => Math.round(AFFIL_FEE[c.tier] * (x.abroad || x.tier === 1 ? 1.5 : x.tier <= c.tier - 3 ? 1 : .6) / 1000) * 1000;
+function partnersWeek() { const c = my(), t = sum(partners(), p => CL(p.id) ? affilFee(CL(p.id), c) : 0); if (t) earn("network", t / 52); }
 function endPartner(id) { net().partners = partners().filter(x => x.id !== id); news(`The partnership with ${CL(id).name} ends.`); }
 function partnerWindow() {
   const c = my(), myXI = avg(pickXI(c).map(o => o.p.ovr));
@@ -131,4 +136,4 @@ function feedersSummer() {
 }
 DECIDE.fFirst = (m, i) => { const p = G.players[m.data.pid]; if (i !== 0 || !p || p.club !== m.data.from) return; signPlayer(p, m.data.fee, Math.max(p.wage, demandWage(p, my())), false); };
 // What's spent on feeders each week.
-function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / 52); }
+function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / 52); partnersWeek(); }

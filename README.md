@@ -31,6 +31,10 @@ Running locally: any static server works, for example `python3 -m http.server 80
   player's rating in his position, out-of-position players marked), the bench and who's unavailable, his style and how
   well the squad suits it, attack, midfield and defence against the division, which styles the squad would suit best
   (worth knowing when you hire a manager), and the next opponent.
+- **Poach staff.** About a third of the staff universe, and every other club's manager, is in work. Approach them from
+  Find staff (Status: At another club): their club gets compensation (a year or two of wages, more for a manager and
+  for a club abroad) and they want a little more to leave. Your own new appointments can't be approached in their first
+  year, and other clubs rarely come for your staff.
 - **A staff universe.** Over a hundred people for each role, from part-timers to the best in the game, kept from week to
   week: they age, some take jobs elsewhere or retire, and new names come in. Filter to the ones who would come (always at
   least ten) or see everyone. The Find staff page works like the transfer market: a tab for each role, filters (style
@@ -181,8 +185,8 @@ crowds at higher prices. Players at foreign clubs can be signed too, and foreign
 ## The network
 
 You can be a feeder to up to three **partner clubs**: English clubs in any division above you, or clubs abroad (filter
-by country and division to find them). Each window a partner offers young players at your level on loan, at a wage
-share it's happy with; the bigger the partner, the higher you need to climb before its youngsters suit you. Up to three **feeder clubs**
+by country and division to find them). Each partner pays you a yearly affiliation fee set by your division (more from a club abroad or
+in the Premier Division), and each window offers young players at your level on loan, at a wage share it's happy with; the bigger the partner, the higher you need to climb before its youngsters suit you. Up to three **feeder clubs**
 below you take your funding (raising their standard and facilities), take your players on loan first, and give you first
 refusal on their best youngsters at a discount.
 
