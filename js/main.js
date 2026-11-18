@@ -51,6 +51,12 @@ function upgradeSave() {
   // than what's on it now (stands and extras), and work in progress is grandfathered.
   // 0.46.6: no planning stage: work already under way drops any planning weeks it had left.
   if (G.club != null) { const b = my().fac.stadium.build; if (b && b.plan) { const done = b.total - b.left; b.left = Math.max(1, b.left - Math.max(0, b.plan - done)); b.total -= b.plan; b.plan = 0; } }
+  // 0.47.3: your academy boys' potential is re-drawn once under the new intake rules (academy level, division, gems).
+  if (!G.reroll1) { G.reroll1 = true; if (G.club != null) { const c = my(), ps = c.squad.map(P).filter(p => p && p.acad);
+    if (ps.length) { const lvl = Math.max(1, c.fac.acad.lvl), y = staffOf("youth"), mean = youthBase(c, lvl) + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3);
+      for (const p of ps) { p.pot = Math.max(p.ovr, drawPotential(mean, 1 + lvl * .1, gemMult(c))); p.yAcad = c.id; }
+      const best = ps.slice().sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1])[0];
+      news(`The youth coaches have re-assessed all ${ps.length} academy players. ${best.name} (${best.pos}, ${best.age}) now looks the pick of them, potential ${est20(potEstimate(best))}.`, true); } } }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }
