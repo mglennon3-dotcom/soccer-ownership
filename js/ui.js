@@ -485,7 +485,7 @@ function pgMarket() {
   if (F.int) pool = pool.filter(x => F.int === "sign" ? x.i.k !== "no" : F.int === "open" ? x.i.k === "open" || x.i.k === "keen" : x.i.k === F.int);
   const archOpts = (F.pos ? [F.pos] : POS).map(r => `<optgroup label="${POS_NAME[r]}">${ARCHETYPES[r].map(a => `<option value="${esc(a[0])}" ${F.arch === a[0] ? "selected" : ""}>${a[0]}</option>`).join("")}</optgroup>`).join("");
   const sel = (k, opts) => `<select data-act="mf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
-  const FEES = [0, 50e3, 100e3, 250e3, 500e3, 1e6, 2.5e6, 5e6, 10e6, 25e6, 50e6, 100e6];
+  const FEES = [0, 5e3, 10e3, 25e3, 50e3, 100e3, 250e3, 500e3, 1e6, 2.5e6, 5e6, 10e6, 25e6, 50e6, 100e6];
   const wageUse = c.budget.wages ? Math.round(wageBill(c) / c.budget.wages * 100) : 0;
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Search the market</h2></div>
     <p style="margin-bottom:12px">${windowOpen() ? `<b class="good">Window open</b>` : `<b class="muted">Window closed: free agents only</b>`} · Cash <b class="num">${money(c.cash)}</b> · Wage bill <b class="num">${wageUse}%</b> of budget</p>
