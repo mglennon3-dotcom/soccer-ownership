@@ -120,16 +120,27 @@ const staffDrop = s => Math.max(0, my().tier - repTier(s.rep));  // divisions be
 const staffDropOK = s => { const c = my(); if (empDrop(s) >= 4 && !isLegendOf(s, c.id)) return false; return s === staffOf(s.role) || isLegendOf(s, c.id) || (s.ex && s.ex.favOf.includes(c.id)) || staffDrop(s) <= dropRoom(s); };
 // Dropping below his level costs: a quarter more per division (on top of anything for leaving a job).
 const levelPremium = s => s === staffOf(s.role) || isLegendOf(s, my().id) ? 1 : 1 + staffDrop(s) * .25;
+/* What he'll ask is set mostly by the job, not his name: the going rate for this role at a club of your division and
+   standing, plus a premium for being better than that level (up to 2.5×), never more than his own market rate.
+   Someone already earning more in a higher division won't take a pay cut to join you, and leaving a job or dropping
+   divisions costs extra on top. */
+const jobRep = (c = my()) => TIER_REP[c.tier] + clamp(c.rep - TIER_REP[c.tier], -10, 15) * .5;
+const jobRate = role => staffWage(role, jobRep());
+function effDemand(s) {
+  const mine = s === staffOf(s.role), above = !mine && s.emp != null && empDrop(s) >= 1;
+  const base = above ? s.demand : Math.min(s.demand, jobRate(s.role) * clamp(1 + (s.rep - jobRep()) / 40, 1, 2.5));
+  return base * (s.emp != null && !mine ? 1.15 : 1) * dropPremium(s) * levelPremium(s);
+}
 function staffAsk(s) {
   if (!staffDropOK(s)) return null;
   const pr = prefsOf(s, S_FACTORS), f = staffFactors(s);
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
-  return Math.ceil(s.demand * Math.max(.85, ratioFor(Math.max(0, need)) + .001) * (s.emp != null && s !== staffOf(s.role) ? 1.15 : 1) * dropPremium(s) * levelPremium(s) / 1000) * 1000;
+  return Math.ceil(effDemand(s) * Math.max(.85, ratioFor(Math.max(0, need)) + .001) / 1000) * 1000;
 }
 function staffAppeal(s, wage) {
-  const pr = prefsOf(s, S_FACTORS), f = { ...staffFactors(s), money: moneyF(wage / s.demand) };
+  const pr = prefsOf(s, S_FACTORS), f = { ...staffFactors(s), money: moneyF(wage / effDemand(s)) };
   return { f, pr, score: sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
 }
 /* Why someone said no: what he cares about most and what let you down. */
