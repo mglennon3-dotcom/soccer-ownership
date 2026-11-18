@@ -108,14 +108,18 @@ function staffFactors(s) {
    and they'll go at most two divisions lower (three once they're 58 and winding down). Your own staff renewing, and
    former players coming home to a club that loves them, are the exceptions. */
 const repTier = r => { for (let t = 1; t <= 7; t++) if (r >= TIER_REP[t] - 4) return t; return 7; };
-const staffDropOK = s => { const c = my(); return s === staffOf(s.role) || isLegendOf(s, c.id) || (s.ex && s.ex.favOf.includes(c.id)) || c.tier <= repTier(s.rep) + (s.age >= 58 ? 3 : 2); };
+/* Someone in a job already has a division to lose. Stepping down one division is fine; two or three costs a lot more
+   than he earns now (half as much again per extra division); four or more and he stays where he is. */
+const empDrop = s => { if (s.emp == null || s === staffOf(s.role)) return 0; const x = CL(s.emp); return x ? my().tier - (x.abroad ? 1 : x.tier) : 0; };
+const dropPremium = s => { const d = empDrop(s); return d >= 2 ? 1 + .5 * (d - 1) : 1; };
+const staffDropOK = s => { const c = my(); if (empDrop(s) >= 4 && !isLegendOf(s, c.id)) return false; return s === staffOf(s.role) || isLegendOf(s, c.id) || (s.ex && s.ex.favOf.includes(c.id)) || c.tier <= repTier(s.rep) + (s.age >= 58 ? 3 : 2); };
 function staffAsk(s) {
   if (!staffDropOK(s)) return null;
   const pr = prefsOf(s, S_FACTORS), f = staffFactors(s);
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
-  return Math.ceil(s.demand * Math.max(.85, ratioFor(Math.max(0, need)) + .001) * (s.emp != null && s !== staffOf(s.role) ? 1.15 : 1) / 1000) * 1000;
+  return Math.ceil(s.demand * Math.max(.85, ratioFor(Math.max(0, need)) + .001) * (s.emp != null && s !== staffOf(s.role) ? 1.15 : 1) * dropPremium(s) / 1000) * 1000;
 }
 function staffAppeal(s, wage) {
   const pr = prefsOf(s, S_FACTORS), f = { ...staffFactors(s), money: moneyF(wage / s.demand) };

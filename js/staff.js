@@ -109,6 +109,16 @@ const tolWord = s => { const t = s20(tolOf(s)); return t >= 15 ? ["Welcomes it",
 // Potential: what his average could still reach. His development ceiling, but only the young keep growing: under 40 fully,
 // in his forties about half of it; from 50 he has peaked.
 function staffPot(s) { const avgNow = staffAvg(s), room = Math.max(0, staffCeil(s) - Math.max(...Object.values(s.at))); return Math.round(avgNow + room * (s.age < 40 ? 1 : s.age < 50 ? .5 : 0)); }
+/* Like a player's, a coach's potential is an estimate: a range, wider the more room he has left to grow and narrower
+   once he works for you. Each person's error is fixed (s.pn) so the range holds still. Returns [low, high] on 0-100. */
+function staffPotRange(s) {
+  const avgNow = staffAvg(s), pot = staffPot(s); if (pot <= avgNow) return [avgNow, avgNow];
+  s.pn ??= clamp(Math.round(normal() * 100) / 100, -2, 2);
+  const mine = Object.values(my().staff || {}).includes(s), sd = Math.max(3, (pot - avgNow) * .4) * (mine ? .6 : 1);
+  const est = clamp(pot + s.pn * sd * .6, avgNow, 99);
+  return [Math.round(Math.max(avgNow, est - sd)), Math.round(Math.min(99, est + sd))];
+}
+const staffPot20 = s => { const [a, b] = staffPotRange(s).map(s20); return a === b ? `${a}` : `${a}–${b}`; };
 // A trust hit caused by you stepping in, scaled by his tolerance.
 function meddled(role, d, why) { const s = staffOf(role); if (!s) return; trust(role, d < 0 ? d * tolF(s) : d, why); }
 function trust(role, d, why) {

@@ -256,7 +256,7 @@ function yearTurnover() {
     (p.prog ||= []).push([G.year, p.age, p.ovr, club, p.s.app, p.s.g, p.s.a, p.pot]); if (p.prog.length > 10) p.prog.shift();
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
     // AI wages drift toward the going rate for the player's rating: a fifth of the gap a year, down as he declines, up as he improves.
-    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan) { const go = wageFor(p.ovr); p.wage = Math.round((p.wage + (go - p.wage) * .2) / 100) * 100; }
+    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan) { const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .2) / 100) * 100; }
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { p.yrs--; if (p.yrs <= 0) { if (R() < (p.ovr >= CL(p.club).lvl - 3 ? .95 : .6) && p.age < 34) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
     // Veterans nobody signs hang up their boots sooner.
     const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;
@@ -269,7 +269,7 @@ function yearTurnover() {
     if (c.gone) continue;
     for (const id of c.squad.slice()) { const p = P(id); if (!p.acad || p.age < 19) continue;
       if (isMine(c)) { if (p.keep || p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4) { p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, demandWage(p, c)); news(`Academy graduate ${p.name} (${p.pos}, ${r20(p.ovr)}) signs a professional contract.`, true); } else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released by the academy.`); } }
-      else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = ri(2, 3); p.wage = wageFor(p.ovr); } else { leaveClub(p); toFreeAgent(p); } }
+      else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = ri(2, 3); p.wage = aiWage(p, c); } else { leaveClub(p); toFreeAgent(p); } }
     youthIntake(c);
   }
   // The free-agent pool is kept to a sensible size: the least employable drift out of the game.
@@ -277,10 +277,10 @@ function yearTurnover() {
   // Talent moves up: players far better than their club are bought by a club at their level.
   for (const p of Object.values(G.players)) {
     if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
-    if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { moveTo(p, buyer); p.wage = wageFor(p.ovr); p.yrs = ri(2, 4); } }
+    if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { moveTo(p, buyer); p.wage = aiWage(p, buyer); p.yrs = ri(2, 4); } }
   }
   // Good free agents don't stay unemployed: a club at their level takes them on.
-  for (const p of G.fa.map(P).filter(p => p && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = wageFor(p.ovr); p.yrs = ri(1, 3); } }
+  for (const p of G.fa.map(P).filter(p => p && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
   for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, false);
   freshFreeAgents();
   foreignSummer();
@@ -438,21 +438,22 @@ function aiSquadCheck(c, light) {
   // Too weak: replace the weakest regular if he's well below the standard
   if (!light) for (const pos of POS) {
     const ps = sq().filter(p => p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2);
-    const weak = ps[need - 1]; if (weak && weak.ovr < c.lvl - 6 && R() < .6) aiSign(c, pos);
+    const weak = ps[need - 1]; if (weak && weak.ovr < c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5 && R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9)) aiSign(c, pos);
   }
 }
 function aiSign(c, pos) {
-  const target = Math.round(c.lvl + normal() * 3);
+  // c.lvl already carries the owner's spending; a big spender also aims a little higher and buys more readily.
+  const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 3);
   let p = null;
   const fas = G.fa.map(P).filter(q => q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
   if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
-  else if (R() < .5) {
+  else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     const lower = G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && x.tier <= c.tier + 2);
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     if (pool.length) p = pick(pool);
   }
   if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); }
-  moveTo(p, c); p.wage = wageFor(p.ovr); p.yrs = ri(1, 4);
+  moveTo(p, c); p.wage = aiWage(p, c); p.yrs = ri(1, 4);
 }
 
 /* ---------- inbox ---------- */

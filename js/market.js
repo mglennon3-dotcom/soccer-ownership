@@ -151,7 +151,7 @@ function sellToAI(p, byOwner, fee) {
   if (!buyer) return release(p, byOwner);
   fee = fee ?? Math.round(valueOf(p) * rf(.75, 1.05) / 1000) * 1000;
   logMove("out", p, { club: buyer.name, fee, wage: p.wage, by: byOwner ? "you" : "administrators" });
-  moveTo(p, buyer); p.wage = wageFor(p.ovr); earn("sales", fee);
+  moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", fee);
   news(`${p.name} is sold to ${buyer.name} for ${money(fee)}${byOwner ? " (your decision)" : ""}.`, true);
   return buyer;
 }
@@ -252,7 +252,7 @@ function answerBid(m, accept, auto) {
 function completeSale(p, buyer, amt, auto) {
   if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`);
   logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto ? "recruit" : "you" });
-  leaveClub(p); moveTo(p, buyer); p.wage = wageFor(p.ovr); earn("sales", amt);
+  leaveClub(p); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", amt);
   news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
 }
 

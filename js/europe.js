@@ -45,7 +45,7 @@ function foreignSignFA(c, pos) {
   const fits = G.fa.map(P).filter(p => p && p.pos === pos && p.age <= 32 && p.ovr >= c.lvl - 7 && p.ovr <= c.lvl + 4);
   if (!fits.length) return false;
   const p = fits.sort((a, b) => (b.ovr + (b.nat === c.country ? 3 : 0)) - (a.ovr + (a.nat === c.country ? 3 : 0)))[0];
-  moveTo(p, c); p.wage = wageFor(p.ovr); p.yrs = ri(1, 3);
+  moveTo(p, c); p.wage = aiWage(p, c); p.yrs = ri(1, 3);
   if (G.club != null && (p.hist || []).some(h => h[1] === my().short)) news(`Former ${my().name} player ${p.name} signs for ${c.name} in ${COUNTRY[c.country].name} on a free.`);
   return true;
 }
@@ -69,7 +69,7 @@ function foreignSummer() {
     // Now and then a foreign club buys a player from an English club below its standard.
     if (R() < .25) {
       const t = Object.values(G.players).find(p => p.club >= 0 && !p.loan && !p.acad && p.age <= 29 && p.ovr >= c.lvl - 3 && p.ovr <= c.lvl + 5 && !CL(p.club).gone && !isMine(CL(p.club)) && CL(p.club).lvl < p.ovr && R() < .02);
-      if (t) { const from = CL(t.club); moveTo(t, c); t.wage = wageFor(t.ovr); t.yrs = ri(2, 4); aiSquadCheck(from, true); if (from.lg === (my() || {}).lg) news(`${t.name} leaves ${from.name} for ${c.name} in ${COUNTRY[c.country].name}.`); }
+      if (t) { const from = CL(t.club); moveTo(t, c); t.wage = aiWage(t, c); t.yrs = ri(2, 4); aiSquadCheck(from, true); if (from.lg === (my() || {}).lg) news(`${t.name} leaves ${from.name} for ${c.name} in ${COUNTRY[c.country].name}.`); }
     }
   }
 }

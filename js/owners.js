@@ -40,7 +40,9 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
-function coachFor(c) { const co = aiCoach(c.rep); if (c.own && c.own.style === "explayer") { co.tac = Math.max(5, co.tac - ri(8, 18)); co.mate = true; } return co; }
+// Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
+const aiWage = (p, c) => Math.round(wageFor(p.ovr) * clamp(1 + ownStyle(c).spend * .05, .78, 1.3) / 100) * 100;
+function coachFor(c) { const co = aiCoach(clamp(c.rep + ownStyle(c).spend * 3, 1, 99)); if (c.own && c.own.style === "explayer") { co.tac = Math.max(5, co.tac - ri(8, 18)); co.mate = true; } return co; }
 const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "hostile" && x.own.target === c.id);
 function ownersSummer() {
   for (const c of G.clubs) {
@@ -89,7 +91,7 @@ function hostileCheck() {
 function administration(c) {
   c.ded = 10; c.rep = Math.max(1, c.rep - 4);
   const best = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.ovr - a.ovr).slice(0, 3);
-  for (const p of best) { const b = buyerFor(p, 8); if (b && b !== c) { moveTo(p, b); p.wage = wageFor(p.ovr); } }
+  for (const p of best) { const b = buyerFor(p, 8); if (b && b !== c) { moveTo(p, b); p.wage = aiWage(p, b); } }
   const where = c.lg === my().lg || c.half === my().half;
   news(`${c.name} have gone into administration under ${c.own.name}. They start next season on minus ten points and have sold their best players.`, where);
   c.own = newOwner(c, pick(["local", "fanowned", "moneyball", "absentee"]));
