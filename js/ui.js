@@ -585,12 +585,15 @@ function pgMarket() {
   if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
   if (F.lg) base = base.filter(p => p.club >= 0 && (F.lg === "ABROAD" ? CL(p.club).abroad : CL(p.club).lg === F.lg));
   // Cheap filters first; then each club's first team is worked out once for the asking prices.
+  // "Fits my budget": what's left of the transfer budget, and the spare room in the wage budget (a week).
+  const feeLeft = Math.max(0, c.budget.transfer - c.spentT), wageLeft = Math.max(0, c.budget.wages - wageBill(c)) / 52;
+  const feeCap = F.fee === -1 ? feeLeft : F.fee, wageCap = F.wage === -1 ? wageLeft : F.wage;
   let pool = base.filter(p => (!F.pos || p.pos === F.pos) && p.age <= F.age && (!F.arch || (archetypeOf(p) || [])[0] === F.arch))
     .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
-    .map(x => ({ ...x, fee: askingFee(x.p, xiCache), pe: potEstimate(x.p) })).filter(x => F.tab === "loans" || !F.fee || x.fee <= F.fee);
+    .map(x => ({ ...x, fee: askingFee(x.p, xiCache), pe: potEstimate(x.p) })).filter(x => F.tab === "loans" || !F.fee || x.fee <= feeCap);
   for (const x of pool) x.i = interestOf(x.p);
   // Max wage (a week): what he'd want to join you, or for a loan the half of his wages you'd pay.
-  if (F.wage) pool = pool.filter(x => (F.tab === "loans" ? x.p.wage / 2 : x.i.ask ?? Infinity) / 52 <= F.wage);
+  if (F.wage) pool = pool.filter(x => (F.tab === "loans" ? x.p.wage / 2 : x.i.ask ?? Infinity) / 52 <= wageCap);
   if (F.int) pool = pool.filter(x => F.int === "sign" ? x.i.k !== "no" : F.int === "open" ? x.i.k === "open" || x.i.k === "keen" : x.i.k === F.int);
   const archOpts = (F.pos ? [F.pos] : POS).map(r => `<optgroup label="${POS_NAME[r]}">${ARCHETYPES[r].map(a => `<option value="${esc(a[0])}" ${F.arch === a[0] ? "selected" : ""}>${a[0]}</option>`).join("")}</optgroup>`).join("");
   const sel = (k, opts) => `<select data-act="mf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
@@ -605,8 +608,8 @@ function pgMarket() {
       <label class="f">Max age${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
       <label class="f">Min rating${sel("min", [[0, "Any"], [2, "2+"], [4, "4+"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
       <label class="f">Interest${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign (not Not interested)"], ["no", "Not interested"]])}</label>
-      <label class="f">Max wage${sel("wage", [[0, "Any"], ...[50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000].map(v => [v, "€" + v.toLocaleString("en-GB") + "/wk"])])}</label>
-      ${F.tab === "loans" ? "" : `<label class="f">Max fee${sel("fee", FEES.map(v => [v, v ? money(v) : "Any"]))}</label>`}
+      <label class="f">Max wage${sel("wage", [[0, "Any"], [-1, `Fits my budget (${pw(wageLeft * 52)})`], ...[50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000].map(v => [v, "€" + v.toLocaleString("en-GB") + "/wk"])])}</label>
+      ${F.tab === "loans" ? "" : `<label class="f">Max fee${sel("fee", [[0, "Any"], [-1, `Fits my budget (${money(feeLeft)})`], ...FEES.slice(1).map(v => [v, money(v)])])}</label>`}
       <label class="f">League${sel("lg", [["", "All leagues"], ...LG_KEYS.map(k => [k, LEAGUES[k].name]), ["ABROAD", "Clubs abroad"]])}</label></div>
     ${F.tab === "loans" && partners().length ? `<div class="offer" style="display:block;margin-bottom:12px"><b>From your partner clubs</b>${partners().map(pt => { const x = CL(pt.id); if (!x) return ""; const av = partnerLendable(x, c);
       return `<div style="margin-top:8px"><span class="small">${crest(x, 14)} <b>${esc(x.name)}</b> <span class="muted">${esc(clubWhere(x))} · ${av.length} player${av.length === 1 ? "" : "s"}</span></span>${av.length ? partnerLoanRows(x, av, 6) : `<p class="small muted">No young players at your level yet.</p>`}</div>`; }).join("")}
