@@ -107,6 +107,8 @@ Running locally: any static server works, for example `python3 -m http.server 80
   results hurt less, and they stay), fair-weather (mood and numbers swing harder both ways) and community (they notice
   prices, and reward cheap tickets and a family stand). It shifts each summer with promotions, relegations, steady
   seasons, terraces, prices and a family stand.
+- **Promotion and relegation clauses.** Every contract at your club pays 25% more after a promotion and 25% less after
+  a relegation. Money-motivated players don't take the cut quietly: most hand in transfer requests, the rest grumble.
 - **Breakout seasons.** A player coming off a very good season wants paying like it, well above the going rate, and
   threatens a transfer request: pay him, offer less (he may still go), or refuse and he's on the list. Whether the
   manager's system suits him also counts when a player decides whether to join you.

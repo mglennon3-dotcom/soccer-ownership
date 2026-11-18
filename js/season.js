@@ -181,7 +181,7 @@ function endSeason() {
     ...Object.values(G.cont || {}).map(K => { if (!K.teams.includes(G.club)) return null; if (K.win === G.club) return CONT[K.key].name + ": winners"; const r = K.ko.filter(R => R.ties.some(t => t.h === G.club || t.a === G.club)).pop(); return `${CONT[K.key].name}: ${r ? r.n.toLowerCase() : "group stage"}`; })].filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
     inc: ledgerIncome(f), cost: ledgerCosts(f), att: Math.round(avg(mine.att || [])), st: stHolders(mine), stp: mine.st && mine.st.y === G.year ? mine.st.price : null, fans: mine.fans, cash: mine.cash, mgr: mgr().name,
     top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" });
-  investorsSummer({ up: wentUp, down: wentDown }); fanCultureSummer(mine, wentUp, wentDown);
+  investorsSummer({ up: wentUp, down: wentDown }); fanCultureSummer(mine, wentUp, wentDown); wageClauses(mine, wentUp, wentDown);
   endLoans();
   G.meddle = (G.meddle || 0) * .6;
   mine.fac.stadium.held = 0;  // interference is slowly forgotten
@@ -384,6 +384,26 @@ function freshFreeAgents(target = 130) {
     const age = ri(18, 29), ovr = clamp(Math.round(rf(30, 58) + (R() < .12 ? rf(5, 14) : 0)), 25, 75);
     toFreeAgent(makePlayer({ pos: pick(POS), ovr, age, nat: R() < .75 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }));
   }
+}
+/* Promotion and relegation clauses: every contract at your club pays 25% more after a promotion and 25% less after a
+   relegation (loanees are paid by their own clubs; academy boys are on youth terms). Money-motivated players don't
+   take a cut quietly: the greedier they are, the likelier they hand in a transfer request, and the rest grumble. */
+const CLAUSE = .25;
+function wageClauses(c, up, down) {
+  if (!up && !down) return;
+  const ps = c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.to === c.id)), before = wageBill(c), quit = [];
+  for (const p of ps) {
+    p.wage = Math.round(p.wage * (up ? 1 + CLAUSE : 1 - CLAUSE) / 100) * 100;
+    if (down) {
+      const pr = prefsOf(p, P_FACTORS), greed = wageMult(p, c);
+      if (pr.top.includes("money") || greed > 1.1) {
+        p.payGrudge = (p.payGrudge || 0) + 1; p.unsettled = Math.max(p.unsettled || 0, 6);
+        if (!p.keep && !p.req && R() < clamp((greed - 1) * 2.5 + (pr.top[0] === "money" ? .3 : .1), .1, .85)) { p.req = G.year; p.list = true; quit.push(p.name); }
+      }
+    }
+  }
+  news(up ? `Promotion clauses kick in: ${ps.length} players' wages rise by 25% (the wage bill goes from ${money(before)} to ${money(wageBill(c))} a year).`
+    : `Relegation clauses kick in: ${ps.length} players' wages fall by 25% (the wage bill goes from ${money(before)} to ${money(wageBill(c))} a year).${quit.length ? ` Money-motivated players won't take the cut: ${quit.join(", ")} hand${quit.length > 1 ? "" : "s"} in transfer request${quit.length > 1 ? "s" : ""}.` : ""}`, true);
 }
 function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 
