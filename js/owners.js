@@ -57,15 +57,16 @@ function aiEstimate(x) {
   const att = Math.round(Math.min(x.cap || 1e9, (x.fans * .8 * pf + x.fans * .35 * pf * .9) * sw));
   const staff = staffWage("manager", x.rep) + staffWage("youth", x.rep) + staffWage("recruit", x.rep);
   const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);
-  return { ticket, att, staff, comm };
+  const merch = x.fans * .007 * 52 * REF_SHIRT[x.tier] * .55 * clubPop(x);  // a year's shirt profit: supporters times popularity
+  return { ticket, att, staff, comm, merch };
 }
 // A season's income: TV, the gate (plus bar and shop), sponsors.
 // (plus a little for cup runs, merit money and selling players).
-function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + e.att * e.ticket * 23 * 1.35 + e.comm) * 1.08; }
+function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
 const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
 const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12;  // wages, staff, ground and running costs
 const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
-function aiBudget(c) { const S = ownStyle(c); return tierWages(c.tier) * clamp(1 + S.spend * .06, .7, 1.4) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
+function aiBudget(c) { const S = ownStyle(c); return tierWages(c.tier) * clamp(1 + S.spend * .06, .7, 1.4) * clamp(Math.pow(drawOf(c), .3), .85, 1.35) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {

@@ -109,9 +109,21 @@ const normMix = m => { const t = sum(Object.values(m), x => Math.max(5, x)); for
 function seedFanMix(c) {
   const age = G.year - (c.founded || G.year), st = c.own ? c.own.style : "local", up = 7 - (c.tier || 7);
   const m = { hard: 18 + rf(-8, 14), loyal: 20 + Math.min(12, age / 10) + rf(-6, 8), fair: 12 + up * 2.5 + rf(-6, 8), comm: 32 - up * 2 + rf(-8, 8) };
+  if (drawOf(c) >= 1.5) { m.loyal += 8; m.hard += 5; }  // a big old following stays through thin times
   if (st === "fanowned") { m.comm += 10; m.loyal += 6; } if (st === "explayer" || st === "dynasty") m.loyal += 6; if (st === "hostile") m.hard += 8;
   if (["sugar", "celebrity", "crypto"].includes(st)) m.fair += 8; if (st === "local" || st === "academy") m.comm += 4; if (st === "stripper" || st === "absentee") m.loyal -= 4;
   return normMix(m);
+}
+/* Outliers: a few clubs draw far more support than their division would suggest (a sleeping giant, a famous old
+   name, a big city), and a few far less (a village club, a works team). c.draw is that pull, and it lasts. */
+const seedDraw = () => { const r = R(); return r < .05 ? Math.round(rf(2, 3.5) * 100) / 100 : r < .1 ? Math.round(rf(.45, .65) * 100) / 100 : Math.round(Math.exp(normal() * .12) * 100) / 100; };
+const drawOf = c => c.draw ?? (c.draw = isMine(c) ? 1 : seedDraw());
+const drawWord = c => { const d = drawOf(c); return d >= 1.8 ? ["Huge following for the division", "good"] : d >= 1.3 ? ["Big following", "good"] : d <= .7 ? ["Small following", "warn"] : null; };
+/* Popularity: a club's standing above or below its division and its media profile. Popular clubs sell more shirts
+   (and the more supporters, the more shirts). */
+function clubPop(c) {
+  const media = isMine(c) ? ((c.media ?? 10) - 10) / 150 : (((OWNER_STYLES[(c.own || {}).style] || {}).media) || 0) * .02;
+  return clamp(1 + (c.rep - TIER_REP[c.tier]) / 80, .7, 1.5) * (1 + media);
 }
 const topFan = c => { const m = fanMix(c); return Object.keys(m).sort((a, b) => m[b] - m[a])[0]; };
 /* Each summer an AI club's support moves like yours: promotion brings fair-weather fans and a bigger crowd, relegation
@@ -124,7 +136,7 @@ function aiFansSummer(c) {
   if (pr < .9) m.comm += 2; else if (pr > 1.2) { m.comm -= 2; m.fair += 1; }
   if (c.push) m.fair += 1;
   normMix(m);
-  const f = m.fair / 100, l = m.loyal / 100, t = FAN_T[c.tier] * clamp(1 + (c.rep - TIER_REP[c.tier]) / 60, .6, 1.8);
+  const f = m.fair / 100, l = m.loyal / 100, t = FAN_T[c.tier] * clamp(1 + (c.rep - TIER_REP[c.tier]) / 60, .6, 1.8) * drawOf(c);
   c.fans = Math.max(50, Math.round(c.fans + (t - c.fans) * (t > c.fans ? .15 * (1 + f) : .08 * (1 - l * .7) * (1 + f * .8))));
   c.lastTier = c.tier;
 }
@@ -165,7 +177,7 @@ function concessionsFor(c, crowd, price = c.prices.conc) {
   return { gross, net: crowd * buy * (price - REF_CONC[c.tier] * .3) * cut };
 }
 function merchFor(c, price = c.prices.shirt) {  // per week
-  const units = commMult() * c.fans * .007 * Math.min(3, Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7)) * (.8 + c.mood / 250) * merchMult(c) * (familyOn(c) ? 1.12 : 1);
+  const units = commMult() * c.fans * .007 * Math.min(3, Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7)) * (.8 + c.mood / 250) * merchMult(c) * (familyOn(c) ? 1.12 : 1) * clubPop(c);
   // Each shirt costs about 45% of the going rate to make and license: the profit is what's left. Too cheap and you sell
   // lots at a loss; too dear and few sell. The best price sits a little above the going rate.
   return units * (price - REF_SHIRT[c.tier] * .45) * shirtBoost(c);

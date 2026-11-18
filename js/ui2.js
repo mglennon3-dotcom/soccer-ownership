@@ -107,9 +107,9 @@ function pgComps() {
    owner (how they price tickets, how hard they push the brand). */
 function clubNumbers(x) {
   if (isMine(x)) { const att = (x.att || []).length ? Math.round(avg(x.att)) : matchdayForecast(x).crowd;
-    return { rep: x.rep, budget: x.budget.wages, wages: wageBill(x), ticket: x.prices.ticket, att, staff: staffBill(x), comm: commercialValue(x), cap: capacity(x), fans: x.fans }; }
-  const { ticket, att, staff, comm } = aiEstimate(x);
-  return { rep: x.rep, budget: x.abroad ? 0 : aiBudget(x), wages: sum(x.squad, id => G.players[id] ? G.players[id].wage : 0), ticket, att, staff, comm, cap: x.cap || 0, fans: x.fans };
+    return { rep: x.rep, budget: x.budget.wages, wages: wageBill(x), ticket: x.prices.ticket, att, staff: staffBill(x), comm: commercialValue(x), merch: Math.max(0, merchFor(x)) * 52, cap: capacity(x), fans: x.fans }; }
+  const { ticket, att, staff, comm, merch } = aiEstimate(x);
+  return { rep: x.rep, budget: x.abroad ? 0 : aiBudget(x), wages: sum(x.squad, id => G.players[id] ? G.players[id].wage : 0), ticket, att, staff, comm, merch, cap: x.cap || 0, fans: x.fans };
 }
 function compareCard(c) {
   const clubs = G.leagues[c.lg].clubs.map(CL), rows = clubs.map(x => ({ x, ...clubNumbers(x) })), others = rows.filter(r => !isMine(r.x));
@@ -117,10 +117,10 @@ function compareCard(c) {
   const rank = k => rows.filter(r => r[k] > me[k]).length + 1;
   const vs = (k, f, lowGood) => { const a = av(k), d = a ? (me[k] - a) / a : 0; return `<tr><td style="text-align:left">${f[0]}</td><td class="num">${f[1](me[k])}</td><td class="num muted">${f[1](a)}</td><td class="num small ${Math.abs(d) < .05 || lowGood === null ? "muted" : (d > 0) !== !!lowGood ? "good" : "warn"}">${d > 0 ? "+" : ""}${Math.round(d * 100)}%</td><td class="num small">${ord(rank(k))}</td></tr>`; };
   const F = { rep: ["Prestige", v => Math.round(v)], budget: ["Wage budget (a year)", v => money(v)], wages: ["Player wages", v => pw(v)], ticket: ["Match ticket", v => money(v)], att: ["Average crowd", v => Math.round(v).toLocaleString("en-GB")],
-    staff: ["Staff wages (a year)", v => money(v)], comm: ["Commercial value (a year)", v => money(v)], cap: ["Stadium", v => Math.round(v).toLocaleString("en-GB")], fans: ["Supporters", v => Math.round(v).toLocaleString("en-GB")] };
+    staff: ["Staff wages (a year)", v => money(v)], comm: ["Commercial value (a year)", v => money(v)], merch: ["Merchandise (a year)", v => money(v)], cap: ["Stadium", v => Math.round(v).toLocaleString("en-GB")], fans: ["Supporters", v => Math.round(v).toLocaleString("en-GB")] };
   return `<section class="card"><div class="card-h"><h2>You against your division</h2><span class="small muted">${esc(LEAGUES[c.lg].name)}</span></div>
     <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left"></th><th>You</th><th>Division avg</th><th>Diff</th><th>Rank</th></tr></thead><tbody>
-    ${["rep", "budget", "wages", "ticket", "att", "staff", "comm", "cap", "fans"].map(k => vs(k, F[k], k === "ticket" ? null : k === "wages" || k === "staff" || k === "budget" ? null : false)).join("")}</tbody></table></div>
+    ${["rep", "budget", "wages", "ticket", "att", "staff", "comm", "merch", "cap", "fans"].map(k => vs(k, F[k], k === "ticket" ? null : k === "wages" || k === "staff" || k === "budget" ? null : false)).join("")}</tbody></table></div>
     <h3 style="margin:14px 0 6px">Club by club</h3>
     ${sortTable("cmp-div", [
       { k: "name", l: "Club", left: true, v: r => r.x.name, f: r => `${crest(r.x, 14)} <button class="lnk" data-act="club" data-id="${r.x.id}">${isMine(r.x) ? `<b>${esc(r.x.name)}</b>` : esc(r.x.name)}</button>` },
@@ -131,6 +131,7 @@ function compareCard(c) {
       { k: "att", l: "Crowd", r: true, v: r => r.att, f: r => r.att.toLocaleString("en-GB") },
       { k: "staff", l: "Staff", r: true, v: r => r.staff, f: r => money(r.staff) },
       { k: "comm", l: "Commercial", r: true, v: r => r.comm, f: r => money(r.comm) },
+      { k: "merch", l: "Merch", r: true, v: r => r.merch, f: r => money(r.merch) },
       { k: "cap", l: "Stadium", r: true, v: r => r.cap, f: r => r.cap.toLocaleString("en-GB") },
       { k: "fan", l: "Support", left: true, v: r => topFan(r.x), f: r => `<span class="small" style="white-space:nowrap"><span class="dot" style="background:${FAN_COL[topFan(r.x)]}"></span> ${FAN_KINDS[topFan(r.x)][0]} ${fanMix(r.x)[topFan(r.x)]}%</span>` },
     ], rows, { sort: { k: "rep", d: -1 }, quiet: true })}

@@ -40,6 +40,8 @@ function upgradeSave() {
   if (!G.pay7) { G.pay7 = true; const before = G.club != null ? wageBill(my()) : 0;
     for (const p of Object.values(G.players)) if (p.wage > 1000) p.wage = Math.max(1000, Math.round(p.wage * partTimeF(p.ovr) / 100) * 100);
     if (G.club != null && before > 0) my().budget.wages = Math.round(my().budget.wages * wageBill(my()) / before / 1000) * 1000; }
+  // 0.35.0: outliers: a few clubs have far bigger or smaller followings than their division suggests.
+  if (!G.fans2) { G.fans2 = true; for (const c of G.clubs) { if (c.gone || isMine(c)) continue; const d = drawOf(c); if (d > 1.5 || d < .7) c.fans = Math.round(c.fans * d); if (d > 1.5) c.cap = Math.min(80000, Math.max(c.cap, Math.round(c.cap * Math.min(d, 2) / 100) * 100)); } }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }

@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.34.0";
+const VERSION = "0.35.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -244,6 +244,7 @@ function newClub(lg, rank) {
     train: clamp(Math.round(9 - L.tier * 1.2 + spread * 1.5 + normal()), 0, 10), acadLvl: clamp(Math.round(8.5 - L.tier * 1.1 + normal() * 1.5), 0, 10),
     cap: Math.round(STADIUM_T[L.tier] * (1 + spread * .4) * rf(.8, 1.2) / 100) * 100,
     fans: Math.round(FAN_T[L.tier] * (1 + spread * .45) * rf(.8, 1.2)), gone: false, founded: G.year - ri(30, 140), trophies: [] };
+  c.draw = seedDraw(); c.fans = Math.round(c.fans * c.draw); if (c.draw > 1.5) c.cap = Math.min(80000, Math.round(c.cap * Math.min(c.draw, 2) / 100) * 100);
   c.own = newOwner(c);
   G.clubs.push(c);
   return c;
@@ -264,7 +265,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
