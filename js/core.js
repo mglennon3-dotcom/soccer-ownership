@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.35.5";
+const VERSION = "0.36.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -24,6 +24,12 @@ const R20_PTS = [[0, 1], [28, 1], [44, 2.5], [50, 3.5], [55, 5], [60, 7], [65, 8
 function to20(v) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a || 1); } return 20; }
 function from20(d) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (d <= y && y > x) return a + (b - a) * (d - x) / (y - x); } return 100; }
 const r20 = v => clamp(Math.round(to20(v)), 1, 20);
+/* Staff ratings are shown on the players' 1-20 scale, matched division by division: the typical staff member at each
+   level shows the same rating as that division's typical starting player. (Underneath, staff abilities keep their own
+   0-100 range; only the number you see is translated.) Points: [staff value, player-equivalent value]. */
+const STAFF_EQ = [[0, 0], [24.3, 44.9], [29.9, 50.8], [35.8, 55.6], [42.3, 60.5], [50.5, 65.6], [62.9, 71.6], [79.4, 79.8], [100, 100]];
+function staffEq(v) { for (let i = 1; i < STAFF_EQ.length; i++) { const [a, x] = STAFF_EQ[i - 1], [b, y] = STAFF_EQ[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a); } return 100; }
+const sr20 = v => r20(staffEq(v));
 const snap20 = v => clamp(from20(r20(v)), 1, 100);  // the internal value at the middle of a shown point
 const s20 = v => clamp(Math.round(v / 5), 1, 20);  // staff and directors keep a straight 1-20 scale: about 10 is average
 /* Player wages are shown by the week. */

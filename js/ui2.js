@@ -289,7 +289,7 @@ function pgTactics() {
     <section class="card"><div class="card-h"><h2>How we play</h2></div>
       <p class="lead"><b>${st.l}.</b> ${esc(st.d)}</p>
       <p class="small" style="margin:6px 0">${esc(focusTxt || "")}</p>
-      <dl class="ledger"><dt>Formation</dt><dd>${form}</dd><dt>Squad suits the style</dt><dd>${fitText(fit)}</dd>${hired ? `<dt>Tactics</dt><dd>${s20(M.at.tac)}/20</dd><dt>Motivation</dt><dd>${s20(M.at.mot)}/20</dd>` : ""}<dt>Team morale</dt><dd>${Math.round(c.morale)}</dd></dl>
+      <dl class="ledger"><dt>Formation</dt><dd>${form}</dd><dt>Squad suits the style</dt><dd>${fitText(fit)}</dd>${hired ? `<dt>Tactics</dt><dd>${sr20(M.at.tac)}/20</dd><dt>Motivation</dt><dd>${sr20(M.at.mot)}/20</dd>` : ""}<dt>Team morale</dt><dd>${Math.round(c.morale)}</dd></dl>
       <h3 style="margin:14px 0 6px">What the style needs</h3><div class="stack" style="gap:6px">${keyRows}</div></section>
     <section class="card"><div class="card-h"><h3>Strength against the division</h3></div>${line("Attack", "a")}${line("Midfield", "m")}${line("Defence", "d")}
       <p class="small muted" style="margin-top:6px">This eleven's ratings in their positions, as the match engine weighs them, against the average side in the ${LEAGUES[c.lg].name}. Morale, the manager's tactics and how well the squad suits his style come on top.</p></section>

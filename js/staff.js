@@ -118,7 +118,7 @@ function staffPotRange(s) {
   const est = clamp(pot + s.pn * sd * .6, avgNow, 99);
   return [Math.round(Math.max(avgNow, est - sd)), Math.round(Math.min(99, est + sd))];
 }
-const staffPot20 = s => { const [a, b] = staffPotRange(s).map(s20); return a === b ? `${a}` : `${a}–${b}`; };
+const staffPot20 = s => { const [a, b] = staffPotRange(s).map(sr20); return a === b ? `${a}` : `${a}–${b}`; };
 // A trust hit caused by you stepping in, scaled by his tolerance.
 function meddled(role, d, why) { const s = staffOf(role); if (!s) return; trust(role, d < 0 ? d * tolF(s) : d, why); }
 function trust(role, d, why) {
