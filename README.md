@@ -145,6 +145,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
   shrug off your interventions, those who want full control take each one harder and are quicker to walk, and a very
   hands-on owner puts them off joining. Every owner has a hands-on rating too (yours on the Owner page, others' on the
   Rivals page); hands-on owners sack their managers sooner.
+- **Overruling the youth manager.** Academy cards show the youth manager's view (rates him and ready, rates him but
+  not ready, or would let him go). Releasing a boy rated highly, promoting one not ready, keeping one marked to go, or
+  turning down a signing asked for costs trust (scaled by how they take a hands-on owner) and counts as stepping in.
 - **Staff potential.** Staff show a potential: the average they could still reach. The young keep improving, those in
   their forties a little, and from fifty they've peaked. A third of coaches are young (26-35): less experienced
   now, but with room to grow like young players, and the odd real prospect.

@@ -367,10 +367,28 @@ function joinAcademy(p, c) {
   p.club = c.id; c.squad.push(p.id); p.hist.push([G.year, c.short]);
   if (p.pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot: p.pot, club: c.id, y: G.year });
 }
+/* ---------- overruling the youth manager ----------
+   The youth manager judges each academy boy as at graduation: keep him if he's close to first-team level or his
+   potential (as estimated) is clearly above the division; ready for a pro contract if close to first-team level, or 18+
+   with that potential. Going against that costs trust (scaled by how she or he takes a hands-on owner), and counts as
+   stepping in: releasing a boy rated highly (4 each), promoting one not ready (2), keeping one marked to go (1), or
+   turning down a signing asked for (2). A bulk action costs at most 10. */
+const youthRates = (p, c = my()) => p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4;
+const youthReady = (p, c = my()) => p.ovr >= TIER_LVL[c.tier] - 8 || (p.age >= 18 && potEstimate(p)[0] >= TIER_LVL[c.tier] + 4);
+const YOUTH_COST = { release: 4, promote: 2, keep: 1, pass: 2 };
+function youthOverrides(kind, ps) { return ps.filter(p => kind === "release" ? youthRates(p) : kind === "promote" ? !youthReady(p) : kind === "keep" ? !youthRates(p) : true); }
+function overruleYouth(kind, ps) {
+  const y = staffOf("youth"), bad = youthOverrides(kind, ps); if (!y || !bad.length) return;
+  const d = Math.min(10, bad.length * YOUTH_COST[kind]), names = bad.map(p => p.name).join(", "), one = bad.length === 1;
+  G.meddle = (G.meddle || 0) + .15 * bad.length;
+  const why = kind === "release" ? `rated ${names} and didn't want ${one ? "him" : "them"} released.` : kind === "promote" ? `doesn't think ${names} ${one ? "is" : "are"} ready for the first team.` : kind === "keep" ? `would have let ${names} go.` : `wanted to sign ${names}.`;
+  if (d * tolF(y) < 5) news(`${y.name} (youth manager): ${why}`);  // smaller hits get a word in the news too
+  meddled("youth", -d, kind === "release" ? `rated ${names} and didn't want ${one ? "him" : "them"} released.` : kind === "promote" ? `doesn't think ${names} ${one ? "is" : "are"} ready for the first team.` : kind === "keep" ? `would have let ${names} go.` : `wanted to sign ${names}.`);
+}
 DECIDE.ySign = (m, i) => {
   const p = G.players[m.data.pid]; if (!p || p.club !== -3) return;
   if (i === 0) { const c = my(); spend("acad", m.data.fee); joinAcademy(p, c); logMove("youth", p, { club: m.data.from === "abroad" ? "a club abroad" : "another academy", fee: m.data.fee, by: "you" }); news(`${p.name} (${p.pos}, ${p.age}) joins the academy for ${money(m.data.fee)} in compensation.`); }
-  else { delete G.players[p.id]; news(m.auto ? `The chance to sign ${p.name} for the academy has gone.` : `You pass on ${p.name}.`); }
+  else { if (!m.auto) overruleYouth("pass", [p]); delete G.players[p.id]; news(m.auto ? `The chance to sign ${p.name} for the academy has gone.` : `You pass on ${p.name}.`); }
 };
 /* New faces among the free agents each summer: players released by clubs outside the game's leagues, back from abroad
    or out of university football, so the pool is never only veterans. Topped up to about 130 aged 29 or under, mostly

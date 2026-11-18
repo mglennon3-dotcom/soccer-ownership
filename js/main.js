@@ -116,8 +116,11 @@ const ACT = {
   aselall: () => { const ids = my().squad.filter(id => P(id).acad); if (ASEL.size === ids.length) ASEL.clear(); else ids.forEach(id => ASEL.add(id)); render(); },
   abulk: async el => {
     const c = my(), v = el.dataset.v, ps = [...ASEL].map(P).filter(p => p && p.acad && p.club === c.id); if (!ps.length) return;
-    if (v === "release" && !await ask(`Release ${ps.length} academy player${ps.length > 1 ? "s" : ""}? ${ps.map(p => p.name).join(", ")}.`)) return;
-    if (v === "promote" && !await ask(`Offer professional contracts to ${ps.length} academy player${ps.length > 1 ? "s" : ""}? They join the first-team squad.`)) return;
+    const y = staffOf("youth"), over = y && ["release", "promote", "keep"].includes(v) ? youthOverrides(v, ps) : [];
+    const warn = over.length ? ` ${y.name} ${v === "release" ? `rates ${over.length === ps.length && over.length > 1 ? "all of them" : over.map(p => p.name).join(", ")} and won't like it` : v === "promote" ? `doesn't think ${over.map(p => p.name).join(", ")} ${over.length > 1 ? "are" : "is"} ready` : `would let ${over.map(p => p.name).join(", ")} go`}.` : "";
+    if (v === "release" && !await ask(`Release ${ps.length} academy player${ps.length > 1 ? "s" : ""}? ${ps.map(p => p.name).join(", ")}.${warn}`)) return;
+    if (v === "promote" && !await ask(`Offer professional contracts to ${ps.length} academy player${ps.length > 1 ? "s" : ""}? They join the first-team squad.${warn}`)) return;
+    if (["release", "promote", "keep"].includes(v)) overruleYouth(v, ps);
     for (const p of ps) {
       if (v === "keep") p.keep = true; else if (v === "unkeep") p.keep = false;
       else if (v === "promote") { p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) / 100) * 100); }
@@ -129,10 +132,10 @@ const ACT = {
     ASEL.clear(); render(); saveGame();
   },
   force: el => { const p = P(+el.dataset.id); if (!p.force && my().squad.filter(id => P(id).force).length >= MAX_FORCED) return toast(`You can insist on at most ${MAX_FORCED} players.`); p.force = !p.force; p.forceNoted = false; toast(p.force ? `${p.name} will start: the manager has been told.` : `The manager picks ${p.name} on merit again.`); playerModal(p.id); render(); saveGame(); },
-  keep: el => { const p = P(+el.dataset.id); p.keep = !p.keep; toast(p.keep ? `${p.name} is protected: not for sale, and he'll be offered a new contract.` : `${p.name} is no longer protected.`); playerModal(p.id); render(); },
-  promote: el => { const p = P(+el.dataset.id), c = my(); p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) / 100) * 100); news(`${p.name} is promoted from the academy on a professional contract.`, true); closeModal(); render(); },
+  keep: el => { const p = P(+el.dataset.id); p.keep = !p.keep; if (p.keep && p.acad) overruleYouth("keep", [p]); toast(p.keep ? `${p.name} is protected: not for sale, and he'll be offered a new contract.` : `${p.name} is no longer protected.`); playerModal(p.id); render(); },
+  promote: el => { const p = P(+el.dataset.id), c = my(); overruleYouth("promote", [p]); p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) / 100) * 100); news(`${p.name} is promoted from the academy on a professional contract.`, true); closeModal(); render(); },
   list: el => { const p = P(+el.dataset.id); ownerList(p); playerModal(p.id); render(); saveGame(); },
-  release: async el => { const p = P(+el.dataset.id); if (!await ask(`Release ${p.name}?${p.acad ? "" : ` It costs ${money(releaseCost(p))}.`}`)) return; if (p.acad) { leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); } else ownerRelease(p); closeModal(); render(); saveGame(); },
+  release: async el => { const p = P(+el.dataset.id); if (!await ask(`Release ${p.name}?${p.acad ? "" : ` It costs ${money(releaseCost(p))}.`}`)) return; if (p.acad) { overruleYouth("release", [p]); leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); } else ownerRelease(p); closeModal(); render(); saveGame(); },
   buy: el => buyModal(+el.dataset.id),
   buygo: el => {
     const p = P(+el.dataset.id), fee = num($("#b-fee")), wage = num($("#b-wage")) * 52, ask = askingFee(p);
