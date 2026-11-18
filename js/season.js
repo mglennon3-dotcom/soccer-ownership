@@ -58,7 +58,7 @@ function advance() {
   if (G.phase === "summer") summerWeek();
   else if (G.phase === "season") seasonWeek();
   else if (G.phase === "playoffs") playoffWeek();
-  buzzWeek(c); buildWeek(c); pitchWeek(c, c._home); c._home = false; fansWeek(c); weeklyAccounts(c);
+  buzzWeek(c); buildWeek(c); aiBuildWeek(); pitchWeek(c, c._home); c._home = false; fansWeek(c); weeklyAccounts(c);
   for (const o of c.offers) o.exp--;
   c.offers = c.offers.filter(o => o.exp > 0);
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);

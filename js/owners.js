@@ -71,8 +71,9 @@ function aiMoveCheck(c) {
   if (st !== "fanowned") c.own.wealth = Math.round(c.own.wealth - Math.max(0, cost) * (1 - share));
   c.debt = Math.round((c.debt || 0) + Math.max(0, cost) * share);
   // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
-  c.build = { cap, site, km, open: G.year + Math.max(1, Math.round((groundWeeks(cap) + planWeeks(cap)) / 54)) };
-  if (nearMe(c)) news(`${c.name} start building a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}, to open in ${c.build.open}.${squeeze(c) < .95 ? " They'll be spending less on the team while it goes up." : ""}`, c.lg === my().lg);
+  // The same building time as yours (construction weeks for that size, plus a few for a move), counted week by week.
+  const wks = groundWeeks(cap) + 4; c.build = { cap, site, km, left: wks, total: wks, open: G.year + Math.floor((wks + G.week) / 54) };
+  if (nearMe(c)) news(`${c.name} start building a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}: about ${wks} weeks of work.${squeeze(c) < .95 ? " They'll be spending less on the team while it goes up." : ""}`, c.lg === my().lg);
 }
 const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c);
 /* While a new ground goes up, the club tightens its belt, depending on who owns it: a billionaire doesn't notice, the
@@ -80,6 +81,8 @@ const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier
    owners and asset strippers most. */
 const BUILD_SQUEEZE = { sugar: 1, celebrity: .95, gambler: .95, crypto: .95, hostile: .95, multiclub: .9, meddler: .9, explayer: .88, dynasty: .88, moneyball: .85, local: .85, academy: .85, fanowned: .8, developer: .8, absentee: .75, stripper: .7 };
 const squeeze = c => c.build ? BUILD_SQUEEZE[(c.own || {}).style] ?? .85 : 1;
+// Every week, AI building work moves on, the same as yours.
+function aiBuildWeek() { for (const c of G.clubs) if (c.build && c.build.left != null && !c.gone && --c.build.left <= 0) aiMoveIn(c); }
 function aiMoveIn(c) {
   const b = c.build, old = c.cap; c.build = null;
   (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = b.cap; c.site = b.site; c.moved = { y: G.year, km: b.km, from: old }; c.opened = G.year;
@@ -175,7 +178,7 @@ function ownersSummer() {
     if (c.gone || isMine(c)) continue;
     c.own ||= newOwner(c); const S = ownStyle(c);
     // Building: ground, training ground, academy.
-    if (c.build && G.year >= c.build.open) aiMoveIn(c);
+    if (c.build && c.build.left == null && G.year >= c.build.open) aiMoveIn(c);  // builds started before weekly timing
     aiMoveCheck(c);
     if (R() < S.build) { c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.05, 1.2) / 100) * 100); c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0)); }
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
