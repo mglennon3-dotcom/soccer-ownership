@@ -72,12 +72,15 @@ function dismiss(role, quiet) {
 }
 /* Trust: how a staff member feels about working for you. Overruling them, starving their budgets or a poor run
    wears it down; below 20 they walk out. */
-/* Tolerance of meddling (shown 1-20): how much an owner's interference bothers him. High: he shrugs off your
-   interventions; low: every one stings, and he's quicker to walk. It also decides how much a meddling owner puts him
+/* Openness to a hands-on owner (shown 1-20): how much an owner stepping in bothers him. High: he shrugs off your
+   interventions; low: every one stings, and he's quicker to walk. It also decides how much a hands-on owner puts him
    off joining. */
 const tolOf = s => s ? (s.tol ??= clamp(Math.round(15 + R() * 80), 5, 100)) : 50;
 const tolF = s => 1.6 - tolOf(s) / 100 * 1.2;  // 5 → ×1.5, 50 → ×1.0, 95 → ×0.5
-const tolWord = s => { const t = s20(tolOf(s)); return t >= 15 ? ["Easy-going", "good"] : t >= 9 ? ["Tolerant", ""] : t >= 5 ? ["Prickly", "warn"] : ["Hates interference", "bad"]; };
+const tolWord = s => { const t = s20(tolOf(s)); return t >= 15 ? ["Welcomes it", "good"] : t >= 9 ? ["Fine with some", ""] : t >= 5 ? ["Wary", "warn"] : ["Wants full control", "bad"]; };
+// Potential: what his average could still reach. His development ceiling, but only the young keep growing: under 40 fully,
+// in his forties about half of it; from 50 he has peaked.
+function staffPot(s) { const avgNow = staffAvg(s), room = Math.max(0, staffCeil(s) - Math.max(...Object.values(s.at))); return Math.round(avgNow + room * (s.age < 40 ? 1 : s.age < 50 ? .5 : 0)); }
 // A trust hit caused by you stepping in, scaled by his tolerance.
 function meddled(role, d, why) { const s = staffOf(role); if (!s) return; trust(role, d < 0 ? d * tolF(s) : d, why); }
 function trust(role, d, why) {

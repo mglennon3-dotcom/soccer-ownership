@@ -130,8 +130,8 @@ function compareCard(c) {
 function pgRivals() {
   const c = my(), mine = G.leagues[c.lg].clubs.map(CL).filter(x => !isMine(x));
   const rich = G.clubs.filter(x => !x.gone && x.own && !isMine(x)).sort((a, b) => b.own.wealth - a.own.wealth).slice(0, 10);
-  const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">DERBY</span>' : ""}${x.own.target === c.id ? ' <span class="chip rival r3">HOSTILE</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td><td class="num">${Math.round(x.rep)} <span class="small muted">${esc(prestigeWord(x.rep))}</span></td></tr>`;
-  const head = `<thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Owner</th><th style="text-align:left">Style</th><th>Fortune</th><th>Since</th><th>Division</th><th>Prestige</th></tr></thead>`;
+  const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">DERBY</span>' : ""}${x.own.target === c.id ? ' <span class="chip rival r3">HOSTILE</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td><td class="num">${Math.round(x.rep)} <span class="small muted">${esc(prestigeWord(x.rep))}</span></td><td class="num">${s20(handsOn(x.own))}</td></tr>`;
+  const head = `<thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Owner</th><th style="text-align:left">Style</th><th>Fortune</th><th>Since</th><th>Division</th><th>Prestige</th><th>Hands-on</th></tr></thead>`;
   const h = hostileOf(c), tab = SUB.riv || "cmp";
   const TABS = [["cmp", "Compare"], ["div", "Division"], ["rich", "Richest"], ["styles", "Owner styles"]];
   const banner = h ? `<section class="card summary" style="margin-bottom:16px"><div class="card-h"><h2>Hostile neighbour: ${esc(h.name)}</h2></div><p>${esc(h.own.name)} bought ${esc(h.name)} in ${h.own.since} to beat you. Expect approaches for your staff and bids for your players, fewer local sponsors and a fight for supporters.</p></section>` : "";
@@ -352,7 +352,7 @@ function pgOwner() {
   const c = my(), O = G.owner, R = ownerRecord(), v = valuation(c), stake = Math.round(v * ownPct() / 100), lent = O.lent || 0, worth = O.wealth + stake + lent;
   const since = (G.career && G.career[0] ? G.career[0].from : c.ownedFrom ?? c.founded), years = G.year - since + (G.phase === "summer" ? 0 : 1);
   const staffT = Object.values(c.staff).filter(Boolean).map(s => s.trust), med = G.meddle || 0;
-  const style = med >= 3 ? ["A meddler: you overrule your staff a lot", "bad"] : med >= 1 ? ["Involved: you step in now and then", "warn"] : ["Hands-off: you let your staff work", "good"];
+  const style = med >= 3 ? ["Very hands-on: you overrule your staff a lot", "bad"] : med >= 1 ? ["Hands-on: you step in now and then", "warn"] : ["Hands-off: you let your staff work", "good"];
   const inv = (G.board || {}).inv || [], invMood = inv.length ? avg(inv.map(i => i.mood)) : null;
   const V = vision(), topPri = Object.entries(V.pri).sort((a, b) => b[1] - a[1]).filter(x => x[1] > 0).slice(0, 3).map(([k, n]) => `${PRIORITIES[k].l} ${"●".repeat(n)}`).join(" · ");
   return `<div class="grid2"><div class="stack">
@@ -366,7 +366,8 @@ function pgOwner() {
       <dt>Supporters' trust</dt><dd>${G.sTrust ? `${Math.round(G.sTrust.rel)}/100` : "—"}</dd>
       <dt>Your staff</dt><dd>${staffT.length ? word(trustWord(avg(staffT))) : "No staff yet"}</dd>
       ${invMood != null ? `<dt>Investors</dt><dd>${invMood >= 60 ? '<span class="good">Happy</span>' : invMood >= 35 ? "Watchful" : '<span class="bad">Unhappy</span>'}</dd>` : ""}
-      <dt>Media profile</dt><dd>${Math.round(c.media || 10)}/100</dd></dl>
+      <dt>Media profile</dt><dd>${Math.round(c.media || 10)}/100</dd>
+      <dt>How hands-on you are</dt><dd>${s20(myHandsOn())}/20</dd></dl>
       <p class="small ${style[1]}" style="margin-top:8px">${style[0]}.</p></section>
     <section class="card"><div class="card-h"><h3>Your vision</h3><button class="lnk small" data-act="page" data-p="board">Change</button></div>
       <p class="small"><b>Football:</b> ${V.style === "any" ? "whatever wins" : STYLES[V.style].l} · <b>Recruitment:</b> ${V.recruit === "any" ? "left to the experts" : ROLES_STAFF.recruit.phil[V.recruit].l}</p>

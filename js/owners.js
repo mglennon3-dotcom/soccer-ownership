@@ -18,7 +18,7 @@ const OWNER_STYLES = {
   absentee:  { l: "Absent owner",        d: "Bought the club and lost interest. No investment, nobody answers the phone, slow decline.", spend: -3, build: .02, patience: .8, debt: .05, poach: 0, media: -3, prices: 1.1, sells: .7, w: 2 },
   gambler:   { l: "Reckless gambler",    d: "Spends what he hasn't got. Boom, then bust.", spend: 5, build: .3, patience: .3, debt: .2, poach: .6, media: 3, prices: 1.1, sells: .2, w: 1 },
   fanowned:  { l: "Supporter-owned",     d: "Run by its fans. Cheap tickets, no debt, slow growth, never sold.", spend: -1, build: .2, patience: .85, debt: 0, poach: .05, media: 1, prices: .8, sells: .5, w: 1.5 },
-  meddler:   { l: "Meddler",             d: "Picks the team from the directors' box. Sacks managers after three defeats; good staff won't work for him.", spend: 2, build: .25, patience: .1, debt: .05, poach: .5, media: 4, prices: 1.05, sells: .4, w: 1.5 },
+  meddler:   { l: "Very hands-on",             d: "Picks the team from the directors' box. Sacks managers after three defeats; good staff won't work for him.", spend: 2, build: .25, patience: .1, debt: .05, poach: .5, media: 4, prices: 1.05, sells: .4, w: 1.5 },
   dynasty:   { l: "Old-money dynasty",   d: "The same family for a century. Steady and proud, until the old man dies and the heir takes over: he sells up or runs it into the ground.", spend: 1, build: .3, patience: .75, debt: .03, poach: .3, media: 2, prices: 1, sells: .4, w: 1.2 },
   hostile:   { l: "Hostile neighbour",   d: "Bought the club next door to beat yours. Goes after your staff, your players, your sponsors and your supporters.", spend: 4, build: .5, patience: .4, debt: .04, poach: 1, media: 7, prices: .9, sells: .2, w: 0 },
   crypto:    { l: "Crypto or betting money", d: "Fast money from a crypto exchange or a betting firm. Spends big, and can vanish overnight.", spend: 5, build: .3, patience: .4, debt: .03, poach: .7, media: 4, prices: 1.05, sells: .3, w: .8 },
@@ -106,7 +106,7 @@ function ownersCheck(w) {
   for (const k of LG_KEYS) {
     const t = table(k), n = t.length;
     t.forEach((r, i) => { const c = CL(r.id); if (isMine(c) || i < n * .66 || !c.own) return;
-      if (R() > ownStyle(c).patience) { const old = c.coach.name; c.coach = coachFor(c); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
+      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
   }
 }
 /* Sponsors: a celebrity or billionaire owner nearby hoovers up local sponsorship. */
@@ -117,6 +117,11 @@ function sponsorSqueeze(c) {
 /* Poaching: ambitious owners above you come for your staff. */
 /* Other clubs coming for your staff: rare (about one approach a season across all your staff), aimed at people who are
    good for your level or doing well, and never the same person twice within a year. */
+/* How hands-on an owner is (0-100, shown 1-20): from his style, with some personality. A hands-on owner runs through
+   managers faster. Yours is how often you've stepped in. */
+const HANDS = { meddler: 90, explayer: 70, sugar: 65, hostile: 65, gambler: 60, celebrity: 55, crypto: 55, multiclub: 50, dynasty: 45, academy: 45, local: 40, moneyball: 35, stripper: 30, fanowned: 30, developer: 25, absentee: 5 };
+const handsOn = o => o ? (o.hands ??= clamp(Math.round((HANDS[o.style] ?? 40) + normal() * 8), 1, 100)) : 0;
+const myHandsOn = () => clamp(Math.round(10 + (G.meddle || 0) * 15), 1, 100);
 function poachWeek() {
   const c = my();
   if (G.phase !== "season" || R() > .02) return;
