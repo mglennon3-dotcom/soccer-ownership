@@ -93,6 +93,13 @@ Running locally: any static server works, for example `python3 -m http.server 80
   in five won't lend at all. The Finances overview lists every loan's wage share and what you pay; the wage bill everywhere (budgets,
   your head of recruitment's limits) counts only your share. Lending is about ability, not club size: any club, even a Premier Division one, will lend a player to a club in
   the division that suits his rating or one below it, but not further down.
+- **Squad registration.** Hold as many players as you like, but only 25 registered seniors can play; under-21s and
+  academy players don't need registering. Tick or untick players in the Squad page's Reg. column while a transfer
+  window is open. New signings are registered if there's room, and your manager fills any empty places when a window
+  closes. With the list full, your head of recruitment only goes for under-21s.
+- **Loan list.** Make a player available for loan from his card. While a window is open, clubs at his level (English
+  or abroad) send offers to your inbox with the share of his wages they'd pay; accept and he goes out to the end of the
+  season, and he plays every week there.
 - **Transfer activity.** The Activity page lists every move in and out of your club: signings, sales, loans in and
   out, academy signings, releases and contracts that ran out, with the fee, the wage, the other club and who did the
   deal (you, your head of recruitment, your suggestion, a partner club). Filter by season and type; totals for fees
