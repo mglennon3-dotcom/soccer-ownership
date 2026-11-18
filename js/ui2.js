@@ -92,13 +92,49 @@ function pgComps() {
 }
 
 /* ---------- Rival owners ---------- */
+/* ---------- you against your division ----------
+   Your own figures are your books; other clubs' are estimates from their division, standing, support, ground and
+   owner (how they price tickets, how hard they push the brand). */
+function clubNumbers(x) {
+  if (isMine(x)) { const att = (x.att || []).length ? Math.round(avg(x.att)) : matchdayForecast(x).crowd;
+    return { rep: x.rep, wages: wageBill(x), ticket: x.prices.ticket, att, staff: staffBill(x), comm: commercialValue(x), cap: capacity(x), fans: x.fans }; }
+  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(REF_TICKET[x.tier] * (S.prices || 1)));
+  const pf = priceFactor(ticket, REF_TICKET[x.tier]), att = Math.round(Math.min(x.cap || 1e9, x.fans * .8 * pf + (x.fans * .35 * pf * .9)));
+  const staff = staffWage("manager", x.rep) + staffWage("youth", x.rep) + staffWage("recruit", x.rep);
+  const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);
+  return { rep: x.rep, wages: sum(x.squad, id => G.players[id] ? G.players[id].wage : 0), ticket, att, staff, comm, cap: x.cap || 0, fans: x.fans };
+}
+function compareCard(c) {
+  const clubs = G.leagues[c.lg].clubs.map(CL), rows = clubs.map(x => ({ x, ...clubNumbers(x) })), others = rows.filter(r => !isMine(r.x));
+  const av = k => avg(others.map(r => r[k])), me = rows.find(r => isMine(r.x));
+  const rank = k => rows.filter(r => r[k] > me[k]).length + 1;
+  const vs = (k, f, lowGood) => { const a = av(k), d = a ? (me[k] - a) / a : 0; return `<tr><td style="text-align:left">${f[0]}</td><td class="num">${f[1](me[k])}</td><td class="num muted">${f[1](a)}</td><td class="num small ${Math.abs(d) < .05 || lowGood === null ? "muted" : (d > 0) !== !!lowGood ? "good" : "warn"}">${d > 0 ? "+" : ""}${Math.round(d * 100)}%</td><td class="num small">${ord(rank(k))}</td></tr>`; };
+  const F = { rep: ["Prestige", v => Math.round(v)], wages: ["Player wages", v => pw(v)], ticket: ["Match ticket", v => money(v)], att: ["Average crowd", v => Math.round(v).toLocaleString("en-GB")],
+    staff: ["Staff wages (a year)", v => money(v)], comm: ["Commercial value (a year)", v => money(v)], cap: ["Stadium", v => Math.round(v).toLocaleString("en-GB")], fans: ["Supporters", v => Math.round(v).toLocaleString("en-GB")] };
+  return `<section class="card"><div class="card-h"><h2>You against your division</h2><span class="small muted">${esc(LEAGUES[c.lg].name)}</span></div>
+    <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left"></th><th>You</th><th>Division avg</th><th>Diff</th><th>Rank</th></tr></thead><tbody>
+    ${["rep", "wages", "ticket", "att", "staff", "comm", "cap", "fans"].map(k => vs(k, F[k], k === "ticket" ? null : k === "wages" || k === "staff" ? null : false)).join("")}</tbody></table></div>
+    <h3 style="margin:14px 0 6px">Club by club</h3>
+    ${sortTable("cmp-div", [
+      { k: "name", l: "Club", left: true, v: r => r.x.name, f: r => `${crest(r.x, 14)} <button class="lnk" data-act="club" data-id="${r.x.id}">${isMine(r.x) ? `<b>${esc(r.x.name)}</b>` : esc(r.x.name)}</button>` },
+      { k: "rep", l: "Prestige", r: true, v: r => r.rep, f: r => Math.round(r.rep) },
+      { k: "wages", l: "Wages", r: true, v: r => r.wages, f: r => pw(r.wages) },
+      { k: "ticket", l: "Ticket", r: true, v: r => r.ticket, f: r => money(r.ticket) },
+      { k: "att", l: "Crowd", r: true, v: r => r.att, f: r => r.att.toLocaleString("en-GB") },
+      { k: "staff", l: "Staff", r: true, v: r => r.staff, f: r => money(r.staff) },
+      { k: "comm", l: "Commercial", r: true, v: r => r.comm, f: r => money(r.comm) },
+      { k: "cap", l: "Stadium", r: true, v: r => r.cap, f: r => r.cap.toLocaleString("en-GB") },
+    ], rows, { sort: { k: "rep", d: -1 }, quiet: true })}
+    <p class="small muted" style="margin-top:6px">Your figures are your own books (crowd: this season's average, or the forecast before your first home game). Other clubs' are estimates from their division, standing, support, ground and owner. Wages are a week; staff and commercial are a year.</p></section>`;
+}
 function pgRivals() {
   const c = my(), mine = G.leagues[c.lg].clubs.map(CL).filter(x => !isMine(x));
   const rich = G.clubs.filter(x => !x.gone && x.own && !isMine(x)).sort((a, b) => b.own.wealth - a.own.wealth).slice(0, 10);
-  const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">DERBY</span>' : ""}${x.own.target === c.id ? ' <span class="chip rival r3">HOSTILE</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td></tr>`;
-  const head = `<thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Owner</th><th style="text-align:left">Style</th><th>Fortune</th><th>Since</th><th>Division</th></tr></thead>`;
+  const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">DERBY</span>' : ""}${x.own.target === c.id ? ' <span class="chip rival r3">HOSTILE</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td><td class="num">${Math.round(x.rep)} <span class="small muted">${esc(prestigeWord(x.rep))}</span></td></tr>`;
+  const head = `<thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Owner</th><th style="text-align:left">Style</th><th>Fortune</th><th>Since</th><th>Division</th><th>Prestige</th></tr></thead>`;
   const h = hostileOf(c);
   return `${h ? `<section class="card summary" style="margin-bottom:16px"><div class="card-h"><h2>Hostile neighbour: ${esc(h.name)}</h2></div><p>${esc(h.own.name)} bought ${esc(h.name)} in ${h.own.since} to beat you. Expect approaches for your staff and bids for your players, fewer local sponsors and a fight for supporters.</p></section>` : ""}<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Your division's owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${mine.map(row).join("")}</tbody></table></div></section>
+    ${compareCard(c)}
     <section class="card"><div class="card-h"><h2>The richest owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${rich.map(row).join("")}</tbody></table></div></section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Owner styles</h3></div>${Object.values(OWNER_STYLES).map(s => `<p class="small" style="margin-bottom:6px"><b>${s.l}.</b> ${s.d}</p>`).join("")}
     <p class="small muted">Owners with deep pockets and big profiles near you take local sponsorship from you. Ambitious owners above you come for your staff and pay over the odds for your players. Clubs change hands in takeovers every summer.</p></section></div></div>`;
