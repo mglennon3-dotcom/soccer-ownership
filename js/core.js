@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.17.1";
+const VERSION = "0.17.2";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -277,7 +277,15 @@ function leaveClub(p) { if (p.club >= 0 && typeof favLeaves === "function") favL
 const windowId = () => (G.phase === "summer" ? "S" : "J") + G.year;
 const canSell = p => !(p.inW && p.inW === windowId() && windowOpen());
 function moveTo(p, c) { p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]); }
-function retire(p) {
+/* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
+   below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
+function newcomerFor(p) {
+  const c = p.club >= 0 ? CL(p.club) : null, base = c && !c.abroad ? TIER_LVL[c.tier] : c ? c.lvl : Math.min(p.ovr, 58);
+  const age = ri(17, 20), ovr = clamp(Math.round(base - rf(4, 12) - (20 - age) * 1.5 + normal() * 3), 22, 80);
+  toFreeAgent(makePlayer({ pos: pick(POS), ovr, age, nat: c && c.abroad ? c.country : R() < .8 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }));
+}
+function retire(p, cull) {
+  if (!cull) newcomerFor(p);
   p._retiring = true; onRetire(p);
   if (p.peak >= 80 || p.tot[0] >= 400) G.hof.push({ name: p.name, pos: p.pos, nat: p.nat, peak: p.peak, apps: p.tot[0], goals: p.tot[1], y: G.year, clubs: [...new Set(p.hist.map(h => h[1]))].slice(-5) });
   leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); delete G.players[p.id];

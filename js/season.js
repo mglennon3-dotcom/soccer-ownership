@@ -261,7 +261,7 @@ function yearTurnover() {
     youthIntake(c);
   }
   // The free-agent pool is kept to a sensible size: the least employable drift out of the game.
-  if (G.fa.length > 600) { const keep = G.fa.map(P).sort((a, b) => b.ovr - a.ovr); for (const p of keep.slice(600)) retire(p); }
+  if (G.fa.length > 600) { const keep = G.fa.map(P).sort((a, b) => b.ovr - a.ovr); for (const p of keep.slice(600)) retire(p, true); }
   // Talent moves up: players far better than their club are bought by a club at their level.
   for (const p of Object.values(G.players)) {
     if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
@@ -364,7 +364,7 @@ DECIDE.ySign = (m, i) => {
    or out of university football, so the pool is never only veterans. Topped up to about 130 aged 29 or under, mostly
    at lower-division level with a few better ones. */
 // Veterans without a club beyond about sixty retire, the least employable first.
-function trimVeterans() { const v = G.fa.map(P).filter(p => p && p.age >= 33).sort((a, b) => b.ovr - a.ovr); for (const p of v.slice(60)) retire(p); }
+function trimVeterans() { const v = G.fa.map(P).filter(p => p && p.age >= 33).sort((a, b) => b.ovr - a.ovr); for (const p of v.slice(60)) retire(p, true); }
 function freshFreeAgents(target = 130) {
   trimVeterans();
   const young = G.fa.map(P).filter(p => p && p.age <= 29).length;
