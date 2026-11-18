@@ -86,7 +86,7 @@ function unhappiness(p, c) {
   let s = 0;
   if (games >= 10 && !xi.includes(p) && p.ovr >= med && p.s.app < games * .3) { s += 2; why.push("playing time"); }
   if (p.ovr - TIER_LVL[c.tier] >= 10) { s += 1 + (p.ovr - TIER_LVL[c.tier] - 10) / 6; why.push("ambition"); }
-  if (p.wage < wageFor(p.ovr) * .6 || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
+  if (p.wage < wageAt(p.ovr, my().tier) * .6 || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
   if (p.blocked) { s += p.blocked * 1.2; why.push("a blocked move"); }
   if (p.nfs && nfsGrudge(p, c)) { s += 1; why.push("being made not for sale"); }
   // The manager's system: no place for his position, or a style that doesn't suit him, matters to those who care.

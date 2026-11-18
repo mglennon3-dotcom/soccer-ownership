@@ -98,7 +98,7 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
 // Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
 // What an AI club pays: the going rate scaled by its pay level (set each summer from what it can afford). Clubs abroad
 // pay by their owner's spending.
-const aiWage = (p, c) => Math.round(wageFor(p.ovr) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1)) / 100) * 100;
+const aiWage = (p, c) => Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1)) / 100) * 100;
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
    more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
@@ -146,7 +146,7 @@ const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l
   return TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0); };
 function aiBudget(c) { return aiAfford(c) * squeeze(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
-const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageFor(p.ovr) : 0; });
+const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageAt(p.ovr, c.tier) : 0; });
 const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.5);
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);

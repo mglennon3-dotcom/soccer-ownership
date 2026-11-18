@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.49.1";
+const VERSION = "0.49.2";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -181,6 +181,15 @@ function wageForV1(ovr) { const o = oldEq(ovr); return Math.max(1000, Math.round
    Division average starter, about €75,000), then the top flight up to €500,000 for a 200. */
 const PAY200 = [[0, 19], [10, 19], [20, 133], [30, 254], [40, 437], [50, 1015], [60, 2395], [70, 5650], [80, 13330], [90, 31450], [100, 74200], [120, 131377], [140, 181854], [170, 255733], [190, 365385], [200, 500000]];
 const rating200 = ovr => to20(ovr) * 10;
+/* The same player costs more in a bigger division. The table is the rate at his natural level (the division whose
+   average starter he matches: Premier 130, First 100, Second 70, Third 60, National 50, North/South 40, Regional 20);
+   each division above that adds about a quarter, each one below takes about a fifth off. On top of that, each club's
+   owner and finances set how far above or below the rate it pays. */
+const DIV_AVG200 = [0, 130, 100, 70, 60, 50, 40, 20];
+function payTier(ovr) { const r = rating200(ovr); if (r >= 130) return 1; if (r <= 20) return 7;
+  for (let t = 1; t < 7; t++) if (r >= DIV_AVG200[t + 1]) return t + (DIV_AVG200[t] - r) / (DIV_AVG200[t] - DIV_AVG200[t + 1]); return 7; }
+const divPremium = (ovr, tier) => clamp(Math.pow(1.25, payTier(ovr) - tier), .6, 1.8);
+const wageAt = (ovr, tier) => Math.round(wageFor(ovr) * divPremium(ovr, tier) / 100) * 100;
 function wageFor(ovr) {
   const r = clamp(rating200(ovr), 0, 200); let wk = 500000;
   for (let i = 1; i < PAY200.length; i++) { const [a, x] = PAY200[i - 1], [b, y] = PAY200[i]; if (r <= b) { wk = x * Math.pow(y / x, (r - a) / (b - a)); break; } }

@@ -7,7 +7,7 @@
 function demandWage(p, c) {
   const from = p.club >= 0 ? CL(p.club).tier : p.club === -2 ? Math.max(1, Math.min(7, Math.round((90 - p.ovr) / 6))) : 7;
   // Dropping divisions is weighed as prestige in appeal.js; this is just his going rate.
-  return Math.round(wageFor(p.ovr) * (p.club === -2 ? 1.15 : 1) * (c ? wageMult(p, c) : 1) / 100) * 100;  // his values: greed, home
+  return Math.round((c ? wageAt(p.ovr, c.tier) : wageFor(p.ovr)) * (p.club === -2 ? 1.15 : 1) * (c ? wageMult(p, c) : 1) / 100) * 100;  // his values: greed, home
 }
 // Will he come at all? Players rarely drop more than two divisions.
 /* Would he even consider a club in this division? Every player has a natural level: the division whose typical starter
@@ -402,7 +402,7 @@ function ownerBuy(p, fee, wage) {
 const STAR_RAW = [0, 86.9, 74, 67.8, 65.6, 57.1, 44.6, 44.6], STAR_POT = [0, 101, 80.6, 74, 72, 67.8, 62.1, 62.1];
 const starAtLevel = (p, c = my()) => p.ovr >= STAR_RAW[c.tier] || (p.age <= 21 && p.pot >= STAR_POT[c.tier]);
 // Would being kept off the market rankle? He's well above the division, or paid well below his worth.
-const nfsGrudge = (p, c) => p.age <= 31 && (p.ovr - TIER_LVL[c.tier] >= 6 || p.wage < wageFor(p.ovr) * .8);
+const nfsGrudge = (p, c) => p.age <= 31 && (p.ovr - TIER_LVL[c.tier] >= 6 || p.wage < wageAt(p.ovr, c.tier) * .8);
 /* Not for sale: you tell the world he isn't available. Nobody bids for him, open bids are turned down, and your staff
    never list him. A player who wanted the move he's now been denied may be unsettled. */
 function setNotForSale(p, on) {
@@ -411,7 +411,7 @@ function setNotForSale(p, on) {
   for (const m of G.inbox.filter(m => m.type === "bid" && !m.done && m.pid === p.id)) { m.done = true; m.answer = "rejected: not for sale"; }
   news(`You declare ${p.name} not for sale. Clubs are told only a huge offer will do.`);
   // A player who has outgrown the club, or is paid well under his worth, doesn't like being told he can't leave.
-  if (nfsGrudge(p, my())) { p.unsettled = Math.max(p.unsettled || 0, 4); news(`${p.name} isn't happy about being made not for sale: he thinks he deserves ${p.wage < wageFor(p.ovr) * .8 ? "more money" : "a bigger club"}.`, true); }
+  if (nfsGrudge(p, my())) { p.unsettled = Math.max(p.unsettled || 0, 4); news(`${p.name} isn't happy about being made not for sale: he thinks he deserves ${p.wage < wageAt(p.ovr, my().tier) * .8 ? "more money" : "a bigger club"}.`, true); }
 }
 function ownerList(p) {
   p.list = !p.list; if (p.list) p.nfs = false;
