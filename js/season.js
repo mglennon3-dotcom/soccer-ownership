@@ -372,10 +372,10 @@ function joinAcademy(p, c) {
    potential (as estimated) is clearly above the division; ready for a pro contract if close to first-team level, or 18+
    with that potential. Going against that costs trust (scaled by how she or he takes a hands-on owner), and counts as
    stepping in: releasing a boy rated highly (4 each), promoting one not ready (2), keeping one marked to go (1), or
-   turning down a signing asked for (2). A bulk action costs at most 10. */
+   turning down a signing asked for (0.5). A bulk action costs at most 10. */
 const youthRates = (p, c = my()) => p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4;
 const youthReady = (p, c = my()) => p.ovr >= TIER_LVL[c.tier] - 8 || (p.age >= 18 && potEstimate(p)[0] >= TIER_LVL[c.tier] + 4);
-const YOUTH_COST = { release: 4, promote: 2, keep: 1, pass: 2 };
+const YOUTH_COST = { release: 4, promote: 2, keep: 1, pass: .5 };
 function youthOverrides(kind, ps) { return ps.filter(p => kind === "release" ? youthRates(p) : kind === "promote" ? !youthReady(p) : kind === "keep" ? !youthRates(p) : true); }
 function overruleYouth(kind, ps) {
   const y = staffOf("youth"), bad = youthOverrides(kind, ps); if (!y || !bad.length) return;
