@@ -229,13 +229,15 @@ const ACT = {
     if (!await ask(`Demolish the ${SIDES[k]} and build ${r.cap.toLocaleString()} ${r.type === "terrace" ? "terrace places" : "seats"} for ${money(q.cost)}? It's closed for about ${q.weeks} weeks.`)) return;
     built(startBuild("stadium", { type: "rebuild", ...q, label: `rebuilding the ${SIDES[k]} (${r.cap.toLocaleString()})` })); G.rb = {}; G.rbOpen = null; render(); saveGame(); },
   mvsite: el => { G.moveK = el.dataset.k; G.plotN = null; G.mvOpen = true; render(); },
+  mvstay: el => { G.mvStay = el.dataset.v; G.mvOpen = true; render(); },
   mvplot: el => { G.plotN = +el.dataset.n; G.mvOpen = true; render(); },
   mvplan: el => { G.mvOpen = true; const keep = G.mvDraft; G.mvDraft = standPlan(+el.dataset.n); if (keep) { G.mvDraft.family = keep.family; G.mvDraft.vent = keep.vent || []; for (const k in SIDES) { G.mvDraft.stands[k].type = keep.stands[k].type; G.mvDraft.stands[k].roof = keep.stands[k].roof; } } render(); },
   movebuild: async () => { const c = my(), sites = newSites(c), site = sites.find(x => x.k === G.moveK) || sites[1], plots = plotSizes(c, site), plot = plots.includes(G.plotN) ? G.plotN : plots[Math.min(1, plots.length - 1)], d = G.mvDraft, q = moveQuote(c, d, site, plot), name = ($("#mv-name").value || c.town + " Stadium").trim();
     if (q.space > plot) return toast(`The stands and extras need room for ${q.space.toLocaleString()}; this plot takes ${plot.toLocaleString()}.`);
-    if (!await ask(`Buy a plot ${site.km} km away (room for ${plot.toLocaleString()}) and build ${name} (${q.cap.toLocaleString()}) for ${money(q.cost)}? About ${q.weeks} weeks. ${c.fac.stadium.name} is sold now for about ${money(q.sell)} and leased back at ${money(q.lease)} a home game until you move.${site.km > 9 ? " Supporters won't like it." : ""}`)) return;
-    const res = startBuild("stadium", { type: "move", ...q, vent: d.vent || [], sold: true, name, stands: d.stands, family: d.family, corp: d.corp, label: `building ${name} (${q.cap.toLocaleString()}), ${site.km} km away` });
-    if (c.fac.stadium.build && c.fac.stadium.build.type === "move") { earn("oldground", q.sell); c.fac.stadium.lease = q.lease; news(`${c.fac.stadium.name} is sold for ${money(q.sell)} and leased back at ${money(q.lease)} a home game until the new ground is ready.`, true); moveAnnounced(c, site.km); }
+    const rent = G.mvStay === "rent", S = c.fac.stadium, h = tempHost(c);
+    if (!await ask(`Buy a plot ${site.km} km away (room for ${plot.toLocaleString()}) and build ${name} (${q.cap.toLocaleString()}) for ${money(q.cost)}? About ${q.weeks} weeks. ${rent ? `${S.name} is sold now for about ${money(q.sell)} and home games move to ${HOSTS[h].name} until the new ground opens.` : `You keep playing at ${S.name} and sell it on moving day.`}${site.km > 9 ? " Supporters won't like it." : ""}`)) return;
+    const res = startBuild("stadium", { type: "move", ...q, vent: d.vent || [], sold: rent, name, stands: d.stands, family: d.family, corp: d.corp, label: `building ${name} (${q.cap.toLocaleString()}), ${site.km} km away` });
+    if (S.build && S.build.type === "move") { if (rent) { earn("oldground", q.sell); S.soldOld = true; S.rebuilding = true; S.away = h; c.cap = capacity(c); news(`${S.name} is sold for ${money(q.sell)}. Home games move to ${HOSTS[h].name} until ${name} opens.`, true); } moveAnnounced(c, site.km); }
     built(res); G.mvDraft = null; G.mvOpen = false; G.sites = null; render(); saveGame(); },
   reground: async () => { const c = my(), S = c.fac.stadium, d = G.stDraft || standPlan(S.cap), q = regroundQuote(c, d), h = tempHost(c);
     if (q.space > siteCap(S)) return toast(`The stands and extras need room for ${q.space.toLocaleString()}; the site takes ${siteCap(S).toLocaleString()}.`);

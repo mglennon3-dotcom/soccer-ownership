@@ -288,7 +288,7 @@ const sponsorTotal = c => sum(c.deals, d => d.amt);
 // club still pays, plus the part you still pay for players you've lent out.
 const wageBill = c => sum(c.squad, id => P(id).wage) + loanWageAdj(c);
 const staffBill = c => sum(Object.values(c.staff).filter(Boolean), s => s.wage);
-const upkeep = c => upkeepMult() * (stadiumUpkeep(c) + (c.fac.stadium.heat ? heatQuote(c).upkeep : 0)) + ventureUpkeep(c) + facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl);
+const upkeep = c => c.fac.stadium.soldOld ? facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl) : upkeepMult() * (stadiumUpkeep(c) + (c.fac.stadium.heat ? heatQuote(c).upkeep : 0)) + ventureUpkeep(c) + facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl);
 function weeklyAccounts(c) {
   spend("wages", wageBill(c) / 52);
   spend("staff", staffBill(c) / 52); spend("directors", dirWages() / 52);
@@ -514,7 +514,7 @@ function plotSizes(c, site) { const lo = Math.min(site.site, Math.max(c.fac.stad
 // Land: priced per place the plot can hold, a little dearer per place for a big plot, dearer in the bigger divisions.
 const landCost = (c, site, plot) => Math.round(plot * site.rate * (1 + (7 - c.tier) * .08) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
 const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * (1 + (7 - c.tier) * .08) / 1e4) * 1e4;
-// Sold when you buy the new land; you lease it back to play there until moving day.
+// (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
 const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
 function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = landCost(c, site, plot), sell = oldGroundValue(c); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }
 // How supporters take it: positive for a short move, increasingly negative with distance.
@@ -527,12 +527,12 @@ function moveAnnounced(c, km) {
 function moveIn(c, b) {
   const S = c.fac.stadium, old = S.name, sell = b.sold ? b.sell : oldGroundValue(c); closeGround(S);
   S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
-  syncCap(S); openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = b.site; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
+  syncCap(S); openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = b.site; S.rebuilding = false; S.soldOld = false; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
   if (!b.sold) earn("oldground", sell); moodHit(c, moveMood(c, b.km));
   if (b.km > 9) { const lost = Math.min(.25, b.km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); trustRel(-Math.round(b.km * .4));
     const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m);
-    news(`The club moves to ${S.name}, ${b.km} km from ${old}. Some supporters won't make the journey: about ${Math.round(lost * 100)}% of the support drifts away. ${b.sold ? `The lease on ${old} ends.` : `${old} is sold for ${money(sell)}.`}`, true); }
-  else news(`The club moves into ${S.name}${b.km > 3 ? `, ${b.km} km from ${old}` : ""}. ${S.cap.toLocaleString("en-GB")} capacity. ${b.sold ? `The lease on ${old} ends.` : `${old} is sold for ${money(sell)}.`}`, true);
+    news(`The club moves to ${S.name}, ${b.km} km from ${old}. Some supporters won't make the journey: about ${Math.round(lost * 100)}% of the support drifts away. ${b.sold ? "" : `${old} is sold for ${money(sell)}.`}`, true); }
+  else news(`The club moves into ${S.name}${b.km > 3 ? `, ${b.km} km from ${old}` : ""}. ${S.cap.toLocaleString("en-GB")} capacity.${b.sold ? "" : ` ${old} is sold for ${money(sell)}.`}`, true);
 }
 // Demolish a stand and build a new one in its place: clearing the old one, then the new stand at the going rate.
 function rebuildQuote(c, side, cap, type, roof) {
@@ -597,7 +597,7 @@ const medBill = (c, wks) => Math.round(MED[c.tier] * wks / 5 / 100) * 100;
 const INSURE = .03;  // premium: 3% of the wage bill a year; long injuries (6+ weeks) pay 70% of wages after the fourth week
 const insureWeek = c => { spend("insure", wageBill(c) * INSURE / 52); let back = 0;
   for (const id of c.squad) { const p = P(id); if (p && p.inj > 0 && (p.injT || 0) >= 6 && p.injT - p.inj >= 4) back += p.wage / 52 * .7; } if (back) earn("insclaim", back); };
-const utilities = c => (atHome(c) ? 6000 + groundCap(c) * 6 : 2500) + (c.fac.train.lvl ? 4000 * c.fac.train.lvl : 1500);
+const utilities = c => (atHome(c) && !c.fac.stadium.soldOld ? 6000 + groundCap(c) * 6 : 2500) + (c.fac.train.lvl ? 4000 * c.fac.train.lvl : 1500);
 const GRADE = [0, 4e6, 1.5e6, 600e3, 250e3, 90e3, 30e3, 0];  // works the league demands on arriving in a division
 const gradingCost = (c, t) => Math.round(GRADE[t] * (isMine(c) ? (c.fac.stadium.own ? 1 : .3) : .7));
 const COMM_REF = [0, 2e6, 400e3, 150e3, 70e3, 30e3, 12e3, 5e3];  // what a club in each division usually puts into its foundation
