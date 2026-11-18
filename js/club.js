@@ -80,6 +80,7 @@ function buildWeek(c) {
     if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
     else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    else if (b.type === "move") moveIn(c, b);
     else if (b.type === "reground") { S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
     else if (b.type === "roof") { standsOf(S)[b.side].roof = true; news(`The ${SIDES[b.side]} has a roof: supporters there stay dry.`, true); }
     else if (b.type === "convert") { standsOf(S)[b.side].type = b.to; news(`The ${SIDES[b.side]} is now ${b.to === "seat" ? "all-seated" : "a terrace"}.`, true); }
@@ -307,7 +308,7 @@ function homeGameMoney(c, opp, league) {
   c.att = c.att || []; c.att.push(crowd);
   return crowd;
 }
-const ledgerIncome = f => (f.insclaim || 0) + f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
+const ledgerIncome = f => (f.insclaim || 0) + (f.oldground || 0) + f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
 const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + (f.mdops || 0) + (f.travel || 0) + (f.refunds || 0) + (f.medical || 0) + (f.insure || 0) + (f.util || 0) + (f.grading || 0) + (f.comm || 0) + (f.tax || 0) + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
@@ -451,6 +452,42 @@ const SITE_MAX = 90000;
 const newSite = cap => clamp(Math.round((cap * rf(1.5, 2.5) + 3000) / 500) * 500, cap, SITE_MAX);
 const siteCap = S => S.site ??= Math.max(S.cap, newSite(S.cap));
 const siteRoom = S => Math.max(0, siteCap(S) - S.cap);
+/* ---------- moving to a new ground ----------
+   When the site is too small, buy land elsewhere and build a new ground there. Three kinds of site: in town near the
+   old ground (a bit more room, dear land), the edge of town (plenty of room), or out of town (all the room you could
+   want, cheap land, but a long way from your supporters). You keep playing at the old ground while the new one goes
+   up; on moving day the old ground's land is sold. Supporters judge the move by distance: a short hop is exciting, a
+   long one feels like the club leaving them. Loyal and hardcore fans take it hardest; families drift away. */
+const SITE_KINDS = {
+  near: { l: "In town, near the current ground", km: [1, 3], grow: [1.15, 1.6], land: 180 },
+  edge: { l: "On the edge of town", km: [4, 9], grow: [1.6, 2.6], land: 90 },
+  far:  { l: "Out of town, by the bypass", km: [12, 30], grow: [3, 6], land: 35 },
+};
+function newSites(c) {
+  const S = c.fac.stadium; if (G.sites && G.sites.y === G.year && G.sites.club === c.id) return G.sites.list;
+  const list = Object.entries(SITE_KINDS).map(([k, K]) => { const site = clamp(Math.round(siteCap(S) * rf(...K.grow) / 500) * 500, siteCap(S) + 1000, SITE_MAX);
+    return { k, l: K.l, km: ri(...K.km), site, land: Math.round(site * K.land * (1 + (7 - c.tier) * .08) / 1e4) * 1e4 }; });
+  G.sites = { y: G.year, club: c.id, list }; return list;
+}
+const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * (1 + (7 - c.tier) * .08) / 1e4) * 1e4;
+function moveQuote(c, d, site) { const q = groundQuote(d); return { ...q, land: site.land, cost: Math.round((q.cost + site.land) / 1e4) * 1e4, weeks: q.weeks + 4, km: site.km, site: site.site, sell: oldGroundValue(c) }; }
+// How supporters take it: positive for a short move, increasingly negative with distance.
+const moveMood = (c, km) => km <= 3 ? 4 : -(km <= 9 ? 4 + km * .6 : 8 + km * .45) * fanCare(c) / 1.5;
+function moveAnnounced(c, km) {
+  if (km <= 3) { moodHit(c, 2); trustRel(2); news("Supporters welcome plans for a bigger ground just down the road."); return; }
+  moodHit(c, moveMood(c, km) * .4); trustRel(-Math.round(km * .5)); bumpMedia(2);
+  news(`The supporters' trust ${km > 9 ? "is furious about" : "has doubts about"} the plan to move the club ${km} km away.`, km > 9);
+}
+function moveIn(c, b) {
+  const S = c.fac.stadium, old = S.name, sell = oldGroundValue(c);
+  S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
+  syncCap(S); S.site = b.site; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km;
+  earn("oldground", sell); moodHit(c, moveMood(c, b.km));
+  if (b.km > 9) { const lost = Math.min(.25, b.km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); trustRel(-Math.round(b.km * .4));
+    const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m);
+    news(`The club moves to ${S.name}, ${b.km} km from ${old}. Some supporters won't make the journey: about ${Math.round(lost * 100)}% of the support drifts away. ${old} is sold for ${money(sell)}.`, true); }
+  else news(`The club moves into ${S.name}${b.km > 3 ? `, ${b.km} km from ${old}` : ""}. ${S.cap.toLocaleString("en-GB")} capacity. ${old} is sold for ${money(sell)}.`, true);
+}
 // Demolish a stand and build a new one in its place: clearing the old one, then the new stand at the going rate.
 function rebuildQuote(c, side, cap, type, roof) {
   const S = c.fac.stadium, x = standsOf(S)[side], to = S.cap - x.cap + cap, demo = 20000 + x.cap * 40;

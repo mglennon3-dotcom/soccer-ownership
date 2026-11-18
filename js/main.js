@@ -221,6 +221,14 @@ const ACT = {
     if (S0.cap - standsOf(S0)[k].cap + r.cap > siteCap(S0)) return toast("Too big for the site.");
     if (!await ask(`Demolish the ${SIDES[k]} and build ${r.cap.toLocaleString()} ${r.type === "terrace" ? "terrace places" : "seats"} for ${money(q.cost)}? It's closed for about ${q.weeks} weeks.`)) return;
     built(startBuild("stadium", { type: "rebuild", ...q, label: `rebuilding the ${SIDES[k]} (${r.cap.toLocaleString()})` })); G.rb = {}; G.rbOpen = null; render(); saveGame(); },
+  mvsite: el => { G.moveK = el.dataset.k; G.mvOpen = true; render(); },
+  mvplan: el => { G.mvOpen = true; const keep = G.mvDraft; G.mvDraft = standPlan(+el.dataset.n); if (keep) { G.mvDraft.family = keep.family; for (const k in SIDES) { G.mvDraft.stands[k].type = keep.stands[k].type; G.mvDraft.stands[k].roof = keep.stands[k].roof; } } render(); },
+  movebuild: async () => { const c = my(), sites = newSites(c), site = sites.find(x => x.k === G.moveK) || sites[1], d = G.mvDraft, q = moveQuote(c, d, site), name = ($("#mv-name").value || c.town + " Stadium").trim();
+    if (q.cap > site.site) return toast(`This site takes at most ${site.site.toLocaleString()}.`);
+    if (!await ask(`Buy land ${site.km} km away and build ${name} (${q.cap.toLocaleString()}) for ${money(q.cost)}? About ${q.weeks} weeks; you'll sell the old ground for about ${money(q.sell)} when you move.${site.km > 9 ? " Supporters won't like it." : ""}`)) return;
+    const res = startBuild("stadium", { type: "move", ...q, name, stands: d.stands, family: d.family, corp: d.corp, label: `building ${name} (${q.cap.toLocaleString()}), ${site.km} km away` });
+    if (c.fac.stadium.build && c.fac.stadium.build.type === "move") moveAnnounced(c, site.km);
+    built(res); G.mvDraft = null; G.mvOpen = false; G.sites = null; render(); saveGame(); },
   reground: async () => { const c = my(), S = c.fac.stadium, d = G.stDraft || standPlan(S.cap), q = regroundQuote(c, d), h = tempHost(c);
     if (q.cap > siteCap(S)) return toast(`The site takes at most ${siteCap(S).toLocaleString()}.`);
     if (!await ask(`Demolish ${S.name} and build a new ${q.cap.toLocaleString()}-capacity ground for ${money(q.cost)}? About ${q.weeks} weeks, playing at ${HOSTS[h].name} meanwhile.`)) return;
@@ -278,6 +286,11 @@ const CHANGE = {
     render(); },
   stname: el => { G.stName = el.value.trim(); },
   extn: el => { (G.extN ||= {})[el.dataset.k] = Math.max(50, Math.round(num(el) / 50) * 50); render(); },
+  mvname: el => { G.mvName = el.value.trim(); },
+  mvsd: el => { const d = G.mvDraft, k = el.dataset.k; G.mvOpen = true; if (!d) return;
+    if (k === "family") d.family = el.value; else if (k === "corp") d.corp = Math.max(0, Math.min(Math.round(num(el)), Math.floor((d.stands.W.cap || 0) * .15)));
+    else { const [s, f] = k.split("."); d.stands[s][f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; }
+    render(); },
   rb: el => { const [s, f] = el.dataset.k.split("."), x = standsOf(my().fac.stadium)[s], r = ((G.rb ||= {})[s] ||= { cap: x.cap, type: x.type, roof: x.roof });
     r[f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; G.rbOpen = s; render(); },
   msel: el => { SUB.my = el.value === "all" ? "all" : +el.value; render(); },
