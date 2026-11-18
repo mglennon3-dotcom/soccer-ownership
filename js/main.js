@@ -47,6 +47,12 @@ function upgradeSave() {
   // 0.35.0: outliers: a few clubs have far bigger or smaller followings than their division suggests.
   if (!G.fans2) { G.fans2 = true; for (const c of G.clubs) { if (c.gone || isMine(c)) continue; const d = drawOf(c); if (d > 1.5 || d < .7) c.fans = Math.round(c.fans * d); if (d > 1.5) c.cap = Math.min(80000, Math.max(c.cap, Math.round(c.cap * Math.min(d, 2) / 100) * 100)); } }
   // 0.38.2: staff pay is set by the job (0.35.2): your current staff move onto it if they're paid more than it.
+  // 0.46.1: every existing ground gets a freshly drawn site: some hemmed in, some with room, a few spacious. Never smaller
+  // than what's on it now (stands and extras), and work in progress is grandfathered.
+  if (!G.site2) { G.site2 = true;
+    for (const c of G.clubs) { if (c.gone || c.abroad) continue;
+      if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }
+      else c.site = Math.max(c.cap || 0, newSite(c.cap || 1000)); } }
   if (G.club != null && my().fac.stadium.own && my().fac.stadium.opened == null) my().fac.stadium.opened = Math.max(my().founded, G.year - 1);  // 0.44.0: ground ages
   if (G.club != null) my().budget.comm ??= 0;  // 0.40.0: community foundation budget
   // 0.40.2: this season's share of the new costs (match-day operations, travel, utilities, insurance, medical bills for

@@ -464,7 +464,16 @@ function standQuote(c, side, add) {
 /* The site: how big a ground the land will take (access, neighbours, planning), set when the ground is first built
    with room to grow, never more than 90,000. Extensions and rebuilds have to fit on it. */
 const SITE_MAX = 90000;
-const newSite = cap => clamp(Math.round((cap * rf(1.5, 2.5) + 3000) / 500) * 500, cap, SITE_MAX);
+// Some grounds are hemmed in by streets and houses, most have some room, a few sit on plenty of land.
+const newSite = cap => { const r = R(), s = r < .25 ? cap * rf(1, 1.1) : r < .75 ? cap * rf(1.2, 1.8) + 1000 : cap * rf(2, 3) + 3000; return clamp(Math.round(s / 500) * 500, cap, SITE_MAX); };
+// What work in progress will need when it's finished (grandfathered: a site is never smaller than that).
+function buildNeeds(S) {
+  const b = S.build; if (!b) return 0; const st = standsOf(S);
+  if (b.type === "expand") return S.cap + b.add + usedSpace(S);
+  if (b.type === "rebuild") return S.cap - (st[b.side] || {}).cap + b.cap + usedSpace(S);
+  if (b.type === "reground") return b.space || b.cap;
+  return 0;
+}
 const siteCap = S => S.site ??= Math.max(S.cap, newSite(S.cap));
 const siteRoom = S => Math.max(0, siteCap(S) - S.cap - usedSpace(S));
 /* ---------- ground ages ----------
