@@ -42,7 +42,9 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
 // Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
-const aiWage = (p, c) => Math.round(wageFor(p.ovr) * clamp(1 + ownStyle(c).spend * .05, .78, 1.3) / 100) * 100;
+// What an AI club pays: the going rate scaled by its pay level (set each summer from what it can afford). Clubs abroad
+// pay by their owner's spending.
+const aiWage = (p, c) => Math.round(wageFor(p.ovr) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1)) / 100) * 100;
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
    more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
@@ -64,9 +66,21 @@ function aiEstimate(x) {
 // (plus a little for cup runs, merit money and selling players).
 function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
 const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
-const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12;  // wages, staff, ground and running costs
+const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
+const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c);  // wages, staff, ground and running costs
 const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
-function aiBudget(c) { const S = ownStyle(c); return tierWages(c.tier) * clamp(1 + S.spend * .06, .7, 1.4) * clamp(Math.pow(drawOf(c), .3), .85, 1.35) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
+/* Every club budgets to break even: its wage budget is what its income leaves after staff, running and match-day costs.
+   The owner then bends it: a profit-seeker budgets for a surplus, a spender for a loss (his tolerance), more again while
+   chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
+   as income, so they show up here. */
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c));
+// What he aims for: break-even, unless money is his thing: big spenders plan a loss, profit-seekers a surplus.
+// (His tolerance is separate: how far off target he'll stand before ordering cuts.)
+const spendTarget = c => { const l = lossTol(c); return l >= .5 ? l * .6 : l < 0 ? l : 0; };
+function aiBudget(c) { return aiAfford(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
+// Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
+const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageFor(p.ovr) : 0; });
+const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.8);
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
@@ -112,7 +126,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
-    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); }
+    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) c.pay = Math.round(payLevel(c) * 100) / 100; }
     c.lvl = clubStandard(c);
   }
   hostileCheck();

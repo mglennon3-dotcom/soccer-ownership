@@ -22,8 +22,13 @@ function withdraw(amt) {
 const REF_TICKET = [0, 55, 32, 25, 21, 17, 12, 8];
 const REF_CONC = [0, 6, 5, 4.5, 4, 3.5, 3, 2.5];
 const REF_SHIRT = [0, 80, 65, 58, 52, 48, 44, 40];
-const TV = [0, 110e6, 9e6, 1.6e6, 1e6, 120e3, 45e3, 8e3];  // central money per season
-const PRIZE_TOP = [0, 40e6, 2e6, 400e3, 200e3, 60e3, 20e3, 6e3];  // merit money for finishing top; scales down the table
+// Central and merit money are pitched so a typical club, paying typical wages, roughly breaks even.
+const TV = [0, 33e6, 2.25e6, 400e3, 250e3, 84e3, 45e3, 8e3];  // central money per season
+const PRIZE_TOP = [0, 12e6, 500e3, 100e3, 50e3, 42e3, 20e3, 6e3];  // merit money for finishing top; scales down the table
+/* Match-day operations: stewards, policing, turnstiles, cleaning and ground staff. Every home game costs about 30% of
+   the going ticket price per person through the gate, whatever you charge. */
+const MD_OPS = .3;
+const opsCost = (c, crowd) => Math.round(crowd * REF_TICKET[c.tier] * MD_OPS);
 
 /* ---------- grounds ---------- */
 // Grounds you can rent. Rent is per home game.
@@ -204,7 +209,7 @@ const stHolders = c => c.st && c.st.y === G.year ? c.st.n : 0;
 function matchdayForecast(c, t = c.prices.ticket, k = c.prices.conc) {
   const avgOpp = { rep: c.rep, fans: FAN_T[c.tier], half: "" }, hold = Math.round((G.phase === "summer" ? stDemand(c) : stHolders(c)) * .92);
   const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, avgOpp, t)), con = concessionsFor(c, crowd, k);
-  return { crowd, gate: Math.max(0, crowd - hold) * t * (1 - .2 * terraceShare(c)), conc: con.net, rent: ground(c).rent, hold };
+  return { crowd, gate: Math.max(0, crowd - hold) * t * (1 - .2 * terraceShare(c)), conc: con.net, rent: ground(c).rent, ops: opsCost(c, crowd), hold };
 }
 
 /* ---------- sponsors ---------- */
@@ -215,7 +220,7 @@ const SLOTS = {
 const BRANDS = ["Apex", "Northwind", "Halcyon", "Brightline", "Vantage", "Crestmark", "Silverleaf", "Ironclad", "Bluewater", "Summit", "Kestrel", "Meridian", "Harbour", "Oakridge", "Redline", "Lumen", "Granite", "Fairway", "Beacon", "Sterling"];
 const BRAND_KIND = ["Insurance", "Motors", "Energy", "Bank", "Telecom", "Logistics", "Brewery", "Bet", "Homes", "Foods", "Air", "Digital", "Building Society", "Tyres"];
 const KIT_BRANDS = ["Strider", "Volta", "Kinetic", "Arcus", "Tempo", "Fieldcraft", "Nova Sport", "Pulse", "Sprintline", "Ridge"];
-const COMM_T = [0, 90e6, 7e6, 1.6e6, 700e3, 220e3, 80e3, 25e3];  // a typical club's commercial value by tier, per year
+const COMM_T = [0, 27e6, 1.75e6, 400e3, 175e3, 154e3, 80e3, 25e3];  // a typical club's commercial value by tier, per year
 const isDerby = (c, o) => o && c.region === o.region && c.lg === o.lg;
 /* What brands will pay a year: your division, standing, support and mood, and, within a season, how you're doing
    (league position) and how many come through the gate. */
@@ -286,16 +291,16 @@ function homeGameMoney(c, opp, league) {
   const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, opp)), con = concessionsFor(c, crowd), paying = Math.max(0, crowd - hold);
   const tp = c.prices.ticket * (1 - .2 * terraceShare(c));  // terrace tickets sell a fifth cheaper
   if (terraceShare(c)) moodHit(c, terraceShare(c) * .15);
-  earn("gate", paying * tp); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent);
+  earn("gate", paying * tp); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent); spend("mdops", opsCost(c, crowd));
   // Home games on their own, for the per-game view (the season's gate total also holds away shares and friendly fees).
-  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.hold = (H.hold || 0) + hold; H.stg = (H.stg || 0) + (league && stHolders(c) ? c.st.n * c.st.price / homeGames(c) : 0); H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
+  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.hold = (H.hold || 0) + hold; H.stg = (H.stg || 0) + (league && stHolders(c) ? c.st.n * c.st.price / homeGames(c) : 0); H.conc += con.net; H.vent += ventureGame(c, crowd); H.ops = (H.ops || 0) + opsCost(c, crowd); H.rent += ground(c).rent;
   // Prices supporters think unfair cost goodwill; cheap tickets earn a little.
   const r = c.prices.ticket / REF_TICKET[c.tier], cm = 1 + fanShare(c, "comm") * 1.5; if (r > 1.25) moodHit(c, -(r - 1.25) * 3 * cm); else if (r < .8) moodHit(c, .3 * cm);
   c.att = c.att || []; c.att.push(crowd);
   return crowd;
 }
 const ledgerIncome = f => f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
-const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
+const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + (f.mdops || 0) + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
    reports suffer; well above it, they improve a little. */

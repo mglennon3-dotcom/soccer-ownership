@@ -456,7 +456,7 @@ function pgFin() {
       <div class="row">${[1e5, 1e6, 1e7].map(v => `<button class="btn sm" data-act="invest" data-v="${v}" ${G.owner.wealth < v ? "disabled" : ""}>Put in ${money(v)}</button>`).join("")}</div>
       <div class="row" style="margin-top:8px"><input type="text" inputmode="decimal" class="num-in" id="inv-amt" placeholder="Amount"><button class="btn sm" data-act="investx">Put in</button><button class="btn sm" data-act="withdraw">Take out</button></div></section></div><div class="stack"><section class="card"><div class="card-h"><h3>A year at a glance</h3></div><dl class="ledger">
       <dt>Player wages</dt><dd>${money(wageBill(c))}</dd><dt>Staff wages</dt><dd>${money(staffBill(c))}</dd><dt>Upkeep</dt><dd>${money(upkeep(c))}</dd><dt>Academy + scouting</dt><dd>${money(c.budget.acad + c.budget.scout)}</dd>
-      <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section>${loanWagesCard(c)}</div></div>`,
+      <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent - f.ops) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section>${loanWagesCard(c)}</div></div>`,
     game: () => perGameHTML(c),
     prices: () => `<section class="card"><div class="card-h"><h2>Prices</h2></div><div class="settings">
       ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}${f.hold ? `, ${f.hold.toLocaleString("en-GB")} of them season-ticket holders` : ""}: ${money(f.gate)} a game on the day.`)}
@@ -476,7 +476,7 @@ function pgFin() {
     accounts: () => `<section class="card"><div class="card-h"><h2>Accounts</h2><span class="muted small">this season · last season</span></div><div class="tbl-wrap"><table class="proj"><tbody>
       <tr class="sec"><td colspan="3">Income</td></tr>${row("gate", "Gate receipts")}${row("stix", "Season tickets")}${row("conc", "Food & drink")}${row("suites", "Executive suites")}${row("events", "Stadium ventures & events")}${row("merch", "Merchandise")}${row("spons", "Sponsorship")}${row("network", "Partner club fees")}${row("tv", "Central (TV) money")}${row("prize", "Prize money")}${row("sales", "Player sales")}
       <tr class="tot"><td style="text-align:left">Total income</td><td class="num">${money(ledgerIncome(c.fin))}</td><td class="num muted">${L ? money(ledgerIncome(L)) : "—"}</td></tr>
-      <tr class="sec"><td colspan="3">Costs</td></tr>${row("wages", "Player wages")}${row("staff", "Staff wages")}${row("buys", "Transfer fees")}${row("rent", "Ground rent")}${row("fac", "Facility upkeep")}${row("build", "Construction")}${row("acad", "Academy")}${row("scout", "Scouting")}${row("interest", "Interest")}${row("directors", "Directors")}${row("feeders", "Feeder funding")}${row("breaks", "Breaking sponsor deals")}${row("dividend", "Dividends")}
+      <tr class="sec"><td colspan="3">Costs</td></tr>${row("wages", "Player wages")}${row("staff", "Staff wages")}${row("buys", "Transfer fees")}${row("rent", "Ground rent")}${row("mdops", "Match-day operations")}${row("fac", "Facility upkeep")}${row("build", "Construction")}${row("acad", "Academy")}${row("scout", "Scouting")}${row("interest", "Interest")}${row("directors", "Directors")}${row("feeders", "Feeder funding")}${row("breaks", "Breaking sponsor deals")}${row("dividend", "Dividends")}
       <tr class="tot"><td style="text-align:left">Total costs</td><td class="num">${money(ledgerCosts(c.fin))}</td><td class="num muted">${L ? money(ledgerCosts(L)) : "—"}</td></tr>
       <tr class="sec"><td colspan="3">Not counted above</td></tr>${row("equity", "Shares sold")}${row("borrow", "Borrowed")}${row("repay", "Loan repayments")}${row("invest", "Your investment")}
       <tr class="tot"><td style="text-align:left">Result</td><td class="num ${ledgerIncome(c.fin) - ledgerCosts(c.fin) < 0 ? "bad" : "good"}">${money(ledgerIncome(c.fin) - ledgerCosts(c.fin))}</td><td class="num muted">${L ? money(ledgerIncome(L) - ledgerCosts(L)) : "—"}</td></tr>
@@ -704,7 +704,7 @@ function perGameHTML(c) {
   const weekOut = [["Player wages", wageBill(c) / 52], ["Staff wages", staffBill(c) / 52], ["Directors", dirWages() / 52], ["Facility upkeep", upkeep(c) / 52],
     ["Academy", c.budget.acad / 52], ["Scouting", c.budget.scout / 52], ["Feeder funding", feederFunding() / 52], ["Loan repayments", sum(G.loans || [], l => l.weekly)], ["Overdraft interest", c.cash < 0 ? -c.cash * .1 / 52 : 0]].filter(x => x[1] > 0);
   const stPer = f.hold ? (stHolders(c) || stDemand(c)) * stPrice(c) / homeGames(c) : 0;
-  const tin = sum(weekIn, x => x[1]), tout = sum(weekOut, x => x[1]), match = f.gate + stPer + f.conc + vg - f.rent, eur0 = v => money(v).replace(/^€0$/, "—");
+  const tin = sum(weekIn, x => x[1]), tout = sum(weekOut, x => x[1]), match = f.gate + stPer + f.conc + vg - f.rent - f.ops, eur0 = v => money(v).replace(/^€0$/, "—");
   const rows = (list, sign) => list.map(([l, v]) => `<tr><td style="text-align:left">${l}</td><td class="num">${sign}${money(v)}</td></tr>`).join("");
   const per = k => n ? (H[k] || 0) / n : 0;
   return `<div class="grid2"><div class="stack">
@@ -715,11 +715,12 @@ function perGameHTML(c) {
       <tr><td style="text-align:left">Food & drink${atHome(c) ? "" : " (after the landlord's half)"}</td><td class="num">+${money(f.conc)}</td></tr>
       ${vg ? `<tr><td style="text-align:left">Car park and match-day ventures</td><td class="num">+${money(vg)}</td></tr>` : ""}
       ${f.rent ? `<tr><td style="text-align:left">Ground rent</td><td class="num">−${money(f.rent)}</td></tr>` : ""}
+      <tr><td style="text-align:left">Stewards, policing and ground staff</td><td class="num">−${money(f.ops)}</td></tr>
       <tr class="tot"><td style="text-align:left">Match-day result</td><td class="num ${match < 0 ? "bad" : "good"}">${money(match)}</td></tr></tbody></table></div>
       <p class="small muted" style="margin-top:6px">A typical opponent in your division. Big clubs, local derbies and good weather bring more; cup ties away pay a share of the gate.</p></section>
     <section class="card"><div class="card-h"><h3>This season so far, per home game</h3><span class="small muted">${n} home game${n === 1 ? "" : "s"}</span></div>${n ? `<dl class="ledger">
       <dt>Average crowd</dt><dd>${Math.round(per("crowd")).toLocaleString("en-GB")}</dd>${per("hold") ? `<dt>Season-ticket holders</dt><dd>${Math.round(per("hold")).toLocaleString("en-GB")} a game</dd><dt>Season tickets (share)</dt><dd>+${money(per("stg"))}</dd>` : ""}<dt>Tickets on the day</dt><dd>+${money(per("gate"))}</dd><dt>Food & drink</dt><dd>+${money(per("conc"))}</dd>${per("vent") ? `<dt>Match-day ventures</dt><dd>+${money(per("vent"))}</dd>` : ""}<dt>Ground rent</dt><dd>−${money(per("rent"))}</dd>
-      <dt><b>Match-day result</b></dt><dd class="${per("gate") + per("stg") + per("conc") + per("vent") - per("rent") < 0 ? "bad" : "good"}"><b>${money(per("gate") + per("stg") + per("conc") + per("vent") - per("rent"))}</b></dd></dl>
+      <dt><b>Match-day result</b></dt><dd class="${per("gate") + per("stg") + per("conc") + per("vent") - per("rent") - per("ops") < 0 ? "bad" : "good"}"><b>${money(per("gate") + per("stg") + per("conc") + per("vent") - per("rent") - per("ops"))}</b></dd></dl>
       <p class="small muted" style="margin-top:6px">League and cup games at home. European nights, friendlies and away cup shares aren't included.</p>` : `<p class="small muted">No home games played yet${inSeason ? "" : " this season"}.</p>`}</section>
   </div><div class="stack">
     <section class="card"><div class="card-h"><h2>Every week</h2><span class="small muted">home or away</span></div><div class="tbl-wrap"><table class="proj"><tbody>
