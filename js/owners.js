@@ -41,11 +41,28 @@ const aiSite = c => c.site ??= Math.max(c.cap || 0, newSite(c.cap || 1000));
    like building move more often; a property developer looks out of town, a lifelong fan, a former player or the
    supporters themselves stay close. A long move costs them supporters, as it would you. The owner pays the bill, less
    what the old ground sells for. */
+/* Whether an AI club moves is a weighing of reasons. Pressures: a hemmed-in site (little or no room left), demand (a
+   full ground, fans turned away), a ground too small for the division, an old ground. The owner: builders and
+   developers move readily, absent owners rarely, supporter-owned clubs cautiously. Money: a club cutting costs, losing
+   money or already in debt holds back. The fans: strong demand pushes it on; a loyal and hardcore support pulls a move
+   closer to home. */
+function moveOdds(c) {
+  const S = ownStyle(c), st = c.own.style, age = groundAge(c), room = (aiSite(c) - c.cap) / Math.max(1, c.cap);
+  const att = aiEstimate(c).att, full = att / Math.max(1, c.cap), small = c.cap < STADIUM_T[c.tier] * .65;
+  const hemmed = room < .1, cramped = room < .25, demand = full >= .95 || c.fans * 1.25 > c.cap, dated = age >= 70;
+  if (!(hemmed || cramped || small || dated) || !(demand || small || dated)) return 0;  // it has to need the room and the fans
+  let p = .008 + (hemmed ? .03 : cramped ? .012 : 0) + (full >= .95 ? .03 : full >= .85 ? .012 : 0) + (c.fans * 1.25 > c.cap ? .01 : 0) + (small ? .02 : 0) + Math.max(0, age - 60) * .0006;
+  p *= (.3 + S.build * 1.4) * (st === "fanowned" ? .8 : 1);                                        // the owner's appetite for building
+  const inc = (c.aiFin || {}).inc || aiIncome(c);
+  if (c.cut) p *= .3; if (c.aiFin && c.aiFin.net < -inc * .2) p *= .6; if ((c.debt || 0) > inc) p *= .4;  // money worries
+  if (st !== "fanowned" && c.own.wealth > (1.5e6 + c.cap * 1.5 * perSeat(c.cap * 1.5)) * 2) p *= 1.4;  // a rich owner
+  return p;
+}
 function aiMoveCheck(c) {
-  // An old ground (70+ years) is out of date: reason enough to move on its own, and the older it is the likelier.
-  const S = ownStyle(c), age = groundAge(c), dated = age >= 70, small = c.cap < STADIUM_T[c.tier] * .65, need = c.fans * 1.25 > c.cap || small || dated, cramped = c.cap >= aiSite(c) * .8 || small || dated;
-  if (c.abroad || !need || !cramped || (c.moved && G.year - c.moved.y < 10) || R() > .015 + S.build * .04 + Math.max(0, age - 60) * .0006) return;
-  const st = c.own.style, kind = st === "developer" ? (R() < .6 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .7 ? "near" : "edge") : wpick(["near", "edge", "far"], k => ({ near: 4, edge: 4, far: 2 })[k]);
+  if (c.abroad || (c.moved && G.year - c.moved.y < 10) || R() > moveOdds(c)) return;
+  const S = ownStyle(c), st = c.own.style, roots = fanShare(c, "loyal") + fanShare(c, "hard");  // a loyal, hardcore support wants to stay close
+  const kind = st === "developer" ? (R() < .6 - roots * .4 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .55 + roots * .4 ? "near" : "edge")
+    : wpick(["near", "edge", "far"], k => ({ near: 3 + roots * 6, edge: 4, far: Math.max(.5, 2.5 - roots * 4) })[k]);
   const K = SITE_KINDS[kind], km = ri(...K.km), cap = clamp(Math.round(Math.max(c.cap * rf(1.3, 1.8), c.fans * 1.2) / 500) * 500, c.cap + 1000, SITE_MAX), site = clamp(Math.round(cap * rf(1.3, 2) / 500) * 500, cap, SITE_MAX);
   const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * (1 + (7 - c.tier) * .08) - aiSite(c) * 150 * (1 + (7 - c.tier) * .08);
   // Paid partly by the owner, the rest borrowed against the new ground (supporters' trusts borrow most of it).
