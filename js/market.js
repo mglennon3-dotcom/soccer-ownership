@@ -396,10 +396,11 @@ function ownerBuy(p, fee, wage) {
   const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null); else meddled("manager", -3, null);
 }
 /* You put a player on the transfer list (or take him off). Offers then come in through the inbox. */
-/* A star for the division: shown rating at the top of the division's range (Regional League and National North/South
-   5+, National Division 7+, Third 9+, Second 10+, First 13+, Premier 18+), or a teenager with that kind of potential. */
-const STAR_20 = [0, 18, 13, 10, 9, 7, 5, 5];
-const starAtLevel = (p, c = my()) => r20(p.ovr) >= STAR_20[c.tier] || (p.age <= 21 && r20(p.pot) >= STAR_20[c.tier] + 3);
+/* A star for the division: rating at the top of the division's range (shown about: Regional League and National
+   North/South 4+, National Division 5+, Third 7+, Second 8+, First 11+, Premier 16+), or a teenager with that kind of potential. */
+// (Held as underlying ratings so a change to the shown 1-20 scale doesn't move them.)
+const STAR_RAW = [0, 86.9, 74, 67.8, 65.6, 58.8, 53.3, 53.3], STAR_POT = [0, 101, 80.6, 74, 72, 67.8, 62.1, 62.1];
+const starAtLevel = (p, c = my()) => p.ovr >= STAR_RAW[c.tier] || (p.age <= 21 && p.pot >= STAR_POT[c.tier]);
 // Would being kept off the market rankle? He's well above the division, or paid well below his worth.
 const nfsGrudge = (p, c) => p.age <= 31 && (p.ovr - TIER_LVL[c.tier] >= 6 || p.wage < wageFor(p.ovr) * .8);
 /* Not for sale: you tell the world he isn't available. Nobody bids for him, open bids are turned down, and your staff
