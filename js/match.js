@@ -93,7 +93,7 @@ function playMatch(h, a, neutral, fr) {
   for (const id of [h, a]) if (isMine(CL(id))) emergencyXI(CL(id));  // fr: a friendly, kept out of players' records
   const H = CL(h), A = CL(a), xh = pickXI(H), xa = pickXI(A), ph = teamPower(H, xh), pa = teamPower(A, xa);
   const sh = STYLES[clubStyle(H)], sa = STYLES[clubStyle(A)], fh = styleFit(xh, clubStyle(H)), fa = styleFit(xa, clubStyle(A));
-  const adv = neutral ? 0 : 2 + (isMine(H) ? terraceShare(H) * 1.2 + fanShare(H, "hard") * 2 : 0), wx = G.wx ? wxAt(H) : WX.clear;
+  const adv = neutral ? 0 : 2 + fanShare(H, "hard") * 2 + (isMine(H) ? terraceShare(H) * 1.2 : 0), wx = G.wx ? wxAt(H) : WX.clear;
   let lh = 1.3 * Math.exp(.065 * (ph.atk - pa.def + adv)), la = 1.3 * Math.exp(.065 * (pa.atk - ph.def - adv));
   lh *= sh.for * (1 + .08 * fh) * sa.against * (1 - .06 * fa);
   la *= sa.for * (1 + .08 * fa) * sh.against * (1 - .06 * fh);

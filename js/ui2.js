@@ -132,6 +132,7 @@ function compareCard(c) {
       { k: "staff", l: "Staff", r: true, v: r => r.staff, f: r => money(r.staff) },
       { k: "comm", l: "Commercial", r: true, v: r => r.comm, f: r => money(r.comm) },
       { k: "cap", l: "Stadium", r: true, v: r => r.cap, f: r => r.cap.toLocaleString("en-GB") },
+      { k: "fan", l: "Support", left: true, v: r => topFan(r.x), f: r => `<span class="small" style="white-space:nowrap"><span class="dot" style="background:${FAN_COL[topFan(r.x)]}"></span> ${FAN_KINDS[topFan(r.x)][0]} ${fanMix(r.x)[topFan(r.x)]}%</span>` },
     ], rows, { sort: { k: "rep", d: -1 }, quiet: true })}
     <p class="small muted" style="margin-top:6px">Your figures are your own books (crowd: this season's average, or the forecast before your first home game). Other clubs' are estimates from their division, standing, support, ground and owner. Wages are a week; staff and commercial are a year.</p></section>`;
 }
@@ -447,7 +448,7 @@ function prestigeCard() {
 
 /* Your supporters: the mix of kinds, what each does, and what shifts it. */
 function supportersCard(c) {
-  const m = fanMix(c), top = Object.keys(m).sort((a, b) => m[b] - m[a])[0], col = { hard: "var(--loss)", loyal: "var(--win)", fair: "var(--accent)", comm: "#5b8def" };
+  const m = fanMix(c), top = Object.keys(m).sort((a, b) => m[b] - m[a])[0], col = FAN_COL;
   return `<section class="card"><div class="card-h"><h3>Your supporters</h3><span class="small muted">${c.fans.toLocaleString("en-GB")} · ${word(moodWord(c.mood))}</span></div>
     <div class="fanbar">${Object.keys(FAN_KINDS).map(k => `<i style="width:${m[k]}%;background:${col[k]}" title="${FAN_KINDS[k][0]} ${m[k]}%"></i>`).join("")}</div>
     ${Object.entries(FAN_KINDS).map(([k, [l, d]]) => `<div class="row between small" style="padding:3px 0;gap:8px;flex-wrap:nowrap"><span><span class="dot" style="background:${col[k]}"></span> <b>${l}</b> <span class="muted">${d}</span></span><b class="num">${m[k]}%</b></div>`).join("")}

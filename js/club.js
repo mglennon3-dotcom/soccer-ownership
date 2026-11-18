@@ -101,8 +101,33 @@ function fansWeek(c) {
    - Community: local families. Notice prices more; cheap tickets and a family stand win them over. */
 const FAN_KINDS = { hard: ["Hardcore", "Loud and partisan: a bigger home advantage."], loyal: ["Loyal", "Stand by the club: bad results hurt less, and they don't drift away."],
   fair: ["Fair-weather", "Come for success: mood and numbers swing harder both ways."], comm: ["Community", "Local families: they want fair prices, and reward cheap tickets and a family stand."] };
-const fanMix = c => c.fanMix ||= { hard: 20, loyal: 25, fair: 20, comm: 35 };
-const fanShare = (c, k) => isMine(c) ? fanMix(c)[k] / 100 : .25;
+const fanMix = c => c.fanMix ||= isMine(c) ? { hard: 20, loyal: 25, fair: 20, comm: 35 } : seedFanMix(c);
+const fanShare = (c, k) => fanMix(c)[k] / 100;
+const normMix = m => { const t = sum(Object.values(m), x => Math.max(5, x)); for (const k in m) m[k] = Math.round(Math.max(5, m[k]) / t * 100); return m; };
+/* Every other club's support has its own character: old clubs have more loyal and hardcore fans, bigger divisions draw
+   more fair-weather fans, small-town clubs more families, and the owner leaves his mark. */
+function seedFanMix(c) {
+  const age = G.year - (c.founded || G.year), st = c.own ? c.own.style : "local", up = 7 - (c.tier || 7);
+  const m = { hard: 18 + rf(-8, 14), loyal: 20 + Math.min(12, age / 10) + rf(-6, 8), fair: 12 + up * 2.5 + rf(-6, 8), comm: 32 - up * 2 + rf(-8, 8) };
+  if (st === "fanowned") { m.comm += 10; m.loyal += 6; } if (st === "explayer" || st === "dynasty") m.loyal += 6; if (st === "hostile") m.hard += 8;
+  if (["sugar", "celebrity", "crypto"].includes(st)) m.fair += 8; if (st === "local" || st === "academy") m.comm += 4; if (st === "stripper" || st === "absentee") m.loyal -= 4;
+  return normMix(m);
+}
+const topFan = c => { const m = fanMix(c); return Object.keys(m).sort((a, b) => m[b] - m[a])[0]; };
+/* Each summer an AI club's support moves like yours: promotion brings fair-weather fans and a bigger crowd, relegation
+   sends them away and leaves the loyal, steady seasons build loyalty, and the owner's prices move the families. The
+   fanbase also drifts toward its division's size: fast for fair-weather support on the way up, slowly for loyal
+   support on the way down. */
+function aiFansSummer(c) {
+  const m = fanMix(c), last = c.lastTier ?? c.tier, up = c.tier < last, down = c.tier > last, pr = (OWNER_STYLES[(c.own || {}).style] || {}).prices || 1;
+  if (up) m.fair += 4; if (down) { m.fair -= 4; m.loyal += 2; } if (!up && !down) m.loyal += 1;
+  if (pr < .9) m.comm += 2; else if (pr > 1.2) { m.comm -= 2; m.fair += 1; }
+  if (c.push) m.fair += 1;
+  normMix(m);
+  const f = m.fair / 100, l = m.loyal / 100, t = FAN_T[c.tier] * clamp(1 + (c.rep - TIER_REP[c.tier]) / 60, .6, 1.8);
+  c.fans = Math.max(50, Math.round(c.fans + (t - c.fans) * (t > c.fans ? .15 * (1 + f) : .08 * (1 - l * .7) * (1 + f * .8))));
+  c.lastTier = c.tier;
+}
 function moodHit(c, d) {
   if (isMine(c)) d *= d < 0 ? (1 - fanShare(c, "loyal") * .8) * (1 + fanShare(c, "fair") * .8) : 1 + fanShare(c, "fair") * .5;
   c.mood = clamp(c.mood + d, 0, 100);

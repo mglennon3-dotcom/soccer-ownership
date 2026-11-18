@@ -53,7 +53,8 @@ function calcTierW() { const w = [0]; for (let t = 1; t <= 7; t++) { const cs = 
 const tierWages = t => (G.tierW ||= calcTierW())[t];
 function aiEstimate(x) {
   const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(REF_TICKET[x.tier] * (S.prices || 1)));
-  const pf = priceFactor(ticket, REF_TICKET[x.tier]), att = Math.round(Math.min(x.cap || 1e9, x.fans * .8 * pf + (x.fans * .35 * pf * .9)));
+  const pf = priceFactor(ticket, REF_TICKET[x.tier], 1.3 + fanShare(x, "comm") * .8), sw = 1 + fanShare(x, "loyal") * .15 + fanShare(x, "fair") * (x.push ? .3 : -.15);
+  const att = Math.round(Math.min(x.cap || 1e9, (x.fans * .8 * pf + x.fans * .35 * pf * .9) * sw));
   const staff = staffWage("manager", x.rep) + staffWage("youth", x.rep) + staffWage("recruit", x.rep);
   const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);
   return { ticket, att, staff, comm };
@@ -110,7 +111,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
-    if (!c.abroad && !c.gone) aiAccounts(c);
+    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); }
     c.lvl = clubStandard(c);
   }
   hostileCheck();
