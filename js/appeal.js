@@ -81,9 +81,18 @@ function playerAsk(p, c = my()) {
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
-  const want = Math.ceil(base * Math.max(.85, ratioFor(Math.max(0, need)) + .001) / 100) * 100;
-  return p.club >= 0 ? Math.max(want, Math.ceil(p.wage * .95 / 100) * 100) : want;  // nobody under contract moves for much less than he earns
+  const floor = keenFloor(p, need), want = Math.ceil(base * (floor < .85 ? floor : Math.max(.85, ratioFor(Math.max(0, need)) + .001)) / 100) * 100;
+  // Under contract elsewhere, he won't move for much less than he earns, unless he's keen and money isn't what drives him.
+  return p.club >= 0 ? Math.max(want, Math.ceil(p.wage * (floor < .85 ? Math.max(.75, floor + .15) : .95) / 100) * 100) : want;
 }
+/* How far below his going rate he'll go. Most players won't take less than 85%. One who already wants to join for
+   other reasons (playing time, ambition, the project, the system, coming home: "need" below zero means those alone
+   win him over) and isn't driven by money will take a real discount, down to about 55% for the keenest. */
+function keenFloor(p, need) {
+  const money = prefsOf(p, P_FACTORS).pri.money; if (need >= 0 || money >= .3) return .85;
+  return clamp(.85 - Math.min(1, -need) * .45 * (1 - money / .3), .55, .85);
+}
+const keenToJoin = (p, c = my()) => { const pr = prefsOf(p, P_FACTORS), f = playerFactors(p, c); let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k]; return keenFloor(p, (pr.thr - other) / pr.pri.money) < .8; };
 function playerAppeal(p, wage, c = my()) {
   const pr = prefsOf(p, P_FACTORS), f = { ...playerFactors(p, c), money: moneyF(wage / demandWage(p, c)) };
   return { f, pr, score: sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
