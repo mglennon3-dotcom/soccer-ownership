@@ -7,7 +7,7 @@
 function demandWage(p, c) {
   const from = p.club >= 0 ? CL(p.club).tier : p.club === -2 ? Math.max(1, Math.min(7, Math.round((90 - p.ovr) / 6))) : 7;
   // Dropping divisions is weighed as prestige in appeal.js; this is just his going rate.
-  return Math.round(wageFor(p.ovr) * (p.club === -2 ? 1.15 : 1) / 100) * 100;
+  return Math.round(wageFor(p.ovr) * (p.club === -2 ? 1.15 : 1) * (c ? wageMult(p, c) : 1) / 100) * 100;  // his values: greed, home
 }
 // Will he come at all? Players rarely drop more than two divisions.
 /* Would he even consider a club in this division? Every player has a natural level: the division whose typical starter

@@ -82,13 +82,17 @@ const prepBonus = c => !isMine(c) || G.phase !== "season" || G.week > 5 ? 0 : (c
    worth, or kept from a move they wanted. Every four weeks an unhappy player may hand in a transfer request. */
 function unhappiness(p, c) {
   if (p.acad || p.loan || p.age > 33 || p.req || p.dealY === G.year || p.inW === windowId() || p.keep) return null;
-  const why = [], xi = pickXI(c).map(o => o.p), med = avg(xi.map(q => q.ovr)), games = (G.leagues[c.lg].tab[c.id] || {}).p || 0;
+  const why = [], xi = pickXI(c).map(o => o.p), med = avg(xi.map(q => q.ovr)), games = ((G.leagues[c.lg].tab || {})[c.id] || {}).p || 0;
   let s = 0;
   if (games >= 10 && !xi.includes(p) && p.ovr >= med && p.s.app < games * .3) { s += 2; why.push("playing time"); }
   if (p.ovr - TIER_LVL[c.tier] >= 10) { s += 1 + (p.ovr - TIER_LVL[c.tier] - 10) / 6; why.push("ambition"); }
   if (p.wage < wageFor(p.ovr) * .6 || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
   if (p.blocked) { s += p.blocked * 1.2; why.push("a blocked move"); }
   if (p.nfs && nfsGrudge(p, c)) { s += 1; why.push("being made not for sale"); }
+  // The manager's system: no place for his position, or a style that doesn't suit him, matters to those who care.
+  const pr = prefsOf(p, P_FACTORS), fit = systemFit(p), cares = 1 + (pr.pri.form + pr.pri.time) * 3;
+  if (fit.slots === 0) { s += .8 * cares; why.push("having no place in the manager's system"); }
+  else if (fit.style < -.4) { s += .5 * cares; why.push("a style of play that doesn't suit him"); }
   return s ? { s, why } : null;
 }
 /* Pay rises: every four weeks a player paid well under his worth (under 80% of the going rate for his rating) may ask

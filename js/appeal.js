@@ -28,6 +28,36 @@ const ratioFor = f => 1 + (f - .5) / 1.5;
 function projectF() { const ups = G.history.slice(0, 4).filter(h => h.up).length, downs = G.history.slice(0, 4).filter(h => h.down).length; return clamp(Math.log10(Math.max(1, G.owner.wealth) / 1e5) / 5 + ups * .15 - downs * .15, 0, 1); }
 const meddleF = () => clamp(1 - (G.meddle || 0) / 6, 0, 1);
 
+/* ---------- what drives a player ----------
+   Every player has a home region (English players: often near where he started) and a personality from his two top
+   priorities. They change what he asks to be paid:
+   - Money-motivated players want up to a third over the going rate.
+   - A player who cares about home takes up to a fifth less to play in his own region.
+   And how he feels about the manager's system: no place for his position in the formation, or a style that doesn't
+   suit his game, makes a player who cares about playing unhappy, and less willing to sign a new contract. */
+const ENG_REGIONS = () => G._regs ||= [...new Set(G.clubs.filter(x => !x.abroad && x.region).map(x => x.region))];
+function homeOf(p) {
+  if (p.reg !== undefined) return p.reg;
+  if (p.nat !== "ENG") return (p.reg = null);
+  const first = p.hist && p.hist.length ? G.clubs.find(x => x.short === p.hist[0][1] && !x.abroad) : p.club >= 0 && !CL(p.club).abroad ? CL(p.club) : null;
+  return (p.reg = first && R() < .45 ? first.region : pick(ENG_REGIONS()));
+}
+const PERSONA = { money: "Money-motivated", time: "Wants to play every week", form: "Needs the right system", prest: "Ambitious", fac: "Professional", home: "A home bird", proj: "Wants to be part of something" };
+function personaOf(p) { const pr = prefsOf(p, P_FACTORS); return pr.top.map(k => PERSONA[k]); }
+function wageMult(p, c) {
+  const pr = prefsOf(p, P_FACTORS), greed = clamp(1 + (pr.pri.money - .14) * 1.6, 1, 1.35);
+  const home = c && homeOf(p) && homeOf(p) === c.region ? clamp(1 - pr.pri.home * .55, .8, 1) : 1;
+  return greed * home;
+}
+// How well the manager's system suits him: places for his position in the formation, and the style's key attributes
+// against his own average (-1 badly, +1 well).
+function systemFit(p) {
+  const slots = FORMS[mgr().form || "4-4-2"].filter(s => s === p.pos).length;
+  if (p.pos === "GK") return { slots, style: 0 };
+  const keys = STYLES[mgr().phil] ? STYLES[mgr().phil].keys : [], all = avg(OUT_KEYS.map(k => p.at[k]));
+  return { slots, style: keys.length ? clamp((avg(keys.map(k => p.at[k])) - all) / 8, -1, 1) : 0 };
+}
+
 /* ---------- players ---------- */
 function playerFactors(p, c) {
   const from = p.club >= 0 ? CL(p.club) : null, refRep = from ? from.rep : p.club === -2 ? clamp(p.ovr - 20, 5, 90) : clamp(p.ovr - 35, 3, 60);
@@ -40,7 +70,7 @@ function playerFactors(p, c) {
     form: slots >= 2 ? 1 : slots === 1 ? .65 : .1,
     prest: clamp(.5 + (c.rep - refRep) / 25, 0, 1),
     fac: clamp(.5 + (tl - expFac) / 6, 0, 1),
-    home: p.nat === "ENG" ? (half === c.half ? .9 : .35) : .3 + prefsOf(p, P_FACTORS).open * .5,
+    home: p.nat === "ENG" ? (homeOf(p) === c.region ? 1 : half === c.half ? .7 : .35) : .3 + prefsOf(p, P_FACTORS).open * .5,
     proj: projectF(),
   };
 }

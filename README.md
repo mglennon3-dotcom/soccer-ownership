@@ -98,6 +98,11 @@ Running locally: any static server works, for example `python3 -m http.server 80
   fresh deputy. Every match has up to three substitutes (five in a friendly): the most tired starters come off for a
   bench player in the same part of the pitch, the manager spreading the minutes among those who've played least. The
   Squad page shows appearances with sub appearances in brackets, and each player's fitness.
+- **What drives a player.** Each player has a home region and two things he cares about most (money, playing time,
+  the right system, ambition, facilities, home, the project), shown on his card. Money-motivated players want up to a
+  third over the going rate; home birds take up to a fifth less to play in their own region. A player with no place in
+  the manager's formation, or a style that doesn't suit him, is unhappy (more so if he cares about playing), may hand in
+  a transfer request, and may turn down a new contract.
 - **Fair wages.** Contracts are renewed at the going rate for a player's rating. A player paid under 80% of his worth
   may ask for a pay rise: give it, meet him halfway, or refuse (he's unsettled, and it counts toward a transfer
   request). AI clubs' wages drift toward the going rate each summer, so comparisons are fair.
