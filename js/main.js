@@ -30,6 +30,9 @@ function upgradeSave() {
   // 0.31.3: staff pay re-based on players' pay (the 0.31.2 halving overshot): current staff move onto the new scale.
   if (!G.pay3) { G.pay3 = true; if (G.club != null) { for (const st of Object.values(my().staff).filter(Boolean)) { st.demand = Math.round(staffWage(st.role, st.rep) * rf(.85, 1.2) / 1000) * 1000; st.wage = Math.max(st.wage, Math.round(staffWage(st.role, st.rep) / 1000) * 1000); }
     for (const U of Object.values(G.pools || {})) U.empT = 0; } }
+  // 0.31.5: non-league staff are part-time: your staff's pay drops to the new scale if it's lower.
+  if (!G.pay5) { G.pay5 = true; if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) { const w = Math.round(staffWage(st.role, st.rep) / 1000) * 1000; st.demand = Math.round(staffWage(st.role, st.rep) * rf(.85, 1.2) / 1000) * 1000; if (partTime(st.rep) && w < st.wage) { news(`${st.name} goes part-time as ${ROLES_STAFF[st.role].l.toLowerCase()}: ${money(w)} a year (was ${money(st.wage)}).`); st.wage = w; } }
+    for (const U of Object.values(G.pools || {})) { U.empT = 0; for (const x of U.list || []) x.demand = Math.round(staffWage(x.role, x.rep) * rf(.85, 1.2) / 1000) * 1000; } }
   if (!G.pay4) { G.pay4 = true; if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) st.demand = Math.round(staffWage(st.role, st.rep) * rf(.85, 1.2) / 1000) * 1000; for (const U of Object.values(G.pools || {})) { U.empT = 0; for (const x of U.list || []) x.demand = Math.round(staffWage(x.role, x.rep) * rf(.85, 1.2) / 1000) * 1000; } }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }

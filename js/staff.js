@@ -38,7 +38,14 @@ const REP_LVL = [[0, 40], [11, 44], [20, 50], [28, 55], [36, 60], [45, 65], [58,
 function repLevel(rep) { for (let i = 1; i < REP_LVL.length; i++) { const [a, x] = REP_LVL[i - 1], [b, y] = REP_LVL[i]; if (rep <= b) return x + (y - x) * (rep - a) / (b - a); } return 88; }
 // Up to the Second Division a manager earns a little more than a star player; above that the stars pull away, until
 // the very best manager earns about a third of what the best player in the world does.
-function staffWage(role, rep) { const lvl = repLevel(rep), k = lvl <= 65 ? 1.1 : 1.1 - (lvl - 65) / 25 * .87, m = wageFor(lvl + 5) * k; return Math.round(m * (role === "manager" ? 1 : .45) / 1000) * 1000; }
+// Non-league staff (a reputation below the Football League) are part-time: a manager earns about what a typical player
+// there does, not a star; full-time pay comes in through the Third Division.
+const partTime = rep => repLevel(rep) < 58;
+function staffWage(role, rep) {
+  const lvl = repLevel(rep), k = lvl <= 65 ? 1.1 : 1.1 - (lvl - 65) / 25 * .87, full = wageFor(lvl + 5) * k, f = clamp((lvl - 55) / 5, 0, 1);
+  const m = full * f + wageFor(lvl) * (1 - f);
+  return Math.round(m * (role === "manager" ? 1 : .45) / 1000) * 1000;
+}
 /* Staff, like players: young coaches (a third are 26-35) start lower, being short of experience, but have more room to
    grow, the younger the more; now and then one is a real prospect. Older ones are what they are. */
 function genStaff(role, rep) {
