@@ -217,6 +217,23 @@ function pgSquad() {
 }
 /* Progression on a player's card: a row a season (newest first, this season so far on top) and a small line of his
    rating. Potential is shown only for your own players, as your staff estimate it now. */
+/* Career by club: games, goals and assists for each club he's played for since records began (earlier career, before
+   this was kept, shows as one line), career totals, and his best season from the progression rows. */
+function careerHTML(p) {
+  const cs = p.cs || {}, ids = Object.keys(cs).map(Number).sort((a, b) => cs[b][0] - cs[a][0]);
+  const tracked = ids.reduce((t, id) => [t[0] + cs[id][0], t[1] + cs[id][1], t[2] + cs[id][2]], [0, 0, 0]);
+  const totApps = p.tot[0] + p.s.app, totG = p.tot[1] + p.s.g, early = [Math.max(0, totApps - tracked[0]), Math.max(0, totG - tracked[1])];
+  if (!ids.length && !totApps) return "";
+  const best = [...(p.prog || []), [G.year, p.age, p.ovr, "", p.s.app, p.s.g, p.s.a]].filter(r => r[4] >= 5).sort((a, b) => (b[5] + b[6] * .5) - (a[5] + a[6] * .5) || b[4] - a[4])[0];
+  const nm = id => { const x = CL(id); return x ? `${esc(x.name)}${x.abroad ? ` <span class="muted">(${esc(COUNTRY[x.country].name)})</span>` : ""}` : "A former club"; };
+  return `<details class="prog" open><summary class="small"><b>Career</b></summary>
+    <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Club</th><th>Apps</th><th>Gls</th><th>Ast</th></tr></thead><tbody>
+    ${ids.map(id => `<tr><td style="text-align:left" class="small">${nm(id)}${id === p.club ? ' <span class="muted">· now</span>' : ""}</td><td>${cs[id][0]}</td><td>${cs[id][1]}</td><td>${cs[id][2]}</td></tr>`).join("")}
+    ${early[0] ? `<tr><td style="text-align:left" class="small muted">Earlier career${p.hist && p.hist.length ? ` (${[...new Set(p.hist.map(h => h[1]))].slice(0, 4).map(esc).join(", ")})` : ""}</td><td>${early[0]}</td><td>${early[1]}</td><td>—</td></tr>` : ""}
+    <tr class="tot"><td style="text-align:left"><b>Career</b></td><td><b>${totApps}</b></td><td><b>${totG}</b></td><td><b>${tracked[2]}</b></td></tr>
+    </tbody></table></div>
+    ${best ? `<p class="small" style="margin-top:4px"><b>Best season:</b> ${best[0] === G.year && best[4] === p.s.app ? "this season" : seasonLabel(best[0])}, ${best[5]} goal${best[5] === 1 ? "" : "s"} and ${best[6]} assist${best[6] === 1 ? "" : "s"} in ${best[4]} games${best[3] ? ` for ${esc(best[3])}` : ""}.</p>` : ""}</details>`;
+}
 function progressionHTML(p, mine, exact) {
   const now = [G.year, p.age, p.ovr, p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA", p.s.app, p.s.g, p.s.a, p.pot, true];
   const rows = [now, ...(p.prog || []).slice().reverse()];
@@ -263,7 +280,7 @@ function playerModal(id) {
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : p.yrs ? p.yrs + " yr" : "—"}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
-    <div class="attr-grid">${attrs}</div>${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${acts}
+    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${acts}
     ${archetypeOf(p) && (mine || (c && c.lg === my().lg) || staffOf("recruit")) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${formWord(seasonForm(p)) ? `<p class="small good">Coming off ${formWord(seasonForm(p))}: clubs are taking notice.</p>` : ""}
     ${(() => { const L = Object.entries(p.love || {}).filter(([, l]) => l >= FAV).map(([cid, l]) => `${l >= LEGEND ? "a legend" : "a fan favourite"} at ${esc(G.clubs[+cid] ? G.clubs[+cid].name : "a former club")}`); return L.length ? `<p class="small"><b>Supporters' view:</b> ${L.join("; ")}.</p>` : ""; })()}

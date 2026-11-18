@@ -59,6 +59,7 @@ function endLoans() {
   for (const id of G.loanList || []) {
     const p = G.players[id]; if (!p || !p.loan) continue;
     const at = CL(p.club), home = CL(p.loan.from);
+    if (at) p.loanedAt = { y: G.year, short: at.short };  // the season's progression row names the loan club
     if (home && isMine(home)) logMove("loanback", p, { club: at ? at.name : "" }); else if (at && isMine(at)) logMove("loanend", p, { club: home ? home.name : "" });
     if (at) at.squad = at.squad.filter(x => x !== id);
     if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; p.loan = null; capSquad(home, p); } else toFreeAgent(p);  // foreign clubs count as still going
