@@ -31,9 +31,12 @@ const PRON = { m: { he: "he", He: "He", him: "him", his: "his", His: "His", hims
 const pr = (s, k) => PRON[s && s.name ? sexOf(s) : "m"][k];
 const STAFF_FIRST = ["Alan", "Brendan", "Carlos", "Dean", "Eddie", "Frank", "Gareth", "Harry", "Ivan", "Jens", "Kenny", "Luis", "Mick", "Nigel", "Oscar", "Pep", "Ronnie", "Sean", "Thomas", "Vincent", "Warren", "Zoltan", "Andy", "Bruno", "Claire", "Dani", "Emma", "Fiona", "Hannah", "Jo", "Kate", "Lucy", "Marta", "Nina", "Rachel", "Sam"];
 
-// What staff of a given reputation earn a year: managers more than the other roles. (Halved in 0.31: they were asking
-// several times a top player's wage.)
-function staffWage(role, rep) { const w = 7500 * Math.pow(1.075, rep) * (role === "manager" ? 1 : .4); return Math.round(w / 1000) * 1000; }
+/* What staff of a given reputation earn a year, tied to players' pay: a reputation belongs to a level of football (the
+   divisions' standings), and a manager earns a little more than a star player there, the best-paid person at his club.
+   Heads of recruitment and youth managers earn the same as each other, 45% of a manager. */
+const REP_LVL = [[0, 40], [11, 44], [20, 50], [28, 55], [36, 60], [45, 65], [58, 71], [78, 79], [99, 90]];
+function repLevel(rep) { for (let i = 1; i < REP_LVL.length; i++) { const [a, x] = REP_LVL[i - 1], [b, y] = REP_LVL[i]; if (rep <= b) return x + (y - x) * (rep - a) / (b - a); } return 88; }
+function staffWage(role, rep) { const m = wageFor(repLevel(rep) + 5) * 1.1; return Math.round(m * (role === "manager" ? 1 : .45) / 1000) * 1000; }
 /* Staff, like players: young coaches (a third are 26-35) start lower, being short of experience, but have more room to
    grow, the younger the more; now and then one is a real prospect. Older ones are what they are. */
 function genStaff(role, rep) {
@@ -214,7 +217,7 @@ function candidates(role) {
   const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
   let U = P[role];
   if (!U || !U.u || U.u < 2) U = P[role] = { t: now, u: 2, list: [] };
-  if (!U.pay2) { U.pay2 = true; for (const s of U.list) s.demand = Math.round(staffWage(role, s.rep) * rf(.85, 1.2) / 1000) * 1000; }  // older saves (and the 0.30 redraw: more young coaches)
+  if (!U.pay3) { U.pay3 = true; for (const s of U.list) s.demand = Math.round(staffWage(role, s.rep) * rf(.85, 1.2) / 1000) * 1000; }  // older saves (and the 0.30 redraw: more young coaches)
   if (now - U.t >= 6 || U.list.length < STAFF_UNIVERSE) {
     if (now - U.t >= 6) U.list = U.list.filter(s => s.age < 68 && R() > .1);
     while (U.list.length < STAFF_UNIVERSE) U.list.push(genStaff(role, staffLevel()));
