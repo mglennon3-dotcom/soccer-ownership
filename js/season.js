@@ -249,8 +249,10 @@ function yearTurnover() {
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { p.yrs--; if (p.yrs <= 0) { if (R() < (p.ovr >= CL(p.club).lvl - 3 ? .95 : .6) && p.age < 34) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
     // Veterans nobody signs hang up their boots sooner.
-    const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : p.club < 0 && G.year - p.faY >= 2 ? .6 : 0;
+    const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;
     if (R() < ch) { if (p.club === G.club) news(`${p.name} retires, aged ${p.age}.`); retire(p); }
+    // Three summers without a club and he's out of the game for good (no newcomer replaces him: he was never missed).
+    else if (p.club === -1 && G.year - (p.faY ?? G.year) >= 3) retire(p, true);
   }
   // Academy graduates: AI clubs keep the good ones; yours are decided by your youth manager (or you, on the Academy page).
   for (const c of G.clubs) {
