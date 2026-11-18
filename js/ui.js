@@ -140,6 +140,7 @@ function pgHome() {
     <section class="card"><div class="card-h"><h3>The club</h3></div><dl class="ledger">
       <dt>Supporters</dt><dd>${c.fans.toLocaleString("en-GB")} · ${word(moodWord(c.mood))}</dd>
       <dt>Ground</dt><dd>${capacity(c).toLocaleString("en-GB")}${atHome(c) ? "" : " (rented)"}</dd>
+      <dt>Season tickets</dt><dd>${stHolders(c) ? `${stHolders(c).toLocaleString("en-GB")} sold` : G.phase === "summer" ? `on sale (~${stDemand(c).toLocaleString("en-GB")})` : "none"}</dd>
       <dt>Training ground</dt><dd>Level ${c.fac.train.lvl}</dd><dt>Academy</dt><dd>Level ${c.fac.acad.lvl}</dd>
       <dt>Wage bill</dt><dd>${money(wageBill(c))} / ${money(c.budget.wages)}</dd>
       <dt>Season so far</dt><dd class="${ledgerIncome(c.fin) - ledgerCosts(c.fin) < 0 ? "bad" : "good"}">${money(ledgerIncome(c.fin) - ledgerCosts(c.fin))}</dd></dl></section>
@@ -341,7 +342,7 @@ function loanWagesCard(c) {
 
 /* ---------- Finances ---------- */
 function pgFin() {
-  const c = my(), f = matchdayForecast(c), T = c.tier, L = c.finLast;
+  const c = my(); c.prices.st ??= stRef(c); const f = matchdayForecast(c), T = c.tier, L = c.finLast;
   const row = (k, l) => `<tr><td style="text-align:left">${l}</td><td class="num">${money(c.fin[k] || 0)}</td><td class="num muted">${L ? money(L[k] || 0) : "—"}</td></tr>`;
   /* A setting: name and key figure on top, a compact € box with − / + steps, an optional bar, a line of help. */
   const setting = ({ act, k, l, val, step, fig, bar, help, ref }) => `<div class="setting"><div class="setting-h"><b>${l}</b>${fig ? `<span class="small">${fig}</span>` : ""}</div>
@@ -361,7 +362,10 @@ function pgFin() {
       <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section>${loanWagesCard(c)}</div></div>`,
     game: () => perGameHTML(c),
     prices: () => `<section class="card"><div class="card-h"><h2>Prices</h2></div><div class="settings">
-      ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}: ${money(f.gate)} a game.`)}
+      ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}${f.hold ? `, ${f.hold.toLocaleString("en-GB")} of them season-ticket holders` : ""}: ${money(f.gate)} a game on the day.`)}
+      ${priceIn("st", `Season ticket (${homeGames(c)} league home games)`, stRef(c), 5, G.phase === "summer"
+        ? `On sale until the season starts. Forecast: ${stDemand(c).toLocaleString("en-GB")} sold (${Math.round(stDemand(c) / capacity(c) * 100)}% of the ground), ${money(stDemand(c) * c.prices.st)} up front. Holders don't pay on the day.`
+        : `${stHolders(c) ? `${stHolders(c).toLocaleString("en-GB")} sold this season at ${money(c.st.price)}: ${money(c.st.n * c.st.price)}.` : "None sold this season."} A new price applies from next pre-season (forecast ${stDemand(c).toLocaleString("en-GB")}).`)}
       ${priceIn("conc", "Food & drink (average item)", REF_CONC[T], .5, `About ${money(f.conc)} profit a game${atHome(c) ? "" : " after your landlord's half"}.`)}
       ${priceIn("shirt", "Replica shirt", REF_SHIRT[T], 1, `About ${money(merchFor(c) * 52)} profit a year.`)}
       ${c.fac.stadium.own && c.fac.stadium.suites ? priceIn("suite", "Executive suite (per season)", REF_SUITE[T], 500, `${suitesLet(c)} of ${c.fac.stadium.suites} suites let: ${money(suitesLet(c) * c.prices.suite)} a season.`) : ""}
@@ -373,7 +377,7 @@ function pgFin() {
       ${budgetIn("scout", "Scouting (per year)", "More lets your recruitment team see further and judge players better.", { ref: scoutRef(T), fig: `normal ${money(scoutRef(T))}` })}
     </div></section>`,
     accounts: () => `<section class="card"><div class="card-h"><h2>Accounts</h2><span class="muted small">this season · last season</span></div><div class="tbl-wrap"><table class="proj"><tbody>
-      <tr class="sec"><td colspan="3">Income</td></tr>${row("gate", "Gate receipts")}${row("conc", "Food & drink")}${row("suites", "Executive suites")}${row("events", "Stadium ventures & events")}${row("merch", "Merchandise")}${row("spons", "Sponsorship")}${row("network", "Partner club fees")}${row("tv", "Central (TV) money")}${row("prize", "Prize money")}${row("sales", "Player sales")}
+      <tr class="sec"><td colspan="3">Income</td></tr>${row("gate", "Gate receipts")}${row("stix", "Season tickets")}${row("conc", "Food & drink")}${row("suites", "Executive suites")}${row("events", "Stadium ventures & events")}${row("merch", "Merchandise")}${row("spons", "Sponsorship")}${row("network", "Partner club fees")}${row("tv", "Central (TV) money")}${row("prize", "Prize money")}${row("sales", "Player sales")}
       <tr class="tot"><td style="text-align:left">Total income</td><td class="num">${money(ledgerIncome(c.fin))}</td><td class="num muted">${L ? money(ledgerIncome(L)) : "—"}</td></tr>
       <tr class="sec"><td colspan="3">Costs</td></tr>${row("wages", "Player wages")}${row("staff", "Staff wages")}${row("buys", "Transfer fees")}${row("rent", "Ground rent")}${row("fac", "Facility upkeep")}${row("build", "Construction")}${row("acad", "Academy")}${row("scout", "Scouting")}${row("interest", "Interest")}${row("directors", "Directors")}${row("feeders", "Feeder funding")}${row("breaks", "Breaking sponsor deals")}${row("dividend", "Dividends")}
       <tr class="tot"><td style="text-align:left">Total costs</td><td class="num">${money(ledgerCosts(c.fin))}</td><td class="num muted">${L ? money(ledgerCosts(L)) : "—"}</td></tr>
@@ -406,7 +410,7 @@ function progress(b) { return `<p class="small">Under construction: ${b.total - 
 function pgFac() {
   const c = my(), S = c.fac.stadium;
   let st = `<section class="card"><div class="card-h"><h2>Stadium</h2><span class="small muted">${S.own ? esc(S.name) : "Rented"}</span></div>
-    <dl class="ledger"><dt>Capacity</dt><dd>${capacity(c).toLocaleString("en-GB")}</dd>
+    <dl class="ledger"><dt>Capacity</dt><dd>${capacity(c).toLocaleString("en-GB")}</dd><dt>Season tickets</dt><dd>${stHolders(c) ? `${stHolders(c).toLocaleString("en-GB")} (${Math.round(stHolders(c) / capacity(c) * 100)}%)` : G.phase === "summer" ? `on sale: about ${stDemand(c).toLocaleString("en-GB")}` : "none this season"}</dd>
     <dt>Facilities</dt><dd>Level ${ground(c).amen} of 5</dd>${S.own ? `<dt>Executive suites</dt><dd>${S.suites || 0} (room for ${suiteMax(c)})</dd><dt>Pitch</dt><dd>${word(pitchWord(S.pitch))} ${Math.round(S.pitch)}/100 · ${PITCH[S.ptype || "grass"].l}</dd><dt>Upkeep</dt><dd>${money(stadiumUpkeep(c))}/yr</dd>` : `<dt>Rent</dt><dd>${money(ground(c).rent)} a home game</dd>`}</dl>`;
   if (S.build) st += `<p style="margin-top:10px"><b>${esc(S.build.label)}</b></p>` + progress(S.build);
   const here = i => S.own ? S.away === i : S.host === i;

@@ -51,6 +51,10 @@ Running locally: any static server works, for example `python3 -m http.server 80
   Sums under €10,000 are shown in full.
 - **Set prices:** tickets, food and drink, replica shirts, executive suites. Prices above what supporters expect earn
   more per head but cost crowds and goodwill.
+- **Season tickets.** Set the price on the Finances page (the going rate is about a quarter off buying every league home
+  game). They sell when the season starts, paid up front: how many depends on the price, the supporters' mood and the
+  size of your support, up to 70% of the ground. Holders don't pay on the day for league games. The number sold shows on
+  the Office, the Stadium and Finances.
 - **Set budgets:** player wages, transfers, academy running costs, scouting. Your staff work within them and notice
   when they're cut.
 - **Find sponsors:** shirt, kit, sleeve, stadium naming and training-ground naming. Offers expire; longer deals pay a

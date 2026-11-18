@@ -75,7 +75,7 @@ function summerWeek() {
   marketWeek(); youthScoutWeek();
   G.week++;
   if (G.week >= SUMMER_WEEKS) {
-    G.phase = "season"; G.week = 0; trimVeterans();
+    G.phase = "season"; G.week = 0; trimVeterans(); sellSeasonTickets(my());
     for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, true);
     news(`The ${seasonLabel(G.year)} season begins. ${my().name} are in the ${LEAGUES[my().lg].name}.`, true);
   }
@@ -104,7 +104,7 @@ function seasonWeek() {
 function afterMatch(r, k) {
   const c = my(); if (r.h !== c.id && r.a !== c.id) return;
   const home = r.h === c.id, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? r.a : r.h);
-  let crowd = null; if (home) { crowd = homeGameMoney(c, opp); c._home = true; }
+  let crowd = null; if (home) { crowd = homeGameMoney(c, opp, true); c._home = true; }
   const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = isDerby(c, opp) ? 2 : 1;
   c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 + vpt("results") - c.morale) * .1, 20, 95);
   moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);

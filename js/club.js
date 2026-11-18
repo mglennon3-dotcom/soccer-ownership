@@ -112,9 +112,28 @@ function merchFor(c, price = c.prices.shirt) {  // per week
   return units * price * .45 * shirtBoost(c);
 }
 /* Forecast for the finance page: a typical home game against an average side. */
+/* ---------- season tickets ----------
+   Sold in pre-season and paid up front. The going rate is about a quarter off buying every league home game; how many
+   sell depends on that price against the going rate, the supporters' mood and the size of your support, up to 70% of
+   the ground. Holders turn up to league games without paying on the day (cup games are sold separately). */
+const homeGames = c => Math.max(1, (G.leagues[c.lg] ? G.leagues[c.lg].clubs.length : 20) - 1);
+const stRef = c => Math.round(REF_TICKET[c.tier] * homeGames(c) * .75 / 5) * 5;
+const stPrice = c => c.prices.st ?? stRef(c);
+function stDemand(c, price = stPrice(c)) {
+  const per = price / homeGames(c), pf = priceFactor(per, REF_TICKET[c.tier] * .75, 1.6);
+  return Math.min(Math.round(capacity(c) * .7), Math.round(c.fans * clamp(.12 + c.mood / 400, .08, .4) * pf));
+}
+function sellSeasonTickets(c) {
+  const n = stDemand(c), price = stPrice(c); c.st = { y: G.year, n, price };
+  if (n) { earn("stix", n * price); news(`Season tickets: ${n.toLocaleString("en-GB")} sold at ${money(price)}, ${money(n * price)} up front (${Math.round(n / capacity(c) * 100)}% of the ground).`, true); }
+  const r = price / Math.max(1, stRef(c)); if (r < .8) moodHit(c, 2); else if (r > 1.3) moodHit(c, -3);
+}
+// Holders at a league game: most of them turn up.
+const stHolders = c => c.st && c.st.y === G.year ? c.st.n : 0;
 function matchdayForecast(c, t = c.prices.ticket, k = c.prices.conc) {
-  const avgOpp = { rep: c.rep, fans: FAN_T[c.tier], half: "" }, crowd = crowdFor(c, avgOpp, t), con = concessionsFor(c, crowd, k);
-  return { crowd, gate: crowd * t, conc: con.net, rent: ground(c).rent };
+  const avgOpp = { rep: c.rep, fans: FAN_T[c.tier], half: "" }, hold = Math.round((G.phase === "summer" ? stDemand(c) : stHolders(c)) * .92);
+  const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, avgOpp, t)), con = concessionsFor(c, crowd, k);
+  return { crowd, gate: Math.max(0, crowd - hold) * t, conc: con.net, rent: ground(c).rent, hold };
 }
 
 /* ---------- sponsors ---------- */
@@ -190,17 +209,18 @@ function weeklyAccounts(c) {
   if (c.cash < 0) spend("interest", -c.cash * .1 / 52);  // an overdraft at 10% a year
   feedersWeek(); loansWeek(c);
 }
-function homeGameMoney(c, opp) {
-  const crowd = crowdFor(c, opp), con = concessionsFor(c, crowd);
-  earn("gate", crowd * c.prices.ticket); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent);
+function homeGameMoney(c, opp, league) {
+  const hold = league ? Math.round(stHolders(c) * .92) : 0;  // season-ticket holders at a league game: already paid
+  const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, opp)), con = concessionsFor(c, crowd), paying = Math.max(0, crowd - hold);
+  earn("gate", paying * c.prices.ticket); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent);
   // Home games on their own, for the per-game view (the season's gate total also holds away shares and friendly fees).
-  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += crowd * c.prices.ticket; H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
+  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * c.prices.ticket; H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
   // Prices supporters think unfair cost goodwill; cheap tickets earn a little.
   const r = c.prices.ticket / REF_TICKET[c.tier]; if (r > 1.25) moodHit(c, -(r - 1.25) * 3); else if (r < .8) moodHit(c, .3);
   c.att = c.att || []; c.att.push(crowd);
   return crowd;
 }
-const ledgerIncome = f => f.gate + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
+const ledgerIncome = f => f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
 const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
