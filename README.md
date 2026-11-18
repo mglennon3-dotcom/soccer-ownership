@@ -56,7 +56,8 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Find sponsors:** shirt, kit, sleeve, stadium naming and training-ground naming. Offers expire; longer deals pay a
   little less a year; each pays a promotion bonus.
   Deals get better as the club grows: promotion, standing, a bigger and happier support, league position and crowds
-  all count. Outgrow a deal by a quarter and you can ask for new terms; outgrow it by half and brands approach you.
+  all count. Outgrow a deal by a quarter and you can ask for new terms; outgrow it by half and brands approach you. Breaking a deal
+  early costs half of what it still had to pay.
 - **Build the club.** You start renting a recreation ground. Build your own stadium (1,500 to 65,000), add stands,
   upgrade the facilities, add executive suites, look after the pitch (it wears with every home game; re-lay it with
   grass or a hybrid surface). Build a training ground and an academy, levels 1 to 10.

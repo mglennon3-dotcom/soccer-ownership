@@ -157,9 +157,12 @@ function refreshOffers(c, force) {
     else if (!force && grown >= 1.5 && !have.length && G.phase !== "playoffs" && R() < .08) { c.offers = c.offers.concat(makeOffers(s)); news(`Brands have noticed how the club has grown: there are new offers for your ${SLOTS[s].l.toLowerCase()} deal, worth about ${Math.round((grown - 1) * 100)}% more than ${deal.brand} pay.`, true); }
   }
 }
+/* Breaking a sponsor deal early costs you: half of what it still had to pay (its remaining years, the current one
+   counted from where the season is). */
+const breakFee = d => { if (!d || d.yrs <= 0) return 0; const left = Math.max(0, d.yrs - 1) + (G.phase === "season" ? 1 - G.week / SEASON_WEEKS : 1); return Math.round(d.amt * left * .5 / 500) * 500; };
 function acceptOffer(o) {
-  const c = my(), old = c.deals.find(d => d.slot === o.slot && d.yrs > 0);
-  if (old && old.brand !== o.brand) news(`${o.brand} replace ${old.brand}, whose deal had a year left.`);
+  const c = my(), old = c.deals.find(d => d.slot === o.slot && d.yrs > 0), fee = breakFee(old);
+  if (old && fee) { spend("breaks", fee); news(`${o.brand} replace ${old.brand}. Breaking ${old.brand}'s deal costs ${money(fee)} in compensation.`, true); }
   c.deals = c.deals.filter(d => d.slot !== o.slot).concat({ ...o, exp: undefined });
   c.offers = c.offers.filter(x => x.slot !== o.slot);
   if (o.slot === "stadium") c.fac.stadium.name = `The ${o.brand.split(" ")[0]} Stadium`;
@@ -198,7 +201,7 @@ function homeGameMoney(c, opp) {
   return crowd;
 }
 const ledgerIncome = f => f.gate + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
-const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0);
+const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
    reports suffer; well above it, they improve a little. */
