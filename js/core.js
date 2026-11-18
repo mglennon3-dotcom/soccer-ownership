@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.14.9";
+const VERSION = "0.14.10";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -85,12 +85,14 @@ const FORMS = {
 const FORM_KEYS = Object.keys(FORMS);
 
 /* ---------- player ratings ---------- */
-function roleRating(p, role) {
+function rawRole(p, role) {
   if ((role === "GK") !== (p.pos === "GK")) return 15;
   let r = 0; for (const [k, w] of Object.entries(POS_W[role])) r += (p.at[k] ?? 30) * w;
   return p.pos === role ? r : r * (POS_LINE[p.pos] === POS_LINE[role] ? .96 : .9);
 }
-function setOvr(p) { p.ovr = clamp(rh(roleRating(p, p.pos)), 1, 100); if (p.ovr > (p.peak || 0)) p.peak = p.ovr; }
+// In his own position a player is exactly his rating (the figure on his card), so every screen and the match agree.
+const roleRating = (p, role) => p.pos === role && p.ovr != null ? p.ovr : rawRole(p, role);
+function setOvr(p) { p.ovr = clamp(rh(rawRole(p, p.pos)), 1, 100); if (p.ovr > (p.peak || 0)) p.peak = p.ovr; }
 /* Attributes for a target rating: the position's key attributes sit above the player's other ones, each player has
    his own shape (noise), and the whole set is shifted so the position rating lands on the target. */
 function genAttrs(pos, target, lean) {
