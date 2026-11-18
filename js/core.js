@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.48.1";
+const VERSION = "0.49.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -22,14 +22,14 @@ const rh = v => Math.round(v * 2) / 2;
    Points: [internal (0-100), shown (1-20)], straight lines between them. */
 // Anchored on each division's average starter: Premier 13, First 10, Second 7, Third 6, National 5, North/South 4, Regional 2.
 // (Pinned to mid-career values: a new world reads a fraction lower, a long career a fraction higher.)
-const R20_PTS = [[0, 1], [37, 1], [46, 2], [52.4, 4], [57.2, 5], [62.7, 6], [67.3, 7], [73.5, 10], [83, 13], [90, 16.5], [97.5, 20], [100, 20]];
+const R20_PTS = [[0, 1], [22, 1], [30, 2], [40, 4], [50, 5], [62.7, 6], [67.3, 7], [73.5, 10], [83, 13], [90, 16.5], [97.5, 20], [100, 20]];
 function to20(v) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a || 1); } return 20; }
 function from20(d) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (d <= y && y > x) return a + (b - a) * (d - x) / (y - x); } return 100; }
 const r20 = v => clamp(Math.round(to20(v)), 1, 20);
 /* Staff ratings are shown on the players' 1-20 scale, matched division by division: the typical staff member at each
    level shows the same rating as that division's typical starting player. (Underneath, staff abilities keep their own
    0-100 range; only the number you see is translated.) Points: [staff value, player-equivalent value]. */
-const STAFF_EQ = [[0, 0], [24.3, 46], [29.9, 52.4], [35.8, 57.2], [42.3, 62.7], [50.5, 67.3], [62.9, 73.5], [79.4, 83], [100, 100]];
+const STAFF_EQ = [[0, 0], [24.3, 30], [29.9, 40], [35.8, 50], [42.3, 62.7], [50.5, 67.3], [62.9, 73.5], [79.4, 83], [100, 100]];
 function staffEq(v) { for (let i = 1; i < STAFF_EQ.length; i++) { const [a, x] = STAFF_EQ[i - 1], [b, y] = STAFF_EQ[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a); } return 100; }
 const sr20 = v => r20(staffEq(v));
 const snap20 = v => clamp(from20(r20(v)), 1, 100);  // the internal value at the middle of a shown point
@@ -57,7 +57,13 @@ const TIER_NAME = ["", "Premier Division", "First Division", "Second Division", 
 
 /* Typical starter's rating (out of 100) at a mid-table club in each tier. A top-flight starter is about 79;
    the regional seventh tier sits in the mid-40s. */
-const TIER_LVL = [0, 79, 71, 65, 60, 55, 50, 44];
+const TIER_LVL = [0, 79, 71, 65, 60, 48, 38, 28];
+/* The lower leagues sit lower on the scale (on the 200 scale: Regional average starter about 60, North/South 80,
+   National 100). Pay, values and youth were tuned on the old scale, so those still work from the old-scale
+   equivalent: oldEq turns a rating into it, oldToNew goes back. Identical from 60 (120 on the 200 scale) up. */
+const LOW_MAP = [[28, 44], [38, 50], [48, 55], [60, 60]];
+function oldEq(n) { if (n >= 60) return n; if (n <= 28) return n + 16; for (let i = 1; i < LOW_MAP.length; i++) { const [a, x] = LOW_MAP[i - 1], [b, y] = LOW_MAP[i]; if (n <= a + (b - a)) return x + (y - x) * (n - a) / (b - a); } return n; }
+function oldToNew(o) { if (o >= 60) return o; if (o <= 44) return o - 16; for (let i = 1; i < LOW_MAP.length; i++) { const [a, x] = LOW_MAP[i - 1], [b, y] = LOW_MAP[i]; if (o <= y) return a + (b - a) * (o - x) / (y - x); } return o; }
 
 /* ---------- attributes (1-100) ---------- */
 const OUT_KEYS = ["pac", "str", "sta", "tac", "mar", "hea", "pas", "vis", "tec", "dri", "fin", "cmp"];
@@ -142,8 +148,8 @@ const EXC_RATE = .0005;
 const GEM_RATE = .012;
 function drawPotential(mean, excMult = 1, gemMult = 1) {
   if (R() < EXC_RATE * excMult) return Math.min(100, rh(90 + 10.5 * Math.pow(R(), 3)));
-  if (R() < GEM_RATE * gemMult) return clamp(rh(mean + 18 + R() * 22), 25, 94);
-  return clamp(rh(mean + normal() * 10.5), 25, 94);
+  if (R() < GEM_RATE * gemMult) return clamp(rh(mean + 18 + R() * 22), 8, 94);
+  return clamp(rh(mean + normal() * 10.5), 8, 94);
 }
 
 /* ---------- money ----------
@@ -168,9 +174,9 @@ function wageBase(ovr) {
 /* Below about the fifth tier players are part-time: they have day jobs, and clubs pay them a fraction of a full-time
    wage (about a third at a Regional League level, rising to the full rate by the National Division). */
 const partTimeF = ovr => clamp(.15 + (ovr - 40) * .05, .15, 1);
-function wageFor(ovr) { return Math.max(1000, Math.round(wageBase(ovr) * partTimeF(ovr) / 100) * 100); }
+function wageFor(ovr) { const o = oldEq(ovr); return Math.max(1000, Math.round(wageBase(o) * partTimeF(o) / 100) * 100); }
 function valueOf(p) {
-  let v = valueBase(p.ovr) * 3 * Math.pow(1.025, p.ovr - 50) * clamp((p.ovr - 35) / 25, .2, 1);
+  const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1);
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
   if (p.age > 28) v *= Math.max(.12, 1 - (p.age - 28) * .13);
   if (p.yrs <= 1) v *= .75;
@@ -282,7 +288,7 @@ function genSquad(c) {
   for (const [pos, n] of Object.entries(SQUAD_MIX)) for (let i = 0; i < n; i++) {
     const age = i === n - 1 && R() < .4 ? ri(17, 21) : ri(19, 34);
     let ovr = Math.round(c.lvl + 2 - i * 3 + spreadN() - (age < 21 ? 5 : 0));
-    ovr = clamp(ovr, 20, 93);
+    ovr = clamp(ovr, 5, 93);
     const nat = R() < (c.tier <= 2 ? .55 : c.tier <= 4 ? .8 : .95) ? "ENG" : pickNat("ENG");
     const p = makePlayer({ pos, ovr, age, nat, club: c.id, pot: seniorPot(ovr, age) });
     p.yrs = ri(1, 4);
@@ -292,7 +298,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
@@ -361,7 +367,7 @@ function foundClub(o) {
   invest(Math.min(G.owner.wealth, Math.round(WEALTH[o.wealth].amt * .08)), true);
   // An open trial day: the founding squad is whoever turned up.
   for (const [pos, n] of Object.entries({ GK: 2, CB: 3, FB: 3, DM: 1, CM: 3, AM: 1, W: 2, ST: 3 })) for (let i = 0; i < n; i++) {
-    const age = ri(17, 31), ovr = clamp(Math.round(33 + normal() * 4 - (age < 20 ? 3 : 0)), 22, 44);
+    const age = ri(17, 31), ovr = Math.round(oldToNew(clamp(33 + normal() * 4 - (age < 20 ? 3 : 0), 22, 44)));
     const p = makePlayer({ pos, ovr, age, nat: R() < .9 ? "ENG" : pickNat("ENG"), club: c.id, pot: seniorPot(ovr, age), wage: 1500 });
     p.yrs = ri(1, 2); c.squad.push(p.id); p.hist.push([G.year, c.short]);
   }

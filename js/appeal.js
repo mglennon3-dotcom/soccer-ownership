@@ -60,11 +60,11 @@ function systemFit(p) {
 
 /* ---------- players ---------- */
 function playerFactors(p, c) {
-  const from = p.club >= 0 ? CL(p.club) : null, refRep = from ? from.rep : p.club === -2 ? clamp(p.ovr - 20, 5, 90) : clamp(p.ovr - 35, 3, 60);
+  const from = p.club >= 0 ? CL(p.club) : null, refRep = from ? from.rep : p.club === -2 ? clamp(oldEq(p.ovr) - 20, 5, 90) : clamp(oldEq(p.ovr) - 35, 3, 60);
   const others = c.squad.map(P).filter(q => q !== p && !q.acad && q.pos === p.pos && !q.inj).map(q => q.ovr).sort((a, b) => b - a);
   const slots = FORMS[mgr().form || "4-4-2"].filter(s => s === p.pos).length, ahead = others.filter(o => o > p.ovr).length;
   const half = p.half || (from ? from.half : (p.half = pick(["N", "S"])));
-  const expFac = clamp(Math.round((p.ovr - 40) / 5), 0, 10), tl = c.fac.train.lvl;
+  const expFac = clamp(Math.round((oldEq(p.ovr) - 40) / 5), 0, 10), tl = c.fac.train.lvl;
   return {
     time: ahead < Math.max(1, slots) ? 1 : ahead < slots + 1 ? .55 : ahead < slots + 2 ? .25 : .05,
     // The manager's system: places for his position, and whether the style suits his game (for your club, your manager's).

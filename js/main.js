@@ -54,7 +54,7 @@ function upgradeSave() {
   // 0.47.3: your academy players' potential is re-drawn once under the new intake rules (academy level, division, gems).
   if (!G.reroll1) { G.reroll1 = true; if (G.club != null) { const c = my(), ps = c.squad.map(P).filter(p => p && p.acad);
     if (ps.length) { const lvl = Math.max(1, c.fac.acad.lvl), y = staffOf("youth"), mean = youthBase(c, lvl) + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3);
-      for (const p of ps) { p.pot = Math.max(p.ovr, drawPotential(mean, 1 + lvl * .1, gemMult(c))); p.yAcad = c.id; }
+      for (const p of ps) { p.pot = Math.max(p.ovr, Math.round(oldToNew(drawPotential(mean, 1 + lvl * .1, gemMult(c))))); p.yAcad = c.id; }
       const best = ps.slice().sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1])[0];
       news(`The youth coaches have re-assessed all ${ps.length} academy players. ${best.name} (${best.pos}, ${best.age}) now looks the pick of them, potential ${est20(potEstimate(best))}.`, true); } } }
   // 0.47.6: feeders ask a set amount; your current feeders move onto what they ask.
@@ -69,6 +69,15 @@ function upgradeSave() {
   if (!G.pay10) { G.pay10 = true; const before = G.club != null ? wageBill(my()) : 0;
     for (const p of Object.values(G.players)) if (p.ovr > 68 && p.wage > 0) p.wage = Math.max(1000, Math.round(p.wage * wageBase(p.ovr) / valueBase(p.ovr) / 100) * 100);
     G.tierW = null; if (G.club != null && before > 0) { const now = wageBill(my()); if (now > before) my().budget.wages = Math.round(my().budget.wages * now / before / 1000) * 1000; } }
+  // 0.49.0: the lower leagues sit lower on the rating scale (200-scale average starters: Regional 60, North/South 80,
+  // National 100). Every player below 60 (120 on the 200 scale) moves down: his attributes shift together, so he keeps
+  // his shape; potential, peak and career history follow. Pay and values are unchanged (they use the old-scale equivalent).
+  if (!G.low1) { G.low1 = true;
+    for (const p of Object.values(G.players)) {
+      const d = Math.round(oldToNew(p.ovr) - p.ovr); if (d) { for (const k in p.at) p.at[k] = clamp(p.at[k] + d, 1, 100); const pk = p.peak; setOvr(p); p.peak = Math.round(oldToNew(pk || p.ovr)); }
+      p.pot = Math.max(p.ovr, Math.round(oldToNew(p.pot))); if (p.prog) for (const r of p.prog) { r[2] = Math.round(oldToNew(r[2])); if (r[7] != null) r[7] = Math.round(oldToNew(r[7])); } }
+    for (const c of G.clubs) if (c.lvl != null && !isMine(c)) c.lvl = oldToNew(c.lvl);
+    G.tierW = null; }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }

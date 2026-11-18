@@ -314,7 +314,7 @@ function buyerFor(p, belowTier) {
 /* Where an intake centres: the academy's level matters most (better coaching, better players choose it), and so does the
    club's division (a bigger club draws better players). Most still won't make it: a typical player's potential sits a few
    divisions below the first team; the best in ten reaches about the club's own level, the best in a hundred well above. */
-const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2 + youthPedigree(c);
+const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2 + youthPedigree(c);  // on the old scale; each draw is converted
 /* Youth pedigree: some clubs have always produced players, whatever their division; a few never have. AI clubs have it
    from history (about 1 in 8 renowned, 1 in 10 poor). Yours is earned: it grows as your own graduates become
    first-team regulars (20+ games in a season) and fades slowly without them. Points of potential on every intake. */
@@ -339,7 +339,7 @@ function youthIntake(c) {
   const s = intakeSpec(c); if (!s) return;
   const got = [];
   for (let i = 0; i < s.n; i++) {
-    const pot = drawPotential(s.mean, s.exc, gemMult(c)), age = ri(15, 16);
+    const pot = Math.round(oldToNew(drawPotential(s.mean, s.exc, gemMult(c)))), age = ri(15, 16);
     const ovr = clamp(Math.round(pot * rf(.48, .6) + normal() * 3), 12, pot);
     const nat = s.wide && R() < .3 ? pickNat("ENG") : "ENG";
     const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat, club: c.id, pot, acad: true, lean: LEAN[s.phil], wage: 500 }); p.yAcad = c.id;
@@ -390,7 +390,7 @@ function youthScoutWeek() {
   const asks = [];
   for (let i = 0; i < n; i++) {
     const from = trial ? "trial" : wide && R() < .35 ? "abroad" : R() < .5 ? "academy" : "trial";
-    const pot = drawPotential(sp.mean - 2 + (y.at.judge - 50) * .04 + (from === "academy" ? 1 : 0), sp.exc, gemMult(c)), age = trial ? ri(15, 16) : ri(15, 17);
+    const pot = Math.round(oldToNew(drawPotential(sp.mean - 2 + (y.at.judge - 50) * .04 + (from === "academy" ? 1 : 0), sp.exc, gemMult(c)))), age = trial ? ri(15, 16) : ri(15, 17);
     const ovr = clamp(Math.round(pot * rf(.48, .6) + (age - 15) * 2 + normal() * 3), 12, pot);
     const fee = from === "trial" ? 0 : Math.round(YOUTH_COMP[c.tier] * rf(.6, 1.4) * (from === "abroad" ? 1.5 : 1) / 500) * 500;
     // Trialists join straight away. A player from another academy (or abroad) costs compensation, so he waits for your say:

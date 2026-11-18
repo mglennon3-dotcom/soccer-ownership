@@ -50,7 +50,7 @@ function abroadPool(level) {
   G.abroad = (G.abroad || []).filter(id => G.players[id]);
   const want = s.focus === "world" ? 40 : 22;
   while (G.abroad.length < want) {
-    const age = ri(18, 31), ovr = clamp(Math.round(level + normal() * 7), 25, 90);
+    const age = ri(18, 31), ovr = clamp(Math.round(level + normal() * 7), 8, 90);
     const p = makePlayer({ pos: pick(POS), ovr, age, nat: s.focus === "world" ? pickNat("ENG") : pick(["ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "DEN", "CRO"]), pot: seniorPot(ovr, age) });
     p.club = -2; p.abroad = s.focus; G.abroad.push(p.id);
   }
@@ -399,7 +399,7 @@ function ownerBuy(p, fee, wage) {
 /* A star for the division: rating at the top of the division's range (shown about: Regional League and National
    North/South 4+, National Division 5+, Third 7+, Second 8+, First 11+, Premier 16+), or a teenager with that kind of potential. */
 // (Held as underlying ratings so a change to the shown 1-20 scale doesn't move them.)
-const STAR_RAW = [0, 86.9, 74, 67.8, 65.6, 58.8, 53.3, 53.3], STAR_POT = [0, 101, 80.6, 74, 72, 67.8, 62.1, 62.1];
+const STAR_RAW = [0, 86.9, 74, 67.8, 65.6, 57.1, 44.6, 44.6], STAR_POT = [0, 101, 80.6, 74, 72, 67.8, 62.1, 62.1];
 const starAtLevel = (p, c = my()) => p.ovr >= STAR_RAW[c.tier] || (p.age <= 21 && p.pot >= STAR_POT[c.tier]);
 // Would being kept off the market rankle? He's well above the division, or paid well below his worth.
 const nfsGrudge = (p, c) => p.age <= 31 && (p.ovr - TIER_LVL[c.tier] >= 6 || p.wage < wageFor(p.ovr) * .8);
