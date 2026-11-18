@@ -32,11 +32,13 @@ const pr = (s, k) => PRON[s && s.name ? sexOf(s) : "m"][k];
 const STAFF_FIRST = ["Alan", "Brendan", "Carlos", "Dean", "Eddie", "Frank", "Gareth", "Harry", "Ivan", "Jens", "Kenny", "Luis", "Mick", "Nigel", "Oscar", "Pep", "Ronnie", "Sean", "Thomas", "Vincent", "Warren", "Zoltan", "Andy", "Bruno", "Claire", "Dani", "Emma", "Fiona", "Hannah", "Jo", "Kate", "Lucy", "Marta", "Nina", "Rachel", "Sam"];
 
 /* What staff of a given reputation earn a year, tied to players' pay: a reputation belongs to a level of football (the
-   divisions' standings), and a manager earns a little more than a star player there, the best-paid person at his club.
+   divisions' standings), and a manager earns about what a star player there does.
    Heads of recruitment and youth managers earn the same as each other, 45% of a manager. */
 const REP_LVL = [[0, 40], [11, 44], [20, 50], [28, 55], [36, 60], [45, 65], [58, 71], [78, 79], [99, 90]];
 function repLevel(rep) { for (let i = 1; i < REP_LVL.length; i++) { const [a, x] = REP_LVL[i - 1], [b, y] = REP_LVL[i]; if (rep <= b) return x + (y - x) * (rep - a) / (b - a); } return 88; }
-function staffWage(role, rep) { const m = wageFor(repLevel(rep) + 5) * 1.1; return Math.round(m * (role === "manager" ? 1 : .45) / 1000) * 1000; }
+// Up to the Second Division a manager earns a little more than a star player; above that the stars pull away, until
+// the very best manager earns about a third of what the best player in the world does.
+function staffWage(role, rep) { const lvl = repLevel(rep), k = lvl <= 65 ? 1.1 : 1.1 - (lvl - 65) / 25 * .87, m = wageFor(lvl + 5) * k; return Math.round(m * (role === "manager" ? 1 : .45) / 1000) * 1000; }
 /* Staff, like players: young coaches (a third are 26-35) start lower, being short of experience, but have more room to
    grow, the younger the more; now and then one is a real prospect. Older ones are what they are. */
 function genStaff(role, rep) {
