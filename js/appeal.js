@@ -112,14 +112,21 @@ const repTier = r => { for (let t = 1; t <= 7; t++) if (r >= TIER_REP[t] - 4) re
    than he earns now (half as much again per extra division); four or more and he stays where he is. */
 const empDrop = s => { if (s.emp == null || s === staffOf(s.role)) return 0; const x = CL(s.emp); return x ? my().tier - (x.abroad ? 1 : x.tier) : 0; };
 const dropPremium = s => { const d = empDrop(s); return d >= 2 ? 1 + .5 * (d - 1) : 1; };
-const staffDropOK = s => { const c = my(); if (empDrop(s) >= 4 && !isLegendOf(s, c.id)) return false; return s === staffOf(s.role) || isLegendOf(s, c.id) || (s.ex && s.ex.favOf.includes(c.id)) || c.tier <= repTier(s.rep) + (s.age >= 58 ? 3 : 2); };
+/* How far below his level he'll go: two divisions (three once he's 58), less the higher he stands within his own
+   level. The very best in a division won't leave it; the elite of the top flight won't drop at all. */
+const repExcess = s => Math.max(0, s.rep - (TIER_REP[repTier(s.rep)] - 4));
+const dropRoom = s => Math.max(0, (s.age >= 58 ? 3 : 2) - Math.floor(repExcess(s) / 6));
+const staffDrop = s => Math.max(0, my().tier - repTier(s.rep));  // divisions below his level
+const staffDropOK = s => { const c = my(); if (empDrop(s) >= 4 && !isLegendOf(s, c.id)) return false; return s === staffOf(s.role) || isLegendOf(s, c.id) || (s.ex && s.ex.favOf.includes(c.id)) || staffDrop(s) <= dropRoom(s); };
+// Dropping below his level costs: a quarter more per division (on top of anything for leaving a job).
+const levelPremium = s => s === staffOf(s.role) || isLegendOf(s, my().id) ? 1 : 1 + staffDrop(s) * .25;
 function staffAsk(s) {
   if (!staffDropOK(s)) return null;
   const pr = prefsOf(s, S_FACTORS), f = staffFactors(s);
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
-  return Math.ceil(s.demand * Math.max(.85, ratioFor(Math.max(0, need)) + .001) * (s.emp != null && s !== staffOf(s.role) ? 1.15 : 1) * dropPremium(s) / 1000) * 1000;
+  return Math.ceil(s.demand * Math.max(.85, ratioFor(Math.max(0, need)) + .001) * (s.emp != null && s !== staffOf(s.role) ? 1.15 : 1) * dropPremium(s) * levelPremium(s) / 1000) * 1000;
 }
 function staffAppeal(s, wage) {
   const pr = prefsOf(s, S_FACTORS), f = { ...staffFactors(s), money: moneyF(wage / s.demand) };
