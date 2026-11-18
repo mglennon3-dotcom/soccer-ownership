@@ -146,7 +146,8 @@ Running locally: any static server works, for example `python3 -m http.server 80
   hands-on owner puts them off joining. Every owner has a hands-on rating too (yours on the Owner page, others' on the
   Rivals page); hands-on owners sack their managers sooner.
 - **Staff potential.** Staff show a potential: the average they could still reach. The young keep improving, those in
-  their forties a little, and from fifty they've peaked.
+  their forties a little, and from fifty they've peaked. A third of coaches are young (26-35): less experienced
+  now, but with room to grow like young players, and the odd real prospect.
 - **Your pick.** Insist the manager starts a player (up to three) from his card: he starts whenever he's fit and
   registered (tagged OP). Each week he starts when the manager wouldn't have picked him, the manager's trust slips
   (scaled by his tolerance).

@@ -26,10 +26,16 @@ const ROLES_STAFF = {
 const STAFF_FIRST = ["Alan", "Brendan", "Carlos", "Dean", "Eddie", "Frank", "Gareth", "Harry", "Ivan", "Jens", "Kenny", "Luis", "Mick", "Nigel", "Oscar", "Pep", "Ronnie", "Sean", "Thomas", "Vincent", "Warren", "Zoltan", "Andy", "Bruno", "Claire", "Dani", "Emma", "Fiona", "Hannah", "Jo", "Kate", "Lucy", "Marta", "Nina", "Rachel", "Sam"];
 
 function staffWage(role, rep) { const w = 15000 * Math.pow(1.075, rep) * (role === "manager" ? 1 : .4); return Math.round(w / 1000) * 1000; }
+/* Staff, like players: young coaches (a third are 26-35) start lower, being short of experience, but have more room to
+   grow, the younger the more; now and then one is a real prospect. Older ones are what they are. */
 function genStaff(role, rep) {
+  const r = R(), age = r < .35 ? ri(26, 35) : r < .75 ? ri(36, 50) : ri(51, 66), green = Math.max(0, 38 - age);
+  rep = Math.max(3, Math.round(rep - green * 1.0));
   const R0 = ROLES_STAFF[role], s = { role, name: pick(STAFF_FIRST) + " " + pick(pick([NAMES.ENG, NAMES.ENG, NAMES.ESP, NAMES.GER, NAMES.ITA, NAMES.NED, NAMES.SCA]).slice(1)[0]),
-    age: ri(32, 64), rep, at: {}, phil: pick(Object.keys(R0.phil)), focus: pick(Object.keys(R0.focus)), trust: 60, yrs: 0, wage: 0 };
-  for (const k of Object.keys(R0.attrs)) s.at[k] = clamp(rh(rep * .75 + 18 + normal() * 11), 5, 99);
+    age, rep, at: {}, phil: pick(Object.keys(R0.phil)), focus: pick(Object.keys(R0.focus)), trust: 60, yrs: 0, wage: 0 };
+  for (const k of Object.keys(R0.attrs)) s.at[k] = clamp(rh(rep * .75 + 18 - green * .4 + normal() * 11), 5, 99);
+  // Room to grow: under 40, from his best attribute up by (40 - age) x 0.8-2, plus a little luck; a rare prospect more.
+  if (age < 40) { const top = Math.max(...Object.values(s.at)); s.ceil = clamp(rh(top + (40 - age) * rf(.8, 2) + Math.abs(normal()) * 8 + (R() < .04 ? 15 : 0)), top, 99); }
   if (role === "manager") s.form = pick(FORM_KEYS);
   s.demand = Math.round(staffWage(role, rep) * rf(.85, 1.2) / 1000) * 1000;
   s.tol = clamp(Math.round(15 + R() * 80), 5, 100);
@@ -197,7 +203,7 @@ function poachPay(s) {
 function candidates(role) {
   const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
   let U = P[role];
-  if (!U || !U.u) U = P[role] = { t: now, u: 1, list: [] };  // older saves: the universe starts now
+  if (!U || !U.u || U.u < 2) U = P[role] = { t: now, u: 2, list: [] };  // older saves (and the 0.30 redraw: more young coaches)
   if (now - U.t >= 6 || U.list.length < STAFF_UNIVERSE) {
     if (now - U.t >= 6) U.list = U.list.filter(s => s.age < 68 && R() > .1);
     while (U.list.length < STAFF_UNIVERSE) U.list.push(genStaff(role, staffLevel()));
