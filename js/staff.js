@@ -32,6 +32,7 @@ function genStaff(role, rep) {
   for (const k of Object.keys(R0.attrs)) s.at[k] = clamp(rh(rep * .75 + 18 + normal() * 11), 5, 99);
   if (role === "manager") s.form = pick(FORM_KEYS);
   s.demand = Math.round(staffWage(role, rep) * rf(.85, 1.2) / 1000) * 1000;
+  s.tol = clamp(Math.round(15 + R() * 80), 5, 100);
   return s;
 }
 const staffOf = role => my() && my().staff[role];
@@ -71,6 +72,14 @@ function dismiss(role, quiet) {
 }
 /* Trust: how a staff member feels about working for you. Overruling them, starving their budgets or a poor run
    wears it down; below 20 they walk out. */
+/* Tolerance of meddling (shown 1-20): how much an owner's interference bothers him. High: he shrugs off your
+   interventions; low: every one stings, and he's quicker to walk. It also decides how much a meddling owner puts him
+   off joining. */
+const tolOf = s => s ? (s.tol ??= clamp(Math.round(15 + R() * 80), 5, 100)) : 50;
+const tolF = s => 1.6 - tolOf(s) / 100 * 1.2;  // 5 → ×1.5, 50 → ×1.0, 95 → ×0.5
+const tolWord = s => { const t = s20(tolOf(s)); return t >= 15 ? ["Easy-going", "good"] : t >= 9 ? ["Tolerant", ""] : t >= 5 ? ["Prickly", "warn"] : ["Hates interference", "bad"]; };
+// A trust hit caused by you stepping in, scaled by his tolerance.
+function meddled(role, d, why) { const s = staffOf(role); if (!s) return; trust(role, d < 0 ? d * tolF(s) : d, why); }
 function trust(role, d, why) {
   const s = staffOf(role); if (!s) return;
   s.trust = clamp(s.trust + d, 0, 100);

@@ -128,6 +128,7 @@ const ACT = {
     toast(`${ps.length} player${ps.length > 1 ? "s" : ""} ${v === "keep" ? "kept" : v === "unkeep" ? "unmarked" : v === "promote" ? "promoted" : "released"}.`);
     ASEL.clear(); render(); saveGame();
   },
+  force: el => { const p = P(+el.dataset.id); if (!p.force && my().squad.filter(id => P(id).force).length >= MAX_FORCED) return toast(`You can insist on at most ${MAX_FORCED} players.`); p.force = !p.force; p.forceNoted = false; toast(p.force ? `${p.name} will start: the manager has been told.` : `The manager picks ${p.name} on merit again.`); playerModal(p.id); render(); saveGame(); },
   keep: el => { const p = P(+el.dataset.id); p.keep = !p.keep; toast(p.keep ? `${p.name} is protected: not for sale, and he'll be offered a new contract.` : `${p.name} is no longer protected.`); playerModal(p.id); render(); },
   promote: el => { const p = P(+el.dataset.id), c = my(); p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) / 100) * 100); news(`${p.name} is promoted from the academy on a professional contract.`, true); closeModal(); render(); },
   list: el => { const p = P(+el.dataset.id); ownerList(p); playerModal(p.id); render(); saveGame(); },
@@ -198,7 +199,7 @@ const CHANGE = {
   loanout: async el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (await ask(`Loan ${p.name} to ${x.name} until the end of the season?`)) { loanOut(p, x); closeModal(); render(); saveGame(); } },
   budget: el => { const c = my(), k = el.dataset.k, v = Math.round(num(el)), old = c.budget[k]; c.budget[k] = v;
     // Staff notice their budgets being cut hard.
-    const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) trust(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
+    const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) meddled(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
     render(); },
   fweek: el => { SUB.fw = +el.value; },
   oname: el => { const v = el.value.trim(); if (v) { G.owner.name = v; saveGame(); render(); } },

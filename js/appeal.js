@@ -102,7 +102,7 @@ function staffFactors(s) {
   const squad = s.role === "manager" ? clamp(.5 + (q - TIER_LVL[T]) / 12 + styleFit(xi, s.phil) * .25, 0, 1) : clamp(.5 + (q - TIER_LVL[T]) / 15, 0, 1);
   // A legend of the club wants to come home: the club's standing and his own fit don't hold him back.
   const home = isLegendOf(s, c.id) ? 1 : s.ex && s.ex.favOf.includes(c.id) ? .5 : 0;
-  return { prest: Math.max(home, clamp(.5 + (TIER_REP[T] + c.rep * .3 - s.rep) / 30, 0, 1)), fac, budget, squad, proj: projectF(), auto: meddleF(), vision: Math.max(home * .9, visionMatch(s)) };
+  return { prest: Math.max(home, clamp(.5 + (TIER_REP[T] + c.rep * .3 - s.rep) / 30, 0, 1)), fac, budget, squad, proj: projectF(), auto: clamp(1 - (1 - meddleF()) * tolF(s), 0, 1), vision: Math.max(home * .9, visionMatch(s)) };
 }
 /* Like players, coaches won't drop far below their standing whatever the money: a reputation belongs to a division,
    and they'll go at most two divisions lower (three once they're 58 and winding down). Your own staff renewing, and

@@ -141,6 +141,12 @@ Running locally: any static server works, for example `python3 -m http.server 80
   unsettles him further.
 - **Pre-season tours.** Clubs abroad host English sides for a tour fee set by your division (about ten times what an
   English club would pay a side at your level), and they're keener to play you than English clubs far above you.
+- **Tolerance of meddling.** Every staff member has a tolerance (1-20): easy-going ones shrug off your interventions,
+  prickly ones take each one harder and are quicker to walk, and a meddling owner puts them off joining. It shows on
+  their cards and as a column in Find staff.
+- **Your pick.** Insist the manager starts a player (up to three) from his card: he starts whenever he's fit and
+  registered (tagged OP). Each week he starts when the manager wouldn't have picked him, the manager's trust slips
+  (scaled by his tolerance).
 - **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against
   your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
 - **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually

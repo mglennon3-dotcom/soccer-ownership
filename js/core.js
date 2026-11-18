@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.28.4";
+const VERSION = "0.29.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -271,7 +271,7 @@ function newWorld(o) {
   if (o) foundClub(o);
   return G;
 }
-function toFreeAgent(p) { leaveClub(p); p.club = -1; p.acad = false; p.yrs = 0; p.list = false; p.keep = false; p.nfs = false; p.faY = G.year; if (!G.fa.includes(p.id)) G.fa.push(p.id); }
+function toFreeAgent(p) { leaveClub(p); p.club = -1; p.acad = false; p.yrs = 0; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.faY = G.year; if (!G.fa.includes(p.id)) G.fa.push(p.id); }
 function leaveClub(p) { if (p.club >= 0 && typeof favLeaves === "function") favLeaves(p); if (p.club >= 0) { const c = CL(p.club); c.squad = c.squad.filter(id => id !== p.id); } }
 /* Transfer windows: a player who joins a club in a window can't be sold on in the same window. */
 const windowId = () => (G.phase === "summer" ? "S" : "J") + G.year;
@@ -287,7 +287,7 @@ function capSquad(c, keep) {
     leaveClub(p); toFreeAgent(p);
   }
 }
-function moveTo(p, c) { p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
+function moveTo(p, c) { p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
 /* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
    below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
 function newcomerFor(p) {

@@ -12,7 +12,7 @@ const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
 
 /* The manager's pick: the best player for each slot, hardest slots first. A manager who trusts youth gives
    young players with room to grow the benefit of the doubt. */
-function pickXI(c) {
+function pickXI(c, noForce) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false;
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 17 && p.ovr >= TIER_LVL[c.tier] - 6) && (!isMine(c) || isReg(p, c)));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
@@ -25,11 +25,13 @@ function pickXI(c) {
   const potGap = new Map(), gapOf = p => { if (!potGap.has(p.id)) { const [a, b] = potEstimate(p); potGap.set(p.id, r20((a + b) / 2) - r20(p.ovr)); } return potGap.get(p.id); };
   const youngFav = p => p.age <= 21 ? (gapOf(p) >= 4 ? 10 + Math.min(gapOf(p), 14) : 6) : 0;
   // A club that borrows a player agreed to give him games: yours start in their own position nearly every week.
-  const lent = isMine(c) ? () => 0 : (p, s) => p.loan && p.loan.to === c.id ? (p.loan.from === G.club ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 200) : 0) : p.pos === s ? 4 : 0) : 0;
+  // Your pick: a player you insist on starts (in his own position if there's a place, otherwise in the same area).
+  const forced = isMine(c) && !noForce ? (p, s) => p.force ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 0) : 0) : 0 : () => 0;
+  const lent = isMine(c) ? forced : (p, s) => p.loan && p.loan.to === c.id ? (p.loan.from === G.club ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 200) : 0) : p.pos === s ? 4 : 0) : 0;
   // Tired players get rested: below 85% sharpness a player starts losing his place to a fresh deputy.
   const tired = p => Math.max(0, 88 - (p.fit ?? 100)) * .3;
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + (p.id % 7) * .0001
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + (p.id % 7) * .0001
     : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) - tired(p) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
@@ -132,6 +134,19 @@ function playMatch(h, a, neutral, fr) {
 /* Sharpness (fitness, 0-100): a full game costs 6-16 points (less with stamina), a friendly half that; it comes back
    each week, faster with better training. Managers rest players who drop below about 85. */
 function tire(p, part, fr) { p.fit = clamp((p.fit ?? 100) - (15 - (p.at.sta || 50) / 10) * part * (fr ? .5 : 1) * (p.pos === "GK" ? .3 : 1), 30, 100); }
+/* Each week your picks start that the manager wouldn't have picked himself cost his trust (scaled by his tolerance), and
+   count as meddling. */
+const MAX_FORCED = 3;
+function forcedWeek() {
+  const c = my(), m = staffOf("manager"); if (!m || G.phase !== "season") return;
+  const picks = c.squad.map(P).filter(p => p.force); if (!picks.length) return;
+  const own = new Set(pickXI(c, true).map(o => o.p.id)), xi = new Set(pickXI(c).map(o => o.p.id));
+  for (const p of picks) {
+    if (!xi.has(p.id) || own.has(p.id)) continue;  // he'd have picked him anyway, or he isn't playing
+    G.meddle = (G.meddle || 0) + .05; meddled("manager", -.7, null);
+    if (!p.forceNoted) { p.forceNoted = true; news(`${m.name} isn't happy being told to start ${p.name}: he wouldn't pick him.`, tolOf(m) < 40); }
+  }
+}
 function recoverWeek() {
   for (const c of G.clubs) { if (c.gone && !c.abroad) continue; const back = 8 + (isMine(c) ? c.fac.train.lvl : c.train || 3) * .4;
     for (const id of c.squad) { const p = P(id); if (p && p.fit != null && p.fit < 100) p.fit = Math.min(100, p.fit + back); } }

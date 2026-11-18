@@ -63,7 +63,7 @@ function advance() {
   c.offers = c.offers.filter(o => o.exp > 0);
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
   if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
-  mediaWeek(); trustWeek(c); poachWeek(); staffTrustWeek(); recoverWeek(); requestsCheck(); bidForMyClub();
+  mediaWeek(); trustWeek(c); poachWeek(); staffTrustWeek(); recoverWeek(); forcedWeek(); requestsCheck(); bidForMyClub();
   settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
