@@ -116,3 +116,5 @@ table.sq td:has(> .lnk[data-act="player"]) .chip{display:inline-block;margin:1px
 /* The position · fitness line reads cleanly over pitch markings. */
 .slot .rl{background:rgba(0,0,0,.45);padding:0 5px;border-radius:4px;opacity:1;margin-top:0}
 .bulk{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+.prog{margin:10px 0}
+.prog summary{cursor:pointer;margin-bottom:6px}

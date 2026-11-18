@@ -215,6 +215,21 @@ function pgSquad() {
     ${tab === "first" && (G.loanList || []).some(id => G.players[id] && G.players[id].loan && G.players[id].loan.from === c.id) ? `<h3 style="margin:14px 0 6px">Out on loan</h3>${(G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id).map(p => `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> (${p.pos}, ${r20(p.ovr)}) at ${esc(CL(p.club).name)}: ${p.s.app} games · you still pay ${pw(p.wage * (1 - p.loan.share))}${p.loan.share >= 1 ? "" : ` (${Math.round((1 - p.loan.share) * 100)}%)`}</p>`).join("")}` : ""}`
     : `<p class="muted">${tab === "acad" ? (c.fac.acad.lvl ? "The academy's first intake arrives in the summer." : "No academy yet. Build one on the Facilities page.") : "No players."}</p>`}</section>`;
 }
+/* Progression on a player's card: a row a season (newest first, this season so far on top) and a small line of his
+   rating. Potential is shown only for your own players, as your staff estimate it now. */
+function progressionHTML(p, mine, exact) {
+  const now = [G.year, p.age, p.ovr, p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA", p.s.app, p.s.g, p.s.a, p.pot, true];
+  const rows = [now, ...(p.prog || []).slice().reverse()];
+  if (rows.length < 2 && !p.s.app) return "";
+  const pts = rows.slice().reverse().map(r => to20(r[2])), w = 220, h = 46, lo = Math.max(1, Math.floor(Math.min(...pts)) - 1), hi = Math.min(20, Math.ceil(Math.max(...pts)) + 1);
+  const xy = pts.map((v, i) => [pts.length === 1 ? w / 2 : 6 + i * (w - 12) / (pts.length - 1), h - 6 - (v - lo) / Math.max(1, hi - lo) * (h - 12)]);
+  const spark = exact && pts.length > 1 ? `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Rating by season"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${xy.map(q => q.map(n => n.toFixed(1)).join(",")).join(" ")}"/>${xy.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join("")}<text x="2" y="10" font-size="9" fill="var(--muted)">${hi}</text><text x="2" y="${h - 2}" font-size="9" fill="var(--muted)">${lo}</text></svg>` : "";
+  return `<details class="prog" ${mine ? "open" : ""}><summary class="small"><b>Progression</b></summary>${spark}
+    <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Season</th><th>Age</th><th style="text-align:left">Club</th>${exact ? "<th>Rating</th>" : ""}<th>Apps</th><th>Gls</th><th>Ast</th></tr></thead><tbody>
+    ${rows.map((r, i) => { const prev = rows[i + 1], d = prev ? r20(r[2]) - r20(prev[2]) : 0;
+      return `<tr><td style="text-align:left" class="small">${r[8] ? "Now" : seasonLabel(r[0])}</td><td>${r[1]}</td><td style="text-align:left" class="small">${esc(r[3])}</td>${exact ? `<td>${r20(r[2])}${d ? ` <span class="small ${d > 0 ? "good" : "bad"}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</td>` : ""}<td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td></tr>`; }).join("")}
+    </tbody></table></div>${exact ? "" : `<p class="small muted">Ratings aren't known for players outside your league.</p>`}</details>`;
+}
 function playerModal(id) {
   const p = G.players[id]; if (!p) return;
   const mine = p.club === G.club, c = p.club >= 0 ? CL(p.club) : null, est = ovrEstimate(p);
@@ -248,7 +263,7 @@ function playerModal(id) {
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : p.yrs ? p.yrs + " yr" : "—"}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
-    <div class="attr-grid">${attrs}</div>${acts}
+    <div class="attr-grid">${attrs}</div>${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${acts}
     ${archetypeOf(p) && (mine || (c && c.lg === my().lg) || staffOf("recruit")) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${formWord(seasonForm(p)) ? `<p class="small good">Coming off ${formWord(seasonForm(p))}: clubs are taking notice.</p>` : ""}
     ${(() => { const L = Object.entries(p.love || {}).filter(([, l]) => l >= FAV).map(([cid, l]) => `${l >= LEGEND ? "a legend" : "a fan favourite"} at ${esc(G.clubs[+cid] ? G.clubs[+cid].name : "a former club")}`); return L.length ? `<p class="small"><b>Supporters' view:</b> ${L.join("; ")}.</p>` : ""; })()}
