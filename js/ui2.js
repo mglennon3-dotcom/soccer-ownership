@@ -331,6 +331,7 @@ function pgOwner() {
       <p class="small"><b>Football:</b> ${V.style === "any" ? "whatever wins" : STYLES[V.style].l} · <b>Recruitment:</b> ${V.recruit === "any" ? "left to the experts" : ROLES_STAFF.recruit.phil[V.recruit].l}</p>
       <p class="small" style="margin-top:4px"><b>Priorities:</b> ${topPri || "none set"}</p></section>
   </div><div class="stack">
+    ${prestigeCard()}
     <section class="card"><div class="card-h"><h2>Record</h2></div><dl class="ledger">
       <dt>Seasons</dt><dd>${R.H.length}</dd><dt>Promotions</dt><dd>${R.ups}</dd><dt>Relegations</dt><dd>${R.downs}</dd><dt>Trophies</dt><dd>${R.trophies.length}</dd>
       <dt>Best finish</dt><dd style="font-family:inherit">${R.best ? `${ord(R.best.pos)}, ${LEAGUES[R.best.lg].name} (${seasonLabel(R.best.y)})` : "—"}</dd>
