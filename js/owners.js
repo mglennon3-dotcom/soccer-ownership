@@ -136,10 +136,15 @@ function poachWeek() {
   // Compensation: what's left of his contract, and a premium on top that rises with how badly they want him.
   const x = pick(suitors), comp = Math.round(s.wage * Math.max(1, s.yrs) * (1.1 + OWNER_STYLES[x.own.style].poach * .5 + R() * .3) / 1000) * 1000;
   addChoice("poach", `${x.name} want to talk to ${s.name}`, `${x.own.name} (${OWNER_STYLES[x.own.style].l.toLowerCase()}) want your ${ROLES_STAFF[role].l.toLowerCase()} and offer ${money(comp)} in compensation (${pr(s, "his")} contract has ${Math.max(1, s.yrs)} year${Math.max(1, s.yrs) > 1 ? "s" : ""} left at ${money(s.wage)}). ${x.name} play in the ${LEAGUES[x.lg].name}. He'd like to go; refuse and he'll resent it.`,
-    [`Let ${pr(s, "him")} go`, "Refuse"], { role, club: x.id, comp }, 1);
+    [`Let ${pr(s, "him")} go for ${money(comp)}`, `Ask for ${money(Math.round(comp * 1.5 / 1000) * 1000)}`, "Refuse"], { role, club: x.id, comp, max: Math.round(comp * rf(1.1, 1.7) / 1000) * 1000 }, 2);
 }
 DECIDE.poach = (m, i) => {
   const s = staffOf(m.data.role), x = CL(m.data.club); if (!s) return;
+  if (i === 1) {  // you ask for half as much again: they pay it if it's within what they'd go to, otherwise they walk away
+    const ask = Math.round(m.data.comp * 1.5 / 1000) * 1000;
+    if (ask <= m.data.max) { m.data.comp = ask; i = 0; } else { news(`${x.name} won't pay ${money(ask)} for ${s.name} and pull out. ${s.name} stays, a little disappointed.`); trust(m.data.role, -2, null); return; }
+  }
+  if (i === 2) i = 1;
   if (i === 0) { my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
   else trust(m.data.role, x.tier < my().tier ? -6 : -2, x.tier < my().tier ? `is unhappy you blocked ${pr(s, "his")} move to ${x.name}.` : null);
 };

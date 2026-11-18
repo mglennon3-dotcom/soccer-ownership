@@ -31,7 +31,9 @@ const PRON = { m: { he: "he", He: "He", him: "him", his: "his", His: "His", hims
 const pr = (s, k) => PRON[s && s.name ? sexOf(s) : "m"][k];
 const STAFF_FIRST = ["Alan", "Brendan", "Carlos", "Dean", "Eddie", "Frank", "Gareth", "Harry", "Ivan", "Jens", "Kenny", "Luis", "Mick", "Nigel", "Oscar", "Pep", "Ronnie", "Sean", "Thomas", "Vincent", "Warren", "Zoltan", "Andy", "Bruno", "Claire", "Dani", "Emma", "Fiona", "Hannah", "Jo", "Kate", "Lucy", "Marta", "Nina", "Rachel", "Sam"];
 
-function staffWage(role, rep) { const w = 15000 * Math.pow(1.075, rep) * (role === "manager" ? 1 : .4); return Math.round(w / 1000) * 1000; }
+// What staff of a given reputation earn a year: managers more than the other roles. (Halved in 0.31: they were asking
+// several times a top player's wage.)
+function staffWage(role, rep) { const w = 7500 * Math.pow(1.075, rep) * (role === "manager" ? 1 : .4); return Math.round(w / 1000) * 1000; }
 /* Staff, like players: young coaches (a third are 26-35) start lower, being short of experience, but have more room to
    grow, the younger the more; now and then one is a real prospect. Older ones are what they are. */
 function genStaff(role, rep) {
@@ -65,7 +67,7 @@ function hire(s, wage, yrs) {
   const c = my(), cur = c.staff[s.role];
   if (cur && cur !== s) dismiss(s.role, true);
   const ask = staffAsk(s) || wage;
-  if (s.emp != null) poachPay(s);  // he was working elsewhere: his club gets compensation
+  if (s.emp != null) poachPay(s, s.compOffer);  // he was working elsewhere: his club gets compensation
   s.poached = G.year * 100 + G.week;  // nobody comes for a new appointment in his first year
   s.wage = wage; s.yrs = yrs; s.expiring = false; s.trust = clamp(60 + Math.round((wage / ask - 1) * 40), 40, 80); s.since = G.year;
   c.staff[s.role] = s;
@@ -199,8 +201,10 @@ function coachCands() {
 }
 /* Poaching: what his club wants to let him go. A year or two of his wages, more for a bigger club and for its manager. */
 const poachFee = s => { const x = CL(s.emp); return Math.round(s.demand * (1.2 + (x && x.abroad ? .5 : 0) + (s.coachOf != null ? .6 : 0) + Math.max(0, s.rep - 40) / 60) / 1000) * 1000; };
-function poachPay(s) {
-  const x = CL(s.emp), fee = poachFee(s); spend("staff", fee);
+// The least their club will take: somewhere between two-thirds of the asking compensation and all of it (fixed per person).
+const poachMin = s => s.compMin ??= Math.round(poachFee(s) * rf(.65, 1) / 1000) * 1000;
+function poachPay(s, offer) {
+  const x = CL(s.emp), fee = offer ?? poachFee(s); spend("staff", fee);
   if (s.coachOf != null && x && x.coach) { x.coach = coachFor(x); }
   news(`You pay ${x ? x.name : `${pr(s, "his")} club`} ${money(fee)} in compensation to bring ${s.name} in.`, true);
   const U = (G.pools || {})[s.role]; if (U && U.emp) U.emp = U.emp.filter(y => y !== s);
@@ -209,7 +213,8 @@ function poachPay(s) {
 function candidates(role) {
   const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
   let U = P[role];
-  if (!U || !U.u || U.u < 2) U = P[role] = { t: now, u: 2, list: [] };  // older saves (and the 0.30 redraw: more young coaches)
+  if (!U || !U.u || U.u < 2) U = P[role] = { t: now, u: 2, list: [] };
+  if (!U.pay2) { U.pay2 = true; for (const s of U.list) s.demand = Math.round(staffWage(role, s.rep) * rf(.85, 1.2) / 1000) * 1000; }  // older saves (and the 0.30 redraw: more young coaches)
   if (now - U.t >= 6 || U.list.length < STAFF_UNIVERSE) {
     if (now - U.t >= 6) U.list = U.list.filter(s => s.age < 68 && R() > .1);
     while (U.list.length < STAFF_UNIVERSE) U.list.push(genStaff(role, staffLevel()));

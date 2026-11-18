@@ -24,6 +24,8 @@ const myWage = p => p.loan && p.loan.to === G.club ? p.wage * p.loan.share : p.w
    his ability, or one below it, but not further down (he'd learn nothing). */
 const lendsTo = (p, c = my()) => c.tier - naturalTier(p) <= 1;
 const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
+// Non-league football (the National Division and below) allows loans all season; above that, only in a window.
+const loansOpen = () => windowOpen() || (G.club != null && my().tier >= 5);
 /* Borrowing: you name the share of his wages you'll pay. Each club has a figure in mind for this window (lower for your
    partner club and for youngsters who need games, higher abroad); offer at least that and he comes. Below it they
    tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
@@ -145,7 +147,7 @@ function feedersWeek() { if (net().feeders.length) spend("feeders", feederFundin
    Make a player available for loan and clubs at his level come in during a window: a club where he'd play (its
    standard close to his), English or abroad, offering to pay a share of his wages (more for a better player, more from
    a richer club). Offers wait in your inbox; one at a time for each player. */
-function loanListToggle(p) { p.loanList = !p.loanList; news(p.loanList ? `${p.name} is available for loan. Clubs will make offers while a window is open.` : `${p.name} is no longer available for loan.`); }
+function loanListToggle(p) { p.loanList = !p.loanList; news(p.loanList ? `${p.name} is available for loan. Clubs will make offers ${my().tier >= 5 ? "(non-league loans run all season)" : "while a window is open"}.` : `${p.name} is no longer available for loan.`); }
 function loanOffersWeek(c) {
   for (const p of c.squad.map(P)) {
     if (!p.loanList || p.loan || p.acad || G.inbox.some(m => m.key === "loanOffer" && !m.done && m.data.pid === p.id)) continue;

@@ -115,6 +115,11 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Fair wages.** Contracts are renewed at the going rate for a player's rating. A player paid under 80% of his worth
   may ask for a pay rise: give it, meet him halfway, or refuse (he's unsettled, and it counts toward a transfer
   request). AI clubs' wages drift toward the going rate each summer, so comparisons are fair.
+- **Non-league loans all season.** In the National Division and below, loans (out from your loan list, in from other
+  clubs) run all season; higher up, only in a transfer window. Recalled players can go straight back out.
+- **Staff compensation.** Poach someone and you choose the compensation you offer: too little and their club says no
+  (three tries). When a club comes for your staff, you can let them go, ask for half as much again (they may pay, or
+  pull out), or refuse.
 - **Squad registration.** Hold as many players as you like, but only 25 registered seniors can play; under-21s and
   academy players don't need registering. Tick or untick players in the Squad page's Reg. column while a transfer
   window is open. New signings are registered if there's room, and your manager fills any empty places when a window

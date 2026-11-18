@@ -151,6 +151,11 @@ const ACT = {
     if (!staffDropOK(s)) { toast(`${s.name} says no: ${pr(s, "he")} won't drop to the ${TIER_NAME[my().tier]}, whatever the money.`); return; }
     const a = staffAppeal(s, wage);
     if (a.score < a.pr.thr) { toast(`${s.name} says no. ${refusalReason(a, S_FACTORS, s)}`); return; }
+    if (s.emp != null) {  // poaching: their club must accept your compensation
+      const comp = Math.round(num($("#cc" + el.dataset.i))); s.compTries = (s.compTries || 0) + 1;
+      if (comp < poachMin(s)) { const walked = s.compTries >= 3; toast(walked ? `${CL(s.emp).name} end the talks: ${s.name} stays put.` : `${CL(s.emp).name} turn down ${money(comp)}: they want more for ${s.name}.`); if (walked) { s.compBlocked = G.year; closeModal(); render(); } return; }
+      s.compOffer = comp;
+    }
     hire(s, wage, yrs); closeModal(); if (PAGE === "hire") { PAGE = "staff"; scrollTo(0, 0); } render(); saveGame();
   },
   dismiss: async el => { const s = staffOf(el.dataset.r); if (await ask(`Dismiss ${s.name}? It costs ${money(payoff(s))}.`)) { dismiss(el.dataset.r); G.meddle = (G.meddle || 0) + .5; render(); saveGame(); } },
