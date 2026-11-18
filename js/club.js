@@ -52,10 +52,9 @@ const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
 const perSeat = cap => 650 + cap * .055;
 /* How long building takes, like real life: construction grows with size (about a year for a small ground, nearly four
-   for a 60,000 one), after planning and approvals (about six months for a small ground, over a year for a big one).
-   A season is 54 weeks. */
+   for a 60,000 one). A season is 54 weeks. */
 const groundWeeks = cap => Math.round(45 + cap / 400);
-const planWeeks = cap => Math.round(16 + cap / 1500);
+const planWeeks = () => 0;
 const BUILD_SIZES = [1500, 3000, 6000, 12000, 25000, 45000, 65000];
 function newStadiumQuote(cap) { return { cap, cost: Math.round((1.5e6 + cap * perSeat(cap)) / 1e4) * 1e4, weeks: groundWeeks(cap), plan: planWeeks(cap) }; }
 function expandQuote(c, add) { const cur = c.fac.stadium.cap, to = cur + add; return { add, cost: Math.round(add * perSeat(to) * 1.1 / 1e4) * 1e4, weeks: Math.round(20 + add / 300) }; }

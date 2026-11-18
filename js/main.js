@@ -49,6 +49,8 @@ function upgradeSave() {
   // 0.38.2: staff pay is set by the job (0.35.2): your current staff move onto it if they're paid more than it.
   // 0.46.1: every existing ground gets a freshly drawn site: some hemmed in, some with room, a few spacious. Never smaller
   // than what's on it now (stands and extras), and work in progress is grandfathered.
+  // 0.46.6: no planning stage: work already under way drops any planning weeks it had left.
+  if (G.club != null) { const b = my().fac.stadium.build; if (b && b.plan) { const done = b.total - b.left; b.left = Math.max(1, b.left - Math.max(0, b.plan - done)); b.total -= b.plan; b.plan = 0; } }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }
@@ -243,7 +245,7 @@ const ACT = {
     if (q.space > siteCap(S)) return toast(`The stands and extras need room for ${q.space.toLocaleString()}; the site takes ${siteCap(S).toLocaleString()}.`);
     if (!await ask(`Demolish ${S.name} and build a new ${q.cap.toLocaleString()}-capacity ground for ${money(q.cost)}? About ${q.weeks} weeks, playing at ${HOSTS[h].name} meanwhile.`)) return;
     const res = startBuild("stadium", { type: "reground", ...q, vent: d.vent || [], name: S.name, stands: d.stands, family: d.family, corp: d.corp, label: `rebuilding ${S.name}, ${q.cap.toLocaleString()} capacity` });
-    if (S.build && S.build.type === "reground") { S.build.host = h; news(`Plans to rebuild ${S.name} go in. The club keeps playing there until planning is approved (about ${S.build.plan} weeks), then moves to ${HOSTS[h].name} while it's rebuilt.`, true); }
+    if (S.build && S.build.type === "reground") { S.build.host = h; S.rebuilding = true; S.away = h; c.cap = capacity(c); news(`${S.name} closes for rebuilding. Home games move to ${HOSTS[h].name}.`, true); }
     built(res); G.stDraft = null; G.rgOpen = false; render(); saveGame(); },
   roof: async el => { const k = el.dataset.k, q = roofQuote(my(), k); if (!await ask(`Put a roof on the ${SIDES[k]} for ${money(q.cost)}? It closes for about ${q.weeks} weeks.`)) return; built(startBuild("stadium", { type: "roof", ...q, label: `a roof for the ${SIDES[k]}` })); render(); saveGame(); },
   convert: async el => { const k = el.dataset.k, q = convertQuote(my(), k); if (!await ask(`Make the ${SIDES[k]} ${q.to === "seat" ? "all-seated" : "a terrace"} for ${money(q.cost)}? It closes for about ${q.weeks} weeks.`)) return; built(startBuild("stadium", { type: "convert", ...q, label: `${q.to === "seat" ? "seating" : "terracing"} the ${SIDES[k]}` })); render(); saveGame(); },
