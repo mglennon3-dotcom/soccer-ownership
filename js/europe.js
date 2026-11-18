@@ -30,12 +30,12 @@ function makeForeign() {
   for (const [code, [n, top]] of Object.entries(FOREIGN)) {
     const K = COUNTRY[code];
     for (let i = 0; i < n; i++) {
-      const t = foreignTown(K), lvl = top - i * .9 + normal() * .8, rep = clamp(Math.round(55 + (lvl - 70) * 2.2), 30, 98);
+      const t = foreignTown(K), lvl = top - i * 2.2 + normal() * .8, rep = clamp(Math.round(55 + (lvl - 70) * 2.2), 30, 98);
       const c = { id: G.clubs.length, name: pick(K.fmt).replace("{t}", t), town: t, short: stripAcc(t).replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase(), country: code,
         abroad: true, gone: true, lg: null, tier: 1, half: null, region: pick(K.regions)[0], rep, lvl, color: CLUB_COLORS[G.clubs.length % CLUB_COLORS.length],
         coach: aiCoach(rep), squad: [], train: clamp(Math.round(lvl / 10), 4, 10), acadLvl: clamp(Math.round(lvl / 11), 3, 10),
         cap: Math.round((15000 + (lvl - 70) * 2800) * rf(.8, 1.2) / 500) * 500, fans: Math.round((12000 + (lvl - 70) * 2600) * rf(.8, 1.2)), founded: G.year - ri(60, 130), trophies: [] };
-      c.own = newOwner(c);
+      c.base = lvl; c.own = newOwner(c);
       G.clubs.push(c); G.foreign.push(c.id); foreignSquad(c);
     }
   }
@@ -54,7 +54,7 @@ function foreignSquad(c, faOnly) {
   for (const [pos, n] of Object.entries(SQUAD_MIX)) for (let i = have(pos); i < n; i++) {
     if (foreignSignFA(c, pos)) continue;
     if (faOnly) break;
-    const age = ri(19, 33), ovr = clamp(Math.round(c.lvl + 2 - i * 3 + normal() * 2.5), 40, 94);
+    const age = ri(19, 33), ovr = clamp(Math.round(c.lvl + 2 - i * 3 + spreadN()), 40, 94);
     const p = makePlayer({ pos, ovr, age, nat: R() < .7 ? c.country : pickNat(c.country), club: c.id, pot: seniorPot(ovr, age) });
     p.yrs = ri(1, 4); c.squad.push(p.id); p.hist.push([G.year, c.short]);
   }
@@ -64,7 +64,7 @@ function foreignSquad(c, faOnly) {
 // Each summer: standing and strength drift, squads are topped up.
 function foreignSummer() {
   for (const id of G.foreign || []) {
-    const c = CL(id); c.lvl = clamp(c.lvl + normal() * 1.2, 72, 90); c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98);
+    const c = CL(id); c.base ??= c.lvl; c.lvl = clamp(c.lvl + (c.base - c.lvl) * .15 + normal() * 1.2, 55, 92); c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98);
     foreignSquad(c);
     // Now and then a foreign club buys a player from an English club below its standard.
     if (R() < .25) {

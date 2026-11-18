@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.37.0";
+const VERSION = "0.38.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -21,14 +21,15 @@ const rh = v => Math.round(v * 2) / 2;
    clubs are their countries' top flights and read like the Premier Division.
    Points: [internal (0-100), shown (1-20)], straight lines between them. */
 // Anchored on each division's average starter: Premier 13, First 10, Second 7, Third 6, National 4, North/South 3, Regional 2.
-const R20_PTS = [[0, 1], [36, 1], [44.8, 2], [51.1, 3], [55.6, 4], [60.7, 6], [65.1, 7], [71.8, 10], [80.1, 13], [88, 16], [97.5, 20], [100, 20]];
+// (Pinned to mid-career values: a new world reads a fraction lower, a long career a fraction higher.)
+const R20_PTS = [[0, 1], [37, 1], [46, 2], [52.4, 3], [57.2, 4], [62.7, 6], [67.3, 7], [73.5, 10], [83, 13], [90, 16.5], [97.5, 20], [100, 20]];
 function to20(v) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a || 1); } return 20; }
 function from20(d) { for (let i = 1; i < R20_PTS.length; i++) { const [a, x] = R20_PTS[i - 1], [b, y] = R20_PTS[i]; if (d <= y && y > x) return a + (b - a) * (d - x) / (y - x); } return 100; }
 const r20 = v => clamp(Math.round(to20(v)), 1, 20);
 /* Staff ratings are shown on the players' 1-20 scale, matched division by division: the typical staff member at each
    level shows the same rating as that division's typical starting player. (Underneath, staff abilities keep their own
    0-100 range; only the number you see is translated.) Points: [staff value, player-equivalent value]. */
-const STAFF_EQ = [[0, 0], [24.3, 44.9], [29.9, 50.8], [35.8, 55.6], [42.3, 60.5], [50.5, 65.6], [62.9, 71.6], [79.4, 79.8], [100, 100]];
+const STAFF_EQ = [[0, 0], [24.3, 46], [29.9, 52.4], [35.8, 57.2], [42.3, 62.7], [50.5, 67.3], [62.9, 73.5], [79.4, 83], [100, 100]];
 function staffEq(v) { for (let i = 1; i < STAFF_EQ.length; i++) { const [a, x] = STAFF_EQ[i - 1], [b, y] = STAFF_EQ[i]; if (v <= b) return x + (y - x) * (v - a) / (b - a); } return 100; }
 const sr20 = v => r20(staffEq(v));
 const snap20 = v => clamp(from20(r20(v)), 1, 100);  // the internal value at the middle of a shown point
@@ -258,10 +259,13 @@ function newClub(lg, rank) {
 }
 const STADIUM_T = [0, 42000, 22000, 11000, 7000, 4500, 3000, 1200];
 const FAN_T = [0, 38000, 18000, 8500, 5200, 2600, 1300, 450];
+/* How far a player sits from his club's standard: a wide spread, so divisions overlap and every rating is filled,
+   with the odd standout well above his team-mates and the odd one well below. */
+const spreadN = () => normal() * 4.2 + (R() < .05 ? rf(5, 10) : 0) - (R() < .05 ? rf(4, 8) : 0);
 function genSquad(c) {
   for (const [pos, n] of Object.entries(SQUAD_MIX)) for (let i = 0; i < n; i++) {
     const age = i === n - 1 && R() < .4 ? ri(17, 21) : ri(19, 34);
-    let ovr = Math.round(c.lvl + 2 - i * 3 + normal() * 2.5 - (age < 21 ? 5 : 0));
+    let ovr = Math.round(c.lvl + 2 - i * 3 + spreadN() - (age < 21 ? 5 : 0));
     ovr = clamp(ovr, 20, 93);
     const nat = R() < (c.tier <= 2 ? .55 : c.tier <= 4 ? .8 : .95) ? "ENG" : pickNat("ENG");
     const p = makePlayer({ pos, ovr, age, nat, club: c.id, pot: seniorPot(ovr, age) });
@@ -272,7 +276,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);

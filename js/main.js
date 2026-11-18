@@ -17,6 +17,10 @@ function upgradeSave() {
   for (const c of G.clubs) if (!c.gone && !isMine(c) && !c.own) c.own = newOwner(c);
   if (!G.cups) startCups();
   if (!G.foreign) { makeForeign(); G.cont = {}; }
+  // 0.38.0: foreign clubs spread down through the levels (each country's smaller clubs well below its best); existing
+  // worlds drift there over a few seasons as standards and squads move.
+  if (!G.foreign3) { G.foreign3 = true; const by = {}; for (const id of G.foreign || []) { const c = CL(id); (by[c.country] ||= []).push(c); }
+    for (const [k, l] of Object.entries(by)) { const top = (FOREIGN[k] || [0, 85])[1]; l.sort((a, b) => b.lvl - a.lvl).forEach((c, i) => c.base = top - i * 2.2); } }
   if (!G.foreign2) { for (const id of G.foreign) CL(id).lvl = Math.max(CL(id).lvl, 72) + 1.5; G.foreign2 = true; }
   // 0.14.2: intakes got bigger, so a career from before runs this year's intake again, once (on top of the boys it has).
   // 0.14.12: loans agreed before wage shares were negotiable get one chance to be renegotiated.

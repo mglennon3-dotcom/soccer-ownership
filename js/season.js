@@ -444,7 +444,7 @@ function aiSquadCheck(c, light) {
 }
 function aiSign(c, pos) {
   // c.lvl already carries the owner's spending; a big spender also aims a little higher and buys more readily.
-  const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 3);
+  const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5);
   let p = null;
   const fas = G.fa.map(P).filter(q => q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
   if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
