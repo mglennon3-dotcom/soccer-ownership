@@ -35,6 +35,11 @@ function upgradeSave() {
   if (!G.pay5) { G.pay5 = true; if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) { const w = Math.round(staffWage(st.role, st.rep) / 1000) * 1000; st.demand = Math.round(staffWage(st.role, st.rep) * rf(.85, 1.2) / 1000) * 1000; if (partTime(st.rep) && w < st.wage) { news(`${st.name} goes part-time as ${ROLES_STAFF[st.role].l.toLowerCase()}: ${money(w)} a year (was ${money(st.wage)}).`); st.wage = w; } }
     for (const U of Object.values(G.pools || {})) { U.empT = 0; for (const x of U.list || []) x.demand = Math.round(staffWage(x.role, x.rep) * rf(.85, 1.2) / 1000) * 1000; } }
   if (!G.pay4) { G.pay4 = true; if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) st.demand = Math.round(staffWage(st.role, st.rep) * rf(.85, 1.2) / 1000) * 1000; for (const U of Object.values(G.pools || {})) { U.empT = 0; for (const x of U.list || []) x.demand = Math.round(staffWage(x.role, x.rep) * rf(.85, 1.2) / 1000) * 1000; } }
+  // 0.33.0: non-league players are part-time: every contract below the National Division moves onto the part-time scale,
+  // and your wage budget shrinks in step with your wage bill.
+  if (!G.pay7) { G.pay7 = true; const before = G.club != null ? wageBill(my()) : 0;
+    for (const p of Object.values(G.players)) if (p.wage > 1000) p.wage = Math.max(1000, Math.round(p.wage * partTimeF(p.ovr) / 100) * 100);
+    if (G.club != null && before > 0) my().budget.wages = Math.round(my().budget.wages * wageBill(my()) / before / 1000) * 1000; }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }

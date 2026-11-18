@@ -107,27 +107,25 @@ function pgComps() {
    owner (how they price tickets, how hard they push the brand). */
 function clubNumbers(x) {
   if (isMine(x)) { const att = (x.att || []).length ? Math.round(avg(x.att)) : matchdayForecast(x).crowd;
-    return { rep: x.rep, wages: wageBill(x), ticket: x.prices.ticket, att, staff: staffBill(x), comm: commercialValue(x), cap: capacity(x), fans: x.fans }; }
-  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(REF_TICKET[x.tier] * (S.prices || 1)));
-  const pf = priceFactor(ticket, REF_TICKET[x.tier]), att = Math.round(Math.min(x.cap || 1e9, x.fans * .8 * pf + (x.fans * .35 * pf * .9)));
-  const staff = staffWage("manager", x.rep) + staffWage("youth", x.rep) + staffWage("recruit", x.rep);
-  const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);
-  return { rep: x.rep, wages: sum(x.squad, id => G.players[id] ? G.players[id].wage : 0), ticket, att, staff, comm, cap: x.cap || 0, fans: x.fans };
+    return { rep: x.rep, budget: x.budget.wages, wages: wageBill(x), ticket: x.prices.ticket, att, staff: staffBill(x), comm: commercialValue(x), cap: capacity(x), fans: x.fans }; }
+  const { ticket, att, staff, comm } = aiEstimate(x);
+  return { rep: x.rep, budget: x.abroad ? 0 : aiBudget(x), wages: sum(x.squad, id => G.players[id] ? G.players[id].wage : 0), ticket, att, staff, comm, cap: x.cap || 0, fans: x.fans };
 }
 function compareCard(c) {
   const clubs = G.leagues[c.lg].clubs.map(CL), rows = clubs.map(x => ({ x, ...clubNumbers(x) })), others = rows.filter(r => !isMine(r.x));
   const av = k => avg(others.map(r => r[k])), me = rows.find(r => isMine(r.x));
   const rank = k => rows.filter(r => r[k] > me[k]).length + 1;
   const vs = (k, f, lowGood) => { const a = av(k), d = a ? (me[k] - a) / a : 0; return `<tr><td style="text-align:left">${f[0]}</td><td class="num">${f[1](me[k])}</td><td class="num muted">${f[1](a)}</td><td class="num small ${Math.abs(d) < .05 || lowGood === null ? "muted" : (d > 0) !== !!lowGood ? "good" : "warn"}">${d > 0 ? "+" : ""}${Math.round(d * 100)}%</td><td class="num small">${ord(rank(k))}</td></tr>`; };
-  const F = { rep: ["Prestige", v => Math.round(v)], wages: ["Player wages", v => pw(v)], ticket: ["Match ticket", v => money(v)], att: ["Average crowd", v => Math.round(v).toLocaleString("en-GB")],
+  const F = { rep: ["Prestige", v => Math.round(v)], budget: ["Wage budget (a year)", v => money(v)], wages: ["Player wages", v => pw(v)], ticket: ["Match ticket", v => money(v)], att: ["Average crowd", v => Math.round(v).toLocaleString("en-GB")],
     staff: ["Staff wages (a year)", v => money(v)], comm: ["Commercial value (a year)", v => money(v)], cap: ["Stadium", v => Math.round(v).toLocaleString("en-GB")], fans: ["Supporters", v => Math.round(v).toLocaleString("en-GB")] };
   return `<section class="card"><div class="card-h"><h2>You against your division</h2><span class="small muted">${esc(LEAGUES[c.lg].name)}</span></div>
     <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left"></th><th>You</th><th>Division avg</th><th>Diff</th><th>Rank</th></tr></thead><tbody>
-    ${["rep", "wages", "ticket", "att", "staff", "comm", "cap", "fans"].map(k => vs(k, F[k], k === "ticket" ? null : k === "wages" || k === "staff" ? null : false)).join("")}</tbody></table></div>
+    ${["rep", "budget", "wages", "ticket", "att", "staff", "comm", "cap", "fans"].map(k => vs(k, F[k], k === "ticket" ? null : k === "wages" || k === "staff" || k === "budget" ? null : false)).join("")}</tbody></table></div>
     <h3 style="margin:14px 0 6px">Club by club</h3>
     ${sortTable("cmp-div", [
       { k: "name", l: "Club", left: true, v: r => r.x.name, f: r => `${crest(r.x, 14)} <button class="lnk" data-act="club" data-id="${r.x.id}">${isMine(r.x) ? `<b>${esc(r.x.name)}</b>` : esc(r.x.name)}</button>` },
       { k: "rep", l: "Prestige", r: true, v: r => r.rep, f: r => Math.round(r.rep) },
+      { k: "budget", l: "Budget", r: true, v: r => r.budget, f: r => money(r.budget) },
       { k: "wages", l: "Wages", r: true, v: r => r.wages, f: r => pw(r.wages) },
       { k: "ticket", l: "Ticket", r: true, v: r => r.ticket, f: r => money(r.ticket) },
       { k: "att", l: "Crowd", r: true, v: r => r.att, f: r => r.att.toLocaleString("en-GB") },

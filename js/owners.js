@@ -6,24 +6,25 @@
 /* spend: recruiting standard above or below the club's means (rating points out of 100); build: chance a season of
    improving the ground and facilities; patience: how long a manager survives a bad run (0-1); debt: chance a season
    of administration when overstretched; poach: appetite for other clubs' staff and players; media: profile;
-   prices: ticket pricing, which moves their supporters; sells: willingness to cash in on stars. */
+   prices: ticket pricing, which moves their supporters; sells: willingness to cash in on stars; loss: how much he'll lose
+   in a season out of his own pocket, as a share of the club's income (below zero: he wants a profit). */
 const OWNER_STYLES = {
-  local:     { l: "Lifelong fan",        d: "Grew up on the terraces. Modest money, cheap tickets, loyal to his managers.", spend: 0, build: .25, patience: .9, debt: .01, poach: .1, media: 0, prices: .85, sells: .3, w: 4 },
-  sugar:     { l: "Billionaire benefactor", d: "Money no object. Overpays for players and staff, and wants it now.", spend: 6, build: .6, patience: .35, debt: .02, poach: .9, media: 6, prices: 1, sells: .1, w: 1 },
-  stripper:  { l: "Asset stripper",      d: "Loads the club with debt, sells the best players, squeezes the fans. Clubs he owns often collapse.", spend: -4, build: 0, patience: .6, debt: .25, poach: .2, media: -2, prices: 1.3, sells: 1, w: 1 },
-  moneyball: { l: "Data-driven investor", d: "Buys undervalued players young and sells at the peak. Steady, clever, rarely overspends.", spend: 2, build: .3, patience: .7, debt: .01, poach: .4, media: 0, prices: 1, sells: .8, w: 2 },
-  developer: { l: "Property developer",  d: "More interested in the land than the team: new stands, hotels, retail. The squad comes second.", spend: -1, build: .9, patience: .6, debt: .06, poach: .2, media: 1, prices: 1.15, sells: .6, w: 1.5 },
-  celebrity: { l: "Celebrity owner",     d: "A famous face. Huge media profile and sponsors flock to him; fans arrive from everywhere.", spend: 3, build: .4, patience: .6, debt: .03, poach: .6, media: 12, prices: 1.05, sells: .4, w: .8 },
-  multiclub: { l: "Multi-club group",    d: "One of a network of clubs. Moves players around the group, strong scouting, cold-blooded.", spend: 2, build: .4, patience: .5, debt: .02, poach: .7, media: 2, prices: 1.05, sells: .7, w: 1.2 },
-  absentee:  { l: "Absent owner",        d: "Bought the club and lost interest. No investment, nobody answers the phone, slow decline.", spend: -3, build: .02, patience: .8, debt: .05, poach: 0, media: -3, prices: 1.1, sells: .7, w: 2 },
-  gambler:   { l: "Reckless gambler",    d: "Spends what he hasn't got. Boom, then bust.", spend: 5, build: .3, patience: .3, debt: .2, poach: .6, media: 3, prices: 1.1, sells: .2, w: 1 },
-  fanowned:  { l: "Supporter-owned",     d: "Run by its fans. Cheap tickets, no debt, slow growth, never sold.", spend: -1, build: .2, patience: .85, debt: 0, poach: .05, media: 1, prices: .8, sells: .5, w: 1.5 },
-  meddler:   { l: "Very hands-on",             d: "Picks the team from the directors' box. Sacks managers after three defeats; good staff won't work for him.", spend: 2, build: .25, patience: .1, debt: .05, poach: .5, media: 4, prices: 1.05, sells: .4, w: 1.5 },
-  dynasty:   { l: "Old-money dynasty",   d: "The same family for a century. Steady and proud, until the old man dies and the heir takes over: he sells up or runs it into the ground.", spend: 1, build: .3, patience: .75, debt: .03, poach: .3, media: 2, prices: 1, sells: .4, w: 1.2 },
-  hostile:   { l: "Hostile neighbour",   d: "Bought the club next door to beat yours. Goes after your staff, your players, your sponsors and your supporters.", spend: 4, build: .5, patience: .4, debt: .04, poach: 1, media: 7, prices: .9, sells: .2, w: 0 },
-  crypto:    { l: "Crypto or betting money", d: "Fast money from a crypto exchange or a betting firm. Spends big, and can vanish overnight.", spend: 5, build: .3, patience: .4, debt: .03, poach: .7, media: 4, prices: 1.05, sells: .3, w: .8 },
-  explayer:  { l: "Former player",       d: "A club legend who came back as owner. The fans adore him; he hires his old teammates as managers, whether they're any good or not.", spend: 0, build: .25, patience: .75, debt: .02, poach: .2, media: 4, prices: .9, sells: .4, w: 1 },
-  academy:   { l: "Youth evangelist",    d: "Believes in the academy above all. Brings players through and sells them on.", spend: -1, build: .3, patience: .8, debt: .01, poach: .3, media: 1, prices: .95, sells: .9, w: 1.5 },
+  local:     { l: "Lifelong fan",        d: "Grew up on the terraces. Modest money, cheap tickets, loyal to his managers.", spend: 0, loss: 0.15, build: .25, patience: .9, debt: .01, poach: .1, media: 0, prices: .85, sells: .3, w: 4 },
+  sugar:     { l: "Billionaire benefactor", d: "Money no object. Overpays for players and staff, and wants it now.", spend: 6, loss: 1.5, build: .6, patience: .35, debt: .02, poach: .9, media: 6, prices: 1, sells: .1, w: 1 },
+  stripper:  { l: "Asset stripper",      d: "Loads the club with debt, sells the best players, squeezes the fans. Clubs he owns often collapse.", spend: -4, loss: -0.25, build: 0, patience: .6, debt: .25, poach: .2, media: -2, prices: 1.3, sells: 1, w: 1 },
+  moneyball: { l: "Data-driven investor", d: "Buys undervalued players young and sells at the peak. Steady, clever, rarely overspends.", spend: 2, loss: 0, build: .3, patience: .7, debt: .01, poach: .4, media: 0, prices: 1, sells: .8, w: 2 },
+  developer: { l: "Property developer",  d: "More interested in the land than the team: new stands, hotels, retail. The squad comes second.", spend: -1, loss: 0.05, build: .9, patience: .6, debt: .06, poach: .2, media: 1, prices: 1.15, sells: .6, w: 1.5 },
+  celebrity: { l: "Celebrity owner",     d: "A famous face. Huge media profile and sponsors flock to him; fans arrive from everywhere.", spend: 3, loss: 0.5, build: .4, patience: .6, debt: .03, poach: .6, media: 12, prices: 1.05, sells: .4, w: .8 },
+  multiclub: { l: "Multi-club group",    d: "One of a network of clubs. Moves players around the group, strong scouting, cold-blooded.", spend: 2, loss: 0.15, build: .4, patience: .5, debt: .02, poach: .7, media: 2, prices: 1.05, sells: .7, w: 1.2 },
+  absentee:  { l: "Absent owner",        d: "Bought the club and lost interest. No investment, nobody answers the phone, slow decline.", spend: -3, loss: -0.1, build: .02, patience: .8, debt: .05, poach: 0, media: -3, prices: 1.1, sells: .7, w: 2 },
+  gambler:   { l: "Reckless gambler",    d: "Spends what he hasn't got. Boom, then bust.", spend: 5, loss: 1, build: .3, patience: .3, debt: .2, poach: .6, media: 3, prices: 1.1, sells: .2, w: 1 },
+  fanowned:  { l: "Supporter-owned",     d: "Run by its fans. Cheap tickets, no debt, slow growth, never sold.", spend: -1, loss: 0, build: .2, patience: .85, debt: 0, poach: .05, media: 1, prices: .8, sells: .5, w: 1.5 },
+  meddler:   { l: "Very hands-on",             d: "Picks the team from the directors' box. Sacks managers after three defeats; good staff won't work for him.", spend: 2, loss: 0.3, build: .25, patience: .1, debt: .05, poach: .5, media: 4, prices: 1.05, sells: .4, w: 1.5 },
+  dynasty:   { l: "Old-money dynasty",   d: "The same family for a century. Steady and proud, until the old man dies and the heir takes over: he sells up or runs it into the ground.", spend: 1, loss: 0.2, build: .3, patience: .75, debt: .03, poach: .3, media: 2, prices: 1, sells: .4, w: 1.2 },
+  hostile:   { l: "Hostile neighbour",   d: "Bought the club next door to beat yours. Goes after your staff, your players, your sponsors and your supporters.", spend: 4, loss: 0.8, build: .5, patience: .4, debt: .04, poach: 1, media: 7, prices: .9, sells: .2, w: 0 },
+  crypto:    { l: "Crypto or betting money", d: "Fast money from a crypto exchange or a betting firm. Spends big, and can vanish overnight.", spend: 5, loss: 1, build: .3, patience: .4, debt: .03, poach: .7, media: 4, prices: 1.05, sells: .3, w: .8 },
+  explayer:  { l: "Former player",       d: "A club legend who came back as owner. The fans adore him; he hires his old teammates as managers, whether they're any good or not.", spend: 0, loss: 0.2, build: .25, patience: .75, debt: .02, poach: .2, media: 4, prices: .9, sells: .4, w: 1 },
+  academy:   { l: "Youth evangelist",    d: "Believes in the academy above all. Brings players through and sells them on.", spend: -1, loss: 0, build: .3, patience: .8, debt: .01, poach: .3, media: 1, prices: .95, sells: .9, w: 1.5 },
 };
 const OWNER_CORP = ["Holdings", "Capital", "Group", "Partners", "Sports", "Investments", "Global"];
 function newOwner(c, style) {
@@ -36,15 +37,61 @@ function newOwner(c, style) {
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
-function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0); }
+function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0); }
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
 // Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
 const aiWage = (p, c) => Math.round(wageFor(p.ovr) * clamp(1 + ownStyle(c).spend * .05, .78, 1.3) / 100) * 100;
+/* ---------- AI club money ----------
+   Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
+   more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
+   what he'll stand: some won't lose a cent, some will lose a lot. Lose more than that and he orders cuts; run out of money
+   and he has to sell, or the club goes into administration. */
+// The going wage budget in each division: what its clubs actually pay, worked out afresh each summer.
+function calcTierW() { const w = [0]; for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === t && !isMine(c)); w[t] = cs.length ? Math.round(avg(cs.map(aiBill)) / 1e4) * 1e4 : Math.round(24 * wageFor(TIER_LVL[t]) / 1e4) * 1e4; } return w; }
+const tierWages = t => (G.tierW ||= calcTierW())[t];
+function aiEstimate(x) {
+  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(REF_TICKET[x.tier] * (S.prices || 1)));
+  const pf = priceFactor(ticket, REF_TICKET[x.tier]), att = Math.round(Math.min(x.cap || 1e9, x.fans * .8 * pf + (x.fans * .35 * pf * .9)));
+  const staff = staffWage("manager", x.rep) + staffWage("youth", x.rep) + staffWage("recruit", x.rep);
+  const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);
+  return { ticket, att, staff, comm };
+}
+// A season's income: TV, the gate (plus bar and shop), sponsors.
+// (plus a little for cup runs, merit money and selling players).
+function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + e.att * e.ticket * 23 * 1.35 + e.comm) * 1.08; }
+const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
+const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12;  // wages, staff, ground and running costs
+const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
+function aiBudget(c) { const S = ownStyle(c); return tierWages(c.tier) * clamp(1 + S.spend * .06, .7, 1.4) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
+// The most he'll lose in a season: more while chasing promotion.
+const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
+function aiAccounts(c) {
+  const o = c.own, inc = aiIncome(c), cost = aiCosts(c), net = inc - cost, fan = o.style === "fanowned";
+  c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net) };
+  if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
+  o.lost = (o.lost || 0) + Math.max(0, -net);
+  const here = c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1);
+  if (!fan && o.wealth <= 0) {
+    // Out of money: a reckless owner takes the club down with him; anyone else finds a buyer.
+    if (["gambler", "crypto", "stripper"].includes(o.style) || -net > inc * .5) { administration(c); return; }
+    const old = o.name; takeover(c); c.cut = 0;
+    if (here) news(`${old} have run out of money and are forced to sell ${c.name}. ${c.own.name} take over.`, c.lg === my().lg);
+    return;
+  }
+  if (net < 0 && -net > Math.max(0, lossCap(c)) + inc * .1) {
+    c.cut = 2;
+    const p = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0], b = p && buyerFor(p, 8);
+    if (b && b !== c) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); }
+    if (c.lg === my().lg) news(`${o.name} order cuts at ${c.name} after losing ${money(-net)} last season${b && b !== c ? `: ${p.name} is sold to ${b.name}` : ""}.`);
+  } else if (c.cut) c.cut--;
+}
+const lossWord = c => { const t = lossTol(c); return t < 0 ? "Wants a profit" : t < .05 ? "Won't lose money" : t < .25 ? "Will lose a little" : t < .7 ? "Will lose a lot" : "Money no object"; };
 function coachFor(c) { const co = aiCoach(clamp(c.rep + ownStyle(c).spend * 3, 1, 99)); if (c.own && c.own.style === "explayer") { co.tac = Math.max(5, co.tac - ri(8, 18)); co.mate = true; } return co; }
 const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "hostile" && x.own.target === c.id);
 function ownersSummer() {
+  G.tierW = calcTierW();
   for (const c of G.clubs) {
     if (c.gone || isMine(c)) continue;
     c.own ||= newOwner(c); const S = ownStyle(c);
@@ -63,6 +110,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
+    if (!c.abroad && !c.gone) aiAccounts(c);
     c.lvl = clubStandard(c);
   }
   hostileCheck();
@@ -107,7 +155,7 @@ function ownersCheck(w) {
   if (![10, 20, 30].includes(w)) return;
   for (const k of LG_KEYS) {
     const t = table(k), n = t.length;
-    t.forEach((r, i) => { const c = CL(r.id); if (isMine(c) || i < n * .66 || !c.own) return;
+    t.forEach((r, i) => { const c = CL(r.id); if (!isMine(c)) c.push = i < Math.max(2, Math.round(n * .25)); if (isMine(c) || i < n * .66 || !c.own) return;
       if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
   }
 }

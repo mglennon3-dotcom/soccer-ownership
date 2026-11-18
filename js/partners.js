@@ -130,7 +130,7 @@ function feedersSummer() {
   const c = my();
   for (const f of net().feeders.slice()) {
     const x = CL(f.id); if (!x || x.gone || x.tier <= c.tier) { news(`${x ? x.name : "A feeder"} can no longer be a feeder club.`); dropFeeder(f.id); continue; }
-    const ref = TV[x.tier] + 24 * wageFor(TIER_LVL[x.tier]) * .1, k = clamp(f.fund / ref, 0, 3);
+    const ref = TV[x.tier] + 24 * wageBase(TIER_LVL[x.tier]) * .1, k = clamp(f.fund / ref, 0, 3);
     x.lvl += k * 1.5; if (R() < k * .3) x.train = Math.min(10, x.train + 1); if (R() < k * .25) x.acadLvl = Math.min(10, x.acadLvl + 1);
     f.rel = clamp(f.rel + (k - .5) * 10, 0, 100);
     // First refusal on their best youngster.

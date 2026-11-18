@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.32.0";
+const VERSION = "0.33.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -136,13 +136,17 @@ function drawPotential(mean, excMult = 1) {
 
 /* ---------- money ----------
    Real-world euros. A regional-league player earns a few thousand a year; a Premier Division star several million. */
-function wageFor(ovr) {
+function wageBase(ovr) {
   let w = 3000 * Math.pow(1.12, ovr - 30);
   if (ovr > 72) w *= Math.pow(1.12, ovr - 72);  // the top of the game pays far more
-  return Math.max(1000, Math.round(w / 100) * 100);
+  return w;
 }
+/* Below about the fifth tier players are part-time: they have day jobs, and clubs pay them a fraction of a full-time
+   wage (about a third at a Regional League level, rising to the full rate by the National Division). */
+const partTimeF = ovr => clamp(.15 + (ovr - 40) * .05, .15, 1);
+function wageFor(ovr) { return Math.max(1000, Math.round(wageBase(ovr) * partTimeF(ovr) / 100) * 100); }
 function valueOf(p) {
-  let v = wageFor(p.ovr) * 3 * Math.pow(1.025, p.ovr - 50) * clamp((p.ovr - 35) / 25, .2, 1);
+  let v = wageBase(p.ovr) * 3 * Math.pow(1.025, p.ovr - 50) * clamp((p.ovr - 35) / 25, .2, 1);
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
   if (p.age > 28) v *= Math.max(.12, 1 - (p.age - 28) * .13);
   if (p.yrs <= 1) v *= .75;
@@ -260,7 +264,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
@@ -320,7 +324,7 @@ function foundClub(o) {
     lg, tier: 7, rep: 4, media: 8, color: o.color || "#b42323", coach: null, squad: [], lvl: TIER_LVL[7] - 3, train: 0, acadLvl: 0, cap: 0, fans: 120, gone: false, founded: G.year, trophies: [],
     cash: 0, mood: 60, morale: 55,
     prices: { ticket: 8, conc: 3, shirt: 40, suite: 2500 },
-    budget: { wages: 300000, transfer: 60000, acad: 0, scout: 10000 },
+    budget: { wages: tierWages(7), transfer: 60000, acad: 0, scout: 10000 },
     fac: { stadium: { own: false, cap: 0, amen: 1, host: 0, build: null, suites: 0, pitch: 100, ptype: "grass", relay: null }, train: { lvl: 0, build: null }, acad: { lvl: 0, build: null } },
     deals: [], offers: [], staff: { manager: null, youth: null, recruit: null }, fin: newLedger(), finLast: null, spentT: 0 };
   c.short = shortFor(o.short || o.name);

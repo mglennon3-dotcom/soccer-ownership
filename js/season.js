@@ -156,6 +156,7 @@ function endSeason() {
   for (const k of LG_KEYS) {
     const L = LEAGUES[k], t = table(k), ids = t.map(r => r.id);
     const champ = CL(ids[0]); champ.trophies.push([G.year, L.name]);
+    ids.forEach((id, i) => { const x = CL(id); if (!isMine(x)) x.push = i < Math.max(2, Math.round(ids.length * .25)); });
     if (champ.id === G.club) news(`CHAMPIONS! ${mine.name} win the ${L.name}.`, true);
     if (ABOVE[k]) {
       const up = ids.slice(0, L.auto); if (G.po[k] && G.po[k].win != null) up.push(G.po[k].win);
@@ -438,7 +439,7 @@ function aiSquadCheck(c, light) {
   // Too weak: replace the weakest regular if he's well below the standard
   if (!light) for (const pos of POS) {
     const ps = sq().filter(p => p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2);
-    const weak = ps[need - 1]; if (weak && weak.ovr < c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5 && R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9)) aiSign(c, pos);
+    const weak = ps[need - 1]; if (weak && weak.ovr < c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5 && R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9) && aiBill(c) < aiBudget(c)) aiSign(c, pos);
   }
 }
 function aiSign(c, pos) {
