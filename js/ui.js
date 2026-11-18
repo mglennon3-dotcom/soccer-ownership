@@ -119,8 +119,12 @@ function pgHome() {
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
   // Anything waiting on your decision (a bid, a choice) puts the inbox first; otherwise it sits further down.
   const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice") && (x.type === "choice" || G.players[x.pid]));
-  return `<div class="grid2"><div class="stack">
-    ${act ? inboxCard(true) : ""}
+  // Tabs keep the page short: today (what's next, the table, what needs you), the team, the club, and the news.
+  // Anything waiting on your decision sits above the tabs whichever is open.
+  const tab = SUB.office || "today", TABS = [["today", "Today"], ["team", "Team"], ["club", "Club"], ["news", "News"]];
+  const tabs = `<div class="chips" style="margin-bottom:14px">${TABS.map(([k, l]) => `<button data-act="sub" data-k="office" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>`;
+  const panes = {
+    today: () => `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h2>Next up</h2><span class="muted small">${esc(mgr().name)} · ${STYLES[mgr().phil].l} · ${mgr().form}</span></div>${fx}
       ${myCupTie().map(({ k, K, t }) => `<p>${CUP_DEF[k].name} ${K.name.toLowerCase()}: ${t.h === G.club ? "home to" : "away to"} ${clubLink(CL(t.h === G.club ? t.a : t.h))} <span class="muted small">· week ${CUP_DEF[k].weeks[K.round] + 1}</span></p>`).join("")}
       ${Object.values(G.cont || {}).filter(K => K.teams.includes(G.club) && K.win == null).map(K => { const D = CONT[K.key], md = CONT_GROUP_WEEKS.findIndex(w => w >= G.week);
@@ -129,14 +133,18 @@ function pgHome() {
       ${weatherLine()}
       <p class="small muted" style="margin-top:6px">Squad suits the manager's style: ${fitText(fit)} · Team rating ${r20(avg(xi.map(o => roleRating(o.p, o.slot))))} (division typical ${r20(TIER_LVL[c.tier])}) · Morale ${Math.round(c.morale)}</p></section>
     ${positionCard(c)}
-    ${performersCard(c)}
-    ${needsCard(c)}
+  </div><div class="stack">
     ${todo.length ? `<section class="card"><div class="card-h"><h2>Needs your attention</h2></div><ul class="todo">${todo.map(([t, p]) => `<li><button class="lnk" data-act="page" data-p="${p}">${esc(t)}</button></li>`).join("")}</ul></section>` : ""}
     ${act ? "" : inboxCard()}
     ${G.phase === "summer" && !(G.obj && G.obj.y === G.year) ? objectivesCard() : ""}
+  </div></div>`,
+    team: () => `<div class="grid2"><div class="stack">
+    ${performersCard(c)}
     <section class="card"><div class="card-h"><h2>Results</h2><button class="lnk small" data-act="page" data-p="league">All results</button></div>${last.length ? resultsList(last) : `<p class="muted">No games yet.</p>`}</section>
-    <section class="card"><div class="card-h"><h2>News</h2></div><ul class="news">${G.news.slice(0, 25).map(n => `<li class="${n.hi ? "hi" : ""}">${esc(n.t)}<small>${n.y} · ${n.w}</small></li>`).join("")}</ul></section>
   </div><div class="stack">
+    ${needsCard(c)}
+  </div></div>`,
+    club: () => `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h3>The club</h3></div><dl class="ledger">
       <dt>Supporters</dt><dd>${c.fans.toLocaleString("en-GB")} · ${word(moodWord(c.mood))}</dd>
       <dt>Ground</dt><dd>${capacity(c).toLocaleString("en-GB")}${atHome(c) ? "" : " (rented)"}</dd>
@@ -147,7 +155,12 @@ function pgHome() {
     ${supportersCard(c)}
     ${G.obj && G.obj.y === G.year ? `<section class="card"><div class="card-h"><h3>Targets</h3><button class="lnk small" data-act="page" data-p="board">Board</button></div>${Object.entries(OBJ).filter(([k]) => G.obj[k] !== "none").map(([k, D]) => `<p class="small">${D.l}: ${D.opts[G.obj[k]]}</p>`).join("") || "<p class='small muted'>None set.</p>"}</section>` : ""}
     <section class="card"><div class="card-h"><h3>Your staff</h3><button class="lnk small" data-act="page" data-p="staff">Staff</button></div>${["manager", "recruit", "youth"].map(r => { const s = staffOf(r); return `<div class="row between small" style="padding:4px 0"><span>${ROLES_STAFF[r].l}</span><span>${s ? `${esc(s.name)} · ${word(trustWord(s.trust))}` : `<span class="warn">Vacant</span>`}</span></div>`; }).join("")}</section>
-  </div></div>`;
+  </div></div>`,
+    news: () => `<div class="stack">
+    <section class="card"><div class="card-h"><h2>News</h2></div><ul class="news">${G.news.slice(0, 25).map(n => `<li class="${n.hi ? "hi" : ""}">${esc(n.t)}<small>${n.y} · ${n.w}</small></li>`).join("")}</ul></section>
+  </div>`,
+  };
+  return `${act ? `<div style="margin-bottom:14px">${inboxCard(true)}</div>` : ""}${tabs}${(panes[tab] || panes.today)()}`;
 }
 const fitText = f => f >= .35 ? `<span class="good">great</span>` : f >= .1 ? `<span class="good">good</span>` : f > -.1 ? "average" : f > -.35 ? `<span class="warn">poor</span>` : `<span class="bad">very poor</span>`;
 function inboxCard(urgent) {
