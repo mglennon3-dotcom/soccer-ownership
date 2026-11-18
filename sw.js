@@ -1,6 +1,6 @@
 /* Offline support. When online, the game's files come fresh from the network (and refresh the
    cache), so updates show straight away; when offline, the cached copy is used. Google Fonts are cached the first time they load. */
-const VERSION = "owner-0.31.1";
+const VERSION = "owner-0.31.2";
 const FILES = ["./", "index.html", "app.css", "owner.css", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
   "js/names.js","js/core.js","js/staff.js","js/club.js","js/weather.js","js/match.js","js/events.js","js/cups.js","js/owners.js","js/board.js","js/partners.js","js/legends.js","js/friendlies.js","js/europe.js","js/sale.js","js/season.js","js/market.js","js/appeal.js","js/ui.js","js/ui2.js","js/main.js"];
 const FONTS = "owner-fonts";

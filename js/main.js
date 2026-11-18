@@ -23,6 +23,10 @@ function upgradeSave() {
   for (const id of G.loanList || []) { const p = G.players[id]; if (p && p.loan && p.loan.to === G.club && !p.loan.neg) { p.loan.neg = true; p.loan.redo = true; if (p.lt) p.lt = null; } }
   // 0.17.1: the free-agent pool had drained of younger players; top it up once.
   if (!G.fa2) { G.fa2 = true; if (G.club != null) freshFreeAgents(); }
+  // 0.31.2: staff wages were halved for new contracts; your current staff's pay follows suit, once (a rebalance, not a cut
+  // they hold against you), and the managers in work at other clubs are re-quoted.
+  if (!G.pay2) { G.pay2 = true; if (G.club != null) { for (const st of Object.values(my().staff).filter(Boolean)) { st.wage = Math.round(st.wage / 2 / 1000) * 1000; st.demand = Math.round(staffWage(st.role, st.rep) * rf(.85, 1.2) / 1000) * 1000; }
+    for (const U of Object.values(G.pools || {})) U.empT = 0; } }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }
