@@ -15,10 +15,15 @@ function friendlyInterest(x, c = my()) {
   let i = 1 - Math.max(0, gap - 4) / 18 - Math.max(0, -gap - 2) / 10;
   if (x.region === c.region) i += .25; else if (x.half === c.half) i += .08;
   i += (c.media || 10) / 400;
+  if (x.abroad) i = Math.max(i + .3, .3);  // clubs abroad like an English side on a pre-season tour, whatever its level
   return clamp(i, .03, 1.2);
 }
+const TOUR_FEE = [0, 400e3, 200e3, 100e3, 50e3, 25e3, 12e3, 6e3];
 function awayFee(x, c = my()) {
   const gate = Math.min(x.cap, x.fans * .6) * REF_TICKET[x.tier] * .5;  // a friendly crowd at friendly prices
+  // A club abroad pays a tour fee that covers the trip, and pays it whoever you are: an English side sells tickets.
+  // It's set by your standing: several times what an English club of any size would pay a side at your level.
+  if (x.abroad) return Math.round(TOUR_FEE[c.tier] * (1 + c.rep / 100) * (.8 + .4 * friendlyInterest(x, c)) / 500) * 500;
   return Math.max(250, Math.round(gate * .35 * Math.pow(friendlyInterest(x, c), 1.5) / 50) * 50);  // little interest, little crowd, little fee
 }
 function homeFriendly(x, c = my()) {

@@ -73,6 +73,10 @@ Running locally: any static server works, for example `python3 -m http.server 80
   in five won't lend at all. The Finances overview lists every loan's wage share and what you pay; the wage bill everywhere (budgets,
   your head of recruitment's limits) counts only your share. Lending is about ability, not club size: any club, even a Premier Division one, will lend a player to a club in
   the division that suits his rating or one below it, but not further down.
+- **Not for sale.** Mark a player not for sale from his card: clubs stop bidding for him, any open bids are turned down,
+  and he can't be transfer-listed until you make him available again.
+- **Pre-season tours.** Clubs abroad host English sides for a tour fee set by your division (about ten times what an
+  English club would pay a side at your level), and they're keener to play you than English clubs far above you.
 - **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against
   your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
 - **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually

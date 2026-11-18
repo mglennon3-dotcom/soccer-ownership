@@ -161,6 +161,7 @@ const clubLabel = x => x.abroad ? `${x.name} (${COUNTRY[x.country].name})` : x.n
    everyone knows you want to sell), and the bigger clubs come in for your stars whether they're listed or not. */
 function bidsWeek(c) {
   for (const p of c.squad.map(P)) {
+    if (p.nfs) continue;  // you've told everyone he's not for sale: nobody bids
     if (p.acad || p.loan || !canSell(p) || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
     let buyer = null, amt = 0;
     if (p.list) {
@@ -298,8 +299,16 @@ function ownerBuy(p, fee, wage) {
   const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null); else trust("manager", -3, null);
 }
 /* You put a player on the transfer list (or take him off). Offers then come in through the inbox. */
+/* Not for sale: you tell the world he isn't available. Nobody bids for him, open bids are turned down, and your staff
+   never list him. A player who wanted the move he's now been denied may be unsettled. */
+function setNotForSale(p, on) {
+  p.nfs = on; if (!on) return news(`${p.name} is available again: clubs can bid for him.`);
+  p.list = false;
+  for (const m of G.inbox.filter(m => m.type === "bid" && !m.done && m.pid === p.id)) { m.done = true; m.answer = "rejected: not for sale"; }
+  news(`You declare ${p.name} not for sale. Clubs are told not to bother bidding.`);
+}
 function ownerList(p) {
-  p.list = !p.list;
+  p.list = !p.list; if (p.list) p.nfs = false;
   if (!p.list) return news(`${p.name} is taken off the transfer list.`);
   G.meddle = (G.meddle || 0) + .5;
   const starter = pickXI(my()).some(o => o.p === p);

@@ -107,6 +107,7 @@ const ACT = {
   club: el => clubModal(+el.dataset.id), player: el => playerModal(+el.dataset.id),
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "2" ? 2 : el.dataset.v === "1", false); render(); saveGame(); },
   suggest: el => { const p = P(+el.dataset.id); suggest(p, !!el.dataset.loan); if (document.querySelector(".modal")) playerModal(p.id); render(); saveGame(); },
+  nfs: el => { const p = P(+el.dataset.id); setNotForSale(p, !p.nfs); toast(p.nfs ? `${p.name} is not for sale: no club will bid for him.` : `${p.name} is available again.`); playerModal(p.id); render(); saveGame(); },
   keep: el => { const p = P(+el.dataset.id); p.keep = !p.keep; toast(p.keep ? `${p.name} is protected: not for sale, and he'll be offered a new contract.` : `${p.name} is no longer protected.`); playerModal(p.id); render(); },
   promote: el => { const p = P(+el.dataset.id), c = my(); p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) * .6 / 100) * 100); news(`${p.name} is promoted from the academy on a professional contract.`, true); closeModal(); render(); },
   list: el => { const p = P(+el.dataset.id); ownerList(p); playerModal(p.id); render(); saveGame(); },
