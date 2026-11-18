@@ -57,6 +57,8 @@ function upgradeSave() {
       for (const p of ps) { p.pot = Math.max(p.ovr, drawPotential(mean, 1 + lvl * .1, gemMult(c))); p.yAcad = c.id; }
       const best = ps.slice().sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1])[0];
       news(`The youth coaches have re-assessed all ${ps.length} academy players. ${best.name} (${best.pos}, ${best.age}) now looks the pick of them, potential ${est20(potEstimate(best))}.`, true); } } }
+  // 0.47.6: feeders ask a set amount; your current feeders move onto what they ask.
+  if (G.club != null && G.net) for (const f of G.net.feeders || []) { const x = CL(f.id); if (x) f.fund = feederAsk(x); }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }

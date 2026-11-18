@@ -122,7 +122,11 @@ DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from);
 
 /* ---------- feeders ---------- */
 function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && !isFeeder(x.id) && (x.half === c.half || x.tier <= 5)).sort((a, b) => a.tier - b.tier || b.rep - a.rep); }
-function addFeeder(x) { net().feeders.push({ id: x.id, fund: Math.round(TV[x.tier] * .3 / 1000) * 1000, rel: 55, since: G.year }); news(`${x.name} become a feeder club.`, true); }
+/* What a feeder wants from you each year: set by its division and its needs (a fixed ask; you pay it or don't have
+   the arrangement). */
+const feederRef = x => TV[x.tier] + 24 * wageBase(TIER_LVL[x.tier]) * .1;
+const feederAsk = x => x.feedAsk ??= Math.round(feederRef(x) * rf(.6, 1.1) / 1000) * 1000;
+function addFeeder(x) { net().feeders.push({ id: x.id, fund: feederAsk(x), rel: 55, since: G.year }); news(`${x.name} become a feeder club: ${money(feederAsk(x))} a year.`, true); }
 function dropFeeder(id) { net().feeders = net().feeders.filter(f => f.id !== id); news(`${CL(id).name} are no longer a feeder club.`); }
 const feederFunding = () => sum(net().feeders, f => f.fund);
 /* Funding each summer: the feeder recruits to a higher standard and improves its facilities; the relationship grows. */
@@ -130,7 +134,7 @@ function feedersSummer() {
   const c = my();
   for (const f of net().feeders.slice()) {
     const x = CL(f.id); if (!x || x.gone || x.tier <= c.tier) { news(`${x ? x.name : "A feeder"} can no longer be a feeder club.`); dropFeeder(f.id); continue; }
-    const ref = TV[x.tier] + 24 * wageBase(TIER_LVL[x.tier]) * .1, k = clamp(f.fund / ref, 0, 3);
+    f.fund = feederAsk(x); const ref = feederRef(x), k = clamp(f.fund / ref, 0, 3);
     x.lvl += k * 1.5; if (R() < k * .3) x.train = Math.min(10, x.train + 1); if (R() < k * .25) x.acadLvl = Math.min(10, x.acadLvl + 1);
     f.rel = clamp(f.rel + (k - .5) * 10, 0, 100);
     // First refusal on their best youngster.
