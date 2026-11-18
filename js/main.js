@@ -113,6 +113,21 @@ const ACT = {
   suggest: el => { const p = P(+el.dataset.id); suggest(p, !!el.dataset.loan); if (document.querySelector(".modal")) playerModal(p.id); render(); saveGame(); },
   nfs: el => { const p = P(+el.dataset.id); setNotForSale(p, !p.nfs); toast(p.nfs ? `${p.name} is not for sale: no club will bid for him.` : `${p.name} is available again.`); playerModal(p.id); render(); saveGame(); },
   loanlist: el => { const p = P(+el.dataset.id); loanListToggle(p); playerModal(p.id); render(); saveGame(); },
+  aselall: () => { const ids = my().squad.filter(id => P(id).acad); if (ASEL.size === ids.length) ASEL.clear(); else ids.forEach(id => ASEL.add(id)); render(); },
+  abulk: async el => {
+    const c = my(), v = el.dataset.v, ps = [...ASEL].map(P).filter(p => p && p.acad && p.club === c.id); if (!ps.length) return;
+    if (v === "release" && !await ask(`Release ${ps.length} academy player${ps.length > 1 ? "s" : ""}? ${ps.map(p => p.name).join(", ")}.`)) return;
+    if (v === "promote" && !await ask(`Offer professional contracts to ${ps.length} academy player${ps.length > 1 ? "s" : ""}? They join the first-team squad.`)) return;
+    for (const p of ps) {
+      if (v === "keep") p.keep = true; else if (v === "unkeep") p.keep = false;
+      else if (v === "promote") { p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) * .6 / 100) * 100); }
+      else if (v === "release") { leaveClub(p); toFreeAgent(p); }
+    }
+    const names = ps.map(p => p.name).join(", ");
+    news(v === "keep" ? `Kept on (they'll be given contracts when they come of age): ${names}.` : v === "unkeep" ? `No longer marked to keep: ${names}.` : v === "promote" ? `Promoted to the first-team squad on professional contracts: ${names}.` : `Released from the academy: ${names}.`, v !== "keep" && v !== "unkeep");
+    toast(`${ps.length} player${ps.length > 1 ? "s" : ""} ${v === "keep" ? "kept" : v === "unkeep" ? "unmarked" : v === "promote" ? "promoted" : "released"}.`);
+    ASEL.clear(); render(); saveGame();
+  },
   keep: el => { const p = P(+el.dataset.id); p.keep = !p.keep; toast(p.keep ? `${p.name} is protected: not for sale, and he'll be offered a new contract.` : `${p.name} is no longer protected.`); playerModal(p.id); render(); },
   promote: el => { const p = P(+el.dataset.id), c = my(); p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) * .6 / 100) * 100); news(`${p.name} is promoted from the academy on a professional contract.`, true); closeModal(); render(); },
   list: el => { const p = P(+el.dataset.id); ownerList(p); playerModal(p.id); render(); saveGame(); },
@@ -198,6 +213,7 @@ const CHANGE = {
   stname: el => { G.stName = el.value.trim(); },
   msel: el => { SUB.my = el.value === "all" ? "all" : +el.value; render(); },
   reg: el => { const p = P(+el.dataset.id), e = toggleReg(p); if (e) toast(e); render(); saveGame(); },
+  asel: el => { const id = +el.dataset.id; if (el.checked) ASEL.add(id); else ASEL.delete(id); render(); },
   pcty: el => { SUB.pcty = el.value; SUB.plg = ""; render(); },
   plg: el => { SUB.plg = el.value; render(); },
   hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis", "st"].includes(k) ? el.value : +el.value || 0; render(); },
