@@ -55,7 +55,11 @@ const BUILD_SIZES = [1500, 3000, 6000, 12000, 25000, 45000, 65000];
 function newStadiumQuote(cap) { return { cap, cost: Math.round((1.5e6 + cap * perSeat(cap)) / 1e4) * 1e4, weeks: Math.round(26 + cap / 700) }; }
 function expandQuote(c, add) { const cur = c.fac.stadium.cap, to = cur + add; return { add, cost: Math.round(add * perSeat(to) * 1.1 / 1e4) * 1e4, weeks: Math.round(14 + add / 600) }; }
 function amenQuote(c) { const l = c.fac.stadium.amen; return l >= 5 ? null : { lvl: l + 1, cost: Math.round(c.fac.stadium.cap * 90 * l * Math.pow(1.6, l) / 1e4) * 1e4 + 50000, weeks: 10 + l * 4 }; }
-const stadiumUpkeep = c => c.fac.stadium.own ? Math.round(c.fac.stadium.cap * 22 + c.fac.stadium.amen * c.fac.stadium.cap * 8 + (c.fac.stadium.suites || 0) * 6000) : 0;
+/* Old grounds cost more to keep up: each stand's upkeep rises after 20 years, about doubling by 100 (repairs, safety
+   work, worn concrete and roofs). Rebuilding a stand resets it. */
+const ageUpF = yrs => clamp(1 + Math.max(0, yrs - 20) * .012, 1, 2);
+const standUpkeepF = S => { const st = Object.entries(standsOf(S)), t = sum(st, ([, x]) => x.cap) || 1; return sum(st, ([k, x]) => x.cap * ageUpF(G.year - standYr(S, k))) / t; };
+const stadiumUpkeep = c => { const S = c.fac.stadium; return S.own ? Math.round((S.cap * 22 + S.amen * S.cap * 8) * standUpkeepF(S) + (S.suites || 0) * 6000) : 0; };
 
 /* Training ground and academy: levels 0-10. Level 0 means hired council pitches / no academy at all. */
 const facCost = (kind, lvl) => Math.round((kind === "acad" ? 100000 : 80000) * Math.pow(1.85, lvl - 1) / 1e4) * 1e4;

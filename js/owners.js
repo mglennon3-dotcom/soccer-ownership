@@ -91,7 +91,7 @@ function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + e.att * e.t
 const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
 // Travel, utilities, insurance and medical bills, and grading works on arriving in a new division.
-const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + 4000 * (c.train || 0) + aiBill(c) * INSURE * .7 + MED[c.tier] * 4 + (c.upNow ? gradingCost(c, c.tier) : 0);
+const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + (c.cap || 0) * 40 * (ageUpF(G.year - aiOpened(c)) - 1) + 4000 * (c.train || 0) + aiBill(c) * INSURE * .7 + MED[c.tier] * 4 + (c.upNow ? gradingCost(c, c.tier) : 0);
 // Debt: interest and repayments of about a tenth of what's owed a year (a 25-year stadium loan, roughly).
 const aiDebtService = c => (c.debt || 0) * .1;
 const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c) + aiDebtService(c);  // wages, staff, ground and running costs

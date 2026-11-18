@@ -527,7 +527,8 @@ function groundHistory(c) {
   const a = groundAge(c), w = ageWord(a);
   return `<section class="card"><div class="card-h"><h2>Ground history</h2></div>
     ${S.own ? `<p><b>${esc(S.name)}</b>, opened ${S.opened} (${a ? `${a} year${a > 1 ? "s" : ""} old` : "this year"}) · <span class="small ${w[1]}">${w[0]}</span></p>
-    <dl class="ledger" style="margin-top:6px">${Object.entries(SIDES).map(([k, l]) => { const x = standsOf(S)[k]; return `<dt>${l}</dt><dd class="small">built ${standYr(S, k)}${x.ext ? `, extended ${x.ext}` : ""}</dd>`; }).join("")}</dl>` : ""}
+    <p class="small ${standUpkeepF(S) > 1.25 ? "warn" : "muted"}">Stadium upkeep ${money(stadiumUpkeep(c))}/yr${standUpkeepF(S) > 1.005 ? ` (${Math.round((standUpkeepF(S) - 1) * 100)}% more because of its age; rebuilding the oldest stands brings it down)` : ""}.</p>
+    <dl class="ledger" style="margin-top:6px">${Object.entries(SIDES).map(([k, l]) => { const x = standsOf(S)[k]; const f = ageUpF(G.year - standYr(S, k)); return `<dt>${l}</dt><dd class="small">built ${standYr(S, k)}${x.ext ? `, extended ${x.ext}` : ""}${f > 1.005 ? ` · <span class="${f > 1.5 ? "bad" : "warn"}">upkeep +${Math.round((f - 1) * 100)}%</span>` : ""}</dd>`; }).join("")}</dl>` : ""}
     ${h.length ? `<h3 style="margin:12px 0 6px">Former grounds</h3>${h.slice().reverse().map(g => `<div class="row between offer"><span>${esc(g.name)}<br><span class="small muted">${g.from}–${g.to} · ${g.cap.toLocaleString("en-GB")} capacity</span></span></div>`).join("")}` : ""}</section>`;
 }
 function pgFac() {
