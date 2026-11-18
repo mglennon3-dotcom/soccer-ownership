@@ -109,13 +109,13 @@ function trustWeek(c) {
 const TRUST_ASKS = [
   { k: "freeze", t: "Freeze ticket prices next season", d: "Prices can't go up next summer." },
   { k: "u18", t: "Half-price tickets for under-18s", d: "A little less at the gate; more young fans for the future." },
-  { k: "fanzone", t: "Build a fan zone", d: c => `About ${money(60000 + c.fans * 8)}. Fans love it.` },
+  { k: "fanzone", t: "Build a fan zone", d: c => c.fac.stadium.own ? `About ${money(VENTURES.fanzone.cost(c))} to build at the ground, then ${money(ventUp(c, "fanzone"))} a year to keep up. Fans love it: more atmosphere, more spending, more turnout.` : `You rent your ground, so it would be a pop-up you hire each home game: about ${money(-fzGame(c, FAN_T[c.tier], .5) > 0 ? -fzGame(c, FAN_T[c.tier], .5) : 0)} a game net at a typical crowd, for half the effect of a permanent one.`, cond: c => !has(c, "fanzone") && !c.fac.stadium.popup },
   { k: "accounts", t: "Publish the club's accounts", d: "Transparency. Private equity investors dislike it." },
   { k: "seat", t: "A seat on the board", d: "A trust director at board meetings.", cond: () => !G.sTrust.seat },
   { k: "stake", t: "Sell the trust a 5% stake", d: c => `They'd pay about ${money(valuation(c) * .05)}. A loyal shareholder.`, cond: () => ownPct() > 56 && G.sTrust.rel >= 55 },
 ];
 function trustDemand(c) {
-  const opts = TRUST_ASKS.filter(a => !a.cond || a.cond()); if (!opts.length) return;
+  const opts = TRUST_ASKS.filter(a => !a.cond || a.cond(c)); if (!opts.length) return;
   const a = pick(opts);
   addChoice("trustAsk", `The supporters' trust asks: ${a.t.toLowerCase()}`, typeof a.d === "function" ? a.d(c) : a.d, ["Agree", "Refuse"], { k: a.k }, 1);
 }
@@ -125,7 +125,7 @@ DECIDE.trustAsk = (m, i) => {
   trustRel(10); moodHit(c, 3);
   if (k === "freeze") G.sTrust.freeze = G.year + 1;
   if (k === "u18") { G.sTrust.u18 = true; }
-  if (k === "fanzone") { spend("build", 60000 + c.fans * 8); moodHit(c, 4); }
+  if (k === "fanzone") { if (c.fac.stadium.own) buildVenture("fanzone"); else { c.fac.stadium.popup = true; news("A pop-up fan zone will run at home games."); } moodHit(c, 4); }
   if (k === "accounts") investorMood("pe", -6);
   if (k === "seat") { G.sTrust.seat = true; news("A supporters' trust director joins the board.", true); }
   if (k === "stake") { const amt = Math.round(valuation(c) * .05 / 1e4) * 1e4; sellStake({ type: "fans", pct: 5, amt, name: `${c.town} Supporters' Trust` }); }

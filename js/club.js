@@ -159,6 +159,7 @@ function fanCultureSummer(c, up, down) {
   if (typeof familyOn === "function" && familyOn(c)) m.comm += 2;
   if (r < .9) m.comm += 2; else if (r > 1.2) { m.comm -= 2; m.fair += 1; }
   m.comm += Math.round(commK(c) * 1.5);  // a funded community foundation brings families in
+  if (fzK(c) >= 1) { m.hard += 1; m.comm += 1; }  // the fan zone: a louder core and more families
   const t = sum(Object.values(m), x => Math.max(5, x)); for (const k in m) m[k] = Math.round(Math.max(5, m[k]) / t * 100);
   const big = Object.keys(m).sort((a, b) => (m[b] - old[b]) - (m[a] - old[a]))[0];
   if (m[big] - old[big] >= 2) news(`Your support is changing: more ${FAN_KINDS[big][0].toLowerCase()} supporters this year (${m[big]}% now).`);
@@ -170,7 +171,7 @@ const moodWord = m => m >= 75 ? ["Buoyant", "good"] : m >= 58 ? ["Happy", "good"
 function priceFactor(price, ref, el = 1.3) { return clamp(Math.pow(ref / Math.max(.5, price), el), 0, 1.35); }
 function crowdFor(c, opp, price = c.prices.ticket) {
   const pf = priceFactor(price * (G.sTrust && G.sTrust.u18 ? .93 : 1), REF_TICKET[c.tier], 1.3 + fanShare(c, "comm") * .8);  // families notice prices
-  const turn = clamp(.5 + c.mood / 250 + terraceShare(c) * .05, .35, .95) * pf;
+  const turn = clamp(.5 + c.mood / 250 + terraceShare(c) * .05 + fzK(c) * .03, .35, .95) * pf;
   const draw = opp ? clamp(.85 + (opp.rep - c.rep) / 60 + (opp.half === c.half ? .05 : 0), .8, 1.6) : 1;
   const away = opp ? Math.round(Math.min(opp.fans * .06, 1500 * (8 - c.tier))) : 0;
   const wx = G.wx ? 1 - (1 - wxAt(c).crowd) * openShare(c) : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp && isDerby(c, opp) ? 1.25 : 1;
@@ -215,6 +216,7 @@ function matchdayForecast(c, t = c.prices.ticket, k = c.prices.conc) {
 
 /* ---------- sponsors ---------- */
 const SLOTS = {
+  fanzone: { l: "Fan zone naming", share: .03, need: c => has(c, "fanzone") },
   shirt: { l: "Front-of-shirt", share: .35 }, kit: { l: "Kit supplier", share: .22 }, sleeve: { l: "Sleeve", share: .1 },
   stadium: { l: "Stadium naming rights", share: .22, need: c => c.fac.stadium.own }, train: { l: "Training ground naming", share: .06, need: c => c.fac.train.lvl >= 2 },
 };
@@ -278,7 +280,7 @@ function weeklyAccounts(c) {
   spend("fac", upkeep(c) / 52);
   spend("acad", c.budget.acad / 52);
   spend("scout", c.budget.scout / 52);
-  spend("util", utilities(c) / 52); insureWeek(c); if (c.budget.comm) { spend("comm", c.budget.comm / 52); moodHit(c, commK(c) * .05); }
+  spend("util", utilities(c) / 52); insureWeek(c); if (G.phase === "season" && fzK(c)) moodHit(c, fzK(c) * .04); if (c.budget.comm) { spend("comm", c.budget.comm / 52); moodHit(c, commK(c) * .05); }
   earn("spons", sponsorTotal(c) / 52);
   earn("merch", merchFor(c));
   earn("events", ventureWeek(c)); concertWeek(c);
@@ -293,9 +295,10 @@ function homeGameMoney(c, opp, league) {
   const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, opp)), con = concessionsFor(c, crowd), paying = Math.max(0, crowd - hold);
   const tp = c.prices.ticket * (1 - .2 * terraceShare(c));  // terrace tickets sell a fifth cheaper
   if (terraceShare(c)) moodHit(c, terraceShare(c) * .15);
-  earn("gate", paying * tp); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent); spend("mdops", opsCost(c, crowd));
+  const pop = fzK(c) === .5 ? fzGame(c, crowd, .5) : 0;
+  earn("gate", paying * tp); earn("conc", con.net); earn("events", ventureGame(c, crowd) + pop); spend("rent", ground(c).rent); spend("mdops", opsCost(c, crowd));
   // Home games on their own, for the per-game view (the season's gate total also holds away shares and friendly fees).
-  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.hold = (H.hold || 0) + hold; H.stg = (H.stg || 0) + (league && stHolders(c) ? c.st.n * c.st.price / homeGames(c) : 0); H.conc += con.net; H.vent += ventureGame(c, crowd); H.ops = (H.ops || 0) + opsCost(c, crowd); H.rent += ground(c).rent;
+  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.hold = (H.hold || 0) + hold; H.stg = (H.stg || 0) + (league && stHolders(c) ? c.st.n * c.st.price / homeGames(c) : 0); H.conc += con.net; H.vent += ventureGame(c, crowd) + pop; H.ops = (H.ops || 0) + opsCost(c, crowd); H.rent += ground(c).rent;
   // Prices supporters think unfair cost goodwill; cheap tickets earn a little.
   const r = c.prices.ticket / REF_TICKET[c.tier], cm = 1 + fanShare(c, "comm") * 1.5; if (r > 1.25) moodHit(c, -(r - 1.25) * 3 * cm); else if (r < .8) moodHit(c, .3 * cm);
   c.att = c.att || []; c.att.push(crowd);
@@ -356,18 +359,26 @@ const VENTURES = {
     week: c => c.fans * .012 * 15 * (1 + c.trophies.length * .08) },
   hotel: { l: "Stadium hotel", d: "A hotel built into a stand. Expensive, but steady money all year.", need: c => c.fac.stadium.cap >= 15000, cost: c => 18e6 + c.fac.stadium.cap * 150, upkeep: 1.2e6,
     week: c => (120 + c.fac.stadium.cap / 300) * 7 * 95 * (.55 + c.rep / 200) },
+  fanzone: { l: "Fan zone", d: "Food, drink, music and big screens outside the ground before kick-off. Fans arrive earlier and spend more (it runs at a small loss at tiny crowds); louder support at home, a little more turnout, more hardcore and family fans, happier supporters, and a naming-rights slot for sponsors.",
+    cost: c => 60000 + c.fans * 8 + (c.fac.stadium.cap || 0) * 10, upkeep: c => 3000 + (c.fac.stadium.cap || 0) * 1.5, game: (c, crowd) => fzGame(c, crowd, 1) },
   tenant:{ l: "Tenant team", d: "Rent the ground to a rugby or women's side: weekly rent, but the pitch wears faster.", cost: c => 30000, upkeep: 0,
     week: c => 400 + c.fac.stadium.cap * .35, wear: .9 },
 };
-const has = (c, k) => !!(c.fac.stadium.vent || {})[k];
+const has = (c, k) => !!(c.fac && (c.fac.stadium.vent || {})[k]);
+/* The fan zone: a permanent one at your own ground (full effect), or a pop-up you hire at a rented ground (half the
+   effect, and the hire costs more per game). What a home game makes from it: fans spending before kick-off, less the
+   staff, security and entertainment. */
+const fzK = c => !isMine(c) ? 0 : has(c, "fanzone") && atHome(c) ? 1 : c.fac.stadium.popup && !atHome(c) ? .5 : 0;
+const fzGame = (c, crowd, k) => Math.round(k * crowd * .35 * REF_CONC[c.tier] * .9 - (k >= 1 ? 150 + crowd * REF_TICKET[c.tier] * .03 : 300 + crowd * REF_TICKET[c.tier] * .04));
 const ventureOK = (c, k) => c.fac.stadium.own && (!VENTURES[k].need || VENTURES[k].need(c));
 function buildVenture(k) {
   const c = my(), V = VENTURES[k], cost = Math.round(V.cost(c) / 1e4) * 1e4;
-  spend("build", cost); (c.fac.stadium.vent ||= {})[k] = { y: G.year };
+  spend("build", cost); (c.fac.stadium.vent ||= {})[k] = { y: G.year }; if (k === "fanzone") c.fac.stadium.popup = false;
   news(`${V.l} opens at the ground (${money(cost)}).`, true);
 }
-function closeVenture(k) { const c = my(); delete c.fac.stadium.vent[k]; news(`${VENTURES[k].l} closes.`); }
-const ventureUpkeep = c => sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].upkeep);
+function closeVenture(k) { const c = my(); delete c.fac.stadium.vent[k]; news(`${VENTURES[k].l} closes.`); if (k === "fanzone") { moodHit(c, -3); trustRel(-5); } }
+const ventUp = (c, k) => typeof VENTURES[k].upkeep === "function" ? VENTURES[k].upkeep(c) : VENTURES[k].upkeep;
+const ventureUpkeep = c => sum(Object.keys(c.fac.stadium.vent || {}), k => ventUp(c, k));
 const merchMult = c => (has(c, "shop") ? 1.4 : 1) * (has(c, "mega") ? 1.5 : 1);
 function ventureWeek(c) {
   if (!c.fac.stadium.own) return 0;
