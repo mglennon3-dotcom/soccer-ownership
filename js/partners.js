@@ -17,6 +17,8 @@ function loanOut(p, to, share = .5) {
 }
 // Loan targets: young players a club would lend (not in its first team), from English or foreign clubs.
 const loanable = p => p.club >= 0 && p.club !== G.club && !p.loan && !p.acad && p.age <= 23 && (!CL(p.club).gone || CL(p.club).abroad);
+// What your club pays him a year: his full wage, or your share of it while he is on loan to you.
+const myWage = p => p.loan && p.loan.to === G.club ? p.wage * p.loan.share : p.wage;
 /* A loan is about games at the right level: any club, however big, lends a player to a club in the division that suits
    his ability, or one below it, but not further down (he'd learn nothing). */
 const lendsTo = (p, c = my()) => c.tier - naturalTier(p) <= 1;
