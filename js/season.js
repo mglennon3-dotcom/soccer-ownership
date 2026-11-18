@@ -210,6 +210,7 @@ function endSeason() {
   (G.repLog ||= []).push([G.year, my().rep]);  // the prestige tracker's season-by-season line
   ownersSummer();
   yearTurnover();
+  acadDropouts(mine);
   feedersSummer();
   staffSummer();
   if (G.sTrust && G.sTrust.freeze === G.year) G.sTrust.freeze = 0;
@@ -355,6 +356,27 @@ function youthIntake(c) {
    other academies cost a little compensation. */
 const YOUTH_SCOUT = [["summer", 4, "Late-summer scouting"], ["season", 20, "January scouting"], ["season", 34, "Spring trial day"]];
 const YOUTH_COMP = [0, 60e3, 40e3, 25e3, 15e3, 8e3, 5e3, 3e3];
+/* Academy boys who stop improving drift away. Each summer, a boy of 16 or older who's been with you a year and gained
+   less than 3 rating points may leave: likelier the less he improved, once he's 18, when his prospects look bleak and
+   with no youth manager; a good youth manager keeps more of them. A boy your staff still rate highly asks first (you can try to talk him round); the rest
+   move to another club's academy (a little compensation) or give up the game. */
+function acadDropouts(c) {
+  const y = staffOf("youth"), keep = y ? staffAvg(y) / 100 * .12 + (y.at.dev - 50) / 100 * .1 : -.08, asked = [];
+  for (const p of c.squad.map(P).filter(p => p && p.acad && p.age >= 16 && p.club === c.id)) {
+    const rows = p.prog || []; if (rows.length < 2 || p.stayY === G.year) continue;
+    const gain = rows[rows.length - 1][2] - rows[rows.length - 2][2]; if (gain >= 3) continue;
+    const [a, b] = potEstimate(p), mid = (a + b) / 2, rated = mid >= TIER_LVL[c.tier] - 6, bleak = mid < TIER_LVL[c.tier] - 12;
+    if (R() > clamp(.28 + (3 - gain) * .1 + (p.age >= 18 ? .1 : 0) + (bleak ? .1 : 0) - keep, .05, .75)) continue;
+    if (rated && asked.length < 3) { asked.push(p.id); addChoice("acadLeave", `${p.name} (${p.pos}, ${p.age}) wants to leave the academy`, `He feels he's stopped improving (${gain > 0 ? `up only ${gain} in a year` : "no better than a year ago"}) and wants a fresh start elsewhere. ${y ? y.name + " still rates him" : "The coaches still rate him"}: potential ${est20([a, b])}. You can let him go, or try to talk him round.`, ["Let him go", "Talk him round"], { pid: p.id }, 0); }
+    else acadLeave(p, c);
+  }
+}
+function acadLeave(p, c) {
+  const to = R() < .65 ? pick(G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && Math.abs(x.tier - c.tier) <= 2)) : null;
+  if (to) { leaveClub(p); moveTo(p, to); p.acad = true; const fee = Math.round(YOUTH_COMP[c.tier] * rf(.3, .7) / 500) * 500; if (fee) earn("sales", fee); logMove("out", p, { club: to.name, fee, wage: 0, by: "academy" });
+    news(`Academy player ${p.name} (${p.age}) leaves for ${to.name}${to.name.endsWith("s") ? "'" : "'s"} academy${fee ? `: ${money(fee)} compensation` : ""}. He'd stopped improving here.`); }
+  else { leaveClub(p); toFreeAgent(p); news(`Academy player ${p.name} (${p.age}) leaves the club. He'd stopped improving and wants to try something else.`); }
+}
 function youthScoutWeek() {
   const c = my(), y = staffOf("youth"), lvl = c.fac.acad.lvl; if (!y || !lvl) return;
   const r = YOUTH_SCOUT.find(([ph, w]) => G.phase === ph && G.week === w); if (!r) return;

@@ -45,6 +45,12 @@ DECIDE.pressAmb = (m, i) => { if (i === 0) { bumpMedia(5); moodHit(my(), 3); inv
 DECIDE.pressRival = (m, i) => { if (i === 0) { bumpMedia(4); moodHit(my(), 2); (my().rivals ||= {})[m.data.club] = ((my().rivals || {})[m.data.club] || 0) + 1; } };
 DECIDE.pressTrust = (m, i) => { if (i === 0) trustRel(8, "You promise the trust a meeting."); else { trustRel(-6); moodHit(my(), -2); } };
 
+// An academy boy who's stopped improving wants to leave: let him go, or the youth manager tries to talk him round.
+DECIDE.acadLeave = (m, i) => { const p = G.players[m.data.pid], c = my(); if (!p || p.club !== c.id || !p.acad) return;
+  if (i === 0) { acadLeave(p, c); return; }
+  const y = staffOf("youth"), ok = R() < (y ? .35 + staffAvg(y) / 200 : .25);
+  if (ok) { p.stayY = G.year; news(`${y ? y.name : "The coaches"} talk${y ? "s" : ""} ${p.name} round: he'll give it another year.`); }
+  else { news(`${p.name} can't be persuaded.`); acadLeave(p, c); } };
 // Away days (see club.js): helping supporters travel, and refunds after a heavy away defeat.
 DECIDE.awayHelp = (m, i) => { const c = my(), k = fanCare(c);
   if (i === 0) { spend("travel", m.data.cost); moodHit(c, 2.5 * k); trustRel(6); news("The club pays for supporters' coaches to the away game. The trust is delighted."); }
