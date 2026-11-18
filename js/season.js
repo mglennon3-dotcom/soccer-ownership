@@ -329,23 +329,35 @@ function youthScoutWeek() {
   const room = 14 + lvl * 2 - c.squad.filter(id => P(id).acad).length;  // a bigger academy holds more boys
   const n = Math.min(room, clamp(Math.round(.5 + y.at.reach / 45 + bf * .3 + lvl * .15 + (wide ? .8 : 0) + rf(-.6, .6)), 1, 4)), got = [];
   if (n <= 0) return;
+  const asks = [];
   for (let i = 0; i < n; i++) {
     const from = trial ? "trial" : wide && R() < .35 ? "abroad" : R() < .5 ? "academy" : "trial";
     const pot = drawPotential(sp.mean - 2 + (y.at.judge - 50) * .04 + (from === "academy" ? 1 : 0), sp.exc), age = trial ? ri(15, 16) : ri(15, 17);
     const ovr = clamp(Math.round(pot * rf(.48, .6) + (age - 15) * 2 + normal() * 3), 12, pot);
-    const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat: from === "abroad" ? pickNat("ENG") : "ENG", club: c.id, pot, acad: true, lean: LEAN[sp.phil], wage: 500 });
-    p.yrs = 3; c.squad.push(p.id); p.hist.push([G.year, c.short]);
-    if (pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot, club: c.id, y: G.year });
     const fee = from === "trial" ? 0 : Math.round(YOUTH_COMP[c.tier] * rf(.6, 1.4) * (from === "abroad" ? 1.5 : 1) / 500) * 500;
-    if (fee) spend("acad", fee);
-    got.push({ p, from, fee });
+    // Trialists join straight away. A boy from another academy (or abroad) costs compensation, so he waits for your say:
+    // until then he's nobody's (club -3).
+    const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat: from === "abroad" ? pickNat("ENG") : "ENG", club: fee ? -3 : c.id, pot, acad: true, lean: LEAN[sp.phil], wage: 500 });
+    p.yrs = 3;
+    if (fee) { asks.push({ p, from, fee }); continue; }
+    joinAcademy(p, c); got.push({ p, from, fee });
   }
   const where = { trial: "from a trial", academy: "from another academy", abroad: "from abroad" };
-  const cost = got.reduce((t, g) => t + g.fee, 0);
-  addMsg({ type: "intake", title: `${r[2]}: ${got.length} boy${got.length > 1 ? "s" : ""} join${got.length > 1 ? "" : "s"} the academy`,
-    body: got.map(({ p, from, fee }) => `${p.name} (${p.pos}, ${p.age}) ${where[from]}${fee ? ` for ${money(fee)} compensation` : ""}, potential ${est20(potEstimate(p))}`).join("; ") + `.${cost ? ` ${y.name} paid ${money(cost)} in all.` : ""}`,
+  if (got.length) addMsg({ type: "intake", title: `${r[2]}: ${got.length} boy${got.length > 1 ? "s" : ""} join${got.length > 1 ? "" : "s"} the academy`,
+    body: got.map(({ p, from }) => `${p.name} (${p.pos}, ${p.age}) ${where[from]}, potential ${est20(potEstimate(p))}`).join("; ") + "." + (asks.length ? ` ${y.name} also wants to sign ${asks.length} boy${asks.length > 1 ? "s" : ""} who would cost compensation: see your inbox.` : ""),
     pid: got.slice().sort((a, b) => potEstimate(b.p)[1] - potEstimate(a.p)[1])[0].p.id });
+  for (const { p, from, fee } of asks)
+    addChoice("ySign", `${y.name} wants to sign ${p.name} (${p.pos}, ${p.age}) ${where[from]}`, `${y.name} rates his potential ${est20(potEstimate(p))} (rating now ${r20(p.ovr)}). His ${from === "abroad" ? "club abroad" : "academy"} wants ${money(fee)} in compensation. If you don't answer within three weeks, the chance goes.`, [`Sign him (${money(fee)})`, "Pass"], { pid: p.id, fee, from }, 1);
 }
+function joinAcademy(p, c) {
+  p.club = c.id; c.squad.push(p.id); p.hist.push([G.year, c.short]);
+  if (p.pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot: p.pot, club: c.id, y: G.year });
+}
+DECIDE.ySign = (m, i) => {
+  const p = G.players[m.data.pid]; if (!p || p.club !== -3) return;
+  if (i === 0) { const c = my(); spend("acad", m.data.fee); joinAcademy(p, c); news(`${p.name} (${p.pos}, ${p.age}) joins the academy for ${money(m.data.fee)} in compensation.`); }
+  else { delete G.players[p.id]; news(m.auto ? `The chance to sign ${p.name} for the academy has gone.` : `You pass on ${p.name}.`); }
+};
 function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 
 /* ---------- AI squads ---------- */
@@ -389,5 +401,5 @@ function settleInbox() {
       const deal = m.rec !== "accept" && m.keen && p && p.dealY !== G.year && wageBill(c) + newDealWage(p) - p.wage <= c.budget.wages;
       answerBid(m, m.rec === "accept" ? true : deal ? 2 : false, true); }
     if (m.type === "war" && m.age >= 2) warSell(m, true);
-    if (m.type === "choice" && m.age >= 3) answerChoice(m, m.dflt); }
+    if (m.type === "choice" && m.age >= 3) { m.auto = true; answerChoice(m, m.dflt); } }
 }
