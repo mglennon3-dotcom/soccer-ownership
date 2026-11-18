@@ -42,7 +42,7 @@ function repLevel(rep) { for (let i = 1; i < REP_LVL.length; i++) { const [a, x]
 // there does, not a star; full-time pay comes in through the Third Division.
 const partTime = rep => repLevel(rep) < 58;
 function staffWage(role, rep) {
-  const lvl = repLevel(rep), k = lvl <= 65 ? 1.1 : 1.1 - (lvl - 65) / 25 * .87, full = wageBase(lvl + 5) * k, f = clamp((lvl - 55) / 5, 0, 1);
+  const lvl = repLevel(rep), k = lvl <= 65 ? 1.1 : 1.1 - (lvl - 65) / 25 * .79, full = wageBase(lvl + 5) * k, f = clamp((lvl - 55) / 5, 0, 1);
   // Part-time pay shrinks further down: about 40% of a typical player's wage at Regional level, rising to the full
   // wage by the National Division.
   const pt = wageBase(lvl) * clamp(.4 + (lvl - 44) * .04, .4, 1), m = full * f + pt * (1 - f);

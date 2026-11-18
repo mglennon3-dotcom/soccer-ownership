@@ -125,13 +125,17 @@ const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // mat
 const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + (c.cap || 0) * 40 * (ageUpF(G.year - aiOpened(c)) - 1) + 4000 * (c.train || 0) + aiBill(c) * INSURE * .7 + MED[c.tier] * 4 + (c.upNow ? gradingCost(c, c.tier) : 0);
 // Debt: interest and repayments of about a tenth of what's owed a year (a 25-year stadium loan, roughly).
 const aiDebtService = c => (c.debt || 0) * .1;
-const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c) + aiDebtService(c);  // wages, staff, ground and running costs
+// Transfer fees, spread over contracts (amortisation): about a tenth of the squad's value a year in the Premier, less further down. At the top this is
+// where much of the money goes, so clubs pay players close to the going rate rather than inflating wages.
+const AMORT = [0, .07, .04, .02, .01, 0, 0, 0];  // transfer spending matters most at the top
+const aiAmort = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? valueOf(p) : 0; }) * AMORT[c.tier];
+const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c) + aiDebtService(c) + aiAmort(c);  // wages, staff, ground and running costs
 const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
 /* Every club budgets to break even: its wage budget is what its income leaves after staff, running and match-day costs.
    The owner then bends it: a profit-seeker budgets for a surplus, a spender for a loss (his tolerance), more again while
    chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
    as income, so they show up here. */
-const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c));
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
 /* What he aims for. Like real football, most clubs spend beyond their means and the owner covers the gap: the planned
    loss (a share of income) is deepest in the First Division, where everyone gambles on promotion, and smallest at the
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
@@ -143,7 +147,7 @@ const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l
 function aiBudget(c) { return aiAfford(c) * squeeze(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageFor(p.ovr) : 0; });
-const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 2);
+const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.5);
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
