@@ -21,6 +21,8 @@ function upgradeSave() {
   // 0.14.2: intakes got bigger, so a career from before runs this year's intake again, once (on top of the boys it has).
   // 0.14.12: loans agreed before wage shares were negotiable get one chance to be renegotiated.
   for (const id of G.loanList || []) { const p = G.players[id]; if (p && p.loan && p.loan.to === G.club && !p.loan.neg) { p.loan.neg = true; p.loan.redo = true; if (p.lt) p.lt = null; } }
+  // 0.17.1: the free-agent pool had drained of younger players; top it up once.
+  if (!G.fa2) { G.fa2 = true; if (G.club != null) freshFreeAgents(); }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }

@@ -75,7 +75,7 @@ function summerWeek() {
   marketWeek(); youthScoutWeek();
   G.week++;
   if (G.week >= SUMMER_WEEKS) {
-    G.phase = "season"; G.week = 0;
+    G.phase = "season"; G.week = 0; trimVeterans();
     for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, true);
     news(`The ${seasonLabel(G.year)} season begins. ${my().name} are in the ${LEAGUES[my().lg].name}.`, true);
   }
@@ -248,7 +248,8 @@ function yearTurnover() {
   for (const p of Object.values(G.players)) {
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { p.yrs--; if (p.yrs <= 0) { if (R() < (p.ovr >= CL(p.club).lvl - 3 ? .95 : .6) && p.age < 34) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
-    const ch = p.age >= 39 ? 1 : p.age >= 33 ? (p.age - 32) * .14 * (p.club < 0 ? 2 : 1) * (p.ovr > 75 ? .7 : 1) : p.club < 0 && G.year - p.faY >= 2 ? .6 : 0;
+    // Veterans nobody signs hang up their boots sooner.
+    const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : p.club < 0 && G.year - p.faY >= 2 ? .6 : 0;
     if (R() < ch) { if (p.club === G.club) news(`${p.name} retires, aged ${p.age}.`); retire(p); }
   }
   // Academy graduates: AI clubs keep the good ones; yours are decided by your youth manager (or you, on the Academy page).
@@ -269,6 +270,7 @@ function yearTurnover() {
   // Good free agents don't stay unemployed: a club at their level takes them on.
   for (const p of G.fa.map(P).filter(p => p && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = wageFor(p.ovr); p.yrs = ri(1, 3); } }
   for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, false);
+  freshFreeAgents();
   foreignSummer();
   wonderWatch();
 }
@@ -358,6 +360,19 @@ DECIDE.ySign = (m, i) => {
   if (i === 0) { const c = my(); spend("acad", m.data.fee); joinAcademy(p, c); news(`${p.name} (${p.pos}, ${p.age}) joins the academy for ${money(m.data.fee)} in compensation.`); }
   else { delete G.players[p.id]; news(m.auto ? `The chance to sign ${p.name} for the academy has gone.` : `You pass on ${p.name}.`); }
 };
+/* New faces among the free agents each summer: players released by clubs outside the game's leagues, back from abroad
+   or out of university football, so the pool is never only veterans. Topped up to about 130 aged 29 or under, mostly
+   at lower-division level with a few better ones. */
+// Veterans without a club beyond about sixty retire, the least employable first.
+function trimVeterans() { const v = G.fa.map(P).filter(p => p && p.age >= 33).sort((a, b) => b.ovr - a.ovr); for (const p of v.slice(60)) retire(p); }
+function freshFreeAgents(target = 130) {
+  trimVeterans();
+  const young = G.fa.map(P).filter(p => p && p.age <= 29).length;
+  for (let i = young; i < target; i++) {
+    const age = ri(18, 29), ovr = clamp(Math.round(rf(30, 58) + (R() < .12 ? rf(5, 14) : 0)), 25, 75);
+    toFreeAgent(makePlayer({ pos: pick(POS), ovr, age, nat: R() < .75 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }));
+  }
+}
 function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 
 /* ---------- AI squads ---------- */
