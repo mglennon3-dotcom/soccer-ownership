@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, min: 0, int: "", lg: "", off: [] };
+let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, wage: 0, min: 0, int: "", lg: "", off: [] };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString("en-GB"));
 // Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
 const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
@@ -438,6 +438,8 @@ function pgMarket() {
     .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
     .map(x => ({ ...x, fee: askingFee(x.p, xiCache), pe: potEstimate(x.p) })).filter(x => F.tab === "loans" || !F.fee || x.fee <= F.fee);
   for (const x of pool) x.i = interestOf(x.p);
+  // Max wage (a week): what he'd want to join you, or for a loan the half of his wages you'd pay.
+  if (F.wage) pool = pool.filter(x => (F.tab === "loans" ? x.p.wage / 2 : x.i.ask ?? Infinity) / 52 <= F.wage);
   if (F.int) pool = pool.filter(x => F.int === "sign" ? x.i.k !== "no" : F.int === "open" ? x.i.k === "open" || x.i.k === "keen" : x.i.k === F.int);
   const archOpts = (F.pos ? [F.pos] : POS).map(r => `<optgroup label="${POS_NAME[r]}">${ARCHETYPES[r].map(a => `<option value="${esc(a[0])}" ${F.arch === a[0] ? "selected" : ""}>${a[0]}</option>`).join("")}</optgroup>`).join("");
   const sel = (k, opts) => `<select data-act="mf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
@@ -452,6 +454,7 @@ function pgMarket() {
       <label class="f">Max age${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
       <label class="f">Min rating${sel("min", [[0, "Any"], [2, "2+"], [4, "4+"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
       <label class="f">Interest${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign (not Not interested)"], ["no", "Not interested"]])}</label>
+      <label class="f">Max wage${sel("wage", [[0, "Any"], ...[250, 500, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000].map(v => [v, "€" + v.toLocaleString("en-GB") + "/wk"])])}</label>
       ${F.tab === "loans" ? "" : `<label class="f">Max fee${sel("fee", FEES.map(v => [v, v ? money(v) : "Any"]))}</label>`}
       <label class="f">League${sel("lg", [["", "All leagues"], ...LG_KEYS.map(k => [k, LEAGUES[k].name]), ["ABROAD", "Clubs abroad"]])}</label></div>
     <div class="cty-tog" role="group" aria-label="Countries to search"><span class="small muted">Countries</span>${MKT_COUNTRIES.map(k => { const on = !off.has(k); return `<button class="cty ${on ? "on" : ""}" data-act="mcty" data-k="${k}" aria-pressed="${on}">${k === "ROW" ? "Rest of world" : esc(COUNTRY[k].name)}</button>`; }).join("")}
