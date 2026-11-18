@@ -202,6 +202,10 @@ function playerModal(id) {
     acts = `<div class="row"><button class="btn" data-act="keep" data-id="${p.id}">${p.keep ? "Remove protection" : "Protect (keep and renew)"}</button>
       ${p.acad ? `<button class="btn" data-act="promote" data-id="${p.id}">Offer a professional contract</button><button class="btn danger" data-act="release" data-id="${p.id}">Release from academy</button>` :
       `${net().feeders.length && !p.loan ? `<select data-act="loanout" data-id="${p.id}"><option value="">Loan to a feeder…</option>${net().feeders.map(f => `<option value="${f.id}">${esc(CL(f.id).name)}</option>`).join("")}</select>` : ""}${p.loan ? `<span class="small muted">On loan from ${esc(CL(p.loan.from).name)}</span>` : `${canSell(p) ? `<button class="btn" data-act="list" data-id="${p.id}">${p.list ? "Take off the transfer list" : "Put on the transfer list"}</button>` : `<span class="small muted">Signed in this window: he can't be sold until it closes.</span>`}<button class="btn danger" data-act="release" data-id="${p.id}">Release (${money(releaseCost(p))})</button>`}`}</div>
+      ${p.loan && p.loan.to === G.club && p.loan.redo && loanTerms(p, CL(p.loan.from)).min >= p.loan.share ? `<div class="sugg"><b class="small">His loan terms</b><p class="small good">${esc(CL(p.loan.from).name)} would want at least ${Math.round(loanTerms(p, CL(p.loan.from)).min * 100)}% of his wages for a new loan: your ${Math.round(p.loan.share * 100)}% is already a better deal, so there's nothing to renegotiate.</p></div>` : ""}
+      ${p.loan && p.loan.to === G.club && p.loan.redo && loanTerms(p, CL(p.loan.from)).min < p.loan.share ? `<div class="sugg"><b class="small">Renegotiate his loan</b><p class="small muted">This loan was agreed before wage shares could be negotiated: you pay ${Math.round(p.loan.share * 100)}% of his wages. You have one chance to ask ${esc(CL(p.loan.from).name)} for a better split.</p>
+        <div class="row" style="margin-top:6px"><label class="small">You pay <select id="rshare">${[0, 10, 20, 30, 40].filter(v => v < p.loan.share * 100).map(v => `<option value="${v}" ${v === (p.lt && p.lt.tries ? Math.round(p.lt.min * 100) : 30) ? "selected" : ""}>${v}% · ${pw(p.wage * v / 100)}</option>`).join("")}</select></label><button class="btn sm" data-act="loanredo" data-id="${p.id}">Ask</button></div>
+        ${LOAN_SAY && LOAN_SAY.id === p.id ? `<p class="small warn">${esc(LOAN_SAY.t)}</p>` : ""}</div>` : ""}
       <p class="small muted">Players are only sold when a club makes an offer. Transfer-listed players attract offers while a window is open, usually below their value; they arrive in your inbox with your head of recruitment's advice. Listing a player yourself goes over his head, and the manager won't like losing a first-choice player. Protected players are never sold by your staff and are offered new contracts.</p>`;
   } else {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
@@ -302,6 +306,20 @@ function candModal(role, n) {
       ${no ? "" : `<div class="row" style="margin-top:10px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw0" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy0">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="0">Offer the job</button></div>`}</div>`);
 }
 
+/* Loan wages: who you've borrowed and lent, and the share of each wage you actually pay. */
+function loanWagesCard(c) {
+  const L = (G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && (p.loan.to === c.id || p.loan.from === c.id));
+  if (!L.length) return "";
+  const inn = L.filter(p => p.loan.to === c.id), out = L.filter(p => p.loan.from === c.id);
+  const row = (p, pay, pct, where) => `<div class="row between small" style="padding:4px 0;gap:10px;flex-wrap:nowrap"><span><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><br><span class="muted">${esc(where)} · ${pct}% of ${pw(p.wage)}</span></span><b class="num">${pw(pay)}</b></div>`;
+  const tIn = sum(inn, p => p.wage * p.loan.share), tOut = sum(out, p => p.wage * (1 - p.loan.share));
+  return `<section class="card"><div class="card-h"><h3>Loan wages</h3><span class="small muted">what you pay</span></div>
+    ${inn.length ? `<p class="small muted" style="margin-bottom:2px">Borrowed</p>${inn.map(p => row(p, p.wage * p.loan.share, Math.round(p.loan.share * 100), `from ${CL(p.loan.from).name}`)).join("")}` : ""}
+    ${out.length ? `<p class="small muted" style="margin:8px 0 2px">Lent out (you still pay the rest)</p>${out.map(p => row(p, p.wage * (1 - p.loan.share), Math.round((1 - p.loan.share) * 100), `at ${CL(p.club).name}`)).join("")}` : ""}
+    <dl class="ledger" style="margin-top:8px"><dt class="tot">Loan wages a year</dt><dd class="tot">${money(tIn + tOut)}</dd></dl>
+    <p class="small muted" style="margin-top:6px">Already counted in player wages: you pay only your share of a borrowed player's wage.${inn.some(p => p.loan.redo && loanTerms(p, CL(p.loan.from)).min < p.loan.share) ? ' <b class="warn">A loan can be renegotiated: open the player\'s card.</b>' : ""}</p></section>`;
+}
+
 /* ---------- Finances ---------- */
 function pgFin() {
   const c = my(), f = matchdayForecast(c), T = c.tier, L = c.finLast;
@@ -321,7 +339,7 @@ function pgFin() {
       <div class="row">${[1e5, 1e6, 1e7].map(v => `<button class="btn sm" data-act="invest" data-v="${v}" ${G.owner.wealth < v ? "disabled" : ""}>Put in ${money(v)}</button>`).join("")}</div>
       <div class="row" style="margin-top:8px"><input type="text" inputmode="decimal" class="num-in" id="inv-amt" placeholder="Amount"><button class="btn sm" data-act="investx">Put in</button><button class="btn sm" data-act="withdraw">Take out</button></div></section></div><div class="stack"><section class="card"><div class="card-h"><h3>A year at a glance</h3></div><dl class="ledger">
       <dt>Player wages</dt><dd>${money(wageBill(c))}</dd><dt>Staff wages</dt><dd>${money(staffBill(c))}</dd><dt>Upkeep</dt><dd>${money(upkeep(c))}</dd><dt>Academy + scouting</dt><dd>${money(c.budget.acad + c.budget.scout)}</dd>
-      <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section></div></div>`,
+      <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section>${loanWagesCard(c)}</div></div>`,
     game: () => perGameHTML(c),
     prices: () => `<section class="card"><div class="card-h"><h2>Prices</h2></div><div class="settings">
       ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}: ${money(f.gate)} a game.`)}
@@ -517,7 +535,7 @@ function perGameHTML(c) {
   const f = matchdayForecast(c), vg = ventureGame(c, f.crowd), H = c.hgs || { n: 0 }, n = H.n, inSeason = G.phase !== "summer";
   const ventWeek = atHome(c) ? sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].week ? VENTURES[k].week(c) : 0) : 0;
   const weekIn = [["Sponsors", sponsorTotal(c) / 52], ["Merchandise", merchFor(c)], ["Central (TV) money", TV[c.tier] / 46], ["Executive suites", suitesLet(c) * c.prices.suite / 46], ["Stadium ventures", ventWeek]].filter(x => x[1] > 0);
-  const weekOut = [["Player wages", (wageBill(c) + loanWageAdj(c)) / 52], ["Staff wages", staffBill(c) / 52], ["Directors", dirWages() / 52], ["Facility upkeep", upkeep(c) / 52],
+  const weekOut = [["Player wages", wageBill(c) / 52], ["Staff wages", staffBill(c) / 52], ["Directors", dirWages() / 52], ["Facility upkeep", upkeep(c) / 52],
     ["Academy", c.budget.acad / 52], ["Scouting", c.budget.scout / 52], ["Feeder funding", feederFunding() / 52], ["Loan repayments", sum(G.loans || [], l => l.weekly)], ["Overdraft interest", c.cash < 0 ? -c.cash * .1 / 52 : 0]].filter(x => x[1] > 0);
   const tin = sum(weekIn, x => x[1]), tout = sum(weekOut, x => x[1]), match = f.gate + f.conc + vg - f.rent, eur0 = v => money(v).replace(/^€0$/, "—");
   const rows = (list, sign) => list.map(([l, v]) => `<tr><td style="text-align:left">${l}</td><td class="num">${sign}${money(v)}</td></tr>`).join("");

@@ -26,9 +26,9 @@ const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
 /* Borrowing: you name the share of his wages you'll pay. Each club has a figure in mind for this window (lower for your
    partner club and for youngsters who need games, higher abroad); offer at least that and he comes. Below it they
    tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
-function loanTerms(p) {
+function loanTerms(p, from = CL(p.club)) {
   const w = windowId(); if (p.lt && p.lt.w === w) return p.lt;
-  const from = CL(p.club), partner = net().partner && net().partner.id === from.id;
+  const partner = net().partner && net().partner.id === from.id;
   const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
   return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, 1), tries: 0, no: R() < (partner ? .05 : .2) };
 }
@@ -40,8 +40,16 @@ function askLoan(p, share) {
   if (++T.tries >= 3) { T.no = true; return { ok: false, t: `${from.name} have had enough of haggling: ${p.name} isn't available to you this window.` }; }
   return { ok: false, t: `${from.name} say no: they want you to pay at least ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}). ${3 - T.tries} more ${3 - T.tries === 1 ? "try" : "tries"} before they give up.` };
 }
+/* A loan agreed before shares could be negotiated was fixed at half his wages: you get one chance to renegotiate it,
+   on the same terms as a new loan (offer at least what his club has in mind; three tries). */
+function redoLoan(p, share) {
+  const from = CL(p.loan.from), T = loanTerms(p, from), was = p.loan.share;
+  if (share >= T.min) { p.loan.share = share; p.loan.redo = false; return { ok: true, t: `${from.name} agree: you now pay ${Math.round(share * 100)}% of ${p.name}'s wages (${pw(p.wage * share)}), down from ${Math.round(was * 100)}%.` }; }
+  if (++T.tries >= 3) { p.loan.redo = false; return { ok: false, t: `${from.name} won't discuss it any more: you keep paying ${Math.round(was * 100)}% of his wages.` }; }
+  return { ok: false, t: `${from.name} say no: they want you to pay at least ${Math.round(T.min * 100)}% (${pw(p.wage * T.min)}). ${3 - T.tries} more ${3 - T.tries === 1 ? "try" : "tries"}.` };
+}
 function loanIn(p, from, share = .5) {
-  const c = my(); p.loan = { from: from.id, to: c.id, share };
+  const c = my(); p.loan = { from: from.id, to: c.id, share, neg: true };
   from.squad = from.squad.filter(id => id !== p.id); c.squad.push(p.id); p.club = c.id;
   (G.loanList ||= []).push(p.id);
   news(`${p.name} (${p.pos}, ${r20(p.ovr)}) joins on loan from ${from.name} until the end of the season; you pay ${Math.round(share * 100)}% of his wages.`, true);

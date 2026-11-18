@@ -154,11 +154,13 @@ function acceptOffer(o) {
 const sponsorTotal = c => sum(c.deals, d => d.amt);
 
 /* ---------- the weekly accounts ---------- */
-const wageBill = c => sum(c.squad, id => P(id).wage);
+// What the club actually pays its players a year: the squad's wages, less the part of a borrowed player's wage his own
+// club still pays, plus the part you still pay for players you've lent out.
+const wageBill = c => sum(c.squad, id => P(id).wage) + loanWageAdj(c);
 const staffBill = c => sum(Object.values(c.staff).filter(Boolean), s => s.wage);
 const upkeep = c => upkeepMult() * (stadiumUpkeep(c) + (c.fac.stadium.heat ? heatQuote(c).upkeep : 0)) + ventureUpkeep(c) + facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl);
 function weeklyAccounts(c) {
-  spend("wages", (wageBill(c) + loanWageAdj(c)) / 52);
+  spend("wages", wageBill(c) / 52);
   spend("staff", staffBill(c) / 52); spend("directors", dirWages() / 52);
   spend("fac", upkeep(c) / 52);
   spend("acad", c.budget.acad / 52);

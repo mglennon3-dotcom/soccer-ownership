@@ -19,6 +19,8 @@ function upgradeSave() {
   if (!G.foreign) { makeForeign(); G.cont = {}; }
   if (!G.foreign2) { for (const id of G.foreign) CL(id).lvl = Math.max(CL(id).lvl, 72) + 1.5; G.foreign2 = true; }
   // 0.14.2: intakes got bigger, so a career from before runs this year's intake again, once (on top of the boys it has).
+  // 0.14.12: loans agreed before wage shares were negotiable get one chance to be renegotiated.
+  for (const id of G.loanList || []) { const p = G.players[id]; if (p && p.loan && p.loan.to === G.club && !p.loan.neg) { p.loan.neg = true; p.loan.redo = true; if (p.lt) p.lt = null; } }
   if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }
@@ -65,6 +67,7 @@ const ACT = {
     const v = el.dataset.set != null ? +el.dataset.set : Math.max(0, Math.round((num(inp) + +el.dataset.d) * 100) / 100); inp.value = String(v); CHANGE[a](inp); },
   mfind: el => { Object.assign(MARKET_F, { tab: "all", pos: el.dataset.k, arch: "", int: "sign" }); PAGE = "market"; render(); scrollTo(0, 0); },
   mtab: el => { MARKET_F.tab = el.dataset.k; render(); },
+  loanredo: el => { const p = P(+el.dataset.id), r = redoLoan(p, +$("#rshare").value / 100); LOAN_SAY = r.ok ? null : { id: p.id, t: r.t }; toast(r.t); playerModal(p.id); render(); saveGame(); },
   loanask: el => { const p = P(+el.dataset.id), share = +($("#lshare") ? $("#lshare").value : 50) / 100, r = askLoan(p, share);
     LOAN_SAY = r.ok ? null : { id: p.id, t: r.t };
     if (r.ok) { toast(r.t); closeModal(); } else playerModal(p.id);
