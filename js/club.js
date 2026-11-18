@@ -70,7 +70,7 @@ function startBuild(kind, q) {
   q = { ...q, cost: Math.round(q.cost * buildMult() * (1 - vpt("facilities") * .02) / 1e4) * 1e4, weeks: Math.max(2, Math.round(q.weeks * (1 - dirSkill("ops") * .002))) };
   if (kind === "stadium") c.fac.stadium.build = { ...q, left: q.weeks, total: q.weeks };
   else c.fac[kind].build = { lvl: q.lvl, cost: q.cost, left: q.weeks, total: q.weeks };
-  spend("build", q.cost);
+  spend("build", q.cost); if (kind === "stadium") stadiumLoan(q.cost, q.label || "the work");
   news(`Work starts: ${q.label}. ${money(q.cost)}, about ${q.weeks} weeks.`, true);
 }
 function buildWeek(c) {

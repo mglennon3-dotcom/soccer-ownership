@@ -288,6 +288,7 @@ const CHANGE = {
     render(); },
   stname: el => { G.stName = el.value.trim(); },
   extn: el => { (G.extN ||= {})[el.dataset.k] = Math.max(50, Math.round(num(el) / 50) * 50); render(); },
+  stfin: el => { (G.stFin ||= { share: 0, years: 25 })[el.dataset.k] = +el.value; render(); },
   mvname: el => { G.mvName = el.value.trim(); },
   mvsd: el => { const d = G.mvDraft, k = el.dataset.k; G.mvOpen = true; if (!d) return;
     if (k === "family") d.family = el.value; else if (k === "corp") d.corp = Math.max(0, Math.min(Math.round(num(el)), Math.floor((d.stands.W.cap || 0) * .15)));

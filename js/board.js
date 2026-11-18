@@ -161,6 +161,22 @@ function loansWeek(c) {
   if (G.redWeeks === 6) news(`WARNING: the club is ${money(-c.cash)} overdrawn, beyond the bank's ${money(limit)} limit. Two more weeks and it goes into administration.`, true);
   if (G.redWeeks >= 8) myAdministration(c);
 }
+/* Stadium finance: big stadium projects can be part-paid with a long loan secured on the ground (a little cheaper
+   than ordinary borrowing). The lender will finance up to the share you choose, as long as total debt stays within
+   about 60% of what the club will be worth with the new ground. */
+// Secured on the ground: judged against what the club will be worth with it, so a bit cheaper than ordinary borrowing.
+const stadiumRate = (cost, amt) => Math.max(.02, .04 + my().tier * .004 + Math.max(0, (debtOf() + amt) / (valuation() + cost * .7) - .3) * .08 - loanCut());
+const stadiumFinMax = cost => Math.max(0, Math.round(((valuation() + cost * .7) * .6 - debtOf()) / 1e4) * 1e4);
+function stadiumLoan(cost, label) {
+  const f = G.stFin || {}; if (!f.share || cost < 100000) return 0;
+  const amt = Math.min(Math.round(cost * f.share / 1e4) * 1e4, stadiumFinMax(cost)); if (amt < 50000) return 0;
+  const rate = stadiumRate(cost, amt), n = (f.years || 25) * 52, r = rate / 52;
+  (G.loans ||= []).push({ id: Date.now() % 1e9, amt, left: amt, rate, weekly: amt * r / (1 - Math.pow(1 + r, -n)), years: f.years || 25, y: G.year, lender: "Stadium finance (" + pick(["Northern Bank", "Crown Mutual", "Albion Credit", "Sterling Capital"]) + ")", stadium: true });
+  my().cash += amt; book("borrow", amt);
+  news(`${money(amt)} of ${label} is financed over ${f.years || 25} years at ${(rate * 100).toFixed(1)}%.`, true);
+  const ratio = debtOf() / Math.max(1, valuation() + cost * .7); if (ratio > .5) { investorMood(null, -Math.round((ratio - .5) * 20)); news(`The club's debts are now ${Math.round(ratio * 100)}% of what it's worth. Investors are uneasy.`, true); }
+  return amt;
+}
 function repayLoan(id) { const l = G.loans.find(x => x.id === id); const cost = l.left * 1.02; spend("repay", cost); G.loans = G.loans.filter(x => x !== l); news(`You pay off the ${money(l.amt)} loan early (${money(cost)}).`); }
 function ownerLend(amt) { amt = Math.min(amt, G.owner.wealth); G.owner.wealth -= amt; G.owner.lent = (G.owner.lent || 0) + amt; my().cash += amt; book("borrow", amt); news(`You lend the club ${money(amt)}, interest-free.`); }
 function ownerRecall(amt) { amt = Math.min(amt, G.owner.lent || 0, Math.max(0, my().cash)); G.owner.wealth += amt; G.owner.lent -= amt; my().cash -= amt; book("repay", amt); news(`The club repays you ${money(amt)}.`); }

@@ -48,8 +48,11 @@ function aiMoveCheck(c) {
   const st = c.own.style, kind = st === "developer" ? (R() < .6 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .7 ? "near" : "edge") : wpick(["near", "edge", "far"], k => ({ near: 4, edge: 4, far: 2 })[k]);
   const K = SITE_KINDS[kind], km = ri(...K.km), cap = clamp(Math.round(Math.max(c.cap * rf(1.3, 1.8), c.fans * 1.2) / 500) * 500, c.cap + 1000, SITE_MAX), site = clamp(Math.round(cap * rf(1.3, 2) / 500) * 500, cap, SITE_MAX);
   const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * (1 + (7 - c.tier) * .08) - aiSite(c) * 150 * (1 + (7 - c.tier) * .08);
-  if (st !== "fanowned" && c.own.wealth < cost * .5) return;
-  if (st !== "fanowned") c.own.wealth = Math.round(c.own.wealth - Math.max(0, cost) * .5);  // the rest is borrowed against the new ground
+  // Paid partly by the owner, the rest borrowed against the new ground (supporters' trusts borrow most of it).
+  const share = st === "fanowned" ? .8 : clamp(.5 + Math.max(0, lossTol(c)) * -.2 + (S.debt || 0) * 1.2, .3, .8);
+  if (st !== "fanowned" && c.own.wealth < cost * (1 - share)) return;
+  if (st !== "fanowned") c.own.wealth = Math.round(c.own.wealth - Math.max(0, cost) * (1 - share));
+  c.debt = Math.round((c.debt || 0) + Math.max(0, cost) * share);
   const old = c.cap; (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = cap; c.site = site; c.moved = { y: G.year, km, from: old }; c.opened = G.year;
   let lost = 0; if (km > 9) { lost = Math.min(.25, km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m); }
   if (c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c))
@@ -89,13 +92,15 @@ const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
 // Travel, utilities, insurance and medical bills, and grading works on arriving in a new division.
 const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + 4000 * (c.train || 0) + aiBill(c) * INSURE * .7 + MED[c.tier] * 4 + (c.upNow ? gradingCost(c, c.tier) : 0);
-const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c);  // wages, staff, ground and running costs
+// Debt: interest and repayments of about a tenth of what's owed a year (a 25-year stadium loan, roughly).
+const aiDebtService = c => (c.debt || 0) * .1;
+const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c) + aiDebtService(c);  // wages, staff, ground and running costs
 const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
 /* Every club budgets to break even: its wage budget is what its income leaves after staff, running and match-day costs.
    The owner then bends it: a profit-seeker budgets for a surplus, a spender for a loss (his tolerance), more again while
    chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
    as income, so they show up here. */
-const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c));
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c));
 /* What he aims for. Like real football, most clubs spend beyond their means and the owner covers the gap: the planned
    loss (a share of income) is deepest in the First Division, where everyone gambles on promotion, and smallest at the
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
@@ -113,6 +118,9 @@ const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
   const o = c.own, inc = aiIncome(c), cost0 = aiCosts(c), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
   c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net) };
+  if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));  // the principal comes down a little each year
+  // Heavy debt: two years' income or more puts the club at risk of administration.
+  if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { administration(c); c.debt = Math.round(c.debt * .4); return; }
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
   o.lost = (o.lost || 0) + Math.max(0, -net);
   const here = c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1);
