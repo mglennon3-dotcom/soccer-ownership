@@ -93,6 +93,10 @@ Running locally: any static server works, for example `python3 -m http.server 80
   in five won't lend at all. The Finances overview lists every loan's wage share and what you pay; the wage bill everywhere (budgets,
   your head of recruitment's limits) counts only your share. Lending is about ability, not club size: any club, even a Premier Division one, will lend a player to a club in
   the division that suits his rating or one below it, but not further down.
+- **Transfer activity.** The Activity page lists every move in and out of your club: signings, sales, loans in and
+  out, academy signings, releases and contracts that ran out, with the fee, the wage, the other club and who did the
+  deal (you, your head of recruitment, your suggestion, a partner club). Filter by season and type; totals for fees
+  spent and received.
 - **Negotiate bids.** Counter any offer for one of your players. Each bidder has a most it will pay: counter at or
   under it and they agree; a little over and they come back with an improved (sometimes final) offer; too far over, or
   a third time, and they may walk away.

@@ -10,7 +10,7 @@ const isFeeder = id => net().feeders.some(f => f.id === id);
 /* ---------- loans ---------- */
 // share: the part of his wage the borrowing club pays.
 function loanOut(p, to, share = .5) {
-  const c = my(); p.loan = { from: c.id, to: to.id, share };
+  const c = my(); logMove("loanout", p, { club: to.name, share, wage: p.wage, by: "you" }); p.loan = { from: c.id, to: to.id, share };
   c.squad = c.squad.filter(id => id !== p.id); to.squad.push(p.id); p.club = to.id;
   (G.loanList ||= []).push(p.id);
   news(`${p.name} goes on loan to ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""} for the rest of the season. They pay ${share >= 1 ? "all" : "half"} his wages.`);
@@ -48,8 +48,8 @@ function redoLoan(p, share) {
   if (++T.tries >= 3) { p.loan.redo = false; return { ok: false, t: `${from.name} won't discuss it any more: you keep paying ${Math.round(was * 100)}% of his wages.` }; }
   return { ok: false, t: `${from.name} say no: they want you to pay at least ${Math.round(T.min * 100)}% (${pw(p.wage * T.min)}). ${3 - T.tries} more ${3 - T.tries === 1 ? "try" : "tries"}.` };
 }
-function loanIn(p, from, share = .5) {
-  const c = my(); p.loan = { from: from.id, to: c.id, share, neg: true };
+function loanIn(p, from, share = .5, how) {
+  const c = my(); logMove("loanin", p, { club: clubLabel(from), share, wage: p.wage, by: how || "you" }); p.loan = { from: from.id, to: c.id, share, neg: true };
   from.squad = from.squad.filter(id => id !== p.id); c.squad.push(p.id); p.club = c.id;
   (G.loanList ||= []).push(p.id);
   news(`${p.name} (${p.pos}, ${r20(p.ovr)}) joins on loan from ${from.name} until the end of the season; you pay ${Math.round(share * 100)}% of his wages.`, true);
@@ -58,6 +58,7 @@ function endLoans() {
   for (const id of G.loanList || []) {
     const p = G.players[id]; if (!p || !p.loan) continue;
     const at = CL(p.club), home = CL(p.loan.from);
+    if (home && isMine(home)) logMove("loanback", p, { club: at ? at.name : "" }); else if (at && isMine(at)) logMove("loanend", p, { club: home ? home.name : "" });
     if (at) at.squad = at.squad.filter(x => x !== id);
     if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; } else toFreeAgent(p);  // foreign clubs count as still going
     if (home && isMine(home)) news(`${p.name} returns from his loan at ${at ? at.name : "his loan club"} (${p.s.app} games).`);
@@ -113,7 +114,7 @@ function partnerWindow() {
     }
   }
 }
-DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id) { loanIn(p, x, m.data.share ?? .5); const pt = partners().find(y => y.id === x.id); if (pt) pt.rel += 3; } };
+DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id) { loanIn(p, x, m.data.share ?? .5, "partner"); const pt = partners().find(y => y.id === x.id); if (pt) pt.rel += 3; } };
 
 /* ---------- feeders ---------- */
 function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && !isFeeder(x.id) && (x.half === c.half || x.tier <= 5)).sort((a, b) => a.tier - b.tier || b.rep - a.rep); }
@@ -134,6 +135,6 @@ function feedersSummer() {
       addChoice("fFirst", `First refusal: ${y.name} from ${x.name}`, `${POS_NAME[y.pos]}, ${y.age}, rated ${r20(y.ovr)}, potential ${est20(potEstimate(y))}. Yours for ${money(fee)}, below his value, before anyone else hears about him.`, ["Sign him", "Pass"], { pid: y.id, fee, from: x.id }, 1); }
   }
 }
-DECIDE.fFirst = (m, i) => { const p = G.players[m.data.pid]; if (i !== 0 || !p || p.club !== m.data.from) return; signPlayer(p, m.data.fee, Math.max(p.wage, demandWage(p, my())), false); };
+DECIDE.fFirst = (m, i) => { const p = G.players[m.data.pid]; if (i !== 0 || !p || p.club !== m.data.from) return; signPlayer(p, m.data.fee, Math.max(p.wage, demandWage(p, my())), false, "first refusal"); };
 // What's spent on feeders each week.
 function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / 52); partnersWeek(); }

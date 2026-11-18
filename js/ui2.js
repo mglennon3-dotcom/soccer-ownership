@@ -336,3 +336,30 @@ function pgOwner() {
       ${R.H.length < 2 ? `<p class="small muted" style="margin-top:6px">Promotions, titles, cups, European football and club legends will appear here as they happen.</p>` : ""}</section>
   </div></div>`;
 }
+
+/* ---------- transfer activity: your club's moves ---------- */
+const MOVE_KIND = { in: ["Signed", "good"], out: ["Sold", "warn"], release: ["Released", "bad"], expired: ["Contract ended", "muted"], loanin: ["Loan in", "good"], loanout: ["Loan out", "warn"], loanback: ["Back from loan", "muted"], loanend: ["Loan ended", "muted"], youth: ["Academy signing", "good"] };
+const MOVE_BY = { you: "You", recruit: "Head of recruitment", suggestion: "Your suggestion", "first refusal": "First refusal (feeder)", partner: "Partner club offer", emergency: "Emergency signing", administrators: "Administrators" };
+const moveWhen = m => m.ph === "summer" ? `Pre-season wk ${m.w + 1}` : m.ph === "playoffs" ? "End of season" : `${JAN.includes(m.w) ? "January" : "Week"} ${JAN.includes(m.w) ? "" : m.w + 1}`.trim();
+function pgMoves() {
+  const L = G.tlog || [], ys = [...new Set(L.map(m => m.y))].sort((a, b) => b - a), y = SUB.my ?? (ys[0] ?? G.year), t = SUB.mt || "all";
+  const inY = L.filter(m => y === "all" || m.y === +y);
+  const groups = { all: () => true, in: m => m.kind === "in" || m.kind === "youth", out: m => m.kind === "out", loans: m => m.kind.startsWith("loan"), left: m => m.kind === "release" || m.kind === "expired" };
+  const rows = inY.filter(groups[t]);
+  const spent = sum(inY.filter(m => m.kind === "in" || m.kind === "youth"), m => m.fee || 0), got = sum(inY.filter(m => m.kind === "out"), m => m.fee || 0), payoffs = sum(inY.filter(m => m.kind === "release"), m => m.fee || 0);
+  const nIn = inY.filter(m => m.kind === "in" || m.kind === "youth" || m.kind === "loanin").length, nOut = inY.filter(m => ["out", "release", "expired", "loanout"].includes(m.kind)).length;
+  return `<div class="stack"><section class="card"><div class="card-h"><h2>Transfer activity</h2>
+      <select data-act="msel">${["all", ...ys].map(v => `<option value="${v}" ${String(v) === String(y) ? "selected" : ""}>${v === "all" ? "All seasons" : seasonLabel(+v)}</option>`).join("")}</select></div>
+    <dl class="ledger"><dt>In / out</dt><dd>${nIn} / ${nOut}</dd><dt>Spent on fees</dt><dd>${money(spent)}</dd><dt>Received</dt><dd>${money(got)}</dd>${payoffs ? `<dt>Paid to release players</dt><dd>${money(payoffs)}</dd>` : ""}
+      <dt class="tot">Net</dt><dd class="tot ${got - spent - payoffs < 0 ? "bad" : "good"}">${money(got - spent - payoffs)}</dd></dl>
+    <div class="chips" style="margin:12px 0">${[["all", "All"], ["in", "Signings"], ["out", "Sales"], ["loans", "Loans"], ["left", "Released & expired"]].map(([k, l]) => `<button data-act="sub" data-k="mt" data-v="${k}" aria-pressed="${t === k}">${l}</button>`).join("")}</div>
+    ${rows.length ? sortTable("moves", [
+      { k: "when", l: "When", left: true, v: m => m.y * 1000 + (m.ph === "summer" ? 0 : m.ph === "playoffs" ? 900 : 100 + m.w), f: m => `<span class="small">${y === "all" ? seasonLabel(m.y) + "<br>" : ""}${moveWhen(m)}</span>` },
+      { k: "name", l: "Player", left: true, v: m => m.name, f: m => `${G.players[m.id] ? `<button class="lnk" data-act="player" data-id="${m.id}">${esc(m.name)}</button>` : esc(m.name)}<br><span class="small muted">${m.pos} · ${m.age} · rated ${m.r}</span>` },
+      { k: "kind", l: "Move", left: true, v: m => MOVE_KIND[m.kind][0], f: m => `<span class="small ${MOVE_KIND[m.kind][1]}">${MOVE_KIND[m.kind][0]}</span>${m.share != null ? `<br><span class="small muted">${Math.round((m.kind === "loanout" ? 1 - m.share : m.share) * 100)}% of wages to you</span>` : ""}` },
+      { k: "club", l: "From / to", left: true, v: m => m.club || "", f: m => `<span class="small">${esc(m.club || "—")}</span>` },
+      { k: "fee", l: "Fee", r: true, v: m => m.fee || 0, f: m => m.fee ? `<span class="${m.kind === "out" ? "good" : ""}">${m.kind === "release" ? "−" : ""}${money(m.fee)}</span>` : m.kind === "in" ? "Free" : "—" },
+      { k: "wage", l: "Wage", r: true, v: m => m.wage || 0, f: m => m.wage ? pw(m.wage) : "—" },
+      { k: "by", l: "Deal by", left: true, v: m => m.by || "", f: m => `<span class="small muted">${esc(MOVE_BY[m.by] || "")}</span>` },
+    ], rows, { sort: { k: "when", d: -1 }, quiet: true }) : `<p class="muted">${L.length ? "No moves of this kind." : "Your club's signings, sales, loans and releases will be listed here from now on."}</p>`}</section></div>`;
+}

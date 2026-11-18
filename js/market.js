@@ -90,8 +90,16 @@ function shortlist(c, need, max = 6) {
 }
 
 /* ---------- signing ---------- */
-function signPlayer(p, fee, wage, byOwner) {
+/* ---------- your club's transfer activity ----------
+   Every move in and out of your club, kept for the Activity page: who, when, from or to whom, the fee, the wage, and
+   who did the deal. */
+function logMove(kind, p, o = {}) {
+  (G.tlog ||= []).unshift({ y: G.year, ph: G.phase, w: G.week, kind, id: p.id, name: p.name, pos: p.pos, age: p.age, r: r20(p.ovr), ...o });
+  if (G.tlog.length > 800) G.tlog.length = 800;
+}
+function signPlayer(p, fee, wage, byOwner, how) {
   const c = my(), seller = p.club >= 0 ? CL(p.club) : null;
+  logMove("in", p, { club: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" });
   if (p.club === -2) G.abroad = G.abroad.filter(id => id !== p.id);
   p.abroad = undefined;
   moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4);
@@ -118,8 +126,8 @@ function headWeek(c) {
     const p = G.players[x.id];
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
     const v = suggView(p, c, x.loan); if (!v.ok) continue;
-    if (x.loan) loanIn(p, CL(p.club), v.share);
-    else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, he paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, he agreed ${pw(v.ask)}.`); }
+    if (x.loan) loanIn(p, CL(p.club), v.share, "suggestion");
+    else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false, "suggestion"); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, he paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, he agreed ${pw(v.ask)}.`); }
     G.sugg = sugg().filter(y => y !== x);
     news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null);
   }
@@ -141,12 +149,14 @@ function sellToAI(p, byOwner, fee) {
   const c = my(), buyer = G.clubs.filter(x => !x.gone && !isMine(x) && Math.abs(x.lvl - p.ovr) < 6).sort(() => R() - .5)[0];
   if (!buyer) return release(p, byOwner);
   fee = fee ?? Math.round(valueOf(p) * rf(.75, 1.05) / 1000) * 1000;
+  logMove("out", p, { club: buyer.name, fee, wage: p.wage, by: byOwner ? "you" : "administrators" });
   moveTo(p, buyer); p.wage = wageFor(p.ovr); earn("sales", fee);
   news(`${p.name} is sold to ${buyer.name} for ${money(fee)}${byOwner ? " (your decision)" : ""}.`, true);
   return buyer;
 }
 const releaseCost = p => Math.round(p.wage * Math.max(1, p.yrs) * .5);
 function release(p, byOwner) {
+  if (p.club === G.club) logMove("release", p, { fee: releaseCost(p), wage: p.wage, by: byOwner ? "you" : "recruit" });
   spend("wages", releaseCost(p)); leaveClub(p); toFreeAgent(p);
   news(`${p.name} is released${releaseCost(p) ? `, with ${money(releaseCost(p))} paid up` : ""}${byOwner ? " (your decision)" : ""}.`);
 }
@@ -237,6 +247,7 @@ function answerBid(m, accept, auto) {
 }
 function completeSale(p, buyer, amt, auto) {
   if (!auto && pickXI(my()).some(o => o.p === p)) trust("manager", -6, `didn't want to lose ${p.name}.`);
+  logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto ? "recruit" : "you" });
   leaveClub(p); moveTo(p, buyer); p.wage = wageFor(p.ovr); earn("sales", amt);
   news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
 }
