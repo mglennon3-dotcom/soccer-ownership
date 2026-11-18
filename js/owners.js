@@ -42,14 +42,15 @@ const aiSite = c => c.site ??= Math.max(c.cap || 0, newSite(c.cap || 1000));
    supporters themselves stay close. A long move costs them supporters, as it would you. The owner pays the bill, less
    what the old ground sells for. */
 function aiMoveCheck(c) {
-  const S = ownStyle(c), small = c.cap < STADIUM_T[c.tier] * .65, need = c.fans * 1.25 > c.cap || small, cramped = c.cap >= aiSite(c) * .8 || small;
-  if (c.abroad || !need || !cramped || (c.moved && G.year - c.moved.y < 10) || R() > .04 + S.build * .1) return;
+  // An old ground (70+ years) is out of date: reason enough to move on its own, and the older it is the likelier.
+  const S = ownStyle(c), age = groundAge(c), dated = age >= 70, small = c.cap < STADIUM_T[c.tier] * .65, need = c.fans * 1.25 > c.cap || small || dated, cramped = c.cap >= aiSite(c) * .8 || small || dated;
+  if (c.abroad || !need || !cramped || (c.moved && G.year - c.moved.y < 10) || R() > .015 + S.build * .04 + Math.max(0, age - 60) * .0006) return;
   const st = c.own.style, kind = st === "developer" ? (R() < .6 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .7 ? "near" : "edge") : wpick(["near", "edge", "far"], k => ({ near: 4, edge: 4, far: 2 })[k]);
   const K = SITE_KINDS[kind], km = ri(...K.km), cap = clamp(Math.round(Math.max(c.cap * rf(1.3, 1.8), c.fans * 1.2) / 500) * 500, c.cap + 1000, SITE_MAX), site = clamp(Math.round(cap * rf(1.3, 2) / 500) * 500, cap, SITE_MAX);
   const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * (1 + (7 - c.tier) * .08) - aiSite(c) * 150 * (1 + (7 - c.tier) * .08);
   if (st !== "fanowned" && c.own.wealth < cost * .5) return;
   if (st !== "fanowned") c.own.wealth = Math.round(c.own.wealth - Math.max(0, cost) * .5);  // the rest is borrowed against the new ground
-  const old = c.cap; c.cap = cap; c.site = site; c.moved = { y: G.year, km, from: old };
+  const old = c.cap; (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = cap; c.site = site; c.moved = { y: G.year, km, from: old }; c.opened = G.year;
   let lost = 0; if (km > 9) { lost = Math.min(.25, km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m); }
   if (c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c))
     news(`${c.name} move to a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}${lost ? `; about ${Math.round(lost * 100)}% of their support won't follow` : ""}.`, c.lg === my().lg);

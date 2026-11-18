@@ -78,10 +78,11 @@ function buildWeek(c) {
   if (S.build && --S.build.left <= 0) {
     const b = S.build; S.build = null;
     if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
-    else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
-    else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    if (b.type === "new") openGround(S);
+    else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; st[side].ext = G.year; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, yr: G.year, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "move") moveIn(c, b);
-    else if (b.type === "reground") { S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
+    else if (b.type === "reground") { closeGround(S); S.stands = JSON.parse(JSON.stringify(b.stands)); openGround(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
     else if (b.type === "roof") { standsOf(S)[b.side].roof = true; news(`The ${SIDES[b.side]} has a roof: supporters there stay dry.`, true); }
     else if (b.type === "convert") { standsOf(S)[b.side].type = b.to; news(`The ${SIDES[b.side]} is now ${b.to === "seat" ? "all-seated" : "a terrace"}.`, true); }
     else if (b.type === "corp") { const W = standsOf(S).W; W.corp = (W.corp || 0) + b.add; news(`${b.add} corporate seats are ready in the Main stand (${W.corp} in all).`, true); }
@@ -452,6 +453,15 @@ const SITE_MAX = 90000;
 const newSite = cap => clamp(Math.round((cap * rf(1.5, 2.5) + 3000) / 500) * 500, cap, SITE_MAX);
 const siteCap = S => S.site ??= Math.max(S.cap, newSite(S.cap));
 const siteRoom = S => Math.max(0, siteCap(S) - S.cap);
+/* ---------- ground ages ----------
+   Every ground has an opening year (and, for yours, each stand its own build year). Your club keeps a history of its
+   grounds. AI grounds age too: an old ground is out of date, and its club is likelier to move. */
+const groundAge = c => G.year - (isMine(c) ? (c.fac.stadium.opened ?? G.year) : aiOpened(c));
+const aiOpened = c => c.opened ??= Math.max(c.founded || G.year - 100, G.year - ri(3, 110));
+const standYr = (S, k) => (standsOf(S)[k] || {}).yr ?? S.opened ?? G.year;
+function closeGround(S, to) { if (S.own && S.opened != null) (S.hist ||= []).push({ name: S.name, from: S.opened, to: to ?? G.year, cap: S.cap }); }
+function openGround(S) { S.opened = G.year; for (const k in standsOf(S)) S.stands[k].yr = G.year; }
+
 /* ---------- moving to a new ground ----------
    When the site is too small, buy land elsewhere and build a new ground there. Three kinds of site: in town near the
    old ground (a bit more room, dear land), the edge of town (plenty of room), or out of town (all the room you could
@@ -486,9 +496,9 @@ function moveAnnounced(c, km) {
   news(`The supporters' trust ${km > 9 ? "is furious about" : "has doubts about"} the plan to move the club ${km} km away.`, km > 9);
 }
 function moveIn(c, b) {
-  const S = c.fac.stadium, old = S.name, sell = b.sold ? b.sell : oldGroundValue(c);
+  const S = c.fac.stadium, old = S.name, sell = b.sold ? b.sell : oldGroundValue(c); closeGround(S);
   S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
-  syncCap(S); S.site = b.site; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
+  syncCap(S); openGround(S); S.site = b.site; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
   if (!b.sold) earn("oldground", sell); moodHit(c, moveMood(c, b.km));
   if (b.km > 9) { const lost = Math.min(.25, b.km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); trustRel(-Math.round(b.km * .4));
     const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m);
