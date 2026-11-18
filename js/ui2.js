@@ -132,12 +132,17 @@ function pgRivals() {
   const rich = G.clubs.filter(x => !x.gone && x.own && !isMine(x)).sort((a, b) => b.own.wealth - a.own.wealth).slice(0, 10);
   const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">DERBY</span>' : ""}${x.own.target === c.id ? ' <span class="chip rival r3">HOSTILE</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td><td class="num">${Math.round(x.rep)} <span class="small muted">${esc(prestigeWord(x.rep))}</span></td></tr>`;
   const head = `<thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Owner</th><th style="text-align:left">Style</th><th>Fortune</th><th>Since</th><th>Division</th><th>Prestige</th></tr></thead>`;
-  const h = hostileOf(c);
-  return `${h ? `<section class="card summary" style="margin-bottom:16px"><div class="card-h"><h2>Hostile neighbour: ${esc(h.name)}</h2></div><p>${esc(h.own.name)} bought ${esc(h.name)} in ${h.own.since} to beat you. Expect approaches for your staff and bids for your players, fewer local sponsors and a fight for supporters.</p></section>` : ""}<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Your division's owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${mine.map(row).join("")}</tbody></table></div></section>
-    ${compareCard(c)}
-    <section class="card"><div class="card-h"><h2>The richest owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${rich.map(row).join("")}</tbody></table></div></section></div>
-    <div class="stack"><section class="card"><div class="card-h"><h3>Owner styles</h3></div>${Object.values(OWNER_STYLES).map(s => `<p class="small" style="margin-bottom:6px"><b>${s.l}.</b> ${s.d}</p>`).join("")}
-    <p class="small muted">Owners with deep pockets and big profiles near you take local sponsorship from you. Ambitious owners above you come for your staff and pay over the odds for your players. Clubs change hands in takeovers every summer.</p></section></div></div>`;
+  const h = hostileOf(c), tab = SUB.riv || "cmp";
+  const TABS = [["cmp", "Compare"], ["div", "Division"], ["rich", "Richest"], ["styles", "Owner styles"]];
+  const banner = h ? `<section class="card summary" style="margin-bottom:16px"><div class="card-h"><h2>Hostile neighbour: ${esc(h.name)}</h2></div><p>${esc(h.own.name)} bought ${esc(h.name)} in ${h.own.since} to beat you. Expect approaches for your staff and bids for your players, fewer local sponsors and a fight for supporters.</p></section>` : "";
+  const body = {
+    cmp: () => compareCard(c),
+    div: () => `<section class="card"><div class="card-h"><h2>Your division's owners</h2><span class="small muted">${esc(LEAGUES[c.lg].name)}</span></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${mine.slice().sort((a, b) => b.rep - a.rep).map(row).join("")}</tbody></table></div></section>`,
+    rich: () => `<section class="card"><div class="card-h"><h2>The richest owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${rich.map(row).join("")}</tbody></table></div></section>`,
+    styles: () => `<section class="card"><div class="card-h"><h2>Owner styles</h2></div>${Object.values(OWNER_STYLES).map(s => `<p class="small" style="margin-bottom:6px"><b>${s.l}.</b> ${s.d}</p>`).join("")}
+      <p class="small muted">Owners with deep pockets and big profiles near you take local sponsorship from you. Ambitious owners above you come for your staff and pay over the odds for your players. Clubs change hands in takeovers every summer.</p></section>`,
+  }[tab] || (() => compareCard(c));
+  return `${banner}<div class="chips" style="margin-bottom:14px">${TABS.map(([k, l]) => `<button data-act="sub" data-k="riv" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>${body()}`;
 }
 
 /* ---------- pieces for other pages ---------- */
