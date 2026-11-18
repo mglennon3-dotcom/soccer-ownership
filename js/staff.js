@@ -43,7 +43,9 @@ function repLevel(rep) { for (let i = 1; i < REP_LVL.length; i++) { const [a, x]
 const partTime = rep => repLevel(rep) < 58;
 function staffWage(role, rep) {
   const lvl = repLevel(rep), k = lvl <= 65 ? 1.1 : 1.1 - (lvl - 65) / 25 * .87, full = wageFor(lvl + 5) * k, f = clamp((lvl - 55) / 5, 0, 1);
-  const m = full * f + wageFor(lvl) * (1 - f);
+  // Part-time pay shrinks further down: about 40% of a typical player's wage at Regional level, rising to the full
+  // wage by the National Division.
+  const pt = wageFor(lvl) * clamp(.4 + (lvl - 44) * .04, .4, 1), m = full * f + pt * (1 - f);
   return Math.round(m * (role === "manager" ? 1 : .45) / 1000) * 1000;
 }
 /* Staff, like players: young coaches (a third are 26-35) start lower, being short of experience, but have more room to
