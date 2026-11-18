@@ -81,7 +81,7 @@ const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
    plan a surplus; big spenders lose far more. (His tolerance is separate: how far beyond the plan he'll stand before
    ordering cuts.) */
-const TIER_LOSS = [0, .1, .5, .4, .35, .4, .3, .25];
+const TIER_LOSS = [0, .12, .52, .42, .37, .42, .32, .27];
 const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l < 0) return l;
   return TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0); };
 function aiBudget(c) { return aiAfford(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
