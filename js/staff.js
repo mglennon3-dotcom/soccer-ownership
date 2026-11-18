@@ -151,10 +151,13 @@ const matchWord = m => m >= .75 ? ["Shares your vision", "good"] : m >= .5 ? ["P
    from a bigger pool (20); later searches find 12. */
 function candidates(role) {
   const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
-  if (P[role] && now - P[role].t < 6 && P[role].list.length) return P[role].list;
-  const a = attraction(), n = (G.filled || {})[role] ? 12 : 20, out = [];
-  for (let i = 0; i < n; i++) out.push(genStaff(role, clamp(Math.round(a + (i < n * .65 ? normal() * 8 : 15 + R() * 30)), 3, 95)));
+  const willing = l => l.filter(s => !wontCome(s)).length;
+  if (P[role] && now - P[role].t < 6 && willing(P[role].list) >= 4) return P[role].list;
+  const a = attraction(), n = (G.filled || {})[role] ? 20 : 24, out = [];
+  for (let i = 0; i < n; i++) out.push(genStaff(role, clamp(Math.round(a + (i < n * .7 ? normal() * 8 : 15 + R() * 30)), 3, 95)));
   out.unshift(...exProCands(role));  // former players moving into coaching, your own favourites first
+  // Always a real choice: add candidates a little below the club's pull until at least ten would take the job.
+  for (let k = 0, w = willing(out); w < 10 && k < 60; k++) { const s = genStaff(role, clamp(Math.round(a - 4 - k / 3 - R() * 10), 3, 95)); out.push(s); if (!wontCome(s)) w++; }
   P[role] = { t: now, list: out };
   return out;
 }
