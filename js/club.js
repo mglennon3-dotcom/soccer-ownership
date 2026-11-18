@@ -221,7 +221,7 @@ function homeGameMoney(c, opp, league) {
   if (terraceShare(c)) moodHit(c, terraceShare(c) * .15);
   earn("gate", paying * tp); earn("conc", con.net); earn("events", ventureGame(c, crowd)); spend("rent", ground(c).rent);
   // Home games on their own, for the per-game view (the season's gate total also holds away shares and friendly fees).
-  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
+  const H = (c.hgs ||= { n: 0, crowd: 0, gate: 0, conc: 0, vent: 0, rent: 0 }); H.n++; H.crowd += crowd; H.gate += paying * tp; H.hold = (H.hold || 0) + hold; H.stg = (H.stg || 0) + (league && stHolders(c) ? c.st.n * c.st.price / homeGames(c) : 0); H.conc += con.net; H.vent += ventureGame(c, crowd); H.rent += ground(c).rent;
   // Prices supporters think unfair cost goodwill; cheap tickets earn a little.
   const r = c.prices.ticket / REF_TICKET[c.tier]; if (r > 1.25) moodHit(c, -(r - 1.25) * 3); else if (r < .8) moodHit(c, .3);
   c.att = c.att || []; c.att.push(crowd);
