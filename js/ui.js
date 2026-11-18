@@ -388,14 +388,15 @@ function pgFin() {
 /* ---------- Commercial ---------- */
 function pgComm() {
   const c = my();
-  return `<p class="small muted" style="margin-bottom:12px">Brands pay according to your division, your standing and the size and mood of your support. Offers last a few weeks. Longer deals pay a little less a year but lock it in, which is good while you're small and bad once you've grown. Each deal pays a bonus if you're promoted.</p>
+  return `<p class="small muted" style="margin-bottom:12px">Brands pay according to your division, your standing and the size and mood of your support. Offers last a few weeks. Longer deals pay a little less a year but lock it in, which is good while you're small and bad once you've grown. Each deal pays a bonus if you're promoted. Deals get better as the club grows (promotion, a bigger and happier support, a higher standing, a good league position, full crowds): once you've outgrown a deal by a quarter you can ask for new terms, and brands come to you when you've outgrown it by half.</p>
   <div class="grid2 needs">${Object.entries(SLOTS).map(([k, S]) => {
     const avail = !S.need || S.need(c), d = c.deals.find(x => x.slot === k), offers = c.offers.filter(o => o.slot === k);
     return `<section class="card"><div class="card-h"><h3>${S.l}</h3>${d ? `<span class="good small">${d.yrs} yr left</span>` : ""}</div>
       ${!avail ? `<p class="muted small">${k === "stadium" ? "You need a stadium of your own." : "You need a training ground of level 2 or better."}</p>` :
       `${d ? `<p><b>${esc(d.brand)}</b> · ${money(d.amt)}/yr · promotion bonus ${money(d.bonus)}</p>` : `<p class="muted">No sponsor.</p>`}
       ${offers.length ? `<div class="stack" style="margin-top:10px;gap:8px">${offers.map((o, i) => `<div class="row between offer"><span><b>${esc(o.brand)}</b><br><span class="small muted">${o.yrs} yr · bonus ${money(o.bonus)} · expires in ${o.exp} wk</span></span><span class="row"><b class="num">${money(o.amt)}/yr</b><button class="btn sm primary" data-act="sponsor" data-k="${k}" data-i="${i}">Sign</button></span></div>`).join("")}</div>` : ""}
-      ${!d || d.yrs <= 1 ? `<button class="btn sm" style="margin-top:10px" data-act="askoffers" data-k="${k}" ${(c.ask || {})[k] > G.week + G.year * 100 - 4 && (c.ask || {})[k] ? "disabled" : ""}>Ask the agency for new offers</button>` : ""}`}
+      ${d && d.yrs > 0 && dealGrowth(c, d) >= 1.1 ? `<p class="small good">The club has grown: this slot would fetch about ${money(commercialValue(c) * S.share)} a year now (${Math.round((dealGrowth(c, d) - 1) * 100)}% more).</p>` : ""}
+      ${!d || d.yrs <= 1 || dealGrowth(c, d) >= 1.25 ? `<button class="btn sm" style="margin-top:10px" data-act="askoffers" data-k="${k}" ${(c.ask || {})[k] > G.week + G.year * 100 - 4 && (c.ask || {})[k] ? "disabled" : ""}>Ask the agency for new offers</button>` : ""}`}
     </section>`; }).join("")}</div>`;
 }
 

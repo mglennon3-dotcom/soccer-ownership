@@ -127,7 +127,16 @@ const BRAND_KIND = ["Insurance", "Motors", "Energy", "Bank", "Telecom", "Logisti
 const KIT_BRANDS = ["Strider", "Volta", "Kinetic", "Arcus", "Tempo", "Fieldcraft", "Nova Sport", "Pulse", "Sprintline", "Ridge"];
 const COMM_T = [0, 90e6, 7e6, 1.6e6, 700e3, 220e3, 80e3, 25e3];  // a typical club's commercial value by tier, per year
 const isDerby = (c, o) => o && c.region === o.region && c.lg === o.lg;
-function commercialValue(c) { return (1 + vpt("commercial") * .025) * mediaMult(c) * commMult() * sponsorSqueeze(c) * COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333); }
+/* What brands will pay a year: your division, standing, support and mood, and, within a season, how you're doing
+   (league position) and how many come through the gate. */
+function commercialValue(c) {
+  const t = G.leagues[c.lg] && G.leagues[c.lg].tab && G.leagues[c.lg].tab[c.id] && G.leagues[c.lg].tab[c.id].p >= 6 ? table(c.lg) : null;
+  const posF = t ? 1 + (.5 - t.findIndex(r => r.id === c.id) / (t.length - 1)) * .3 : 1;  // top +15%, bottom -15%
+  const att = (c.att || []).length ? avg(c.att.slice(-8)) : 0, attF = att ? clamp(Math.sqrt(att / Math.max(1, FAN_T[c.tier] * .6)), .8, 1.25) : 1;
+  return (1 + vpt("commercial") * .025) * mediaMult(c) * commMult() * sponsorSqueeze(c) * COMM_T[c.tier] * (.6 + c.rep / 60) * Math.sqrt(Math.max(.15, c.fans / FAN_T[c.tier])) * (.85 + c.mood / 333) * posF * attF;
+}
+// How far you've outgrown a deal: what the slot would fetch now against what it pays.
+const dealGrowth = (c, d) => commercialValue(c) * SLOTS[d.slot].share / Math.max(1, d.amt);
 function makeOffers(slot) {
   const c = my(), base = commercialValue(c) * SLOTS[slot].share, out = [];
   for (let i = 0; i < 3; i++) {
@@ -141,8 +150,11 @@ function refreshOffers(c, force) {
   for (const s of Object.keys(SLOTS)) {
     if (SLOTS[s].need && !SLOTS[s].need(c)) continue;
     const deal = c.deals.find(d => d.slot === s), have = c.offers.filter(o => o.slot === s);
-    // Offers come when the slot is free, and on request in a deal's last year (a new deal replaces the old one from signing).
-    if (((!deal || deal.yrs <= 0) && !have.length) || (force === s && (!deal || deal.yrs <= 1))) { c.offers = c.offers.filter(o => o.slot !== s).concat(makeOffers(s)); }
+    // Offers come when the slot is free, and on request in a deal's last year or once you've outgrown it by a quarter
+    // (a new deal replaces the old one from signing). Outgrow it by half and brands come to you.
+    const grown = deal && deal.yrs > 0 ? dealGrowth(c, deal) : 0;
+    if (((!deal || deal.yrs <= 0) && !have.length) || (force === s && (!deal || deal.yrs <= 1 || grown >= 1.25))) { c.offers = c.offers.filter(o => o.slot !== s).concat(makeOffers(s)); }
+    else if (!force && grown >= 1.5 && !have.length && G.phase !== "playoffs" && R() < .08) { c.offers = c.offers.concat(makeOffers(s)); news(`Brands have noticed how the club has grown: there are new offers for your ${SLOTS[s].l.toLowerCase()} deal, worth about ${Math.round((grown - 1) * 100)}% more than ${deal.brand} pay.`, true); }
   }
 }
 function acceptOffer(o) {
