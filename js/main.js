@@ -78,6 +78,11 @@ function upgradeSave() {
       p.pot = Math.max(p.ovr, Math.round(oldToNew(p.pot))); if (p.prog) for (const r of p.prog) { r[2] = Math.round(oldToNew(r[2])); if (r[7] != null) r[7] = Math.round(oldToNew(r[7])); } }
     for (const c of G.clubs) if (c.lvl != null && !isMine(c)) c.lvl = oldToNew(c.lvl);
     G.tierW = null; }
+  // 0.49.1: pay climbs evenly from 50 to 100 on the 200 scale: contracts there move onto the new scale (by the same
+  // ratio as the going rate), and your wage budget moves with your bill.
+  if (!G.pay11) { G.pay11 = true; const before = G.club != null ? wageBill(my()) : 0;
+    for (const p of Object.values(G.players)) if (p.wage > 1000) { const r = wageFor(p.ovr) / Math.max(1, wageForV1(p.ovr)); if (Math.abs(r - 1) > .01) p.wage = Math.max(1000, Math.round(p.wage * r / 100) * 100); }
+    G.tierW = null; if (G.club != null && before > 0) my().budget.wages = Math.round(my().budget.wages * wageBill(my()) / before / 1000) * 1000; }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }
