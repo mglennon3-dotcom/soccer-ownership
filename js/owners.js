@@ -35,6 +35,8 @@ function newOwner(c, style) {
     : style === "crypto" ? pick(["Coin", "Chain", "Bet", "Block", "Punt", "Token"]) + pick(["Vault", "Stake", "Hub", "X", "Max", "Rush"]) : nameFor("ENG");
   return { name, style, wealth, since: G.year, flash: R() };
 }
+// AI grounds have sites too: room to grow, then no further (never past 90,000).
+const aiSite = c => c.site ??= Math.max(c.cap || 0, newSite(c.cap || 1000));
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
 function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0); }
@@ -119,7 +121,7 @@ function ownersSummer() {
     if (c.gone || isMine(c)) continue;
     c.own ||= newOwner(c); const S = ownStyle(c);
     // Building: ground, training ground, academy.
-    if (R() < S.build) { c.cap = Math.round(c.cap * rf(1.05, 1.2) / 100) * 100; c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0)); }
+    if (R() < S.build) { c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.05, 1.2) / 100) * 100); c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0)); }
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
     if (S.build < .05 && R() < .3) c.train = Math.max(0, c.train - 1);
     // Supporters follow the owner's pricing.

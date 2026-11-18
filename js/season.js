@@ -163,7 +163,7 @@ function endSeason() {
       const up = ids.slice(0, L.auto); if (G.po[k] && G.po[k].win != null) up.push(G.po[k].win);
       // Promoted clubs go up whatever their ground holds. AI clubs grow their grounds as they rise.
       const final = up;
-      for (const id of up) { const c = CL(id); if (!isMine(c)) c.cap = Math.max(c.cap, Math.round(STADIUM_T[LEAGUES[ABOVE[k]].tier] * rf(.5, .8) / 100) * 100); }
+      for (const id of up) { const c = CL(id); if (!isMine(c)) c.cap = Math.max(c.cap, Math.min(aiSite(c), Math.round(STADIUM_T[LEAGUES[ABOVE[k]].tier] * rf(.5, .8) / 100) * 100)); }
       for (const id of final) moves.push([id, ABOVE[k]]);
     }
     if (L.down && L.tier < 7) for (const id of ids.slice(-L.down)) moves.push([id, null]);

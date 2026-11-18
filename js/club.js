@@ -77,7 +77,7 @@ function buildWeek(c) {
   const S = c.fac.stadium;
   if (S.build && --S.build.left <= 0) {
     const b = S.build; S.build = null;
-    if (b.type === "new") { S.own = true; S.cap = b.cap; S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
+    if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
     else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "reground") { S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
@@ -445,6 +445,12 @@ function standQuote(c, side, add) {
   const x = standsOf(c.fac.stadium)[side], to = c.fac.stadium.cap + add;
   return { side, add, cost: Math.round(add * perSeat(to) * TYPE_F[x.type] * roofF(x.roof) * 1.1 / 1e4) * 1e4, weeks: Math.round(14 + add / 600) };
 }
+/* The site: how big a ground the land will take (access, neighbours, planning), set when the ground is first built
+   with room to grow, never more than 90,000. Extensions and rebuilds have to fit on it. */
+const SITE_MAX = 90000;
+const newSite = cap => clamp(Math.round((cap * rf(1.5, 2.5) + 3000) / 500) * 500, cap, SITE_MAX);
+const siteCap = S => S.site ??= Math.max(S.cap, newSite(S.cap));
+const siteRoom = S => Math.max(0, siteCap(S) - S.cap);
 // Demolish a stand and build a new one in its place: clearing the old one, then the new stand at the going rate.
 function rebuildQuote(c, side, cap, type, roof) {
   const S = c.fac.stadium, x = standsOf(S)[side], to = S.cap - x.cap + cap, demo = 20000 + x.cap * 40;
