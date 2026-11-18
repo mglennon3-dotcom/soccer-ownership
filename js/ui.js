@@ -328,8 +328,8 @@ function staffCard(role) {
     <p style="margin:6px 0"><span class="chip list">${esc(ph.l)}</span> ${esc(ph.d)}</p><p class="small">${word(matchWord(visionMatch(s)))}</p>${exLine(s)}<p class="small"><b>Focus:</b> ${esc(R0.focus[s.focus])}${s.form ? ` · <b>Formation:</b> ${s.form}` : ""}</p>
     <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? s20(s.at[k]) - s20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${staff20(s.at[k])}</div>`; }).join("")}<div class="attr-r"><span>Hands-on owner – <span class="small ${tolWord(s)[1]}">${tolWord(s)[0]}</span></span>${staff20(tolOf(s))}</div><div class="attr-r"><span>Potential <span class="small muted">(average ${pr(s, "he")} could reach, est.)</span></span>${bar(staffPotRange(s)[1])}<b class="num">${staffPot20(s)}</b></div></div>
     ${role === "manager" ? `<p class="small">${pr(s, "His")} style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
-    <p class="small muted">${money(s.wage)} a year · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing ${pr(s, "him")} costs ${money(payoff(s))}</p>
-    <div class="row" style="margin-top:10px">${s.expiring ? `<button class="btn primary" data-act="renewstaff" data-r="${role}">Renew 3 years${staffAsk(s) != null ? ` (${money(Math.max(s.wage, staffAsk(s)))}/yr)` : ""}</button>` : ""}<button class="btn" data-act="cands" data-r="${role}">Look for a replacement</button><button class="btn danger" data-act="dismiss" data-r="${role}">Dismiss</button></div></section>`;
+    <p class="small muted">${pw(s.wage)} · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing ${pr(s, "him")} costs ${money(payoff(s))}</p>
+    <div class="row" style="margin-top:10px">${s.expiring ? `<button class="btn primary" data-act="renewstaff" data-r="${role}">Renew 3 years${staffAsk(s) != null ? ` (${pw(Math.max(s.wage, staffAsk(s)))})` : ""}</button>` : ""}<button class="btn" data-act="cands" data-r="${role}">Look for a replacement</button><button class="btn danger" data-act="dismiss" data-r="${role}">Dismiss</button></div></section>`;
 }
 function pgStaff() {
   return `<p class="small muted" style="margin-bottom:12px">The job attracts staff of about reputation ${Math.round(attraction())} (division, facilities, and your fortune). Better people will come for more money; the very best won't drop this far at all. Trust falls when you overrule them or a season goes badly; below 20 they resign.</p>
@@ -345,6 +345,26 @@ let CANDS = null, LOAN_SAY = null, BID_SAY = null;
 const ASEL = new Set();  // academy players ticked for a bulk keep / contract / release
 /* ---------- the staff search: a page like the transfer market ---------- */
 const HIRE_F = { role: "manager", who: "yes", phil: "", focus: "", form: "", min: 0, wage: 0, age: 99, vis: "", st: "" };
+/* Typical staff at each level: a sample of the kind of people working in each division (their reputation in that
+   division's range), their average rating and the best of them, with the going rate for the job. Worked out once. */
+let STAFF_LV = null;
+function staffLevels() {
+  if (STAFF_LV) return STAFF_LV;
+  STAFF_LV = [];
+  for (let t = 1; t <= 7; t++) {
+    const lo = TIER_REP[t] - 4, hi = t > 1 ? TIER_REP[t - 1] - 4 : 99, row = { t };
+    for (const r of Object.keys(ROLES_STAFF)) { const l = Array.from({ length: 120 }, () => staffAvg(genStaff(r, rf(lo, hi)))).sort((a, b) => a - b); row[r] = [s20(avg(l)), s20(l[Math.floor(l.length * .9)])]; }
+    STAFF_LV.push(row);
+  }
+  return STAFF_LV;
+}
+function staffLevelsCard(role) {
+  const t = my().tier, rows = staffLevels(), roles = Object.keys(ROLES_STAFF);
+  return `<details style="margin-bottom:10px"><summary class="small">Typical staff ratings by division</summary>
+    <div class="tbl-wrap" style="margin-top:6px"><table class="sq"><thead><tr><th style="text-align:left">Division</th>${roles.map(r => `<th>${ROLES_STAFF[r].l}</th>`).join("")}<th>Going rate (${ROLES_STAFF[role].l.toLowerCase()})</th></tr></thead><tbody>
+    ${rows.map(x => `<tr${x.t === t ? ' style="font-weight:700"' : ""}><td style="text-align:left">${TIER_NAME[x.t]}${x.t === t ? " (you)" : ""}</td>${roles.map(r => `<td class="num">${x[r][0]} <span class="muted small">best ${x[r][1]}</span></td>`).join("")}<td class="num">${pw(staffWage(role, TIER_REP[x.t]))}</td></tr>`).join("")}</tbody></table></div>
+    <p class="small muted" style="margin-top:4px">Average rating of staff working at each level, and roughly the best one in ten. Going rate: what a typical club in that division pays for the job.</p></details>`;
+}
 function pgHire() {
   const F = HIRE_F, role = F.role, R0 = ROLES_STAFF[role], all = candidates(role), cur = staffOf(role);
   const rows = all.map(s => ({ s, ask: staffAsk(s), vm: visionMatch(s), avg: staffAvg(s) }));
@@ -358,15 +378,16 @@ function pgHire() {
   const attrCols = Object.entries(R0.attrs).map(([k, l]) => ({ k: "a_" + k, l: { tac: "Tactics", mot: "Motiv.", dev: "Develop", judge: "Judge", reach: "Scouting", neg: "Negot.", net: "Contacts" }[k] || l, r: true, v: x => x.s.at[k], f: x => `<b class="num">${s20(x.s.at[k])}</b>` }));
   return `<div class="stack"><section class="card"><div class="card-h"><h2>Find staff</h2><button class="lnk small" data-act="page" data-p="staff">← Staff</button></div>
     <div class="chips" style="margin-bottom:12px">${Object.entries(ROLES_STAFF).map(([k, r]) => `<button data-act="hrole" data-k="${k}" aria-pressed="${role === k}">${r.l}</button>`).join("")}</div>
-    <p class="small muted" style="margin:-4px 0 10px">Going rate for a ${R0.l.toLowerCase()} at your club: <b>${money(jobRate(role))}</b>/yr. Better candidates ask up to about 2.5× that; anyone working at a higher-division club wants at least what they earn now.</p>
-    <p class="small" style="margin-bottom:10px">${cur ? `Now: <b>${esc(cur.name)}</b>, ${esc(R0.phil[cur.phil].l)} · average ${s20(staffAvg(cur))} · ${money(cur.wage)}/yr` : `<span class="warn">Vacant</span>`}</p>
+    <p class="small muted" style="margin:-4px 0 10px">Going rate for a ${R0.l.toLowerCase()} at your club: <b>${pw(jobRate(role))}</b>. Better candidates ask up to about 2.5× that; anyone working at a higher-division club wants at least what they earn now.</p>
+    <p class="small" style="margin-bottom:10px">${cur ? `Now: <b>${esc(cur.name)}</b>, ${esc(R0.phil[cur.phil].l)} · average ${s20(staffAvg(cur))} · ${pw(cur.wage)}` : `<span class="warn">Vacant</span>`}</p>
+    ${staffLevelsCard(role)}
     <div class="chips" style="margin-bottom:12px">${[["yes", `Would come (${yes})`], ["all", `Everyone (${all.length})`]].map(([k, l]) => `<button data-act="hf" data-k="who" data-v="${k}" aria-pressed="${F.who === k}">${l}</button>`).join("")}</div>
     <div class="filters">
       <label class="f">${role === "manager" ? "Style" : "Approach"}${sel("phil", [["", "Any"], ...Object.entries(R0.phil).map(([k, v]) => [k, v.l])])}</label>
       <label class="f">Focus${sel("focus", [["", "Any"], ...Object.entries(R0.focus).map(([k, v]) => [k, v.split(":")[0]])])}</label>
       ${role === "manager" ? `<label class="f">Formation${sel("form", [["", "Any"], ...FORM_KEYS.map(k => [k, k])])}</label>` : ""}
       <label class="f">Min average${sel("min", [[0, "Any"], [5, "5+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
-      <label class="f">Max wage${sel("wage", WAGES.map(v => [v, v ? money(v) + "/yr" : "Any"]))}</label>
+      <label class="f">Max wage${sel("wage", WAGES.map(v => [v, v ? pw(v) : "Any"]))}</label>
       <label class="f">Max age${sel("age", [[99, "Any"], [60, 60], [50, 50], [45, 45], [40, 40]])}</label>
       <label class="f">Vision${sel("vis", [["", "Any"], ["part", "At least partly shares it"], ["full", "Shares your vision"]])}</label>
       <label class="f">Status${sel("st", [["", "Anyone"], ["free", "Out of work"], ["emp", "At another club (poach)"]])}</label></div>
@@ -380,7 +401,7 @@ function pgHire() {
       ...attrCols,
       { k: "tol", l: "Hands-on", r: true, v: x => tolOf(x.s), f: x => `<span class="num ${tolWord(x.s)[1]}">${s20(tolOf(x.s))}</span>` },
       { k: "vis", l: "Vision", v: x => x.vm, f: x => `<span class="small ${matchWord(x.vm)[1]}">${x.vm >= .75 ? "Shares" : x.vm >= .5 ? "Partly" : "Differs"}</span>` },
-      { k: "ask", l: "Wants", r: true, v: x => x.ask ?? 1e12, f: x => x.ask != null ? money(x.ask) : `<span class="small muted">${staffDropOK(x.s) ? "No" : "Won't drop"}</span>` },
+      { k: "ask", l: "Wants", r: true, v: x => x.ask ?? 1e12, f: x => x.ask != null ? pw(x.ask) : `<span class="small muted">${staffDropOK(x.s) ? "No" : "Won't drop"}</span>` },
       { k: "club", l: "Now at", left: true, v: x => x.s.emp != null ? CL(x.s.emp).name : "", f: x => x.s.emp != null ? `<span class="small">${esc(CL(x.s.emp).name)}<br><span class="muted">comp. ${money(poachFee(x.s))}</span></span>` : `<span class="small muted">Out of work</span>` },
     ], pool, { sort: { k: "avg", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}
     <p class="small muted" style="margin-top:10px">Like players, coaches weigh up the whole job: the money, your club's standing, facilities, budgets, the squad, your ambition, and whether you let staff do their jobs. They won't drop more than two divisions below their standing.</p></section></div>`;
@@ -390,7 +411,7 @@ function candModal(role, n) {
   const s = candidates(role)[n]; if (!s) return;
   const R0 = ROLES_STAFF[role], ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null;
   CANDS = { role, list: [s] };
-  modal(`<div class="modal-h"><div><p class="eyebrow">${R0.l} · ${s.age} · reputation ${s.rep}${partTime(s.rep) ? " · part-time" : ""}</p><h2>${esc(s.name)} ${staffBadge(s)}</h2><p class="small">${no ? `<span class="muted">${staffDropOK(s) ? "Not interested at any price" : `Won't drop to the ${TIER_NAME[my().tier]}`}</span>` : "Wants about " + money(ask) + "/yr"}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
+  modal(`<div class="modal-h"><div><p class="eyebrow">${R0.l} · ${s.age} · reputation ${s.rep}${partTime(s.rep) ? " · part-time" : ""}</p><h2>${esc(s.name)} ${staffBadge(s)}</h2><p class="small">${no ? `<span class="muted">${staffDropOK(s) ? "Not interested at any price" : `Won't drop to the ${TIER_NAME[my().tier]}`}</span>` : "Wants about " + pw(ask)}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
       <p class="small muted">${esc(ph.d || "")}</p>
       ${exLine(s)}
@@ -398,7 +419,7 @@ function candModal(role, n) {
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${staff20(s.at[k])}</div>`).join("")}<div class="attr-r"><span>Hands-on owner – <span class="small ${tolWord(s)[1]}">${tolWord(s)[0]}</span></span>${staff20(tolOf(s))}</div><div class="attr-r"><span>Potential <span class="small muted">(average ${pr(s, "he")} could reach, est.)</span></span>${bar(staffPotRange(s)[1])}<b class="num">${staffPot20(s)}</b></div></div>
       ${role === "manager" ? `<p class="small muted">${pr(s, "His")} style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What ${pr(s, "he")}'s weighing up</summary>${factorBars(staffAppeal(s, ask || effDemand(s)), S_FACTORS, s)}</details>
-      ${s.compBlocked === G.year ? `<p class="small bad" style="margin-top:8px">${esc(CL(s.emp).name)} won't talk to you about ${pr(s, "him")} again this season.</p>` : no ? "" : `<div class="row" style="margin-top:10px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw0" value="${fmtNum(ask)}"></label>${s.emp != null ? `<label class="small">Compensation € <input type="text" inputmode="decimal" class="num-in" id="cc0" value="${fmtNum(poachFee(s))}"></label>` : ""}<label class="small">Years <select id="cy0">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="0">${s.emp != null ? `Poach him (${money(poachFee(s))})` : "Offer the job"}</button></div>`}</div>`);
+      ${s.compBlocked === G.year ? `<p class="small bad" style="margin-top:8px">${esc(CL(s.emp).name)} won't talk to you about ${pr(s, "him")} again this season.</p>` : no ? "" : `<div class="row" style="margin-top:10px"><label class="small">Offer €/wk <input type="text" inputmode="decimal" class="num-in" id="cw0" value="${fmtNum(Math.ceil(ask / 52 / 10) * 10)}"></label>${s.emp != null ? `<label class="small">Compensation € <input type="text" inputmode="decimal" class="num-in" id="cc0" value="${fmtNum(poachFee(s))}"></label>` : ""}<label class="small">Years <select id="cy0">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="0">${s.emp != null ? `Poach him (${money(poachFee(s))})` : "Offer the job"}</button></div>`}</div>`);
 }
 
 /* Loan wages: who you've borrowed and lent, and the share of each wage you actually pay. */

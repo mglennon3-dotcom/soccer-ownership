@@ -166,7 +166,7 @@ const ACT = {
   },
   cands: el => { HIRE_F.role = el.dataset.r; HIRE_F.phil = HIRE_F.focus = HIRE_F.form = ""; PAGE = "hire"; closeModal(); render(); scrollTo(0, 0); },
   hire: el => {
-    const s = CANDS.list[+el.dataset.i], wage = num($("#cw" + el.dataset.i)), yrs = +$("#cy" + el.dataset.i).value;
+    const s = CANDS.list[+el.dataset.i], wage = num($("#cw" + el.dataset.i)) * 52, yrs = +$("#cy" + el.dataset.i).value;
     if (!staffDropOK(s)) { toast(empDrop(s) >= 4 ? `${s.name} says no: ${pr(s, "he")} won't leave ${CL(s.emp).name} for a club ${empDrop(s)} divisions lower.` : `${s.name} says no: ${pr(s, "he")} won't drop to the ${TIER_NAME[my().tier]}, whatever the money.`); return; }
     const a = staffAppeal(s, wage);
     if (a.score < a.pr.thr) { toast(`${s.name} says no. ${refusalReason(a, S_FACTORS, s)}`); return; }
