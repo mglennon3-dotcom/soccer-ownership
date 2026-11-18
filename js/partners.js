@@ -159,3 +159,17 @@ function loanOffersWeek(c) {
   }
 }
 DECIDE.loanOffer = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.club); if (i !== 0 || !p || p.club !== G.club || p.loan || !x) return; loanOut(p, x, m.data.share); };
+
+/* Recalling a player you've lent out: he comes straight back. The borrowing club is owed a month of his wages for the
+   trouble (and a feeder or partner minds a little). If your 25-man list is full he can't play until you register him. */
+const recallFee = p => Math.round(p.wage * 4 / 52 / 100) * 100;
+function recallLoan(p) {
+  const c = my(), at = CL(p.club); if (!p.loan || p.loan.from !== c.id) return;
+  const fee = recallFee(p); if (fee) spend("wages", fee);
+  logMove("loanback", p, { club: at ? at.name : "", by: "you" });
+  if (at) at.squad = at.squad.filter(id => id !== p.id);
+  c.squad.push(p.id); p.club = c.id; p.loan = null; G.loanList = (G.loanList || []).filter(id => id !== p.id);
+  const f = net().feeders.find(f => at && f.id === at.id); if (f) f.rel = Math.max(0, f.rel - 3);
+  registerNew(p, c);
+  news(`You recall ${p.name} from his loan at ${at ? at.name : "his loan club"}${fee ? ` (${money(fee)} to them for the trouble)` : ""}.`, true);
+}
