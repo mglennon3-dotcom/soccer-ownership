@@ -107,3 +107,6 @@ html,body{overflow-x:clip}
 .designer select{padding:4px 6px}
 .offer.stand{display:block}
 .offer.stand .row .btn{margin-top:4px}
+/* Player names with their tags wrap in tables, so the tags never run into the next column. */
+table.sq td:first-child{white-space:normal;min-width:9.5em;max-width:13em;line-height:1.5}
+table.sq td:first-child .chip{display:inline-block;margin:1px 3px 1px 0;line-height:1.4}
