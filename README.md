@@ -79,8 +79,11 @@ Running locally: any static server works, for example `python3 -m http.server 80
 - **Bidding wars.** Accept a bid and word gets out: for a player in demand (a star, one coming off a fine season, one
   sold below his value) other clubs may come in. Take the best offer, ask everyone once for best and final bids, or
   keep him. Left alone for two weeks, he goes to the highest bidder.
-- **Not for sale.** Mark a player not for sale from his card: clubs stop bidding for him, any open bids are turned down,
-  and he can't be transfer-listed until you make him available again.
+- **Not for sale.** Mark a player not for sale from his card: open bids are turned down, he can't be transfer-listed,
+  and only a club that really wants him will bid, at two to five times his value (your head of recruitment advises
+  rejecting; it's still your call). A player who has outgrown the club or is paid well under his worth resents it: he's
+  unsettled for a while and more likely to hand in a transfer request, and turning down a big club he wants to join
+  unsettles him further.
 - **Pre-season tours.** Clubs abroad host English sides for a tour fee set by your division (about ten times what an
   English club would pay a side at your level), and they're keener to play you than English clubs far above you.
 - **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against

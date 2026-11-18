@@ -88,6 +88,7 @@ function unhappiness(p, c) {
   if (p.ovr - TIER_LVL[c.tier] >= 10) { s += 1 + (p.ovr - TIER_LVL[c.tier] - 10) / 6; why.push("ambition"); }
   if (p.wage < wageFor(p.ovr) * .6) { s += 1; why.push("wages"); }
   if (p.blocked) { s += p.blocked * 1.2; why.push("a blocked move"); }
+  if (p.nfs && nfsGrudge(p, c)) { s += 1; why.push("being made not for sale"); }
   return s ? { s, why } : null;
 }
 function requestsCheck() {

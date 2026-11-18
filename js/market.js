@@ -161,9 +161,19 @@ const clubLabel = x => x.abroad ? `${x.name} (${COUNTRY[x.country].name})` : x.n
    everyone knows you want to sell), and the bigger clubs come in for your stars whether they're listed or not. */
 function bidsWeek(c) {
   for (const p of c.squad.map(P)) {
-    if (p.nfs) continue;  // you've told everyone he's not for sale: nobody bids
     if (p.acad || p.loan || !canSell(p) || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
     let buyer = null, amt = 0;
+    if (p.nfs) {
+      // Not for sale: only a club that really wants him tries, and it has to blow you away: two to five times his value.
+      if (p.age > 33) continue;
+      const star = p.ovr >= TIER_LVL[c.tier] + 5 || (p.age <= 21 && p.pot >= TIER_LVL[c.tier] + 10), form = Math.max(0, seasonForm(p));
+      if (R() > .006 + (star ? .03 : 0) + form * .03) continue;
+      const want = bidders().filter(x => x.lvl >= p.ovr - 2 && x.tier <= c.tier && (x.rep > c.rep || x.abroad));
+      if (!want.length) continue;
+      buyer = wpick(want, x => bidWeight(x, p, c)) ; amt = feeRound(valueOf(p) * rf(2, 5));
+      addMsg({ type: "bid", keen: buyer.tier < c.tier || buyer.rep > c.rep + 8 || buyer.abroad, nfs: true, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}, though he's not for sale` });
+      continue;
+    }
     if (p.list) {
       if (R() > .35) continue;
       const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 && p.age <= 33);
@@ -190,7 +200,7 @@ function bidsWeek(c) {
 }
 function headAdvice(p, amt) {
   const s = staffOf("recruit"), v = valueOf(p), starter = pickXI(my()).some(o => o.p === p);
-  if (p.keep) return "reject";
+  if (p.keep || p.nfs) return "reject";  // your call: he isn't for sale (you can still accept it yourself)
   if (my().squad.filter(id => !P(id).acad).length <= 16) return "reject";  // the squad is too thin to sell
   if (!coverOK(my(), p)) return "reject";  // it would leave his position short
   if (p.list) return amt >= v * (s && s.phil === "value" ? .75 : .6) ? "accept" : "reject";  // he wants him gone, at a fair price
@@ -369,13 +379,17 @@ function ownerBuy(p, fee, wage) {
   const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null); else trust("manager", -3, null);
 }
 /* You put a player on the transfer list (or take him off). Offers then come in through the inbox. */
+// Would being kept off the market rankle? He's well above the division, or paid well below his worth.
+const nfsGrudge = (p, c) => p.age <= 31 && (p.ovr - TIER_LVL[c.tier] >= 6 || p.wage < wageFor(p.ovr) * .8);
 /* Not for sale: you tell the world he isn't available. Nobody bids for him, open bids are turned down, and your staff
    never list him. A player who wanted the move he's now been denied may be unsettled. */
 function setNotForSale(p, on) {
   p.nfs = on; if (!on) return news(`${p.name} is available again: clubs can bid for him.`);
   p.list = false;
   for (const m of G.inbox.filter(m => m.type === "bid" && !m.done && m.pid === p.id)) { m.done = true; m.answer = "rejected: not for sale"; }
-  news(`You declare ${p.name} not for sale. Clubs are told not to bother bidding.`);
+  news(`You declare ${p.name} not for sale. Clubs are told only a huge offer will do.`);
+  // A player who has outgrown the club, or is paid well under his worth, doesn't like being told he can't leave.
+  if (nfsGrudge(p, my())) { p.unsettled = Math.max(p.unsettled || 0, 4); news(`${p.name} isn't happy about being made not for sale: he thinks he deserves ${p.wage < wageFor(p.ovr) * .8 ? "more money" : "a bigger club"}.`, true); }
 }
 function ownerList(p) {
   p.list = !p.list; if (p.list) p.nfs = false;
