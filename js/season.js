@@ -321,6 +321,9 @@ const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2 + youthPedigre
 const youthPedigree = c => c.ypd ??= isMine(c) ? 0 : R() < .12 ? Math.round(rf(4, 9) * 10) / 10 : R() < .11 ? Math.round(rf(-3, -1) * 10) / 10 : Math.round(rf(-.5, 1.5) * 10) / 10;
 const pedigreeWord = c => { const v = youthPedigree(c); return v >= 4 ? ["Renowned for developing youth", "good"] : v >= 2 ? ["A good record with youth", "good"] : v <= -1 ? ["A poor record with youth", "warn"] : null; };
 const gemMult = c => 1 + Math.max(0, youthPedigree(c)) / 5;
+// An AI club's youth recruitment: how well its scouts find boys (staff-style 0-100). Better at clubs known for youth
+// and further up the pyramid; it lifts their intakes like a youth manager's scouting does yours.
+const aiYouthScout = c => c.yscout ??= clamp(Math.round(35 + normal() * 12 + youthPedigree(c) * 4 + (7 - c.tier) * 3), 10, 95);
 function intakeSpec(c) {
   if (isMine(c)) {
     const lvl = c.fac.acad.lvl; if (!lvl) return null;
@@ -329,7 +332,7 @@ function intakeSpec(c) {
       mean: youthBase(c, lvl) + vpt("youth") * .4 + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3) + bf + (wide ? 1.5 : 0),
       exc: 1 + lvl * .1 + (wide ? .5 : 0), phil: y ? y.phil : "balanced", wide };
   }
-  return { n: Math.round(2 + c.acadLvl * .3 + R()), mean: youthBase(c, c.acadLvl), exc: 1 + c.acadLvl * .1, phil: "balanced", wide: c.tier <= 2 };
+  return { n: Math.round(2 + c.acadLvl * .3 + aiYouthScout(c) / 50 + R()), mean: youthBase(c, c.acadLvl) + (aiYouthScout(c) - 50) * .05, exc: 1 + c.acadLvl * .1, phil: "balanced", wide: c.tier <= 2 };
 }
 const LEAN = { technical: { pas: 5, tec: 6, vis: 5, dri: 3, str: -4, pac: -2 }, physical: { pac: 5, str: 6, sta: 5, hea: 3, tec: -4, vis: -3 }, balanced: null };
 function youthIntake(c) {

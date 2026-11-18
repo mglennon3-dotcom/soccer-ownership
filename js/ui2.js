@@ -49,6 +49,8 @@ let DIRC = [];
 // A club's team average: its manager's first-choice eleven, on the 1-20 scale.
 const teamAvg = x => { const xi = pickXI(x); return xi.length ? r20(avg(xi.map(o => roleRating(o.p, o.slot)))) : "—"; };
 // The young players a partner club would lend you (outside its first team, at your level), best prospects first.
+// A club's youth set-up at a glance: academy level, youth recruitment (staff 1-20 scale) and reputation.
+const youthLine = x => { const w = pedigreeWord(x); return `Academy level <b>${x.acadLvl || 0}</b>/10 · youth recruitment <b>${sr20(aiYouthScout(x))}</b>${w ? ` · <span class="${w[1]}">${w[0].toLowerCase()}</span>` : ""}`; };
 function partnerLendable(x, c = my()) { const xi = new Set(pickXI(x).map(o => o.p.id)); return x.squad.map(P).filter(q => !q.acad && !q.loan && q.age <= 23 && !xi.has(q.id) && lendsTo(q, c)).sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1]); }
 function partnerLoanRows(x, avail, max) {
   return `<div class="stack" style="gap:4px;margin-top:6px">${avail.slice(0, max).map(q => { const t = playerLoanTerms(q, x);
@@ -75,9 +77,9 @@ function pgNet() {
   const feeders = `<section class="card"><div class="card-h"><h2>Feeder clubs</h2><span class="small muted">${N.feeders.length} of ${MAX_FEEDERS}</span></div>
     <p class="small muted" style="margin-bottom:10px">Clubs in lower divisions that you fund. The money raises their standard and facilities each summer. They take your young players on loan first (they pay half the wages), and they give you first refusal on their best youngsters at a discount that grows with the relationship.</p>
     ${N.feeders.map(f => { const x = CL(f.id), out = (G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.to === x.id && p.loan.from === c.id);
-      return `<div class="offer"><div class="row between"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name} · team average <b>${teamAvg(x)}</b> (yours ${teamAvg(c)})</span></span><span class="row">${moodBar(f.rel)}<button class="btn sm danger" data-act="dropfeeder" data-id="${x.id}">End</button></span></div>
+      return `<div class="offer"><div class="row between"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name} · team average <b>${teamAvg(x)}</b> (yours ${teamAvg(c)})<br>${youthLine(x)}</span></span><span class="row">${moodBar(f.rel)}<button class="btn sm danger" data-act="dropfeeder" data-id="${x.id}">End</button></span></div>
         <div class="row small" style="margin-top:6px"><label>Funding €/yr <input type="text" inputmode="decimal" class="num-in" data-act="ffund" data-id="${x.id}" value="${fmtNum(f.fund)}"></label><span class="muted">${out.length ? "On loan there: " + out.map(p => esc(p.name)).join(", ") : "None of your players there."}</span></div></div>`; }).join("")}
-    ${N.feeders.length < MAX_FEEDERS ? (feederCands().length ? `<h3 style="margin:12px 0 6px">Add a feeder</h3><div class="stack" style="gap:6px">${feederCands().slice(0, 8).map(x => `<div class="row between offer"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name} · team average ${teamAvg(x)}</span></span><button class="btn sm" data-act="addfeeder" data-id="${x.id}">Make a feeder</button></div>`).join("")}</div>` : `<p class="muted">No division below you to recruit feeders from yet.</p>`) : ""}
+    ${N.feeders.length < MAX_FEEDERS ? (feederCands().length ? `<h3 style="margin:12px 0 6px">Add a feeder</h3><div class="stack" style="gap:6px">${feederCands().slice(0, 8).map(x => `<div class="row between offer"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name} · team average ${teamAvg(x)}<br>${youthLine(x)}</span></span><button class="btn sm" data-act="addfeeder" data-id="${x.id}">Make a feeder</button></div>`).join("")}</div>` : `<p class="muted">No division below you to recruit feeders from yet.</p>`) : ""}
     <p class="small muted" style="margin-top:8px">Loan a player out from his page in the Squad tab.</p></section>`;
   return `<div class="grid2"><div class="stack">${feeders}</div><div class="stack">${partner}</div></div>`;
 }
