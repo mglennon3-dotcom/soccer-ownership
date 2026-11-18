@@ -86,12 +86,35 @@ function unhappiness(p, c) {
   let s = 0;
   if (games >= 10 && !xi.includes(p) && p.ovr >= med && p.s.app < games * .3) { s += 2; why.push("playing time"); }
   if (p.ovr - TIER_LVL[c.tier] >= 10) { s += 1 + (p.ovr - TIER_LVL[c.tier] - 10) / 6; why.push("ambition"); }
-  if (p.wage < wageFor(p.ovr) * .6) { s += 1; why.push("wages"); }
+  if (p.wage < wageFor(p.ovr) * .6 || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
   if (p.blocked) { s += p.blocked * 1.2; why.push("a blocked move"); }
   if (p.nfs && nfsGrudge(p, c)) { s += 1; why.push("being made not for sale"); }
   return s ? { s, why } : null;
 }
+/* Pay rises: every four weeks a player paid well under his worth (under 80% of the going rate for his rating) may ask
+   for one, up to the going rate. Give it, meet him halfway (he'll take it, a little grudgingly), or refuse (he's
+   unsettled and the grievance stays). Left unanswered, your head of recruitment decides on the wage budget. */
+function payReviews() {
+  const c = my(); if (G.phase === "playoffs" || G.week % 4 !== 0) return;
+  let n = 0;
+  for (const p of c.squad.map(P)) {
+    if (n >= 2) break;
+    if (p.acad || p.loan || p.age > 35 || p.payY === G.year || G.inbox.some(m => m.key === "raise" && !m.done && m.data.pid === p.id)) continue;
+    const worth = Math.round(demandWage(p, c) / 100) * 100; if (p.wage >= worth * .8 || R() > .35) continue;
+    p.payY = G.year; n++;
+    const half = Math.round((p.wage + worth) / 2 / 100) * 100, room = c.budget.wages - wageBill(c) >= worth - p.wage;
+    addChoice("raise", `${p.name} asks for a pay rise`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He earns ${pw(p.wage)}; players of his standard get about ${pw(worth)}. He wants that.`,
+      [`Give him ${pw(worth)}`, `Meet him halfway (${pw(half)})`, "Refuse"], { pid: p.id, worth, half }, room ? 0 : 2);
+  }
+}
+DECIDE.raise = (m, i) => {
+  const p = G.players[m.data.pid]; if (!p || p.club !== G.club) return;
+  if (i === 0) { p.wage = Math.max(p.wage, m.data.worth); p.unsettled = 0; p.payGrudge = 0; news(`${p.name} gets his pay rise: ${pw(p.wage)}.`); }
+  else if (i === 1) { p.wage = Math.max(p.wage, m.data.half); news(`${p.name} accepts ${pw(p.wage)}, though he wanted more.`); }
+  else { p.unsettled = Math.max(p.unsettled || 0, 6); p.payGrudge = (p.payGrudge || 0) + 1; news(`${p.name}'s request for a pay rise is turned down. He's unsettled.`, true); }
+};
 function requestsCheck() {
+  payReviews();
   const c = my(); if (G.phase === "playoffs" || G.week % 4 !== 2) return;
   for (const p of c.squad.map(P)) {
     const u = unhappiness(p, c); if (!u || R() > clamp(u.s * .07, 0, .35)) continue;

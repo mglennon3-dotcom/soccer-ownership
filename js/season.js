@@ -241,7 +241,7 @@ function yearTurnover() {
   for (const p of seniors) {
     p.yrs--;
     if (p.yrs > 0) continue;
-    if (p.keep || wantsRenewal(p, core.has(p.id))) { p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(demandWage(p, mine) * (p.ovr < TIER_LVL[mine.tier] - 6 ? .5 : 1) / 100) * 100); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
+    if (p.keep || wantsRenewal(p, core.has(p.id))) { p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(demandWage(p, mine) / 100) * 100); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
     else { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); gone.push(p.name); }
   }
   if (kept.length || gone.length) addMsg({ type: "contracts", title: `Contracts: ${kept.length} renewed, ${gone.length} released`, body: (kept.length ? `New contracts: ${kept.join(", ")}. ` : "") + (gone.length ? `Leaving: ${gone.join(", ")}.` : "") });
@@ -251,6 +251,8 @@ function yearTurnover() {
     const club = p.loanedAt && p.loanedAt.y === G.year ? `${p.loanedAt.short} (loan)` : p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA";
     (p.prog ||= []).push([G.year, p.age, p.ovr, club, p.s.app, p.s.g, p.s.a, p.pot]); if (p.prog.length > 10) p.prog.shift();
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
+    // AI wages drift toward the going rate for the player's rating: a fifth of the gap a year, down as he declines, up as he improves.
+    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan) { const go = wageFor(p.ovr); p.wage = Math.round((p.wage + (go - p.wage) * .2) / 100) * 100; }
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { p.yrs--; if (p.yrs <= 0) { if (R() < (p.ovr >= CL(p.club).lvl - 3 ? .95 : .6) && p.age < 34) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
     // Veterans nobody signs hang up their boots sooner.
     const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;
@@ -285,7 +287,7 @@ function wantsRenewal(p, core) {
   const useful = core || p.ovr >= TIER_LVL[c.tier] - 6 || (p.age <= 22 && potEstimate(p)[1] >= TIER_LVL[c.tier]);
   if (!s) return pickXI(c).some(o => o.p === p);
   if (s.phil === "potential" && p.age >= 30) return false;
-  return useful && wageBill(c) + Math.max(0, demandWage(p, c) * (p.ovr < TIER_LVL[c.tier] - 6 ? .5 : 1) - p.wage) <= c.budget.wages * 1.05;
+  return useful && wageBill(c) + Math.max(0, demandWage(p, c) - p.wage) <= c.budget.wages * 1.05;
 }
 // The club below a player's level that would buy him: one whose standard matches his rating.
 function buyerFor(p, belowTier) {

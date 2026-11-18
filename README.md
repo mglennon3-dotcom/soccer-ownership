@@ -98,6 +98,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
   fresh deputy. Every match has up to three substitutes (five in a friendly): the most tired starters come off for a
   bench player in the same part of the pitch, the manager spreading the minutes among those who've played least. The
   Squad page shows appearances with sub appearances in brackets, and each player's fitness.
+- **Fair wages.** Contracts are renewed at the going rate for a player's rating. A player paid under 80% of his worth
+  may ask for a pay rise: give it, meet him halfway, or refuse (he's unsettled, and it counts toward a transfer
+  request). AI clubs' wages drift toward the going rate each summer, so comparisons are fair.
 - **Squad registration.** Hold as many players as you like, but only 25 registered seniors can play; under-21s and
   academy players don't need registering. Tick or untick players in the Squad page's Reg. column while a transfer
   window is open. New signings are registered if there's room, and your manager fills any empty places when a window
