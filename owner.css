@@ -121,3 +121,5 @@ table.sq td:has(> .lnk[data-act="player"]) .chip{display:inline-block;margin:1px
 .fanbar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:4px 0 8px}
 .fanbar i{display:block;height:100%}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle}
+.srate{display:inline-block;font-family:var(--f-mono);font-weight:700;font-size:15px;padding:1px 8px;border-radius:6px;background:var(--accent);color:var(--on-accent);vertical-align:middle;line-height:1.5}
+.srate small{font-size:11px;font-weight:600;opacity:.8}

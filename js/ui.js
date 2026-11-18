@@ -310,12 +310,14 @@ function playerModal(id) {
 }
 
 /* ---------- Staff ---------- */
+// A staff member's rating (his average, 1-20) beside his name, with his potential when he still has room to grow.
+const staffBadge = s => { const a = s20(staffAvg(s)), pt = s20(staffPot(s)); return `<span class="srate" title="Rating ${a}${pt > a ? `, potential ${pt}` : ""}">${a}${pt > a ? `<small> → ${pt}</small>` : ""}</span>`; };
 function staffCard(role) {
   const s = staffOf(role), R0 = ROLES_STAFF[role];
   if (!s) return `<section class="card"><div class="card-h"><h2>${R0.l}</h2><span class="warn">Vacant</span></div><p class="muted" style="margin-bottom:10px">${role === "manager" ? "Picks the team, sets the tactics, develops the players. Without one, the club captain does it badly." : role === "recruit" ? "Signs and sells players within your budgets, renews contracts, and advises you on bids." : "Runs the academy: the size and quality of each year's intake, and how the youngsters develop."}</p><button class="btn primary" data-act="cands" data-r="${role}">Find candidates</button></section>`;
   const ph = R0.phil[s.phil];
   return `<section class="card"><div class="card-h"><h2>${R0.l}</h2><span>${word(trustWord(s.trust))} <span class="muted small">trust ${Math.round(s.trust)}</span></span></div>
-    <p class="lead"><b>${esc(s.name)}</b>, ${s.age}</p>
+    <p class="lead"><b>${esc(s.name)}</b> ${staffBadge(s)}<span class="muted">, ${s.age}</span></p>
     <p style="margin:6px 0"><span class="chip list">${esc(ph.l)}</span> ${esc(ph.d)}</p><p class="small">${word(matchWord(visionMatch(s)))}</p>${exLine(s)}<p class="small"><b>Focus:</b> ${esc(R0.focus[s.focus])}${s.form ? ` · <b>Formation:</b> ${s.form}` : ""}</p>
     <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? s20(s.at[k]) - s20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${staff20(s.at[k])}</div>`; }).join("")}<div class="attr-r"><span>Hands-on owner <span class="small ${tolWord(s)[1]}">${tolWord(s)[0]}</span></span>${staff20(tolOf(s))}</div><div class="attr-r"><span>Potential <span class="small muted">(average he could reach)</span></span>${staff20(staffPot(s))}</div></div>
     ${role === "manager" ? `<p class="small">His style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
@@ -380,7 +382,7 @@ function candModal(role, n) {
   const s = candidates(role)[n]; if (!s) return;
   const R0 = ROLES_STAFF[role], ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null;
   CANDS = { role, list: [s] };
-  modal(`<div class="modal-h"><div><p class="eyebrow">${R0.l} · ${s.age} · reputation ${s.rep}</p><h2>${esc(s.name)}</h2><p class="small">${no ? `<span class="muted">${staffDropOK(s) ? "Not interested at any price" : `Won't drop to the ${TIER_NAME[my().tier]}`}</span>` : "Wants about " + money(ask) + "/yr"}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
+  modal(`<div class="modal-h"><div><p class="eyebrow">${R0.l} · ${s.age} · reputation ${s.rep}</p><h2>${esc(s.name)} ${staffBadge(s)}</h2><p class="small">${no ? `<span class="muted">${staffDropOK(s) ? "Not interested at any price" : `Won't drop to the ${TIER_NAME[my().tier]}`}</span>` : "Wants about " + money(ask) + "/yr"}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
       <p class="small muted">${esc(ph.d || "")}</p>
       ${exLine(s)}
