@@ -72,7 +72,7 @@ function summerWeek() {
   if (G.week === 1) partnerWindow();
   if (G.week === 2 || G.week === 5) foreignLoans();
   friendlyWeek();
-  marketWeek();
+  marketWeek(); youthScoutWeek();
   G.week++;
   if (G.week >= SUMMER_WEEKS) {
     G.phase = "season"; G.week = 0;
@@ -96,6 +96,7 @@ function seasonWeek() {
   if (w === JAN[0]) { partnerWindow(); aiListings(); }
   if (w === JAN[0] || w === JAN[2]) foreignLoans();
   if (JAN.includes(w)) marketWeek();
+  youthScoutWeek();
   if (w % 3 === 2) devTick(1 / 16);
   G.week++;
   if (G.week >= SEASON_WEEKS) startPlayoffs();
@@ -282,7 +283,7 @@ function intakeSpec(c) {
   if (isMine(c)) {
     const lvl = c.fac.acad.lvl; if (!lvl) return null;
     const y = staffOf("youth"), bf = budgetFactor(c.budget.acad, acadRef(lvl)), wide = y && y.focus === "wide";
-    return { n: Math.max(1, Math.round(2 + lvl * .45 + (y ? y.at.reach / 40 : 0) + bf * .4 + (wide ? 1 : 0))),
+    return { n: Math.max(3, Math.round(2 + lvl * .45 + (y ? y.at.reach / 40 : 0) + bf * .4 + (wide ? 1 : 0))),
       mean: 37 + vpt("youth") * .4 + lvl * 1.3 + (y ? (y.at.reach - 50) * .05 + (y.at.judge - 50) * .03 : -3) + bf + (wide ? 1.5 : 0),
       exc: 1 + lvl * .1 + (wide ? .5 : 0), phil: y ? y.phil : "balanced", wide };
   }
@@ -305,6 +306,37 @@ function youthIntake(c) {
     const y = staffOf("youth");
     addMsg({ type: "intake", title: `Youth intake: ${got.length} new player${got.length > 1 ? "s" : ""}`, body: best ? `${y ? y.name + " rates" : "The coaches rate"} ${best.name} (${best.pos}, ${best.age}) the pick of the group, potential ${est20(potEstimate(best))}.` : "", pid: best && best.id });
   }
+}
+/* ---------- youth scouting ----------
+   Besides the summer intake, the youth manager brings in boys his scouts find, three times a year: late summer,
+   January and a spring trial day. How many, and how good, depends on his scouting reach and eye for potential, the
+   academy budget and level, and whether he looks locally or nationally and abroad. Trialists cost nothing; boys from
+   other academies cost a little compensation. */
+const YOUTH_SCOUT = [["summer", 4, "Late-summer scouting"], ["season", 20, "January scouting"], ["season", 34, "Spring trial day"]];
+const YOUTH_COMP = [0, 60e3, 40e3, 25e3, 15e3, 8e3, 5e3, 3e3];
+function youthScoutWeek() {
+  const c = my(), y = staffOf("youth"), lvl = c.fac.acad.lvl; if (!y || !lvl) return;
+  const r = YOUTH_SCOUT.find(([ph, w]) => G.phase === ph && G.week === w); if (!r) return;
+  const sp = intakeSpec(c), bf = budgetFactor(c.budget.acad, acadRef(lvl)), wide = y.focus === "wide", trial = r[1] === 34;
+  const room = 14 + lvl * 2 - c.squad.filter(id => P(id).acad).length;  // a bigger academy holds more boys
+  const n = Math.min(room, clamp(Math.round(.5 + y.at.reach / 45 + bf * .3 + lvl * .15 + (wide ? .8 : 0) + rf(-.6, .6)), 1, 4)), got = [];
+  if (n <= 0) return;
+  for (let i = 0; i < n; i++) {
+    const from = trial ? "trial" : wide && R() < .35 ? "abroad" : R() < .5 ? "academy" : "trial";
+    const pot = drawPotential(sp.mean - 2 + (y.at.judge - 50) * .04 + (from === "academy" ? 1 : 0), sp.exc), age = trial ? ri(15, 16) : ri(15, 17);
+    const ovr = clamp(Math.round(pot * rf(.48, .6) + (age - 15) * 2 + normal() * 3), 12, pot);
+    const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat: from === "abroad" ? pickNat("ENG") : "ENG", club: c.id, pot, acad: true, lean: LEAN[sp.phil], wage: 500 });
+    p.yrs = 3; c.squad.push(p.id); p.hist.push([G.year, c.short]);
+    if (pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot, club: c.id, y: G.year });
+    const fee = from === "trial" ? 0 : Math.round(YOUTH_COMP[c.tier] * rf(.6, 1.4) * (from === "abroad" ? 1.5 : 1) / 500) * 500;
+    if (fee) spend("acad", fee);
+    got.push({ p, from, fee });
+  }
+  const where = { trial: "from a trial", academy: "from another academy", abroad: "from abroad" };
+  const cost = got.reduce((t, g) => t + g.fee, 0);
+  addMsg({ type: "intake", title: `${r[2]}: ${got.length} boy${got.length > 1 ? "s" : ""} join${got.length > 1 ? "" : "s"} the academy`,
+    body: got.map(({ p, from, fee }) => `${p.name} (${p.pos}, ${p.age}) ${where[from]}${fee ? ` for ${money(fee)} compensation` : ""}, potential ${est20(potEstimate(p))}`).join("; ") + `.${cost ? ` ${y.name} paid ${money(cost)} in all.` : ""}`,
+    pid: got.slice().sort((a, b) => potEstimate(b.p)[1] - potEstimate(a.p)[1])[0].p.id });
 }
 function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 

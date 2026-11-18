@@ -112,8 +112,17 @@ function headWeek(c) {
   const s = staffOf("recruit");
   if (!s) return;
   let signed = 0;
+  const lim = G.phase === "summer" ? (c.squad.filter(id => !P(id).acad).length < 18 ? 4 : 2) : 1;
+  // Your suggestions come first, and don't count against his own list (he'll still only take ones he agrees with).
+  for (const x of sugg().slice()) {
+    const p = G.players[x.id];
+    if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
+    const v = suggView(p, c); if (!v.ok) continue;
+    signPlayer(p, v.fee, v.ask, false); G.sugg = sugg().filter(y => y !== x);
+    news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null);
+  }
   for (const need of squadNeeds(c)) {
-    if (signed >= (G.phase === "summer" ? (c.squad.filter(id => !P(id).acad).length < 18 ? 4 : 2) : 1)) break;
+    if (signed >= lim) break;
     const best = shortlist(c, need, 1)[0]; if (!best) continue;
     signPlayer(best.p, negotiated(askingFee(best.p)), best.p._ask, false); signed++;
   }
@@ -214,11 +223,45 @@ function answerBid(m, accept, auto) {
   } else if (auto) news(`A ${money(m.amt)} bid from ${buyer.name} for ${p.name} is turned down.`);
 }
 
+/* ---------- your suggestions ----------
+   Point your head of recruitment at a player. He sizes him up the way he does his own targets and tells you what he
+   thinks; while a window is open he goes after the ones he agrees with before his own list. Asking isn't overruling:
+   he doesn't mind being asked, and he's pleased when a tip comes off. */
+const sugg = () => (G.sugg ||= []);
+const suggested = p => sugg().some(x => x.id === p.id);
+function suggView(p, c = my()) {
+  const s = staffOf("recruit");
+  if (!s) return { ok: false, w: "There's no head of recruitment to ask." };
+  if (p.club === c.id) return { ok: false, w: "He's ours." };
+  if (p.age > 34) return { ok: false, w: "Too old to sign: he'd be gone within a season." };
+  if (!willJoin(p, c)) return { ok: false, w: "He wouldn't come here: he's too good for our level." };
+  const [o1, o2] = ovrEstimate(p), eo = (o1 + o2) / 2, [p1, p2] = potEstimate(p), ep = (p1 + p2) / 2, T = TIER_LVL[c.tier];
+  const st = pickXI(c).filter(o => o.slot === p.pos).map(o => roleRating(o.p, p.pos)), weakest = st.length ? Math.min(...st) : 0;
+  const depth = c.squad.map(P).filter(q => q.pos === p.pos && !q.acad && !q.list && !(q.inj > 4)).length;
+  const starter = eo >= weakest + (s.phil === "proven" ? 1 : 0) && eo >= T - 10;
+  const cover = depth <= coverNeed(c, p.pos) && eo >= T - 8;
+  const prospect = p.age <= 21 && ep >= T + (s.phil === "potential" ? 3 : 7);
+  if (!starter && !cover && !prospect) return { ok: false, w: st.length ? `He wouldn't improve us: I have him at about ${r20(eo)}, and our weakest starter there is ${r20(weakest)}.` : `He isn't good enough for this level.` };
+  if (c.squad.filter(id => !P(id).acad).length >= 28) return { ok: false, w: "I'd take him, but the squad is full: someone has to go first." };
+  const fee = negotiated(askingFee(p)), left = c.budget.transfer - c.spentT;
+  if (fee > left) return { ok: false, money: true, w: `I'd take him, but his fee (about ${money(fee)}) is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
+  const ask = playerAsk(p, c), room = c.budget.wages - wageBill(c);
+  if (ask == null) return { ok: false, w: "He isn't interested in joining us." };
+  if (ask > room) return { ok: false, money: true, w: `I'd take him, but he wants about ${pw(ask)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
+  return { ok: true, fee, ask, w: `${starter ? "He'd go straight into the side" : prospect ? "A real prospect" : "Good cover"}. ${windowOpen() ? "I'll go after him this week." : "I'll go after him when the window opens."}` };
+}
+function suggest(p) {
+  const s = staffOf("recruit"); if (!s) return;
+  if (suggested(p)) { G.sugg = sugg().filter(x => x.id !== p.id); return news(`You withdraw your suggestion of ${p.name}.`); }
+  sugg().push({ id: p.id, y: G.year, w: G.week });
+  news(`You suggest ${p.name} to ${s.name}: "${suggView(p).w}"`);
+}
+
 /* ---------- you, overruling your staff ---------- */
 function ownerBuy(p, fee, wage) {
   G.meddle = (G.meddle || 0) + 1;
   const c = my(), onList = shortlist(c, { pos: p.pos, kind: "depth", weakest: 0 }, 8).some(x => x.p === p);
-  signPlayer(p, fee, wage, true);
+  signPlayer(p, fee, wage, true); G.sugg = sugg().filter(x => x.id !== p.id);
   if (staffOf("recruit")) trust("recruit", onList ? -3 : -10, onList ? "would rather have done the deal himself." : `wasn't consulted about ${p.name} and isn't happy.`);
   const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null); else trust("manager", -3, null);
 }

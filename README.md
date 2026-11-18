@@ -49,6 +49,14 @@ Running locally: any static server works, for example `python3 -m http.server 80
   grass or a hybrid surface). Build a training ground and an academy, levels 1 to 10.
 - **Make the stadium pay beyond match days:** club shop and megastore, car park, conference and events centre, tours
   and museum, a stadium hotel, summer concerts (they damage the pitch), a tenant team.
+- **Suggest signings.** Tap *Suggest* on any player's card and your head of recruitment tells you what he thinks: he'd
+  start, he's a prospect, he's good cover, or why not (not good enough, won't come, too dear for the budget). While a
+  window is open he goes after the ones he agrees with before his own targets. Asking isn't overruling, and he's pleased
+  when a tip comes off. Your suggestions are listed on the Transfers page.
+- **Youth recruitment all year.** As well as the summer intake (at least three boys), your youth manager's scouts bring
+  boys in three more times a year: late summer, January and a spring trial day. How many and how good depends on his
+  scouting reach and eye for potential, the academy budget and level, and whether he looks locally or wider. Boys from
+  other academies or abroad cost a little compensation; trialists are free. A full academy takes no more.
 - **Overrule your staff when you must.** Buy a player yourself, transfer-list or release one, or answer a bid against
   your head of recruitment's advice. They notice, and so does every coach you try to hire afterwards.
 - **Selling only happens through real offers.** Clubs bid during a window for players on the transfer list (usually

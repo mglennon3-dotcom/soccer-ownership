@@ -96,3 +96,10 @@ html,body{overflow-x:clip}
 
 .perf{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:14px}
 .perf h3{font-size:14px;margin-bottom:4px;color:var(--muted)}
+.sugg{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}
+.sugg .row{gap:10px;flex-wrap:nowrap}
+.sugg p{margin-top:6px}
+.sugg-row{padding:8px 0;border-bottom:1px solid var(--line)}
+.sugg-row:last-child{border-bottom:0}
+.sugg-row .row{gap:8px;flex-wrap:nowrap}
+.sugg-row p{margin-top:3px}

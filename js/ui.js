@@ -206,6 +206,8 @@ function playerModal(id) {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
     const lendable = loanable(p) && windowOpen() && !inTheirXI(p);
     acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button>${lendable ? `<button class="btn" data-act="loanask" data-id="${p.id}">Ask to borrow him</button>` : ""}<span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${pw(wage)}.` : "He isn't interested in joining, whatever the money."}</span></div>
+      ${(() => { const s = staffOf("recruit"); if (!s) return `<p class="small muted">Hire a head of recruitment and you can suggest players to him.</p>`; const v = suggView(p), on = suggested(p);
+        return `<div class="sugg"><div class="row between"><b class="small">${on ? "You've suggested him" : "Suggest him to your head of recruitment"}</b><button class="btn sm" data-act="suggest" data-id="${p.id}">${on ? "Withdraw" : "Suggest"}</button></div><p class="small ${v.ok ? "good" : v.money ? "warn" : "muted"}"><b>${esc(s.name)}:</b> ${esc(v.w)}</p></div>`; })()}
       <details><summary class="small">What he's weighing up</summary>${factorBars(playerAppeal(p, wage || demandWage(p, my())), P_FACTORS)}</details>`;
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
@@ -435,7 +437,10 @@ function pgMarket() {
     ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
-      <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section></div></div>`;
+      <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section>
+    ${s ? `<section class="card"><div class="card-h"><h3>Your suggestions</h3><span class="small muted">${sugg().length}</span></div>
+      ${sugg().length ? sugg().map(x => G.players[x.id]).filter(Boolean).map(p => { const v = suggView(p); return `<div class="sugg-row"><div class="row between"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> <span class="small muted">${p.age} · ${esc(fromName(p))}</span></span><button class="lnk small" data-act="suggest" data-id="${p.id}">Withdraw</button></div><p class="small ${v.ok ? "good" : v.money ? "warn" : "muted"}">${esc(v.w)}</p></div>`; }).join("")
+        : `<p class="small muted">Open a player's card and tap <b>Suggest</b> to point ${esc(s.name)} at him. He goes after the ones he agrees with while a window is open, before his own targets, and tells you why if he won't.</p>`}</section>` : ""}</div></div>`;
 }
 function buyModal(id) {
   const p = G.players[id], fee = askingFee(p), wage = playerAsk(p) || demandWage(p, my()), s = staffOf("recruit");
