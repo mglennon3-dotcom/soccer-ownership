@@ -59,11 +59,15 @@ function playerAppeal(p, wage, c = my()) {
 }
 
 /* ---------- staff ---------- */
+let SF_XI = null;
 function staffFactors(s) {
   const c = my(), T = c.tier, typWages = 24 * wageFor(TIER_LVL[T]);
   const fac = s.role === "manager" ? clamp(.5 + (c.fac.train.lvl - s.rep / 10) / 5, 0, 1) : s.role === "youth" ? clamp(.5 + (c.fac.acad.lvl - s.rep / 10) / 5, 0, 1) : clamp(.5 + budgetFactor(c.budget.scout, scoutRef(T)) / 6, 0, 1);
   const budget = s.role === "manager" ? clamp(.5 + Math.log2(Math.max(1, c.budget.wages) / typWages) * .5, 0, 1) : s.role === "youth" ? (c.fac.acad.lvl ? clamp(.5 + budgetFactor(c.budget.acad, acadRef(c.fac.acad.lvl)) / 6, 0, 1) : .1) : clamp(.5 + Math.log2(Math.max(1, c.budget.transfer) / (typWages * .8)) * .4, 0, 1);
-  const xi = pickXI(c), q = avg(xi.map(o => roleRating(o.p, o.slot)));
+  // The first team is worked out once a week, not once per candidate (there are hundreds of them).
+  const key = `${G.year}.${G.phase}.${G.week}.${c.squad.length}.${mgr().form || ""}`;
+  if (!SF_XI || SF_XI.key !== key) { const xi0 = pickXI(c); SF_XI = { key, xi: xi0, q: avg(xi0.map(o => roleRating(o.p, o.slot))) }; }
+  const xi = SF_XI.xi, q = SF_XI.q;
   const squad = s.role === "manager" ? clamp(.5 + (q - TIER_LVL[T]) / 12 + styleFit(xi, s.phil) * .25, 0, 1) : clamp(.5 + (q - TIER_LVL[T]) / 15, 0, 1);
   // A legend of the club wants to come home: the club's standing and his own fit don't hold him back.
   const home = isLegendOf(s, c.id) ? 1 : s.ex && s.ex.favOf.includes(c.id) ? .5 : 0;

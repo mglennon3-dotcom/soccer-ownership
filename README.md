@@ -31,8 +31,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
   player's rating in his position, out-of-position players marked), the bench and who's unavailable, his style and how
   well the squad suits it, attack, midfield and defence against the division, which styles the squad would suit best
   (worth knowing when you hire a manager), and the next opponent.
-- **Plenty of candidates.** Every staff role always has a real shortlist: around twenty names, with at least ten who
-  would take the job, however your club is doing.
+- **A staff universe.** Over a hundred people for each role, from part-timers to the best in the game, kept from week to
+  week: they age, some take jobs elsewhere or retire, and new names come in. Filter to the ones who would come (always at
+  least ten) or see everyone, sorted by ability, cost or fit with your vision, twenty at a time.
 - **Hire staff.** A manager (tactics, motivation, player development; a style of play, a formation, and a view on
   youth), a head of recruitment (judging ability, negotiation, contacts; a recruitment philosophy and a search area),
   and a youth manager (development, judging potential, youth scouting; a type of player, local or wide search).

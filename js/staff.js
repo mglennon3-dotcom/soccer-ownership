@@ -109,6 +109,7 @@ function staffSummer() {
     if (Math.abs(moved) >= 4) news(`${s.name} has ${moved > 0 ? "improved" : "declined"} over the season (${ROLES_STAFF[role].l.toLowerCase()}).`);
   }
   for (const [k, d] of Object.entries((G.board || {}).dir || {})) { if (!d) continue; d.age = (d.age || ri(35, 55)) + 1; if (d.age >= 68 || (d.age >= 60 && R() < .12)) { G.board.dir[k] = null; news(`${d.name} retires as ${DIRECTORS[k].l.toLowerCase()}.`, true); } else d.skill = clamp(rh(d.skill + (d.age < 45 ? rf(0, 2) : d.age < 56 ? rf(-.5, 1) : -rf(.5, 2))), 5, 99); }
+  for (const U of Object.values(G.pools || {})) for (const s of U.list || []) s.age++;  // the staff universe ages too
   // Rival managers age and retire too.
   for (const x of G.clubs) { if (x.gone || isMine(x) || !x.coach) continue; const co = x.coach; co.age = (co.age || ri(36, 62)) + 1;
     co.tac = clamp(rh(co.tac + (co.age < 45 ? rf(0, 2) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2.5))), 5, 99); co.dev = clamp(rh(co.dev + (co.age < 45 ? rf(0, 1.5) : co.age < 57 ? rf(-1, 1) : -rf(.5, 2))), 5, 99);
@@ -149,15 +150,21 @@ const matchWord = m => m >= .75 ? ["Shares your vision", "good"] : m >= .5 ? ["P
 
 /* The candidate pools: kept for six weeks rather than redrawn every time you look. A role you've never filled draws
    from a bigger pool (20); later searches find 12. */
+/* The staff universe: well over a hundred people for each role, from part-timers to the best in the game, kept from
+   week to week. Every six weeks some take jobs elsewhere or retire and new names come in. Whether one would join you
+   is up to him (see appeal.js); there are always at least ten who would. */
+const STAFF_UNIVERSE = 110;
+function staffLevel() { const a = attraction(), r = R(); return clamp(Math.round(r < .45 ? a + normal() * 12 : r < .75 ? 3 + R() * Math.max(5, a) : a + R() * (95 - a)), 3, 95); }
 function candidates(role) {
   const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
-  const willing = l => l.filter(s => !wontCome(s)).length;
-  if (P[role] && now - P[role].t < 6 && willing(P[role].list) >= 4) return P[role].list;
-  const a = attraction(), n = (G.filled || {})[role] ? 20 : 24, out = [];
-  for (let i = 0; i < n; i++) out.push(genStaff(role, clamp(Math.round(a + (i < n * .7 ? normal() * 8 : 15 + R() * 30)), 3, 95)));
-  out.unshift(...exProCands(role));  // former players moving into coaching, your own favourites first
-  // Always a real choice: add candidates a little below the club's pull until at least ten would take the job.
-  for (let k = 0, w = willing(out); w < 10 && k < 60; k++) { const s = genStaff(role, clamp(Math.round(a - 4 - k / 3 - R() * 10), 3, 95)); out.push(s); if (!wontCome(s)) w++; }
-  P[role] = { t: now, list: out };
-  return out;
+  let U = P[role];
+  if (!U || !U.u) U = P[role] = { t: now, u: 1, list: [] };  // older saves: the universe starts now
+  if (now - U.t >= 6 || U.list.length < STAFF_UNIVERSE) {
+    if (now - U.t >= 6) U.list = U.list.filter(s => s.age < 68 && R() > .1);
+    while (U.list.length < STAFF_UNIVERSE) U.list.push(genStaff(role, staffLevel()));
+    const a = attraction(); let w = U.list.filter(s => !wontCome(s)).length;
+    for (let k = 0; w < 10 && k < 60; k++) { const s = genStaff(role, clamp(Math.round(a - 4 - k / 3 - R() * 10), 3, 95)); U.list.push(s); if (!wontCome(s)) w++; }
+    U.t = now;
+  }
+  return [...exProCands(role), ...U.list];  // former players moving into coaching (your own favourites first), then everyone else
 }

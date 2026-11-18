@@ -18,6 +18,8 @@ function upgradeSave() {
   if (!G.cups) startCups();
   if (!G.foreign) { makeForeign(); G.cont = {}; }
   if (!G.foreign2) { for (const id of G.foreign) CL(id).lvl = Math.max(CL(id).lvl, 72) + 1.5; G.foreign2 = true; }
+  // 0.14.2: intakes got bigger, so a career from before runs this year's intake again, once (on top of the boys it has).
+  if (!G.intake2) { G.intake2 = true; if (G.club != null && my() && my().fac.acad.lvl) { youthIntake(my()); saveGame(); } }
 }
 async function loadSave(id) { const s = await dbDo("readonly", st => st.get(id)); if (!s) return; G = JSON.parse(s.g); upgradeSave(); PAGE = "home"; closeModal(); render(); }
 async function start() { G = null; renderStart(await listSaves()); }
@@ -51,6 +53,8 @@ const ACT = {
     if (d > 0 && sum(Object.values(v.pri)) >= VISION_POINTS) return; v.pri[k] = clamp((v.pri[k] || 0) + d, 0, 4);
     if (start) $("#f-vision").outerHTML = visionCard(START_V, true); else render(); },
   csort: el => { CSORT = el.dataset.k; candModal(el.dataset.r); },
+  cwho: el => { CWHO = el.dataset.k; candModal(el.dataset.r); },
+  cmore: el => { CSHOW += 20; const q = [".scrim", ".modal"], y = q.map(k => document.querySelector(k)?.scrollTop || 0); candModal(el.dataset.r, true); q.forEach((k, i) => { const e = document.querySelector(k); if (e) e.scrollTop = y[i]; }); },
   friendly: el => { const err = askFriendly(CL(+el.dataset.id), el.dataset.h === "1", SUB.fw); if (err) toast(err); render(); saveGame(); },
   putsale: () => { G.saleOffers = saleOffers(); render(); },
   acceptsale: async el => { const o = G.saleOffers[+el.dataset.i]; if (await ask(`Sell your ${ownPct()}% of ${my().name} to ${o.name} for ${money(o.amt)}? You'll then choose a new club.`)) { sellMyClub(o); render(); saveGame(); } },

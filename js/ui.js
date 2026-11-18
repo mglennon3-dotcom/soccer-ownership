@@ -243,13 +243,17 @@ function factorBars(a, factors) {
     <p class="small muted">★ what he cares about most. The bar is how well your club does on it; the figure is how much it weighs with him.</p>`;
 }
 let CANDS = null;
-let CSORT = "best";
-function candModal(role) {
-  const by = { best: (a, b) => staffAvg(b) - staffAvg(a), cheap: (a, b) => (staffAsk(a) ?? 1e12) - (staffAsk(b) ?? 1e12), vision: (a, b) => visionMatch(b) - visionMatch(a) }[CSORT];
-  CANDS = { role, list: candidates(role).slice().sort((a, b) => (staffAsk(a) == null) - (staffAsk(b) == null) || by(a, b)) };
-  const R0 = ROLES_STAFF[role];
-  modal(`<div class="modal-h"><div><p class="eyebrow">${CANDS.list.length} candidates</p><h2>${R0.l}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b" style="padding-bottom:0"><div class="seg">${[["best", "Best"], ["cheap", "Cheapest"], ["vision", "Closest to your vision"]].map(([k, l]) => `<button data-act="csort" data-k="${k}" data-r="${role}" aria-pressed="${CSORT === k}">${l}</button>`).join("")}</div></div>
+let CSORT = "best", CWHO = "yes", CSHOW = 20;
+function candModal(role, keep) {
+  if (!keep) CSHOW = 20;
+  const all = candidates(role), ask = new Map(all.map(s => [s, staffAsk(s)])), vm = new Map(all.map(s => [s, visionMatch(s)]));
+  const by = { best: (a, b) => staffAvg(b) - staffAvg(a), cheap: (a, b) => (ask.get(a) ?? 1e12) - (ask.get(b) ?? 1e12), vision: (a, b) => vm.get(b) - vm.get(a) }[CSORT];
+  const yes = all.filter(s => ask.get(s) != null).length, pool = CWHO === "yes" ? all.filter(s => ask.get(s) != null) : all.slice();
+  CANDS = { role, list: pool.sort((a, b) => (ask.get(a) == null) - (ask.get(b) == null) || by(a, b)).slice(0, CSHOW) };
+  const R0 = ROLES_STAFF[role], more = pool.length - CANDS.list.length;
+  modal(`<div class="modal-h"><div><p class="eyebrow">${all.length} in the game · ${yes} would come</p><h2>${R0.l}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
+    <div class="modal-b" style="padding-bottom:0"><div class="seg">${[["best", "Best"], ["cheap", "Cheapest"], ["vision", "Closest to your vision"]].map(([k, l]) => `<button data-act="csort" data-k="${k}" data-r="${role}" aria-pressed="${CSORT === k}">${l}</button>`).join("")}</div>
+    <div class="seg" style="margin-top:8px">${[["yes", `Would come (${yes})`], ["all", `Everyone (${all.length})`]].map(([k, l]) => `<button data-act="cwho" data-k="${k}" data-r="${role}" aria-pressed="${CWHO === k}">${l}</button>`).join("")}</div></div>
     <div class="modal-b"><p class="small muted">Like players, coaches weigh up the whole job: the money, your club's standing, facilities, budgets, the squad, your ambition, and whether you let staff do their jobs. Each cares about some things more than others. The wage shown is the least that would get him to say yes; offer less and he'll probably refuse.</p>
     ${CANDS.list.map((s, i) => { const ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null; return `<div class="cand ${no ? "dim" : ""}"><div class="row between"><div><b>${esc(s.name)}</b>, ${s.age} <span class="muted small">reputation ${s.rep}</span></div><div class="num">${no ? `<span class="muted">Not interested at any price</span>` : "wants about " + money(ask) + "/yr"}</div></div>
       <p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
@@ -257,7 +261,8 @@ function candModal(role) {
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${staff20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
-      ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw${i}" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}</div>`);
+      ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw${i}" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}
+    ${more > 0 ? `<button class="btn" style="width:100%;margin-top:10px" data-act="cmore" data-r="${role}">Show ${Math.min(20, more)} more (${more} left)</button>` : ""}</div>`);
 }
 
 /* ---------- Finances ---------- */
