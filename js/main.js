@@ -62,8 +62,13 @@ function upgradeSave() {
   // 0.48.0: top-flight pay re-scaled (a Messi-level player €500k a week, the Premier's best €250-300k): contracts above
   // First Division level move onto the new scale, and your wage budget moves with your wage bill.
   if (!G.pay9) { G.pay9 = true; const before = G.club != null ? wageBill(my()) : 0, oldBase = o => 3000 * Math.pow(1.12, o - 30) * Math.pow(1.12, Math.max(0, o - 72));
-    for (const p of Object.values(G.players)) if (p.ovr > 72 && p.wage > 0) p.wage = Math.max(1000, Math.round(p.wage * wageBase(p.ovr) / oldBase(p.ovr) / 100) * 100);
+    for (const p of Object.values(G.players)) if (p.ovr > 72 && p.wage > 0) p.wage = Math.max(1000, Math.round(p.wage * valueBase(p.ovr) / oldBase(p.ovr) / 100) * 100);
     G.tierW = null; if (G.club != null && before > 0) { const now = wageBill(my()); if (now < before) my().budget.wages = Math.round(my().budget.wages * now / before / 1000) * 1000; } }
+  // 0.48.1: First Division pay rises (its average starter €50-100k a week; the Premier above it): contracts from just
+  // above Second Division level move onto the new scale, and your wage budget rises with your wage bill.
+  if (!G.pay10) { G.pay10 = true; const before = G.club != null ? wageBill(my()) : 0;
+    for (const p of Object.values(G.players)) if (p.ovr > 68 && p.wage > 0) p.wage = Math.max(1000, Math.round(p.wage * wageBase(p.ovr) / valueBase(p.ovr) / 100) * 100);
+    G.tierW = null; if (G.club != null && before > 0) { const now = wageBill(my()); if (now > before) my().budget.wages = Math.round(my().budget.wages * now / before / 1000) * 1000; } }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }

@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.48.0";
+const VERSION = "0.48.1";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -148,12 +148,20 @@ function drawPotential(mean, excMult = 1, gemMult = 1) {
 
 /* ---------- money ----------
    Real-world euros. A regional-league player earns a few thousand a year; a Premier Division star several million. */
-/* Full-time pay for a player of a given standard (a year). Up to First Division level it rises 12% a point; above that
-   it follows the real top flight: a good Premier player about €70k a week, the division's best €250-300k, and a
-   generational talent €500k a week. */
-const WAGE_TOP = [[72, 350e3], [78, 2.2e6], [83, 5.2e6], [88, 10.5e6], [91, 14.3e6], [95, 19e6], [100, 26e6]];
-function wageBase(ovr) {
+/* Full-time pay for a player of a given standard (a year). Up to Second Division level it rises 12% a point; above that
+   pay climbs steeply: an average First Division starter about €75k a week, an average Premier starter about €160k,
+   the Premier's best €250-300k, and a generational talent €500k a week. */
+const WAGE_TOP = [[68, 222e3], [70.5, 1.3e6], [73.5, 3.9e6], [78, 6e6], [83, 8.3e6], [88, 11.5e6], [91, 14.3e6], [95, 19e6], [100, 26e6]];
+// Transfer values follow their own curve (the pay scale from before First Division wages rose), so higher wages in the
+// First Division don't make its players worth five times more.
+const VALUE_TOP = [[72, 350e3], [78, 2.2e6], [83, 5.2e6], [88, 10.5e6], [91, 14.3e6], [95, 19e6], [100, 26e6]];
+function valueBase(ovr) {
   if (ovr <= 72) return 3000 * Math.pow(1.12, ovr - 30);
+  for (let i = 1; i < VALUE_TOP.length; i++) { const [a, x] = VALUE_TOP[i - 1], [b, y] = VALUE_TOP[i]; if (ovr <= b) return x * Math.pow(y / x, (ovr - a) / (b - a)); }
+  return 26e6;
+}
+function wageBase(ovr) {
+  if (ovr <= 68) return 3000 * Math.pow(1.12, ovr - 30);
   for (let i = 1; i < WAGE_TOP.length; i++) { const [a, x] = WAGE_TOP[i - 1], [b, y] = WAGE_TOP[i]; if (ovr <= b) return x * Math.pow(y / x, (ovr - a) / (b - a)); }
   return 26e6;
 }
@@ -162,7 +170,7 @@ function wageBase(ovr) {
 const partTimeF = ovr => clamp(.15 + (ovr - 40) * .05, .15, 1);
 function wageFor(ovr) { return Math.max(1000, Math.round(wageBase(ovr) * partTimeF(ovr) / 100) * 100); }
 function valueOf(p) {
-  let v = wageBase(p.ovr) * 3 * Math.pow(1.025, p.ovr - 50) * clamp((p.ovr - 35) / 25, .2, 1);
+  let v = valueBase(p.ovr) * 3 * Math.pow(1.025, p.ovr - 50) * clamp((p.ovr - 35) / 25, .2, 1);
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
   if (p.age > 28) v *= Math.max(.12, 1 - (p.age - 28) * .13);
   if (p.yrs <= 1) v *= .75;
@@ -284,7 +292,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
