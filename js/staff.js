@@ -14,7 +14,7 @@ const STYLES = {
 };
 const ROLES_STAFF = {
   manager: { l: "Manager", attrs: { tac: "Tactics", mot: "Motivation", dev: "Player development" },
-    phil: STYLES, focus: { youth: "Gives young players a chance", results: "Picks his strongest side every week", balanced: "Balances results and development" } },
+    phil: STYLES, focus: { youth: "Gives young players a chance", results: "Picks the strongest side every week", balanced: "Balances results and development" } },
   youth: { l: "Youth manager", attrs: { dev: "Youth development", judge: "Judging potential", reach: "Youth scouting" },
     phil: { technical: { l: "Technical", d: "Brings through ball players: passing, technique, vision." }, physical: { l: "Physical", d: "Brings through athletes: pace, strength, stamina." }, balanced: { l: "Balanced", d: "No particular type." } },
     focus: { local: "Local talent: cheap, homegrown, a smaller pool", wide: "Searches nationally and abroad: a bigger pool, costs more" } },
@@ -23,6 +23,12 @@ const ROLES_STAFF = {
       value: { l: "Value for money", d: "Hunts bargains: the most rating per euro." }, fit: { l: "Fit the manager", d: "Buys players suited to the manager's style." } },
     focus: { domestic: "England only", europe: "England and Europe", world: "Worldwide" } },
 };
+/* Staff can be men or women: a woman's first name means she, a man's he, and Dani, Jo and Sam could be either. The
+   text uses pr(s, "he") etc. so each one is called the right thing. */
+const STAFF_F = new Set(["Claire", "Emma", "Fiona", "Hannah", "Kate", "Lucy", "Marta", "Nina", "Rachel"]), STAFF_EITHER = new Set(["Dani", "Jo", "Sam"]);
+const sexOf = s => s.g ??= (n => STAFF_F.has(n) ? "f" : STAFF_EITHER.has(n) ? (R() < .5 ? "f" : "m") : "m")((s.name || "").split(" ")[0]);
+const PRON = { m: { he: "he", He: "He", him: "him", his: "his", His: "His", himself: "himself" }, f: { he: "she", He: "She", him: "her", his: "her", His: "Her", himself: "herself" } };
+const pr = (s, k) => PRON[s && s.name ? sexOf(s) : "m"][k];
 const STAFF_FIRST = ["Alan", "Brendan", "Carlos", "Dean", "Eddie", "Frank", "Gareth", "Harry", "Ivan", "Jens", "Kenny", "Luis", "Mick", "Nigel", "Oscar", "Pep", "Ronnie", "Sean", "Thomas", "Vincent", "Warren", "Zoltan", "Andy", "Bruno", "Claire", "Dani", "Emma", "Fiona", "Hannah", "Jo", "Kate", "Lucy", "Marta", "Nina", "Rachel", "Sam"];
 
 function staffWage(role, rep) { const w = 15000 * Math.pow(1.075, rep) * (role === "manager" ? 1 : .4); return Math.round(w / 1000) * 1000; }
@@ -93,7 +99,7 @@ function trust(role, d, why) {
   const s = staffOf(role); if (!s) return;
   s.trust = clamp(s.trust + d, 0, 100);
   if (why && Math.abs(d) >= 5) news(`${s.name} (${ROLES_STAFF[role].l.toLowerCase()}): ${why}`, d <= -8);
-  if (s.trust < 20) { news(`${s.name} has resigned as ${ROLES_STAFF[role].l.toLowerCase()}, saying the club isn't run the way he was promised.`, true); my().staff[role] = null; }
+  if (s.trust < 20) { news(`${s.name} has resigned as ${ROLES_STAFF[role].l.toLowerCase()}, saying the club isn't run the way ${pr(s, "he")} was promised.`, true); my().staff[role] = null; }
 }
 // Grudges fade: a staff member's trust drifts back toward 60 a little each week.
 function staffTrustWeek() { for (const s of Object.values(my().staff).filter(Boolean)) if (s.trust < 60) s.trust = Math.min(60, s.trust + .3); }
@@ -196,7 +202,7 @@ const poachFee = s => { const x = CL(s.emp); return Math.round(s.demand * (1.2 +
 function poachPay(s) {
   const x = CL(s.emp), fee = poachFee(s); spend("staff", fee);
   if (s.coachOf != null && x && x.coach) { x.coach = coachFor(x); }
-  news(`You pay ${x ? x.name : "his club"} ${money(fee)} in compensation to bring ${s.name} in.`, true);
+  news(`You pay ${x ? x.name : `${pr(s, "his")} club`} ${money(fee)} in compensation to bring ${s.name} in.`, true);
   const U = (G.pools || {})[s.role]; if (U && U.emp) U.emp = U.emp.filter(y => y !== s);
   s.emp = null; s.coachOf = null;
 }

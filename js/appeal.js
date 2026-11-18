@@ -122,7 +122,7 @@ function staffAppeal(s, wage) {
   return { f, pr, score: sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
 }
 /* Why someone said no: what he cares about most and what let you down. */
-function refusalReason(a, factors) {
+function refusalReason(a, factors, who) {
   const name = Object.fromEntries(factors), worst = Object.entries(a.f).filter(([k]) => a.pr.pri[k] > .14).sort((x, y) => x[1] - y[1])[0];
-  return `He cares most about ${name[a.pr.top[0]].toLowerCase()} and ${name[a.pr.top[1]].toLowerCase()}${worst && worst[1] < .45 ? `, and isn't convinced by the ${name[worst[0]].toLowerCase()}` : ""}.`;
+  return `${who ? pr(who, "He") : "He"} cares most about ${name[a.pr.top[0]].toLowerCase()} and ${name[a.pr.top[1]].toLowerCase()}${worst && worst[1] < .45 ? `, and isn't convinced by the ${name[worst[0]].toLowerCase()}` : ""}.`;
 }

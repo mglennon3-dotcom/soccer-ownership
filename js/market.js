@@ -128,7 +128,7 @@ function headWeek(c) {
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
     const v = suggView(p, c, x.loan); if (!v.ok) continue;
     if (x.loan) loanIn(p, CL(p.club), v.share, "suggestion");
-    else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false, "suggestion"); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, he paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, he agreed ${pw(v.ask)}.`); }
+    else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false, "suggestion"); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, ${pr(s, "he")} paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, ${pr(s, "he")} agreed ${pw(v.ask)}.`); }
     G.sugg = sugg().filter(y => y !== x);
     news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null);
   }
@@ -392,7 +392,7 @@ function ownerBuy(p, fee, wage) {
   G.meddle = (G.meddle || 0) + 1;
   const c = my(), onList = shortlist(c, { pos: p.pos, kind: "depth", weakest: 0 }, 8).some(x => x.p === p);
   signPlayer(p, fee, wage, true); G.sugg = sugg().filter(x => x.id !== p.id);
-  if (staffOf("recruit")) meddled("recruit", onList ? -3 : -10, onList ? "would rather have done the deal himself." : `wasn't consulted about ${p.name} and isn't happy.`);
+  if (staffOf("recruit")) meddled("recruit", onList ? -3 : -10, onList ? `would rather have done the deal ${pr(staffOf("recruit"), "himself")}.` : `wasn't consulted about ${p.name} and isn't happy.`);
   const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null); else meddled("manager", -3, null);
 }
 /* You put a player on the transfer list (or take him off). Offers then come in through the inbox. */
@@ -418,7 +418,7 @@ function ownerList(p) {
   G.meddle = (G.meddle || 0) + .5;
   const starter = pickXI(my()).some(o => o.p === p);
   if (staffOf("recruit")) meddled("recruit", -3, null);
-  if (starter) meddled("manager", -6, `is unhappy you've transfer-listed ${p.name}, one of his first-choice players.`);
+  if (starter) meddled("manager", -6, `is unhappy you've transfer-listed ${p.name}, one of ${pr(staffOf("manager"), "his")} first-choice players.`);
   news(`You put ${p.name} on the transfer list. Offers will come in while the window is open.`);
 }
 function ownerRelease(p) {

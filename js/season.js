@@ -249,7 +249,7 @@ function yearTurnover() {
     else { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); gone.push(p.name); }
   }
   if (kept.length || gone.length) addMsg({ type: "contracts", title: `Contracts: ${kept.length} renewed, ${gone.length} released`, body: (kept.length ? `New contracts: ${kept.join(", ")}. ` : "") + (gone.length ? `Leaving: ${gone.join(", ")}.` : "") });
-  for (const s of Object.values(mine.staff).filter(Boolean)) { s.yrs--; if (s.yrs <= 0) { const role = s.role; news(`${s.name}'s contract as ${ROLES_STAFF[role].l.toLowerCase()} has ended. Renew it from the Staff page within the summer or he goes.`, true); s.yrs = 0; s.expiring = true; } }
+  for (const s of Object.values(mine.staff).filter(Boolean)) { s.yrs--; if (s.yrs <= 0) { const role = s.role; news(`${s.name}'s contract as ${ROLES_STAFF[role].l.toLowerCase()} has ended. Renew it from the Staff page within the summer or ${pr(s, "he")} goes.`, true); s.yrs = 0; s.expiring = true; } }
   for (const p of Object.values(G.players)) {
     // Progression: one compact row a season [season, age, rating, club, apps, goals, assists, potential], last ten kept.
     const club = p.loanedAt && p.loanedAt.y === G.year ? `${p.loanedAt.short} (loan)` : p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA";

@@ -135,13 +135,13 @@ function poachWeek() {
   if (!suitors.length) return;
   // Compensation: what's left of his contract, and a premium on top that rises with how badly they want him.
   const x = pick(suitors), comp = Math.round(s.wage * Math.max(1, s.yrs) * (1.1 + OWNER_STYLES[x.own.style].poach * .5 + R() * .3) / 1000) * 1000;
-  addChoice("poach", `${x.name} want to talk to ${s.name}`, `${x.own.name} (${OWNER_STYLES[x.own.style].l.toLowerCase()}) want your ${ROLES_STAFF[role].l.toLowerCase()} and offer ${money(comp)} in compensation (his contract has ${Math.max(1, s.yrs)} year${Math.max(1, s.yrs) > 1 ? "s" : ""} left at ${money(s.wage)}). ${x.name} play in the ${LEAGUES[x.lg].name}. He'd like to go; refuse and he'll resent it.`,
-    ["Let him go", "Refuse"], { role, club: x.id, comp }, 1);
+  addChoice("poach", `${x.name} want to talk to ${s.name}`, `${x.own.name} (${OWNER_STYLES[x.own.style].l.toLowerCase()}) want your ${ROLES_STAFF[role].l.toLowerCase()} and offer ${money(comp)} in compensation (${pr(s, "his")} contract has ${Math.max(1, s.yrs)} year${Math.max(1, s.yrs) > 1 ? "s" : ""} left at ${money(s.wage)}). ${x.name} play in the ${LEAGUES[x.lg].name}. He'd like to go; refuse and he'll resent it.`,
+    [`Let ${pr(s, "him")} go`, "Refuse"], { role, club: x.id, comp }, 1);
 }
 DECIDE.poach = (m, i) => {
   const s = staffOf(m.data.role), x = CL(m.data.club); if (!s) return;
   if (i === 0) { my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
-  else trust(m.data.role, x.tier < my().tier ? -6 : -2, x.tier < my().tier ? `is unhappy you blocked his move to ${x.name}.` : null);
+  else trust(m.data.role, x.tier < my().tier ? -6 : -2, x.tier < my().tier ? `is unhappy you blocked ${pr(s, "his")} move to ${x.name}.` : null);
 };
 
 /* AI clubs transfer-list players they can do without: well below the club's standard and out of the side, ageing

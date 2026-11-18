@@ -171,7 +171,7 @@ function inboxCard(urgent) {
   return `<section class="card summary"><div class="card-h"><h2>Inbox</h2>${urgent ? `<span class="chip req">${n} to decide</span>` : ""}</div><div class="stack">${m.map(x => {
     if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
-      return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(p.name)}: ${p.pos}, ${p.age}, rated ${r20(p.ovr)}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? "he" : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ""}</p>
+      return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(p.name)}: ${p.pos}, ${p.age}, rated ${r20(p.ovr)}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? pr(s, "he") : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ""}</p>
         <div class="row" style="margin-top:6px;flex-wrap:nowrap"><span class="money-in"><span>€</span><input type="text" inputmode="decimal" class="num-in" id="ctr${x.id}" value="${fmtNum(Math.round(Math.max(x.amt * 1.25, valueOf(p)) / 1000) * 1000)}" aria-label="Counter-offer"></span><button class="btn sm" data-act="bidctr" data-id="${x.id}" ${x.final ? "disabled" : ""}>Counter</button></div>
         ${BID_SAY && BID_SAY.id === x.id ? `<p class="small warn" style="margin-top:4px">${esc(BID_SAY.t)}</p>` : x.final ? `<p class="small muted" style="margin-top:4px">They say this is their final offer.</p>` : ""}
         <div class="row" style="margin-top:6px"><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="1">Accept</button><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="0">Reject</button>${x.keen && p.dealY !== G.year ? `<button class="btn sm" data-act="bid" data-id="${x.id}" data-v="2">Reject and offer a new deal (${pw(newDealWage(p))})</button>` : ""}<button class="btn sm" data-act="player" data-id="${p.id}">View player</button></div></div>`; }
@@ -289,7 +289,7 @@ function playerModal(id) {
       ${lendable ? `<div class="sugg"><b class="small">Borrow him to the end of the season</b>${T && T.no ? `<p class="small muted">${esc(said || `${CL(p.club).name} won't lend him to you this window.`)}</p>` : `
         <div class="row" style="margin-top:6px"><label class="small">You pay <select id="lshare">${[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(v => `<option value="${v}" ${v === pick0 ? "selected" : ""}>${v}% · ${pw(p.wage * v / 100)}</option>`).join("")}</select></label><button class="btn sm" data-act="loanask" data-id="${p.id}">Ask</button></div>
         <p class="small ${said ? "warn" : "muted"}">${esc(said || `He earns ${pw(p.wage)}. Offer to cover less and they may say no; they'll tell you what they want.`)}</p>`}</div>` : ""}
-      ${(() => { const s = staffOf("recruit"); if (!s) return `<p class="small muted">Hire a head of recruitment and you can suggest players to him.</p>`; const on = suggested(p), canLoan = loanable(p), v = suggView(p, my(), false), vl = canLoan ? suggView(p, my(), true) : null;
+      ${(() => { const s = staffOf("recruit"); if (!s) return `<p class="small muted">Hire a head of recruitment and you can suggest players to them.</p>`; const on = suggested(p), canLoan = loanable(p), v = suggView(p, my(), false), vl = canLoan ? suggView(p, my(), true) : null;
         const cls = x => x.ok ? "good" : x.money ? "warn" : x.wait ? "" : "muted";
         return `<div class="sugg"><b class="small">${on ? `You've suggested ${on.loan ? "borrowing" : "signing"} him` : "Suggest him to your head of recruitment"}</b>
           <div class="row" style="margin-top:6px"><button class="btn sm" data-act="suggest" data-id="${p.id}">${on && !on.loan ? "Withdraw" : "Suggest signing"}</button>${canLoan ? `<button class="btn sm" data-act="suggest" data-id="${p.id}" data-loan="1">${on && on.loan ? "Withdraw" : "Suggest a loan"}</button>` : ""}</div>
@@ -320,8 +320,8 @@ function staffCard(role) {
     <p class="lead"><b>${esc(s.name)}</b> ${staffBadge(s)}<span class="muted">, ${s.age}</span></p>
     <p style="margin:6px 0"><span class="chip list">${esc(ph.l)}</span> ${esc(ph.d)}</p><p class="small">${word(matchWord(visionMatch(s)))}</p>${exLine(s)}<p class="small"><b>Focus:</b> ${esc(R0.focus[s.focus])}${s.form ? ` · <b>Formation:</b> ${s.form}` : ""}</p>
     <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? s20(s.at[k]) - s20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${staff20(s.at[k])}</div>`; }).join("")}<div class="attr-r"><span>Hands-on owner – <span class="small ${tolWord(s)[1]}">${tolWord(s)[0]}</span></span>${staff20(tolOf(s))}</div><div class="attr-r"><span>Potential <span class="small muted">(average he could reach)</span></span>${staff20(staffPot(s))}</div></div>
-    ${role === "manager" ? `<p class="small">His style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
-    <p class="small muted">${money(s.wage)} a year · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing him costs ${money(payoff(s))}</p>
+    ${role === "manager" ? `<p class="small">${pr(s, "His")} style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
+    <p class="small muted">${money(s.wage)} a year · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing ${pr(s, "him")} costs ${money(payoff(s))}</p>
     <div class="row" style="margin-top:10px">${s.expiring ? `<button class="btn primary" data-act="renewstaff" data-r="${role}">Renew 3 years${staffAsk(s) != null ? ` (${money(Math.max(s.wage, staffAsk(s)))}/yr)` : ""}</button>` : ""}<button class="btn" data-act="cands" data-r="${role}">Look for a replacement</button><button class="btn danger" data-act="dismiss" data-r="${role}">Dismiss</button></div></section>`;
 }
 function pgStaff() {
@@ -329,10 +329,10 @@ function pgStaff() {
     <div class="grid3">${staffCard("manager")}${staffCard("recruit")}${staffCard("youth")}</div>`;
 }
 /* What a player or coach is weighing up: each factor's weight to him (his top two starred) and how you score on it. */
-function factorBars(a, factors) {
+function factorBars(a, factors, who) {
   return `<div class="factors">${factors.filter(([k]) => a.pr.pri[k] != null).map(([k, l]) => { const v = a.f[k], top = a.pr.top.includes(k);
     return `<div class="factor ${top ? "top" : ""}" title="${esc(FACTOR_HELP[k] || "")}"><span>${top ? "★ " : ""}${l}</span><span class="fbar"><i style="width:${Math.round(v * 100)}%;background:${v >= .6 ? "var(--win)" : v >= .4 ? "var(--accent)" : "var(--loss)"}"></i></span><span class="muted small num">${Math.round(a.pr.pri[k] * 100)}%</span></div>`; }).join("")}</div>
-    <p class="small muted">★ what he cares about most. The bar is how well your club does on it; the figure is how much it weighs with him.</p>`;
+    <p class="small muted">★ what ${who ? pr(who, "he") : "he"} cares about most. The bar is how well your club does on it; the figure is how much it weighs with ${who ? pr(who, "him") : "him"}.</p>`;
 }
 let CANDS = null, LOAN_SAY = null, BID_SAY = null;
 const ASEL = new Set();  // academy players ticked for a bulk keep / contract / release
@@ -362,7 +362,7 @@ function pgHire() {
       <label class="f">Max age${sel("age", [[99, "Any"], [60, 60], [50, 50], [45, 45], [40, 40]])}</label>
       <label class="f">Vision${sel("vis", [["", "Any"], ["part", "At least partly shares it"], ["full", "Shares your vision"]])}</label>
       <label class="f">Status${sel("st", [["", "Anyone"], ["free", "Out of work"], ["emp", "At another club (poach)"]])}</label></div>
-    <p class="small muted" style="margin-bottom:8px">${pool.length} match${pool.length === 1 ? "es" : ""}. Tap a column to sort; tap a name to see him and offer the job. "Wants" is the least he'd accept.</p>
+    <p class="small muted" style="margin-bottom:8px">${pool.length} match${pool.length === 1 ? "es" : ""}. Tap a column to sort; tap a name to see the card and offer the job. "Wants" is the least they'd accept.</p>
     ${sortTable("hire-" + role, [
       { k: "name", l: "Name", left: true, v: x => x.s.name, f: x => `<button class="lnk" data-act="cand" data-r="${role}" data-n="${all.indexOf(x.s)}">${esc(x.s.name)}</button>${x.s.ex ? ' <span class="chip acad">EX-PRO</span>' : ""}<br><span class="small muted">${esc(R0.phil[x.s.phil].l)}${x.s.form ? " · " + x.s.form : ""}</span>` },
       { k: "age", l: "Age", r: true, v: x => x.s.age, f: x => x.s.age },
@@ -386,10 +386,10 @@ function candModal(role, n) {
     <div class="modal-b"><p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
       <p class="small muted">${esc(ph.d || "")}</p>
       ${exLine(s)}
-      ${s.emp != null ? `<p class="small warn" style="margin-top:6px">${s.coachOf != null ? "Manager" : "Working"} at ${esc(clubLabel(CL(s.emp)))}. To bring him in you pay them ${money(poachFee(s))} in compensation, on top of his wages, and he wants a little more to leave a job.</p>` : ""}
+      ${s.emp != null ? `<p class="small warn" style="margin-top:6px">${s.coachOf != null ? "Manager" : "Working"} at ${esc(clubLabel(CL(s.emp)))}. To bring ${pr(s, "him")} in you pay them ${money(poachFee(s))} in compensation, on top of his wages, and he wants a little more to leave a job.</p>` : ""}
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${staff20(s.at[k])}</div>`).join("")}<div class="attr-r"><span>Hands-on owner – <span class="small ${tolWord(s)[1]}">${tolWord(s)[0]}</span></span>${staff20(tolOf(s))}</div><div class="attr-r"><span>Potential <span class="small muted">(average he could reach)</span></span>${staff20(staffPot(s))}</div></div>
-      ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
-      <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
+      ${role === "manager" ? `<p class="small muted">${pr(s, "His")} style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
+      <details><summary class="small">What ${pr(s, "he")}'s weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS, s)}</details>
       ${no ? "" : `<div class="row" style="margin-top:10px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw0" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy0">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="0">${s.emp != null ? `Poach him (${money(poachFee(s))})` : "Offer the job"}</button></div>`}</div>`);
 }
 
@@ -627,7 +627,7 @@ function pgMarket() {
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section>
     ${s ? `<section class="card"><div class="card-h"><h3>Your suggestions</h3><span class="small muted">${sugg().length}</span></div>
       ${sugg().length ? sugg().filter(x => G.players[x.id]).map(x => { const p = G.players[x.id], v = suggView(p, my(), x.loan); return `<div class="sugg-row"><div class="row between"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${x.loan ? ' <span class="chip acad">LOAN</span>' : ""} <span class="small muted">${p.age} · ${esc(fromName(p))}</span></span><button class="lnk small" data-act="suggest" data-id="${p.id}"${x.loan ? ' data-loan="1"' : ""}>Withdraw</button></div><p class="small ${v.ok ? "good" : v.money ? "warn" : v.wait ? "" : "muted"}">${esc(v.w)}</p></div>`; }).join("")
-        : `<p class="small muted">Open a player's card and tap <b>Suggest signing</b> or <b>Suggest a loan</b> to point ${esc(s.name)} at him. He goes after the ones he agrees with while a window is open, before his own targets, and tells you why if he won't.</p>`}</section>` : ""}</div></div>`;
+        : `<p class="small muted">Open a player's card and tap <b>Suggest signing</b> or <b>Suggest a loan</b> to point ${esc(s.name)} at him. ${pr(s, "He")} goes after the ones ${pr(s, "he")} agrees with while a window is open, before ${pr(s, "his")} own targets, and tells you why if ${pr(s, "he")} won't.</p>`}</section>` : ""}</div></div>`;
 }
 function buyModal(id) {
   const p = G.players[id], fee = askingFee(p), wage = playerAsk(p) || demandWage(p, my()), s = staffOf("recruit");

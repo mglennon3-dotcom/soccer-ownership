@@ -267,7 +267,7 @@ function pgTactics() {
   const inXI = new Set(xi.map(o => o.p.id)), avail = c.squad.map(P).filter(p => !inXI.has(p.id) && !p.inj && (!p.acad || p.age >= 17));
   const bench = avail.sort((a, b) => b.ovr - a.ovr).slice(0, 7), out2 = c.squad.map(P).filter(p => p.inj || p.unsettled > 0);
   const nf = nextFixture(), opp = nf ? CL(nf.h === c.id ? nf.a : nf.h) : null, oxi = opp ? pickXI(opp) : null;
-  const focusTxt = { youth: "Gives young players a chance: he picks promising youngsters over slightly better senior players.", results: "Picks his strongest side every week.", balanced: "Balances results and bringing players through." }[M.focus];
+  const focusTxt = { youth: "Gives young players a chance: he picks promising youngsters over slightly better senior players.", results: "Picks the strongest side every week.", balanced: "Balances results and bringing players through." }[M.focus];
   return `<div class="grid2"><div class="stack">
     <section class="card"><div class="card-h"><h2>${form}</h2><span class="small muted">${hired ? esc(M.name) + "'s side" : "Picked by the club captain: there's no manager"}</span></div>
       <div class="pitch" style="--club:${c.color};max-width:420px;margin:0 auto">${PITCH_LINES}${slots}</div>

@@ -144,7 +144,7 @@ function forcedWeek() {
   for (const p of picks) {
     if (!xi.has(p.id) || own.has(p.id)) continue;  // he'd have picked him anyway, or he isn't playing
     G.meddle = (G.meddle || 0) + .05; meddled("manager", -.7, null);
-    if (!p.forceNoted) { p.forceNoted = true; news(`${m.name} isn't happy being told to start ${p.name}: he wouldn't pick him.`, tolOf(m) < 40); }
+    if (!p.forceNoted) { p.forceNoted = true; news(`${m.name} isn't happy being told to start ${p.name}: ${pr(m, "he")} wouldn't pick him.`, tolOf(m) < 40); }
   }
 }
 function recoverWeek() {
