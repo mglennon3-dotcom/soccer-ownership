@@ -33,7 +33,9 @@ Running locally: any static server works, for example `python3 -m http.server 80
   (worth knowing when you hire a manager), and the next opponent.
 - **A staff universe.** Over a hundred people for each role, from part-timers to the best in the game, kept from week to
   week: they age, some take jobs elsewhere or retire, and new names come in. Filter to the ones who would come (always at
-  least ten) or see everyone, sorted by ability, cost or fit with your vision, twenty at a time.
+  least ten) or see everyone. The Find staff page works like the transfer market: a tab for each role, filters (style
+  or approach, focus, formation, minimum average, maximum wage, age, vision) and a table you sort by any column (age,
+  reputation, each attribute, average, vision, wage). Tap a name for his card and to offer the job.
   Like players, coaches won't drop more than two divisions below where their reputation belongs (three once they're
   58 and winding down), whatever you offer, unless they're a former player coming home.
 - **Hire staff.** A manager (tactics, motivation, player development; a style of play, a formation, and a view on

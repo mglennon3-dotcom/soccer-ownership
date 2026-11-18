@@ -52,9 +52,9 @@ const ACT = {
   vpri: el => { const start = !!el.closest("#f-vision"), v = start ? START_V : vision(), k = el.dataset.k, d = +el.dataset.d;
     if (d > 0 && sum(Object.values(v.pri)) >= VISION_POINTS) return; v.pri[k] = clamp((v.pri[k] || 0) + d, 0, 4);
     if (start) $("#f-vision").outerHTML = visionCard(START_V, true); else render(); },
-  csort: el => { CSORT = el.dataset.k; candModal(el.dataset.r); },
-  cwho: el => { CWHO = el.dataset.k; candModal(el.dataset.r); },
-  cmore: el => { CSHOW += 20; const q = [".scrim", ".modal"], y = q.map(k => document.querySelector(k)?.scrollTop || 0); candModal(el.dataset.r, true); q.forEach((k, i) => { const e = document.querySelector(k); if (e) e.scrollTop = y[i]; }); },
+  hrole: el => { HIRE_F.role = el.dataset.k; HIRE_F.phil = HIRE_F.focus = HIRE_F.form = ""; render(); },
+  hf: el => { if (el.dataset.v != null) { HIRE_F[el.dataset.k] = el.dataset.v; render(); } },
+  cand: el => candModal(el.dataset.r, +el.dataset.n),
   friendly: el => { const err = askFriendly(CL(+el.dataset.id), el.dataset.h === "1", SUB.fw); if (err) toast(err); render(); saveGame(); },
   putsale: () => { G.saleOffers = saleOffers(); render(); },
   acceptsale: async el => { const o = G.saleOffers[+el.dataset.i]; if (await ask(`Sell your ${ownPct()}% of ${my().name} to ${o.name} for ${money(o.amt)}? You'll then choose a new club.`)) { sellMyClub(o); render(); saveGame(); } },
@@ -116,13 +116,13 @@ const ACT = {
     if (a.score < a.pr.thr) return toast(`${p.name} turns you down. ${refusalReason(a, P_FACTORS)}`);
     ownerBuy(p, fee, wage); closeModal(); render(); saveGame();
   },
-  cands: el => candModal(el.dataset.r),
+  cands: el => { HIRE_F.role = el.dataset.r; HIRE_F.phil = HIRE_F.focus = HIRE_F.form = ""; PAGE = "hire"; closeModal(); render(); scrollTo(0, 0); },
   hire: el => {
     const s = CANDS.list[+el.dataset.i], wage = num($("#cw" + el.dataset.i)), yrs = +$("#cy" + el.dataset.i).value;
     if (!staffDropOK(s)) { toast(`${s.name} says no: he won't drop to the ${TIER_NAME[my().tier]}, whatever the money.`); return; }
     const a = staffAppeal(s, wage);
     if (a.score < a.pr.thr) { toast(`${s.name} says no. ${refusalReason(a, S_FACTORS)}`); return; }
-    hire(s, wage, yrs); closeModal(); render(); saveGame();
+    hire(s, wage, yrs); closeModal(); if (PAGE === "hire") { PAGE = "staff"; scrollTo(0, 0); } render(); saveGame();
   },
   dismiss: async el => { const s = staffOf(el.dataset.r); if (await ask(`Dismiss ${s.name}? It costs ${money(payoff(s))}.`)) { dismiss(el.dataset.r); G.meddle = (G.meddle || 0) + .5; render(); saveGame(); } },
   renewstaff: el => { const s = staffOf(el.dataset.r), w = staffAsk(s); if (w == null) { toast(`${s.name} won't sign a new contract: ${refusalReason(staffAppeal(s, s.wage * 1.5), S_FACTORS)}`); return; } s.wage = Math.max(w, s.wage); s.yrs = 3; s.expiring = false; news(`${s.name} signs a new three-year contract (${money(s.wage)} a year).`); render(); saveGame(); },
@@ -171,6 +171,7 @@ const CHANGE = {
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
+  hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis"].includes(k) ? el.value : +el.value || 0; render(); },
   mf: el => { const k = el.dataset.k; MARKET_F[k] = ["pos", "arch", "int", "lg"].includes(k) ? el.value : +el.value || 0;
     if (k === "pos" && MARKET_F.arch && !(ARCHETYPES[el.value] || []).some(a => a[0] === MARKET_F.arch)) MARKET_F.arch = "";
     if (k === "arch" && el.value && MARKET_F.pos && !(ARCHETYPES[MARKET_F.pos] || []).some(a => a[0] === el.value)) MARKET_F.pos = "";

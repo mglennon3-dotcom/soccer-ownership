@@ -29,7 +29,7 @@ function sortTable(id, cols, rows, opt = {}) {
   return `<div class="tbl-wrap"><table class="sq"><thead><tr>${cols.map(c => `<th${c.left ? ' style="text-align:left"' : ""} ${st && st.k === c.k ? `aria-sort="${st.d > 0 ? "ascending" : "descending"}"` : ""}>${c.v ? `<button data-act="sort" data-v="${id}|${c.k}">${c.l}${st && st.k === c.k ? (st.d > 0 ? " ▲" : " ▼") : ""}</button>` : c.l}</th>`).join("")}</tr></thead><tbody>
     ${rows.map(r => `<tr${opt.row ? " " + opt.row(r) : ""}>${cols.map(c => `<td class="${c.r ? "num" : ""}"${c.left ? ' style="text-align:left"' : ""}>${c.f(r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted">${opt.empty || "Nothing to show."}</td></tr>`}</tbody></table></div>${opt.limit && total > opt.limit && !opt.quiet ? `<p class="small muted" style="margin-top:6px">Showing ${opt.limit} of ${total.toLocaleString("en-GB")}. Narrow the filters or sort to see others.</p>` : ""}`;
 }
-const SORT_UP = ["name", "pos", "club", "nat"];  // columns that start A-Z (or by position)
+const SORT_UP = ["name", "pos", "club", "nat", "ask"];  // columns that start A-Z (or by position)
 const archChip = p => { const a = archetypeOf(p); return a ? `<span class="chip hg" title="${esc(a[0] + ": " + a[2])}">${a[3]}</span>` : ""; };
 const staff20 = v => `${bar(v)}<b class="num">${s20(v)}</b>`;  // staff attributes: straight 1-20
 const attr20 = v => `${bar(v)}<b class="num">${r20(v)}</b>`;
@@ -77,12 +77,12 @@ function mast() {
       <div><dt>${LEAGUES[c.lg].name}</dt><dd>${pos ? ord(pos) : "—"}</dd></div>
       <div><dt>Fans</dt><dd>${c.fans.toLocaleString("en-GB")}</dd></div></dl>
       <div class="playbtn"><button data-act="adv" data-n="1">Continue</button><button data-act="advmenu" aria-label="More">▾</button></div></div></div>
-    <nav class="tabs">${PAGES.map(([k, l]) => `<button data-act="page" data-p="${k}" ${PAGE === k ? 'aria-current="page"' : ""}>${l}${k === "home" && dec ? `<span class="dot">${dec}</span>` : ""}</button>`).join("")}</nav></div></header>`;
+    <nav class="tabs">${PAGES.map(([k, l]) => `<button data-act="page" data-p="${k}" ${PAGE === k || (PAGE === "hire" && k === "staff") ? 'aria-current="page"' : ""}>${l}${k === "home" && dec ? `<span class="dot">${dec}</span>` : ""}</button>`).join("")}</nav></div></header>`;
 }
 function render() {
   if (!G) return;
   if (G.club == null) { $("#app").innerHTML = buyScreen(); return; }
-  const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals, tactics: pgTactics, owner: pgOwner }[PAGE]();
+  const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals, tactics: pgTactics, owner: pgOwner, hire: pgHire }[PAGE]();
   if (G.ended) { $("#app").innerHTML = endScreen(); return; }
   // The section tabs keep their sideways scroll across redraws, so tapping a tab doesn't snap the bar back to the start.
   // (Only a visible bar records it: iOS reports 0 while the compact masthead hides it.)
@@ -243,26 +243,55 @@ function factorBars(a, factors) {
     <p class="small muted">★ what he cares about most. The bar is how well your club does on it; the figure is how much it weighs with him.</p>`;
 }
 let CANDS = null;
-let CSORT = "best", CWHO = "yes", CSHOW = 20;
-function candModal(role, keep) {
-  if (!keep) CSHOW = 20;
-  const all = candidates(role), ask = new Map(all.map(s => [s, staffAsk(s)])), vm = new Map(all.map(s => [s, visionMatch(s)]));
-  const by = { best: (a, b) => staffAvg(b) - staffAvg(a), cheap: (a, b) => (ask.get(a) ?? 1e12) - (ask.get(b) ?? 1e12), vision: (a, b) => vm.get(b) - vm.get(a) }[CSORT];
-  const yes = all.filter(s => ask.get(s) != null).length, pool = CWHO === "yes" ? all.filter(s => ask.get(s) != null) : all.slice();
-  CANDS = { role, list: pool.sort((a, b) => (ask.get(a) == null) - (ask.get(b) == null) || by(a, b)).slice(0, CSHOW) };
-  const R0 = ROLES_STAFF[role], more = pool.length - CANDS.list.length;
-  modal(`<div class="modal-h"><div><p class="eyebrow">${all.length} in the game · ${yes} would come</p><h2>${R0.l}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b" style="padding-bottom:0"><div class="seg">${[["best", "Best"], ["cheap", "Cheapest"], ["vision", "Closest to your vision"]].map(([k, l]) => `<button data-act="csort" data-k="${k}" data-r="${role}" aria-pressed="${CSORT === k}">${l}</button>`).join("")}</div>
-    <div class="seg" style="margin-top:8px">${[["yes", `Would come (${yes})`], ["all", `Everyone (${all.length})`]].map(([k, l]) => `<button data-act="cwho" data-k="${k}" data-r="${role}" aria-pressed="${CWHO === k}">${l}</button>`).join("")}</div></div>
-    <div class="modal-b"><p class="small muted">Like players, coaches weigh up the whole job: the money, your club's standing, facilities, budgets, the squad, your ambition, and whether you let staff do their jobs. Each cares about some things more than others. The wage shown is the least that would get him to say yes; offer less and he'll probably refuse.</p>
-    ${CANDS.list.map((s, i) => { const ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null; return `<div class="cand ${no ? "dim" : ""}"><div class="row between"><div><b>${esc(s.name)}</b>, ${s.age} <span class="muted small">reputation ${s.rep}</span></div><div class="num">${no ? `<span class="muted">${staffDropOK(s) ? "Not interested at any price" : `Won't drop to the ${TIER_NAME[my().tier]}`}</span>` : "wants about " + money(ask) + "/yr"}</div></div>
-      <p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
+/* ---------- the staff search: a page like the transfer market ---------- */
+const HIRE_F = { role: "manager", who: "yes", phil: "", focus: "", form: "", min: 0, wage: 0, age: 99, vis: "" };
+function pgHire() {
+  const F = HIRE_F, role = F.role, R0 = ROLES_STAFF[role], all = candidates(role), cur = staffOf(role);
+  const rows = all.map(s => ({ s, ask: staffAsk(s), vm: visionMatch(s), avg: staffAvg(s) }));
+  const yes = rows.filter(x => x.ask != null).length;
+  let pool = F.who === "yes" ? rows.filter(x => x.ask != null) : rows;
+  pool = pool.filter(x => (!F.phil || x.s.phil === F.phil) && (!F.focus || x.s.focus === F.focus) && (!F.form || x.s.form === F.form) && s20(x.avg) >= F.min && x.s.age <= F.age
+    && (!F.wage || (x.ask != null && x.ask <= F.wage)) && (!F.vis || (F.vis === "full" ? x.vm >= .75 : x.vm >= .5)));
+  const sel = (k, opts) => `<select data-act="hf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+  const WAGES = [0, 25e3, 50e3, 100e3, 250e3, 500e3, 1e6, 2.5e6, 5e6];
+  const attrCols = Object.entries(R0.attrs).map(([k, l]) => ({ k: "a_" + k, l: { tac: "Tactics", mot: "Motiv.", dev: "Develop", judge: "Judge", reach: "Scouting", neg: "Negot.", net: "Contacts" }[k] || l, r: true, v: x => x.s.at[k], f: x => `<b class="num">${s20(x.s.at[k])}</b>` }));
+  return `<div class="stack"><section class="card"><div class="card-h"><h2>Find staff</h2><button class="lnk small" data-act="page" data-p="staff">← Staff</button></div>
+    <div class="chips" style="margin-bottom:12px">${Object.entries(ROLES_STAFF).map(([k, r]) => `<button data-act="hrole" data-k="${k}" aria-pressed="${role === k}">${r.l}</button>`).join("")}</div>
+    <p class="small" style="margin-bottom:10px">${cur ? `Now: <b>${esc(cur.name)}</b>, ${esc(R0.phil[cur.phil].l)} · average ${s20(staffAvg(cur))} · ${money(cur.wage)}/yr` : `<span class="warn">Vacant</span>`}</p>
+    <div class="chips" style="margin-bottom:12px">${[["yes", `Would come (${yes})`], ["all", `Everyone (${all.length})`]].map(([k, l]) => `<button data-act="hf" data-k="who" data-v="${k}" aria-pressed="${F.who === k}">${l}</button>`).join("")}</div>
+    <div class="filters">
+      <label class="f">${role === "manager" ? "Style" : "Approach"}${sel("phil", [["", "Any"], ...Object.entries(R0.phil).map(([k, v]) => [k, v.l])])}</label>
+      <label class="f">Focus${sel("focus", [["", "Any"], ...Object.entries(R0.focus).map(([k, v]) => [k, v.split(":")[0]])])}</label>
+      ${role === "manager" ? `<label class="f">Formation${sel("form", [["", "Any"], ...FORM_KEYS.map(k => [k, k])])}</label>` : ""}
+      <label class="f">Min average${sel("min", [[0, "Any"], [5, "5+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
+      <label class="f">Max wage${sel("wage", WAGES.map(v => [v, v ? money(v) + "/yr" : "Any"]))}</label>
+      <label class="f">Max age${sel("age", [[99, "Any"], [60, 60], [50, 50], [45, 45], [40, 40]])}</label>
+      <label class="f">Vision${sel("vis", [["", "Any"], ["part", "At least partly shares it"], ["full", "Shares your vision"]])}</label></div>
+    <p class="small muted" style="margin-bottom:8px">${pool.length} match${pool.length === 1 ? "es" : ""}. Tap a column to sort; tap a name to see him and offer the job. "Wants" is the least he'd accept.</p>
+    ${sortTable("hire-" + role, [
+      { k: "name", l: "Name", left: true, v: x => x.s.name, f: x => `<button class="lnk" data-act="cand" data-r="${role}" data-n="${all.indexOf(x.s)}">${esc(x.s.name)}</button>${x.s.ex ? ' <span class="chip acad">EX-PRO</span>' : ""}<br><span class="small muted">${esc(R0.phil[x.s.phil].l)}${x.s.form ? " · " + x.s.form : ""}</span>` },
+      { k: "age", l: "Age", r: true, v: x => x.s.age, f: x => x.s.age },
+      { k: "rep", l: "Rep", r: true, v: x => x.s.rep, f: x => x.s.rep },
+      ...attrCols,
+      { k: "avg", l: "Avg", r: true, v: x => x.avg, f: x => `<b class="num">${s20(x.avg)}</b>` },
+      { k: "vis", l: "Vision", v: x => x.vm, f: x => `<span class="small ${matchWord(x.vm)[1]}">${x.vm >= .75 ? "Shares" : x.vm >= .5 ? "Partly" : "Differs"}</span>` },
+      { k: "ask", l: "Wants", r: true, v: x => x.ask ?? 1e12, f: x => x.ask != null ? money(x.ask) : `<span class="small muted">${staffDropOK(x.s) ? "No" : "Won't drop"}</span>` },
+    ], pool, { sort: { k: "avg", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}
+    <p class="small muted" style="margin-top:10px">Like players, coaches weigh up the whole job: the money, your club's standing, facilities, budgets, the squad, your ambition, and whether you let staff do their jobs. They won't drop more than two divisions below their standing.</p></section></div>`;
+}
+/* One candidate's card, with the job offer. */
+function candModal(role, n) {
+  const s = candidates(role)[n]; if (!s) return;
+  const R0 = ROLES_STAFF[role], ph = R0.phil[s.phil], ask = staffAsk(s), no = ask == null;
+  CANDS = { role, list: [s] };
+  modal(`<div class="modal-h"><div><p class="eyebrow">${R0.l} · ${s.age} · reputation ${s.rep}</p><h2>${esc(s.name)}</h2><p class="small">${no ? `<span class="muted">${staffDropOK(s) ? "Not interested at any price" : `Won't drop to the ${TIER_NAME[my().tier]}`}</span>` : "Wants about " + money(ask) + "/yr"}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
+    <div class="modal-b"><p class="small"><span class="chip list">${esc(ph.l)}</span> ${esc(R0.focus[s.focus])}${s.form ? ` · ${s.form}` : ""} · ${word(matchWord(visionMatch(s)))}</p>
+      <p class="small muted">${esc(ph.d || "")}</p>
       ${exLine(s)}
       <div class="attr-grid">${Object.entries(R0.attrs).map(([k, l]) => `<div class="attr-r"><span>${l}</span>${staff20(s.at[k])}</div>`).join("")}</div>
       ${role === "manager" ? `<p class="small muted">His style with your current squad: ${fitText(styleFit(pickXI(my()), s.phil))}</p>` : ""}
       <details><summary class="small">What he's weighing up</summary>${factorBars(staffAppeal(s, ask || s.demand), S_FACTORS)}</details>
-      ${no ? "" : `<div class="row" style="margin-top:6px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw${i}" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy${i}">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="${i}">Offer the job</button></div>`}</div>`; }).join("")}
-    ${more > 0 ? `<button class="btn" style="width:100%;margin-top:10px" data-act="cmore" data-r="${role}">Show ${Math.min(20, more)} more (${more} left)</button>` : ""}</div>`);
+      ${no ? "" : `<div class="row" style="margin-top:10px"><label class="small">Offer €/yr <input type="text" inputmode="decimal" class="num-in" id="cw0" value="${fmtNum(ask)}"></label><label class="small">Years <select id="cy0">${[1, 2, 3, 4].map(y => `<option ${y === 3 ? "selected" : ""}>${y}</option>`).join("")}</select></label><button class="btn primary sm" data-act="hire" data-i="0">Offer the job</button></div>`}</div>`);
 }
 
 /* ---------- Finances ---------- */
