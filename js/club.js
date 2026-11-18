@@ -109,11 +109,14 @@ function crowdFor(c, opp, price = c.prices.ticket) {
 function concessionsFor(c, crowd, price = c.prices.conc) {
   const am = ground(c).amen, buy = clamp(1.6 * Math.pow(REF_CONC[c.tier] / Math.max(.3, price), 1.4), 0, 2.6) * (.65 + am * .12);
   const gross = crowd * buy * price, cut = atHome(c) ? 1 : .5;  // a landlord keeps half the bar takings
-  return { gross, net: gross * .55 * cut };
+  // Stock and staff cost about 30% of the going rate an item: very cheap food and drink sells out at a loss.
+  return { gross, net: crowd * buy * (price - REF_CONC[c.tier] * .3) * cut };
 }
 function merchFor(c, price = c.prices.shirt) {  // per week
-  const units = commMult() * c.fans * .007 * Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7) * (.8 + c.mood / 250) * merchMult(c) * (familyOn(c) ? 1.12 : 1);
-  return units * price * .45 * shirtBoost(c);
+  const units = commMult() * c.fans * .007 * Math.min(3, Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7)) * (.8 + c.mood / 250) * merchMult(c) * (familyOn(c) ? 1.12 : 1);
+  // Each shirt costs about 45% of the going rate to make and license: the profit is what's left. Too cheap and you sell
+  // lots at a loss; too dear and few sell. The best price sits a little above the going rate.
+  return units * (price - REF_SHIRT[c.tier] * .45) * shirtBoost(c);
 }
 /* Forecast for the finance page: a typical home game against an average side. */
 /* ---------- season tickets ----------
