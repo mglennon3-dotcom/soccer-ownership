@@ -202,6 +202,7 @@ function endSeason() {
   for (const k of ["L7N", "L7S"]) while (G.leagues[k].clubs.length < LEAGUES[k].size) { const c = newClub(k, LEAGUES[k].size - 1); c.half = LEAGUES[k].half; genSquad(c); G.leagues[k].clubs.push(c.id); c.founded = G.year; }
   // Standing: reputation drifts toward the club's division, plus a little for finishing high.
   for (const k of LG_KEYS) { const ids = G.leagues[k].clubs, n = ids.length; ids.forEach(id => { const c = CL(id); const prev = table2(k, id, n); c.rep = clamp(Math.round(c.rep + (TIER_REP[c.tier] + prev - c.rep) * .3), 1, 99); }); }
+  (G.repLog ||= []).push([G.year, my().rep]);  // the prestige tracker's season-by-season line
   ownersSummer();
   yearTurnover();
   feedersSummer();

@@ -367,3 +367,29 @@ function pgMoves() {
       { k: "by", l: "Deal by", left: true, v: m => m.by || "", f: m => `<span class="small muted">${esc(MOVE_BY[m.by] || "")}</span>` },
     ], rows, { sort: { k: "when", d: -1 }, quiet: true }) : `<p class="muted">${L.length ? "No moves of this kind." : "Your club's signings, sales, loans and releases will be listed here from now on."}</p>`}</section></div>`;
 }
+
+/* ---------- club prestige ----------
+   Prestige is the club's reputation (0-100): it decides who will join you (players and staff), what sponsors pay, how
+   fast the support grows and how many come through the gate. It moves at the end of each season, 30% of the way to
+   your division's standing plus or minus your finish (about four points either way), with a bump for European nights. */
+const PRESTIGE_WORDS = [[88, "Elite"], [75, "A big club"], [60, "Established"], [45, "Respected"], [30, "Regional name"], [15, "Local club"], [0, "Unknown"]];
+const prestigeWord = r => PRESTIGE_WORDS.find(([t]) => r >= t)[1];
+function prestigeProjection(c) {
+  const L = G.leagues[c.lg], n = L.clubs.length, pos = G.phase === "season" || G.phase === "playoffs" ? table2(c.lg, c.id, n) : 0;
+  return { pos, target: TIER_REP[c.tier] + pos, next: clamp(Math.round(c.rep + (TIER_REP[c.tier] + pos - c.rep) * .3), 1, 99) };
+}
+function prestigeCard() {
+  const c = my(), pr = prestigeProjection(c), eng = G.clubs.filter(x => !x.gone && !x.abroad), rankE = eng.filter(x => x.rep > c.rep).length + 1;
+  const div = G.leagues[c.lg].clubs.map(CL), rankD = div.filter(x => x.rep > c.rep).length + 1;
+  const log = [...(G.repLog || []).filter(r => r[0] < G.year), [G.year, c.rep]], pts = [...log.map(r => r[1]), pr.next];
+  const w = 240, h = 60, lo = Math.max(0, Math.min(...pts) - 5), hi = Math.min(100, Math.max(...pts) + 5), X = i => 8 + i * (w - 16) / Math.max(1, pts.length - 1), Y = v => h - 8 - (v - lo) / Math.max(1, hi - lo) * (h - 16);
+  const line = pts.length > 1 ? `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Prestige by season"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${pts.slice(0, -1).map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ")}"/><line x1="${X(pts.length - 2).toFixed(1)}" y1="${Y(pts[pts.length - 2]).toFixed(1)}" x2="${X(pts.length - 1).toFixed(1)}" y2="${Y(pr.next).toFixed(1)}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/>${pts.map((v, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${i === pts.length - 1 ? 3 : 2.5}" fill="${i === pts.length - 1 ? "none" : "var(--accent)"}" stroke="var(--accent)"/>`).join("")}</svg>` : "";
+  const d = pr.next - c.rep, nextTier = PRESTIGE_WORDS.slice().reverse().find(([t]) => t > c.rep);
+  return `<section class="card"><div class="card-h"><h3>Club prestige</h3><span class="small muted">${esc(prestigeWord(c.rep))}</span></div>
+    <div class="row between"><b style="font-size:28px" class="num">${Math.round(c.rep)}</b><span class="small ${d > 0 ? "good" : d < 0 ? "bad" : "muted"}">${G.phase === "summer" ? "Moves at the end of the season" : `End of season, if the table stays as it is: <b>${pr.next}</b> (${d > 0 ? "+" : ""}${d})`}</span></div>
+    ${line}
+    <dl class="ledger" style="margin-top:6px"><dt>In your division</dt><dd>${ord(rankD)} of ${div.length}</dd><dt>In England</dt><dd>${ord(rankE)} of ${eng.length}</dd>
+      <dt>Your division's standing</dt><dd>${TIER_REP[c.tier]}</dd>${G.phase !== "summer" ? `<dt>Your league position is worth</dt><dd class="${pr.pos > 0 ? "good" : pr.pos < 0 ? "bad" : ""}">${pr.pos > 0 ? "+" : ""}${pr.pos}</dd>` : ""}
+      ${nextTier ? `<dt>Next: ${esc(nextTier[1])}</dt><dd>${nextTier[0]}</dd>` : ""}</dl>
+    <details style="margin-top:6px"><summary class="small">What moves it</summary><p class="small muted" style="margin-top:4px">Prestige drifts each summer toward your division's standing, plus up to four for finishing near the top (or minus for near the bottom). Promotion lifts the standing it drifts toward; European football adds a point, a European trophy four. It decides who'll join you, what sponsors pay, how fast your support grows and how many come through the gate.</p></details></section>`;
+}
