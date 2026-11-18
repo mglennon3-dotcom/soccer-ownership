@@ -73,7 +73,13 @@ function staffFactors(s) {
   const home = isLegendOf(s, c.id) ? 1 : s.ex && s.ex.favOf.includes(c.id) ? .5 : 0;
   return { prest: Math.max(home, clamp(.5 + (TIER_REP[T] + c.rep * .3 - s.rep) / 30, 0, 1)), fac, budget, squad, proj: projectF(), auto: meddleF(), vision: Math.max(home * .9, visionMatch(s)) };
 }
+/* Like players, coaches won't drop far below their standing whatever the money: a reputation belongs to a division,
+   and they'll go at most two divisions lower (three once they're 58 and winding down). Your own staff renewing, and
+   former players coming home to a club that loves them, are the exceptions. */
+const repTier = r => { for (let t = 1; t <= 7; t++) if (r >= TIER_REP[t] - 4) return t; return 7; };
+const staffDropOK = s => { const c = my(); return s === staffOf(s.role) || isLegendOf(s, c.id) || (s.ex && s.ex.favOf.includes(c.id)) || c.tier <= repTier(s.rep) + (s.age >= 58 ? 3 : 2); };
 function staffAsk(s) {
+  if (!staffDropOK(s)) return null;
   const pr = prefsOf(s, S_FACTORS), f = staffFactors(s);
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;

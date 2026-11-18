@@ -119,6 +119,7 @@ const ACT = {
   cands: el => candModal(el.dataset.r),
   hire: el => {
     const s = CANDS.list[+el.dataset.i], wage = num($("#cw" + el.dataset.i)), yrs = +$("#cy" + el.dataset.i).value;
+    if (!staffDropOK(s)) { toast(`${s.name} says no: he won't drop to the ${TIER_NAME[my().tier]}, whatever the money.`); return; }
     const a = staffAppeal(s, wage);
     if (a.score < a.pr.thr) { toast(`${s.name} says no. ${refusalReason(a, S_FACTORS)}`); return; }
     hire(s, wage, yrs); closeModal(); render(); saveGame();
