@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.47.1";
+const VERSION = "0.47.2";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -137,8 +137,12 @@ function shiftPlayer(p, pts) {
      so and a potential 100, a generational player, once in a few decades. tools/sim.js measures this.
    Every potential is capped at 94 outside the exceptional draw. */
 const EXC_RATE = .0005;
-function drawPotential(mean, excMult = 1) {
+/* A gem: now and then any academy, however humble, turns up a boy far above the rest (more often at a club known for
+   developing youth). */
+const GEM_RATE = .012;
+function drawPotential(mean, excMult = 1, gemMult = 1) {
   if (R() < EXC_RATE * excMult) return Math.min(100, rh(90 + 10.5 * Math.pow(R(), 3)));
+  if (R() < GEM_RATE * gemMult) return clamp(rh(mean + 18 + R() * 22), 25, 94);
   return clamp(rh(mean + normal() * 10.5), 25, 94);
 }
 
