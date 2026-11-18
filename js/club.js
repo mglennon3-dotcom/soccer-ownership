@@ -258,7 +258,10 @@ function makeOffers(slot) {
   }
   return out.sort((a, b) => b.amt - a.amt);
 }
+// Commercial deals are done in the off-season only: offers, signings and replacing a sponsor all wait for pre-season.
+const commOpen = () => G.phase === "summer";
 function refreshOffers(c, force) {
+  if (!commOpen()) return;
   for (const s of Object.keys(SLOTS)) {
     if (SLOTS[s].need && !SLOTS[s].need(c)) continue;
     const deal = c.deals.find(d => d.slot === s), have = c.offers.filter(o => o.slot === s);

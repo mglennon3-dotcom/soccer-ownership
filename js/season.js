@@ -76,6 +76,7 @@ function summerWeek() {
   G.week++;
   if (G.week >= SUMMER_WEEKS) {
     G.phase = "season"; G.week = 0; trimVeterans(); sellSeasonTickets(my());
+    if (my().offers.length) { my().offers = []; news("The commercial window closes for the season: offers not taken have lapsed. Sponsors can be signed again next pre-season."); }
     for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, true);
     news(`The ${seasonLabel(G.year)} season begins. ${my().name} are in the ${LEAGUES[my().lg].name}.`, true);
   }
