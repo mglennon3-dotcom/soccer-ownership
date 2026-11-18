@@ -124,12 +124,16 @@ const levelPremium = s => s === staffOf(s.role) || isLegendOf(s, my().id) ? 1 : 
    standing, plus a premium for being better than that level (up to 2.5×), never more than his own market rate.
    Someone already earning more in a higher division won't take a pay cut to join you, and leaving a job or dropping
    divisions costs extra on top. */
-const jobRep = (c = my()) => TIER_REP[c.tier] + clamp(c.rep - TIER_REP[c.tier], -10, 15) * .5;
+// The job's standing: your division, moved by your own standing in it (the biggest club in the land pays the most).
+const jobRep = (c = my()) => clamp(TIER_REP[c.tier] + clamp(c.rep - TIER_REP[c.tier], -10, 25), 1, 99);
 const jobRate = role => staffWage(role, jobRep());
 function effDemand(s) {
   const mine = s === staffOf(s.role), above = !mine && s.emp != null && empDrop(s) >= 1;
-  const base = above ? s.demand : Math.min(s.demand, jobRate(s.role) * clamp(1 + (s.rep - jobRep()) / 40, 1, 2.5));
-  return base * (s.emp != null && !mine ? 1.15 : 1) * dropPremium(s) * levelPremium(s);
+  // Quality and dropping below his level together come to at most 2.5× the going rate.
+  let base = above ? s.demand * levelPremium(s) : Math.min(s.demand, jobRate(s.role) * Math.min(2.5, clamp(1 + (s.rep - jobRep()) / 40, 1, 2.5) * levelPremium(s)));
+  // The manager is always the best-paid job at the club: the others are capped at the going rate for a manager.
+  if (s.role !== "manager" && !above) base = Math.min(base, jobRate("manager") * .9);
+  return base * (s.emp != null && !mine ? 1.15 : 1) * dropPremium(s);
 }
 function staffAsk(s) {
   if (!staffDropOK(s)) return null;
