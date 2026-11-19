@@ -128,14 +128,18 @@ function playMatch(h, a, neutral, fr) {
     ev.push({ m: ri(1, 90), side, g: g.name, a: as ? as.name : null });
   }
   /* Substitutions: up to three (five in a friendly). The most tired outfield starters come off, each replaced by a
-     bench player from the same part of the pitch; the manager spreads the minutes, favouring those who've played least. */
+     bench player from the same part of the pitch; the manager spreads the minutes, favouring those who've played least.
+     Your own side in competitive games goes by your depth chart instead: the first-choice cover comes on. */
   const subsFor = (c, xi) => {
     const n = fr ? 5 : xi.length >= 11 ? 3 : 0; if (!n) return { off: new Set(), on: [] };
     const used = new Set(xi.map(o => o.p.id)), bench = c.squad.map(P).filter(p => avail(p) && !used.has(p.id) && p.pos !== "GK" && (!p.acad || p.age >= 17) && (!isMine(c) || isReg(p, c)) && !(p.loan && p.loan.from === c.id));
     const off = new Set(), on = [];
     for (const o of xi.filter(o => o.slot !== "GK").sort((a, b) => (a.p.fit ?? 100) - (b.p.fit ?? 100))) {
       if (on.length >= n) break;
-      const pick = bench.filter(q => !on.includes(q) && POS_LINE[q.pos] === POS_LINE[o.slot]).sort((a, b) => (b.ovr - b.s.app * .5) - (a.ovr - a.s.app * .5))[0]
+      // Your side in a competitive game follows the depth chart: the first-choice cover for that position comes on.
+      const dep = isMine(c) && !fr ? (depthSync(c, o.slot) || bench.slice().sort((a, b) => roleRating(b, o.slot) - roleRating(a, o.slot)).map(q => q.id)) : null;
+      const pick = (dep && bench.filter(q => !on.includes(q) && (o.slot === "GK") === (q.pos === "GK")).sort((a, b) => (dep.indexOf(a.id) + 1 || 999) - (dep.indexOf(b.id) + 1 || 999))[0])
+        || bench.filter(q => !on.includes(q) && POS_LINE[q.pos] === POS_LINE[o.slot]).sort((a, b) => (b.ovr - b.s.app * .5) - (a.ovr - a.s.app * .5))[0]
         || bench.filter(q => !on.includes(q)).sort((a, b) => (b.ovr - b.s.app * .5) - (a.ovr - a.s.app * .5))[0];
       if (!pick) break; off.add(o.p.id); on.push(pick);
     }
