@@ -471,7 +471,7 @@ function pgFin() {
       ${priceIn("shirt", "Replica shirt", REF_SHIRT[T], 1, `About ${money(merchFor(c) * 52)} profit a year.`)}
       ${c.fac.stadium.own && c.fac.stadium.suites ? priceIn("suite", "Executive suite (per season)", REF_SUITE[T], 500, `${suitesLet(c)} of ${c.fac.stadium.suites} suites let: ${money(suitesLet(c) * c.prices.suite)} a season.`) : ""}
     </div><p class="small muted" style="margin-top:8px">Supporters notice prices well above the going rate and their mood suffers; cheap tickets win a little goodwill.</p></section>`,
-    budgets: () => `<section class="card"><div class="card-h"><h2>Budgets</h2></div><div class="settings">
+    budgets: () => `${forecastCard(c)}<section class="card"><div class="card-h"><h2>Budgets</h2></div><div class="settings">
       ${budgetIn("wages", "Player wages (per year)", "Your head of recruitment won't sign players or renew contracts beyond it.", { fig: `${money(wageBill(c))} used · ${money(Math.max(0, c.budget.wages - wageBill(c)))} left`, bar: c.budget.wages ? wageBill(c) / c.budget.wages : 1 })}
       ${budgetIn("transfer", "Transfer fees (this season)", "Fees for the players your head of recruitment signs come out of this.", { fig: `${money(c.spentT)} spent · ${money(Math.max(0, c.budget.transfer - c.spentT))} left`, bar: c.budget.transfer ? c.spentT / c.budget.transfer : (c.spentT ? 1.01 : 0) })}
       ${c.fac.acad.lvl ? budgetIn("acad", "Academy (per year)", "More means bigger, better intakes; less, smaller and weaker ones.", { ref: Math.round(acadRef(c.fac.acad.lvl)), fig: `normal ${money(acadRef(c.fac.acad.lvl))}` }) : `<div class="setting"><div class="setting-h"><b>Academy</b></div><p class="small muted">No academy yet. Build one on the Facilities page.</p></div>`}
@@ -812,3 +812,24 @@ function perGameHTML(c) {
 }
 const avg0 = a => a && a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 const homeGames0 = c => (G.leagues[c.lg].clubs.length - 1);
+
+/* The season forecast on the Budgets tab. Change a budget and it updates; the change shown is against where the forecast
+   stood when you first looked this week. */
+let FC_BASE = null;
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+function forecastCard(c) {
+  const F = seasonForecast(c), key = `${G.year}.${G.phase}.${G.week}`;
+  if (!FC_BASE || FC_BASE.key !== key) FC_BASE = { key, net: F.net };
+  const d = F.net - FC_BASE.net, sign = v => (v < 0 ? "−" : "+") + money(Math.abs(v));
+  const rows = (o, s) => Object.entries(o).filter(([, v]) => Math.round(v)).map(([l, v]) => `<tr><td style="text-align:left">${l}</td><td class="num">${s}${money(v)}</td></tr>`).join("");
+  return `<section class="card"><div class="card-h"><h2>Season forecast</h2><span class="small muted">${F.W} week${F.W === 1 ? "" : "s"} to go · ${F.home} home game${F.home === 1 ? "" : "s"} left</span></div>
+    <dl class="ledger"><dt><b>Projected result for the season</b></dt><dd class="${F.net < 0 ? "bad" : "good"}"><b>${sign(F.net)}</b></dd>
+      ${Math.abs(d) >= 1000 ? `<dt>Change from your earlier budgets</dt><dd class="${d < 0 ? "bad" : "good"}">${sign(d)}</dd>` : ""}
+      ${c.tier <= 4 ? `<dt>Spending rule (three seasons)</dt><dd class="${F.ratio > SPEND_LIMIT ? "bad" : F.ratio > SPEND_LIMIT - .1 ? "warn" : "good"}">${Math.round(F.ratio * 100)}% of income lost (limit 35%)${F.ratio > SPEND_LIMIT ? ": points deduction" : ""}</dd>` : ""}</dl>
+    <details style="margin-top:8px"><summary class="small">How it adds up</summary><div class="tbl-wrap"><table class="proj"><tbody>
+      <tr><td style="text-align:left">So far this season</td><td class="num">${sign(F.sofar)}</td></tr>
+      <tr class="sec"><td colspan="2">Still to come in</td></tr>${rows(F.rest, "+")}
+      <tr class="sec"><td colspan="2">Still to go out</td></tr>${rows(F.out, "−")}
+      <tr class="tot"><td style="text-align:left">Projected result</td><td class="num ${F.net < 0 ? "bad" : "good"}">${sign(F.net)}</td></tr></tbody></table></div></details>
+    <p class="small muted" style="margin-top:6px">This season's books so far plus the rest at today's rates. ${F.windowAhead ? "Assumes your head of recruitment uses the wage and transfer budgets in the coming window. " : ""}League merit money for ${ordinal(F.pos)} place. Cup runs, Europe, player sales, building work and one-off bills aren't included.</p></section>`;
+}

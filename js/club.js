@@ -644,3 +644,43 @@ function awayRefundCheck(c, opp, gf, ga) {
 const PARA = { 1: [.55, .45, .2], 2: [.2, .1], 3: [.3, .15], 4: [.3, .15] };
 const paraOf = c => c.para && PARA[c.para.from] && c.para.i < c.para.n ? Math.round(TV[c.para.from] * PARA[c.para.from][c.para.i]) : 0;
 const paraPlan = c => c.para ? PARA[c.para.from].slice(c.para.i, c.para.n).map(f => Math.round(TV[c.para.from] * f)) : [];
+
+/* ---------- season forecast ----------
+   Where this season's accounts are heading: what has already happened, plus the rest of the season at today's rates and
+   budgets. Assumes your head of recruitment uses the wage and transfer budgets while a window is still to come, a
+   typical crowd at the remaining home games and merit money for your current league position. Cup runs, Europe,
+   player sales and building work aren't forecast. */
+function seasonForecast(c = my()) {
+  const f = c.fin, summer = G.phase === "summer", sw = summer ? Math.max(0, SUMMER_WEEKS - G.week) : 0;
+  const se = summer ? SEASON_WEEKS : G.phase === "season" ? Math.max(0, SEASON_WEEKS - G.week) : 0, W = sw + se;
+  const L = G.leagues[c.lg]; let home = 0, away = 0;
+  for (const r of (L.rounds || []).slice(L.next || 0)) for (const [h, a] of r) { if (h === c.id) home++; else if (a === c.id) away++; }
+  const windowAhead = summer || (G.phase === "season" && G.week <= JAN[JAN.length - 1]);
+  const bill = windowAhead ? Math.max(wageBill(c), c.budget.wages) : wageBill(c);
+  const m = matchdayForecast(c), vg = ventureGame(c, m.crowd) + (fzK(c) === .5 ? fzGame(c, m.crowd, .5) : 0), H = c.hgs || { n: 0 };
+  // Once a few home games are played, this season's real takings per game replace the typical-crowd estimate.
+  const perGame = H.n >= 3 ? (H.gate + H.conc + H.vent) / H.n : m.gate + m.conc + vg;
+  const ids = table(c.lg).map(r => r.id), pos = G.phase === "summer" ? Math.ceil(ids.length / 2) : ids.indexOf(c.id) + 1;
+  const ventWeek = atHome(c) ? sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].week ? VENTURES[k].week(c) : 0) : 0;
+  const rest = {
+    "Gate, food & drink": home * perGame,
+    "Partner club fees": sum(partners(), p => CL(p.id) ? affilFee(CL(p.id), c) : 0) / 52 * W,
+    "Season tickets": summer && !(c.st && c.st.y === G.year) ? stDemand(c) * stPrice(c) : 0,
+    "Sponsorship": sponsorTotal(c) / 52 * W, "Merchandise": merchFor(c) * W, "TV money": (TV[c.tier] + paraOf(c)) / 46 * se,
+    "Suites & ventures": suitesLet(c) * c.prices.suite / SEASON_WEEKS * se + ventWeek * W,
+    "League merit money": G.phase === "playoffs" ? 0 : PRIZE_TOP[c.tier] * (1 - (pos - 1) / Math.max(1, ids.length)),
+  };
+  const out = {
+    "Player wages": bill / 52 * W, "Staff wages": staffBill(c) / 52 * W,
+    "Transfer fees": windowAhead ? Math.max(0, c.budget.transfer - (c.spentT || 0)) : 0,
+    "Academy & scouting": (c.budget.acad + c.budget.scout) / 52 * W, "Community foundation": (c.budget.comm || 0) / 52 * W,
+    "Ground: rent, match-day staff, upkeep": home * (m.rent + m.ops) + upkeep(c) / 52 * W, "Utilities & insurance": (utilities(c) + bill * INSURE) / 52 * W,
+    "Away travel": away * TRAVEL[c.tier], "Feeder funding": feederFunding() / 52 * W, "Interest": Math.max(0, -c.cash) * .1 / 52 * W + sum(G.loans || [], l => (l.rate || 0) * (l.left || 0)) / 52 * W,
+  };
+  const sofar = ledgerIncome(f) - ledgerCosts(f), inc = sum(Object.values(rest), v => v);
+  // Corporation tax on a profit, after losses carried forward (see seasonTax).
+  { const pre = sofar + inc - sum(Object.values(out), v => v); out["Corporation tax"] = pre > 0 ? Math.max(0, pre - (G.taxLoss || 0)) * TAX : 0; }
+  const cost = sum(Object.values(out), v => v), net = sofar + inc - cost;
+  const ratio = c.tier <= 4 ? spendRolling(c, ledgerIncome(f) + inc - (ledgerCosts(f) - f.build - f.acad + cost - (c.budget.acad / 52 * W)), ledgerIncome(f) + inc).ratio : 0;
+  return { sofar, rest, out, inc, cost, net, W, home, pos, windowAhead, ratio };
+}
