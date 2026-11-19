@@ -188,6 +188,9 @@ const ACT = {
   nudge: el => { const a = el.dataset.a, k = el.dataset.k, inp = document.querySelector(`input[data-act="${a}"][data-k="${k}"]`); if (!inp) return;
     const v = el.dataset.set != null ? +el.dataset.set : Math.max(0, Math.round((num(inp) + +el.dataset.d) * 100) / 100); inp.value = String(v); CHANGE[a](inp); },
   mfind: el => { Object.assign(MARKET_F, { tab: "all", pos: el.dataset.k, arch: "", int: "sign" }); PAGE = "market"; render(); scrollTo(0, 0); },
+  depth: el => { const role = el.dataset.role, id = +el.dataset.id, d = +el.dataset.d, L = (DEPTH_VIEW[role] || []).slice(), i = L.indexOf(id), j = i + d;
+    if (i < 0 || j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; (G.depth ||= {})[role] = L; render(); saveGame(); },
+  depthreset: el => { if (G.depth) delete G.depth[el.dataset.role]; render(); saveGame(); },
   mtab: el => { MARKET_F.tab = el.dataset.k; render(); },
   fav: el => { const id = +el.dataset.id; G.favs ||= []; G.favs = G.favs.includes(id) ? G.favs.filter(x => x !== id) : [...G.favs, id]; if (document.querySelector(".modal") && el.closest(".modal")) playerModal(id); render(); saveGame(); },
   loanredo: el => { const p = P(+el.dataset.id), r = redoLoan(p, +$("#rshare").value / 100); LOAN_SAY = r.ok ? null : { id: p.id, t: r.t }; toast(r.t); playerModal(p.id); render(); saveGame(); },

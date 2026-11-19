@@ -12,6 +12,17 @@ const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
 
 /* The manager's pick: the best player for each slot, hardest slots first. A manager who trusts youth gives
    young players with room to grow the benefit of the doubt. */
+/* Your depth chart order (Tactics → Depth chart): G.depth[role] lists your players for that position in the order you
+   set. Players who join later, or come up from the academy, slot in by their rating there; players who leave drop out. */
+function depthSync(c, role) {
+  const L = (G.depth || {})[role]; if (!L) return null;
+  const ok = p => p && p.club === c.id && (role === "GK") === (p.pos === "GK") && !(p.loan && p.loan.from === c.id) && (!p.acad || p.age >= 16);
+  const keep = L.filter(id => ok(G.players[id]));
+  for (const p of c.squad.map(P).filter(p => ok(p) && !keep.includes(p.id)).sort((a, b) => roleRating(b, role) - roleRating(a, role))) {
+    const r = roleRating(p, role), at = keep.findIndex(id => roleRating(G.players[id], role) < r); keep.splice(at < 0 ? keep.length : at, 0, p.id);
+  }
+  return (G.depth[role] = keep);
+}
 function pickXI(c, noForce) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false;
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 17 && p.ovr >= TIER_LVL[c.tier] - 6) && (!isMine(c) || isReg(p, c)));
@@ -27,12 +38,15 @@ function pickXI(c, noForce) {
   // A club that borrows a player agreed to give him games: yours start in their own position nearly every week.
   // Your pick: a player you insist on starts (in his own position if there's a place, otherwise in the same area).
   const forced = isMine(c) && !noForce ? (p, s) => p.force ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 0) : 0) : 0 : () => 0;
+  // Your depth chart: the higher you've put a player for a position, the stronger his claim to it (below "insist he starts").
+  const dl = isMine(c) && !noForce && G.depth ? Object.fromEntries(Object.keys(G.depth).map(r => [r, depthSync(c, r)])) : {};
+  const depthB = (p, s) => { const L = dl[s]; if (!L) return 0; const i = L.indexOf(p.id); return i < 0 ? 0 : Math.max(20, 200 - i * 6); };
   const lent = isMine(c) ? forced : (p, s) => p.loan && p.loan.to === c.id ? (p.loan.from === G.club ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 200) : 0) : p.pos === s ? 4 : 0) : 0;
   // Tired players get rested: below 85% sharpness a player starts losing his place to a fresh deputy.
   const tired = p => Math.max(0, 88 - (p.fit ?? 100)) * .3;
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) - tired(p) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);

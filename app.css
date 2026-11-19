@@ -530,3 +530,4 @@ select.fit-b{background-color:color-mix(in srgb,var(--loss) 22%,var(--surface));
 
 /* Tactics depth chart: one card per position, rating first. */
 table.depth td{padding:5px 4px;vertical-align:middle;border-bottom:1px solid var(--line)} table.depth td.num{width:1%;white-space:nowrap} table.depth tr.muted .lnk{opacity:.75} .depth-grid{align-items:start}
+.depth-mv{display:inline-flex;gap:2px;margin-right:6px;vertical-align:middle} .depth-mv .btn.sm{padding:2px 6px;min-width:28px;line-height:1.2}

@@ -306,6 +306,7 @@ function pgTactics() {
 /* The depth chart: each position the formation uses, with the whole squad ranked by how good they are there (the same
    position ratings the manager picks on). Starters first; then who would come in, injured or unregistered players
    marked, and players who'd be playing out of position flagged. */
+const DEPTH_VIEW = {};
 function depthChart() {
   const c = my(), form = mgr().form || "4-4-2", slots = FORMS[form] || FORMS["4-4-2"], xi = pickXI(c), startsAt = new Map(xi.map(o => [o.p.id, o.slot]));
   const roles = [...new Set(slots)], ps = c.squad.map(P).filter(p => p && (!p.acad || p.age >= 16) && !(p.loan && p.loan.from === c.id));
@@ -313,8 +314,12 @@ function depthChart() {
   const cards = roles.map(role => {
     const n = slots.filter(s => s === role).length;
     const all = ps.filter(p => (role === "GK") === (p.pos === "GK")).map(p => ({ p, r: roleRating(p, role) })).sort((a, b) => b.r - a.r);
-    // Starters here, then the best of everyone not starting anywhere (players starting in other positions aren't cover).
-    const ranked = [...all.filter(x => startsAt.get(x.p.id) === role), ...all.filter(x => !startsAt.has(x.p.id)).slice(0, Math.max(3, SHOW - n))];
+    // Your order if you've set one (everyone eligible, as you ranked them); otherwise the manager's: starters here, then
+    // the best of everyone not starting anywhere (players starting in other positions aren't cover).
+    const mineL = depthSync(c, role), byId = new Map(all.map(x => [x.p.id, x]));
+    const ranked = mineL ? mineL.map(id => byId.get(id)).filter(Boolean).filter((x, i) => i < Math.max(SHOW, n + 3) || startsAt.get(x.p.id) === role)
+      : [...all.filter(x => startsAt.get(x.p.id) === role), ...all.filter(x => !startsAt.has(x.p.id)).slice(0, Math.max(3, SHOW - n))];
+    DEPTH_VIEW[role] = mineL ? mineL.slice() : [...ranked.map(x => x.p.id), ...all.filter(x => !ranked.includes(x)).map(x => x.p.id)];
     const coverR = (ranked.find(x => !startsAt.has(x.p.id) && !x.p.inj) || { r: 0 }).r;
     const alsoHere = all.filter(x => startsAt.has(x.p.id) && startsAt.get(x.p.id) !== role && x.r > coverR).slice(0, 3);
     let backup = 0;
@@ -322,14 +327,15 @@ function depthChart() {
       const here = startsAt.get(p.id) === role, elsewhere = startsAt.has(p.id) && !here, oop = p.pos !== role;
       const tag = here ? `<span class="chip xi">STARTS</span>` : p.inj ? `<span class="small bad">injured ${p.inj}w</span>` : !isReg(p, c) ? `<span class="small warn">not registered</span>`
         : elsewhere ? `<span class="small muted">starts at ${startsAt.get(p.id)}</span>` : `<span class="small muted">${["1st", "2nd", "3rd", "4th", "5th"][backup++] || ""} choice cover</span>`;
-      return `<tr class="${p.inj || elsewhere ? "muted" : ""}"><td class="num">${rating(r)}</td><td style="text-align:left"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${oop ? ` <span class="pos" title="Normally ${esc(POS_NAME[p.pos].toLowerCase())}">${p.pos}</span>` : ""}<br><span class="small muted">${p.age} · potential ${est20(potEstimate(p))}</span></td><td style="text-align:right">${tag}</td></tr>`;
+      const k = DEPTH_VIEW[role].indexOf(p.id), mv = `<span class="depth-mv"><button class="btn sm" data-act="depth" data-role="${role}" data-id="${p.id}" data-d="-1" ${k <= 0 ? "disabled" : ""} aria-label="Move ${esc(p.name)} up">▲</button><button class="btn sm" data-act="depth" data-role="${role}" data-id="${p.id}" data-d="1" ${k >= DEPTH_VIEW[role].length - 1 ? "disabled" : ""} aria-label="Move ${esc(p.name)} down">▼</button></span>`;
+      return `<tr class="${p.inj || elsewhere ? "muted" : ""}"><td class="num">${mv}${rating(r)}</td><td style="text-align:left"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${oop ? ` <span class="pos" title="Normally ${esc(POS_NAME[p.pos].toLowerCase())}">${p.pos}</span>` : ""}<br><span class="small muted">${p.age} · potential ${est20(potEstimate(p))}</span></td><td style="text-align:right">${tag}</td></tr>`;
     }).join("");
     const cover = ranked.filter(x => startsAt.get(x.p.id) !== role && !startsAt.has(x.p.id) && !x.p.inj && isReg(x.p, c));
     const thin = !cover.length ? `<p class="small bad">No cover: an injury here means someone plays out of position.</p>` : !cover.some(x => x.p.pos === role) ? `<p class="small warn">No natural ${esc(POS_NAME[role].toLowerCase())} as cover.</p>` : "";
     const also = alsoHere.length ? `<p class="small muted">Better here than the cover, but starting elsewhere: ${alsoHere.map(x => `${esc(x.p.name)} (${r20(x.r)}, starts at ${startsAt.get(x.p.id)})`).join(", ")}.</p>` : "";
-    return `<section class="card"><div class="card-h"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${n} in the ${form}</span></div><table class="tbl depth"><tbody>${rows}</tbody></table>${thin}${also}</section>`;
+    return `<section class="card"><div class="card-h"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${n} in the ${form}${mineL ? ` · <b>your order</b> · <button class="lnk" data-act="depthreset" data-role="${role}">let the manager pick</button>` : ""}</span></div><table class="tbl depth"><tbody>${rows}</tbody></table>${thin}${also}</section>`;
   }).join("");
-  return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed.</p><div class="grid2 depth-grid">${cards}</div>`;
+  return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="grid2 depth-grid">${cards}</div>`;
 }
 function tacticsShape() {
   const c = my(), M = mgr(), hired = !!staffOf("manager"), form = M.form || "4-4-2", xi = pickXI(c), st = STYLES[M.phil], fit = styleFit(xi, M.phil);
