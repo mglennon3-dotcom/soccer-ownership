@@ -378,18 +378,7 @@ function diversitySummer() {
     }
   }
   // Breakouts and slumps.
-  for (const p of Object.values(G.players)) {
-    if (p.club === -2) continue;
-    const r = R(), up = (p.age <= 27 ? .03 : p.age <= 31 ? .012 : .004) * (p.ovr >= 80 ? .5 : 1), down = p.age >= 29 ? .03 + (p.age - 29) * .01 : .012;
-    if (r < up || r < up + down) {
-      // The swing is measured on the shown scale: up to three points either way (a 10 can become a 13 or a 7), and the
-      // player's potential moves by the same amount.
-      const s = to20(p.ovr), sp = to20(Math.max(p.pot, p.ovr)), d = (r < up ? 1 : -1) * rf(1, 3);
-      const ovr = clamp(Math.round(from20(clamp(s + d, 1, 20))), 1, 100), pot = clamp(Math.round(from20(clamp(sp + d, 1, 20))), ovr, 100);
-      shiftPlayer(p, ovr - p.ovr); p.pot = Math.max(pot, p.ovr);
-      if (p.club === G.club) news(r < up ? `${p.name} has had a breakthrough year: he's suddenly much better (now rated ${r20(p.ovr)}), and the coaches think there's more to come.` : `${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true);
-    }
-  }
+  for (const p of Object.values(G.players)) breakSlump(p);
 }
 
 /* ---------- the spending rule ----------
@@ -422,3 +411,17 @@ const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBu
 // spending rule when planning, never sell to balance the books, and live with what follows: points deductions, debt,
 // administration, or running out of money and having to sell the club.
 const reckless = c => ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || !!c.splash;
+
+/* A player's yearly chance of a sudden breakout or slump (see diversitySummer). */
+function breakSlump(p) {
+  if (p.club === -2) return;
+  const r = R(), up = (p.age <= 27 ? .03 : p.age <= 31 ? .012 : .004) * (p.ovr >= 80 ? .5 : 1), down = p.age >= 29 ? .03 + (p.age - 29) * .01 : .012;
+  if (r < up || r < up + down) {
+    // The swing is measured on the shown scale: up to three points either way (a 10 can become a 13 or a 7), and the
+    // player's potential moves by the same amount.
+    const s = to20(p.ovr), sp = to20(Math.max(p.pot, p.ovr)), d = (r < up ? 1 : -1) * rf(1, 3);
+    const ovr = clamp(Math.round(from20(clamp(s + d, 1, 20))), 1, 100), pot = clamp(Math.round(from20(clamp(sp + d, 1, 20))), ovr, 100);
+    shiftPlayer(p, ovr - p.ovr); p.pot = Math.max(pot, p.ovr);
+    if (p.club === G.club) news(r < up ? `${p.name} has had a breakthrough year: he's suddenly much better (now rated ${r20(p.ovr)}), and the coaches think there's more to come.` : `${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true);
+  }
+}
