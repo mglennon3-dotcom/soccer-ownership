@@ -318,7 +318,7 @@ function playerModal(id) {
           <p class="small ${cls(v)}"><b>${esc(s.name)}${canLoan ? " on signing" : ""}:</b> ${esc(v.w)}</p>${vl ? `<p class="small ${cls(vl)}"><b>On a loan:</b> ${esc(vl.w)}</p>` : ""}</div>`; })()}
       <details><summary class="small">What he's weighing up</summary>${factorBars(playerAppeal(p, wage || demandWage(p, my())), P_FACTORS)}</details>`;
   }
-  modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
+  modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}${mine ? "" : ` <button class="fav-btn ${isFav(p.id) ? "on" : ""}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" title="${isFav(p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(p.id) ? "★" : "☆"}</button>`}</h2><p class="small muted">${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : p.yrs ? p.yrs + " yr" : "—"}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? `<br><span class="small">+25% if promoted, −25% if relegated</span>` : ""}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
     <div class="attr-grid">${attrs}</div>${careerHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${acts}
     ${archetypeOf(p) && (mine || (c && c.lg === my().lg) || staffOf("recruit")) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
@@ -696,10 +696,13 @@ function interestOf(p) {
 // Where a player plays (or, for a free agent, where he's from): the country chips on the market filter.
 const MKT_COUNTRIES = ["ENG", "ITA", "ESP", "GER", "FRA", "POR", "BEL", "NED", "EUR", "ROW"];  // EUR: the smaller European leagues
 const playerCountry = p => { const k = p.club >= 0 ? (CL(p.club).abroad ? CL(p.club).country : "ENG") : p.nat; return MKT_COUNTRIES.includes(k) ? k : COUNTRY[k] ? "EUR" : "ROW"; };
+// Favourites: players you're keeping an eye on (the market's Favourites tab). Players who've left the game drop off.
+const isFav = id => (G.favs || []).includes(id);
+const favPlayers = () => (G.favs || []).map(id => G.players[id]).filter(p => p && p.club !== G.club);
 function pgMarket() {
   const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c), xiCache = {}, off = new Set(F.off || []);
-  const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"]];
-  let base = F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
+  const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"], ["favs", `Favourites${favPlayers().length ? ` (${favPlayers().length})` : ""}`]];
+  let base = F.tab === "favs" ? favPlayers() : F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
   if (F.tab === "listed") base = base.filter(p => p.list || p.req);
   if (F.tab === "loans") base = base.filter(p => loanable(p) && lendsTo(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
   if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
@@ -739,7 +742,7 @@ function pgMarket() {
       <span class="cty-all small"><button class="lnk" data-act="mctyall" data-v="1" ${off.size ? "" : "disabled"}>Select all</button> · <button class="lnk" data-act="mctyall" data-v="0" ${off.size === MKT_COUNTRIES.length ? "disabled" : ""}>Unselect all</button></span></div>
     <p class="small muted" style="margin-bottom:8px">${pool.length.toLocaleString("en-GB")} player${pool.length === 1 ? "" : "s"} match${pool.length === 1 ? "es" : ""}${pool.length > 200 ? ": showing the first 200 in the order you sort by" : ""}.${F.tab === "loans" ? " Young players out of their club's first team: ask to borrow one from his card, and you pay half his wages to the end of the season." : ""}</p>
     ${sortTable("market-" + F.tab, [
-      { k: "name", l: "Player", left: true, v: x => x.p.name, f: x => `<button class="lnk" data-act="player" data-id="${x.p.id}">${esc(x.p.name)}</button>${wkChip(x.p)}${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}<br><span class="small muted">${esc((archetypeOf(x.p) || [""])[0])}</span>` },
+      { k: "name", l: "Player", left: true, v: x => x.p.name, f: x => `<button class="fav-btn sm ${isFav(x.p.id) ? "on" : ""}" data-act="fav" data-id="${x.p.id}" aria-pressed="${isFav(x.p.id)}" title="${isFav(x.p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(x.p.id) ? "★" : "☆"}</button><button class="lnk" data-act="player" data-id="${x.p.id}">${esc(x.p.name)}</button>${wkChip(x.p)}${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}<br><span class="small muted">${esc((archetypeOf(x.p) || [""])[0])}</span>` },
       { k: "pos", l: "Pos", v: x => POS.indexOf(x.p.pos), f: x => `<span class="pos">${x.p.pos}</span>` },
       { k: "age", l: "Age", r: true, v: x => x.p.age, f: x => x.p.age },
       { k: "ovr", l: "Rating", v: x => x.e[0] + x.e[1], f: x => range(x.e) },
@@ -751,7 +754,7 @@ function pgMarket() {
       // On loan: the wage his club wants you to pay this window (or that he isn't available to you).
       F.tab === "loans" ? { k: "ask", l: "You'd pay", r: true, v: x => loanPay(x.p) ?? 1e12, f: x => loanPay(x.p) != null ? pw(loanPay(x.p)) : `<span class="small muted">Not available</span>` }
         : { k: "ask", l: "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => x.i.ask != null ? pw(x.i.ask) : "—" },
-    ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}</section></div>
+    ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: F.tab === "favs" ? (favPlayers().length ? "None of your favourites match these filters." : "No favourites yet: tap the ☆ next to a player, here or on his card, to keep an eye on him.") : "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section>

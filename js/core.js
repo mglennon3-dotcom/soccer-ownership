@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.72.0";
+const VERSION = "0.72.1";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -389,7 +389,8 @@ function capSquad(c, keep) {
     leaveClub(p); toFreeAgent(p);
   }
 }
-function moveTo(p, c) { p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
+function moveTo(p, c) { if ((G.favs || []).includes(p.id) && c.id !== G.club && p.club !== c.id) { const fr = p.club >= 0 ? CL(p.club) : null; news(`★ ${p.name} (one of your favourites) joins ${c.name}${c.abroad ? ` in ${COUNTRY[c.country].name}` : ""}${fr ? ` from ${fr.name}` : " as a free agent"}.`, true); }
+  p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
 /* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
    below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
 function newcomerFor(p) {
