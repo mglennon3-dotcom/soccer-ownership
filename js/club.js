@@ -567,14 +567,20 @@ const regExempt = p => p.acad || p.age <= 21;
 const regList = c => { c.reg ||= autoRegList(c); c.reg = c.reg.filter(id => c.squad.includes(id) && !regExempt(P(id))); return c.reg; };
 const isReg = (p, c = my()) => regExempt(p) || regList(c).includes(p.id);
 function autoRegList(c) { return c.squad.map(P).filter(p => !regExempt(p)).sort((a, b) => b.ovr - a.ovr).slice(0, REG_MAX).map(p => p.id); }
+/* Auto-registration (on unless you turn it off): while a window is open the list is always your best 25 seniors by rating,
+   refreshed every week and whenever someone signs; when the window closes it's frozen until the next one. Ticking or
+   unticking a player yourself turns it off. */
+const autoRegOn = () => G.autoReg !== false;
+function syncReg(c = my()) { if (c && autoRegOn() && windowOpen()) c.reg = autoRegList(c); }
 function autoRegister(c, quiet) {
+  if (autoRegOn()) c.reg = autoRegList(c);
   const L = regList(c), add = c.squad.map(P).filter(p => !regExempt(p) && !L.includes(p.id)).sort((a, b) => b.ovr - a.ovr).slice(0, REG_MAX - L.length);
   for (const p of add) L.push(p.id);
   const out = c.squad.map(P).filter(p => !isReg(p, c));
   if (!quiet && (add.length || out.length)) news(`Squad registered: ${L.length} of ${REG_MAX}${add.length ? `, adding ${add.map(p => p.name).join(", ")}` : ""}.${out.length ? ` Not registered (can't play until the next window): ${out.map(p => p.name).join(", ")}.` : ""}`, !!out.length);
 }
 // A newcomer is registered if there's a place for him (an emergency signing always is).
-function registerNew(p, c = my(), force) { if (regExempt(p)) return; const L = regList(c); if (L.includes(p.id)) return; if (L.length < REG_MAX || force) L.push(p.id); else news(`${p.name} has signed but the 25-man list is full: he can't play until you register him (unregister someone while the window is open).`, true); }
+function registerNew(p, c = my(), force) { if (regExempt(p)) return; syncReg(c); const L = regList(c); if (L.includes(p.id)) return; if (L.length < REG_MAX || force) L.push(p.id); else news(`${p.name} has signed but the 25-man list is full: he can't play until you register him (unregister someone while the window is open).`, true); }
 function toggleReg(p, c = my()) {
   if (!windowOpen()) return "Registrations can only change while a transfer window is open.";
   if (regExempt(p)) return `${p.name} doesn't need registering (under-21s and academy players can always play).`;

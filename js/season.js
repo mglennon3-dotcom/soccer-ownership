@@ -56,6 +56,7 @@ function advance() {
   if (G.ended || G.club == null) return;
   weatherWeek();
   for (const p of Object.values(G.players)) { if (p.inj) p.inj--; if (p.unsettled > 0) p.unsettled--; }
+  syncReg(c);
   if (G.phase === "summer") summerWeek();
   else if (G.phase === "season") seasonWeek();
   else if (G.phase === "playoffs") playoffWeek();

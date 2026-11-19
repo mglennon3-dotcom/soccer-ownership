@@ -103,6 +103,7 @@ function upgradeSave() {
   // club); any still at your club on such a contract moves onto the emergency cap.
   // Ratings as they stand (a save from before the arrows had none): the arrows start from here.
   for (const p of Object.values(G.players)) if (p.r0 == null) p.r0 = r20(p.ovr);
+  if (G.club != null) syncReg();  // auto-registration: the best 25 while a window is open
   if (!G.brk1) { G.brk1 = true; if (G.club != null) for (const id of my().squad.slice()) { const p = G.players[id]; if (p) breakSlump(p); } }  // one-off: the summer roll this squad missed
   if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too
   if (!G.pay13) { G.pay13 = true; for (const c of G.clubs) if (!isMine(c) && c.pay > 1.45) c.pay = 1.45; }  // AI pay levels now top out at 1.45
@@ -334,6 +335,7 @@ const ACT = {
   },
 };
 const CHANGE = {
+  autoreg: el => { G.autoReg = el.checked; if (el.checked) { syncReg(); toast(windowOpen() ? "Your best 25 are registered." : "Your best 25 will be registered when the next window opens."); } render(); saveGame(); },
   starhunt: el => { G.starHunt = el.checked; toast(el.checked ? "Your head of recruitment may now chase stars on huge wages." : "Your head of recruitment will leave the stars alone."); render(); },
   price: el => { const c = my(), k = el.dataset.k, v = num(el);
     if (k === "ticket" && G.sTrust && G.sTrust.freeze === G.year && v > c.prices.ticket) { toast("You promised the supporters' trust a price freeze this season."); render(); return; }
@@ -367,7 +369,7 @@ const CHANGE = {
   rb: el => { const [s, f] = el.dataset.k.split("."), x = standsOf(my().fac.stadium)[s], r = ((G.rb ||= {})[s] ||= { cap: x.cap, type: x.type, roof: x.roof });
     r[f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; G.rbOpen = s; render(); },
   msel: el => { SUB.my = el.value === "all" ? "all" : +el.value; render(); },
-  reg: el => { const p = P(+el.dataset.id), e = toggleReg(p); if (e) toast(e); render(); saveGame(); },
+  reg: el => { const p = P(+el.dataset.id), was = autoRegOn() && windowOpen(), e = toggleReg(p); if (e) toast(e); else if (was) { G.autoReg = false; toast("Auto-registration is off: you're choosing the 25 yourself."); } render(); saveGame(); },
   asel: el => { const id = +el.dataset.id; if (el.checked) ASEL.add(id); else ASEL.delete(id); render(); },
   pcty: el => { SUB.pcty = el.value; SUB.plg = ""; render(); },
   plg: el => { SUB.plg = el.value; render(); },
