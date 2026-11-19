@@ -99,7 +99,7 @@ function seasonWeek() {
   cupWeek(w); contWeek(w); foreignDomestic(w); ownersCheck(w);
   if (w === JAN[0]) { partnerWindow(); aiListings(); levelSample(); }
   if (w === JAN[0] || w === JAN[2]) foreignLoans();
-  if (JAN.includes(w)) marketWeek(); else offWindowBids();
+  if (JAN.includes(w)) marketWeek(); else { offWindowBids(); headOffWindow(my()); }
   awayHelpWeek();
   youthScoutWeek();
   if (w % 3 === 2) devTick(1 / 16);

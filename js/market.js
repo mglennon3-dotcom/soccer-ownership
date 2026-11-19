@@ -95,7 +95,7 @@ function scoutScore(p, need, c, phil) {
   return eo;
 }
 function shortlist(c, need, max = 6) {
-  const s = staffOf("recruit"), left = c.budget.transfer - c.spentT, wageRoom = c.budget.wages - wageBill(c);
+  const s = staffOf("recruit"), left = c.budget.transfer - c.spentT - pendFees(), wageRoom = c.budget.wages - wageBill(c) - pendWages();
   const reach = s ? s.at.net : 0, phil = s ? s.phil : "proven";
   // Contacts and scouting budget decide how much of the market he actually sees.
   const seeTier = c.tier - 1 - Math.floor((reach + scoutBoost() * 3) / 35);
@@ -393,11 +393,11 @@ function suggView(p, c = my(), loan = false) {
   }
   const N = negotiate(p, c);
   if (!N) return { ok: false, w: "He isn't interested in joining us." };
-  const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT, room = c.budget.wages - wageBill(c);
+  const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT - pendFees(), room = c.budget.wages - wageBill(c) - pendWages();
   const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I can get him for about ${money(fee)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on ${pw(ask)} (his agent's asking ${pw(N.agent)})`;
   if (fee > left) return { ok: false, money: true, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
   if (ask > room) return { ok: false, money: true, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare.` };
-  return { ok: true, fee, ask, N, w: `${what}. ${deal}. ${windowOpen() ? "I'll go after him this week." : "I'll go after him when the window opens."}` };
+  return { ok: true, fee, ask, N, w: `${what}. ${deal}. ${windowOpen() ? "I'll go after him this week." : p.club >= 0 ? "I'll agree a deal now, and he'll join when the window opens." : "I'll sign him this week."}` };
 }
 /* His negotiation on a deal you suggested. The fee: he talks the asking price down, more the better a negotiator he is
    and the weaker the seller's hand (a listed player, one with a year or less left, one who's asked to leave); a little
@@ -423,13 +423,30 @@ function suggest(p, loan) {
 /* Agreed out of the window: a player at another club can agree to join you; the deal goes through, and the fee is paid,
    when the next window opens. Until then his club won't sell him to anyone else. If he leaves the game (or the club is
    gone) the deal falls through; if his contract runs out in the meantime he comes on a free. */
-function agreeIncoming(p, fee, wage) { p.toMe = { fee, wage, y: G.year, w: G.week }; news(`Agreed: ${p.name} will join from ${fromName(p)} when the transfer window opens${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true); }
+function agreeIncoming(p, fee, wage, rec) { p.toMe = { fee, wage, y: G.year, w: G.week, rec: !!rec }; news(`${rec ? `${rec.name} agrees a deal` : "Agreed"}: ${p.name} will join from ${fromName(p)} when the transfer window opens${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true); }
+// What deals agreed by your head of recruitment have already promised from the budgets (all agreed players' wages count).
+const pendFees = () => sum(incoming().filter(p => p.toMe.rec), p => p.toMe.fee);
+const pendWages = () => sum(incoming(), p => p.toMe.wage);
+/* Out of the window your head of recruitment agrees deals too: your suggestions first (a free agent he signs straight
+   away), then now and again a player for a position the squad needs, at most two of his own agreed at a time. */
+function headOffWindow(c) {
+  const s = staffOf("recruit"); if (!s || G.club == null) return;
+  for (const x of sugg().slice()) { if (x.loan) continue; const p = G.players[x.id];
+    if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
+    if (p.toMe) continue; const v = suggView(p, c, false); if (!v.ok) continue;
+    if (p.club === -1) signPlayer(p, 0, v.ask, false, "suggestion"); else agreeIncoming(p, v.fee, v.ask, s);
+    G.sugg = sugg().filter(y => y !== x); news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null); }
+  const mine = incoming().filter(p => p.toMe.rec); if (mine.length >= 2 || R() > .2) return;
+  for (const need of squadNeeds(c)) { if (mine.some(p => p.pos === need.pos)) continue;
+    const best = shortlist(c, need, 1)[0]; if (!best || best.p.club < 0 || best.p.toMe) continue;
+    agreeIncoming(best.p, negotiated(askingFee(best.p)), best.p._ask, s); break; }
+}
 function completeIncoming() {
   for (const p of Object.values(G.players)) { if (!p.toMe) continue; const A = p.toMe; delete p.toMe;
     if (p.club === G.club) continue;
     const seller = p.club >= 0 ? CL(p.club) : null;
     if (seller && seller.gone && !seller.abroad) { news(`${p.name}'s move falls through: ${seller.name} no longer exist.`, true); continue; }
-    ownerBuy(p, p.club === -1 ? 0 : A.fee, A.wage); } }
+    if (A.rec) { G.sugg = sugg().filter(x => x.id !== p.id); signPlayer(p, p.club === -1 ? 0 : A.fee, A.wage, false, "recruit"); } else ownerBuy(p, p.club === -1 ? 0 : A.fee, A.wage); } }
 const incoming = () => Object.values(G.players).filter(p => p.toMe);
 function ownerBuy(p, fee, wage) {
   G.meddle = (G.meddle || 0) + 1;
