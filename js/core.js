@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.68.2";
+const VERSION = "0.69.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -253,14 +253,27 @@ function envOf(c) {
   // everyone faster (their better coaching already shows in their standard).
   const rel = c.coach.dev - aiStaffLvl(c.rep || 40) + 40; return { train: c.train, dev: rel, acad: c.acadLvl, ydev: rel };
 }
+/* Growth profiles: everyone develops differently, and you don't see it (except a wonderkid, who is obvious).
+   - Wonderkid (rare): very high potential, already close to it as a teenager, and grows fastest of all.
+   - Fast developer (about 1 in 5): grows quickly while young, then slows from 22.
+   - Normal (most).
+   - Late bloomer (about 1 in 5): slow as a teenager, then catches up from 21 and keeps growing to 29. */
+function growthType(p) {
+  if (p.gt) return p.gt;
+  // On the shown scale: a ceiling of 15+ and already within six of it as a teenager.
+  if (p.age <= 19 && to20(p.pot) >= 15 && to20(p.pot) - to20(p.ovr) <= 6 && R() < .6) return (p.gt = "wonder");
+  const r = R(); return (p.gt = r < .2 ? "fast" : r < .8 ? "normal" : "late");
+}
+const GT_MULT = (t, age) => t === "wonder" ? 1.45 : t === "fast" ? (age <= 21 ? 1.5 : .8) : t === "late" ? (age <= 20 ? .55 : age <= 23 ? 1.1 : 1.45) : 1;
+const isWonderkid = p => p.age <= 21 && growthType(p) === "wonder" && to20(p.pot) >= 14;  // a slump that drops his ceiling ends it
 function develop(p, dt, teamGames) {
-  const c = p.club >= 0 ? CL(p.club) : null, e = envOf(c);
-  if (p.age <= 27 && p.pot > p.ovr) {
+  const c = p.club >= 0 ? CL(p.club) : null, e = envOf(c), gt = growthType(p);
+  if ((p.age <= 27 || (gt === "late" && p.age <= 29)) && p.pot > p.ovr) {
     let play;
     if (p.acad) play = .55 + e.acad * .03;  // academy football: better at a better academy
     else play = teamGames > 3 ? clamp(p.s.app / teamGames, 0, 1) : .5;
     const cond = (.35 + .65 * play) * (.62 + e.train * .045 + (p.acad ? e.ydev : e.dev) * .004) * (.7 + p.gs / 167);
-    const gain = (p.pot - (p.ovr + (p.frac || 0))) * (GROW_AGE[p.age] || 0) * cond * dt;
+    const gain = (p.pot - (p.ovr + (p.frac || 0))) * (GROW_AGE[p.age] || (gt === "late" ? (p.age === 28 ? .03 : .02) : 0)) * GT_MULT(gt, p.age) * cond * dt;
     p.frac = (p.frac || 0) + gain;
     const whole = Math.trunc(p.frac);
     if (whole) { const before = p.ovr; shiftPlayer(p, whole); p.frac -= (p.ovr - before) || whole; }

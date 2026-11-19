@@ -369,9 +369,11 @@ function youthIntake(c) {
   const gold = R() < GOLD_RATE * gemMult(c) ? Math.min(s.n, ri(2, 4)) : 0;
   for (let i = 0; i < s.n; i++) {
     const pot = Math.round(oldToNew(i < gold ? clamp(rh(s.mean + 18 + R() * 22), 8, 94) : drawPotential(s.mean, s.exc, gemMult(c)))), age = ri(15, 16);
-    const ovr = clamp(Math.round(pot * rf(.48, .6) + normal() * 3), 12, pot);
+    // A wonderkid: a very high ceiling and already close to it (about a third of the very best prospects).
+    const wonder = to20(pot) >= 15 && R() < .35, ovr = wonder ? clamp(Math.round(from20(to20(pot) - rf(4, 5.5))), 12, pot) : clamp(Math.round(pot * rf(.48, .6) + normal() * 3), 12, pot);
     const nat = s.wide && R() < .3 ? pickNat("ENG") : "ENG";
     const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat, club: c.id, pot, acad: true, lean: LEAN[s.phil], wage: 500 }); p.yAcad = c.id;
+    p.gt = wonder ? "wonder" : undefined; if (!wonder) growthType(p);
     p.yrs = 3; c.squad.push(p.id); p.hist.push([G.year, c.short]); got.push(p);
     if (pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot, club: c.id, y: G.year });
   }
