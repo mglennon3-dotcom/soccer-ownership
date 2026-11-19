@@ -225,7 +225,7 @@ function cupMet(key, v, id) {
 function judgeObjectives(report) {
   const o = G.obj, c = my(); G.objRes = [];
   G.sLast = staffProgress(c);  // last season's figures, shown when you set next season's staff targets
-  if (!o || o.y !== report.y) { judgeStaffObjectives(); return; }
+  if (!o || o.y !== report.y) { judgeStaffObjectives(null); return; }
   const res = (k, met) => { if (!o[k] || o[k] === "none") return; G.objRes.push({ k, t: objText(k, o[k]), w: objW(k, o[k]), met }); };
   res("lg", report.pos <= lgTarget(o.lg, report.lg) || (o.lg === "up" && report.up) || (o.lg === "po" && report.po));
   // A cup only counts if you were in it (played at least one tie).
@@ -251,7 +251,7 @@ function judgeObjectives(report) {
   const before = c.fans; c.rep = clamp(Math.round((c.rep + rep) * 10) / 10, 1, 99); c.fans = Math.max(50, Math.round(c.fans * (1 + fans)));
   const dF = c.fans - before, why = `${d > 0 ? `finishing ${d} place${d > 1 ? "s" : ""} above` : d < 0 ? `finishing ${-d} place${d < -1 ? "s" : ""} below` : "finishing where"} the squad suggested`;
   if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`, body: G.objRes.map(r => `${r.t}: ${r.met ? "met" : "missed"}`).join(". ") + `. With ${why}, the club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.` });
-  G.hype = 0; judgeStaffObjectives();
+  G.hype = 0; judgeStaffObjectives(o.exp ? d : null);
 }
 
 /* ---------- staff targets ----------
@@ -300,8 +300,34 @@ function setStaffObjectives(S) {
   const c = my(); G.sobj = { ...S, y: G.year, seq0: G.tseq || 0, base: Object.fromEntries(c.squad.map(P).filter(Boolean).map(p => [p.id, p.ovr])) };
   const n = staffTargets(c).length; if (n) news(`You set ${n} target${n > 1 ? "s" : ""} for your staff for the season.`, true);
 }
-function judgeStaffObjectives() {
-  const list = staffTargets(); if (!list.length) return;
+function judgeStaffObjectives(d) {
+  const list = staffTargets();
+  staffSeasonVerdict(list, d);
+  if (!list.length) return;
   for (const [role, , , , , met] of list) if (staffOf(role)) trust(role, met ? 5 : -4, null);
   addMsg({ type: "objectives", title: `Staff targets: ${list.filter(x => x[5]).length} of ${list.length} met`, body: list.map(([role, k, l, t, now, met]) => `${ROLES_STAFF[role].l}: ${l}${k === "pos" ? "" : " " + (k === "sales" ? money(t) : t)} (${k === "sales" ? money(now) : now}): ${met ? "met" : "missed"}`).join(". ") + ". Staff who meet their targets trust you more; missed targets cost trust." });
 }
+
+/* How each member of staff's season went, from -1 (awful) to +1 (tremendous): how far above or below each of his targets
+   he finished (half again as much as the target is the top of the scale, half as much the bottom) and, for the manager,
+   where the team finished against where the squad suggested (six places either way is the top or bottom). His skills
+   and ceiling move with it, on a curve: an ordinary season barely moves him, a tremendous one lifts him by up to two
+   points on the 20 scale, an awful one drops him as far. */
+function staffSeasonVerdict(list, d) {
+  for (const role of ["manager", "recruit", "youth"]) {
+    const s = staffOf(role); if (!s || !s.at) continue;
+    const parts = list.filter(x => x[0] === role).map(([, , , t, now]) => clamp(((now || 0) / Math.max(1e-9, t) - 1) * 2, -1, 1));
+    if (role === "manager" && d != null) parts.push(clamp(d / 6, -1, 1));
+    if (!parts.length) continue;
+    const score = avg(parts); if (Math.abs(score) < .15) continue;
+    const shift = Math.sign(score) * Math.pow(Math.abs(score), 1.4) * 1.5;  // up to about 2 points on the shown 20 scale
+    const before = staffAvg(s);
+    for (const k of Object.keys(s.at)) s.at[k] = staffShift(s.at[k], shift * rf(.7, 1.3));
+    s.ceil = Math.max(staffShift(staffCeil(s), shift * 1.2), Math.max(...Object.values(s.at)));
+    const word = score >= .7 ? "a tremendous season" : score >= .35 ? "a very good season" : score > 0 ? "a good season" : score <= -.7 ? "an awful season" : score <= -.35 ? "a poor season" : "a disappointing season";
+    const a = sr20(before), b = sr20(staffAvg(s));
+    news(`${s.name} (${ROLES_STAFF[role].l.toLowerCase()}) had ${word}: ${a === b ? `ratings edge ${shift > 0 ? "up" : "down"}` : `ratings ${shift > 0 ? "rise" : "fall"} from ${a} to ${b}`}, ${shift > 0 ? "with more room to grow" : "with a lower ceiling"}.`, true);
+  }
+}
+// A staff skill (0-100) moved by a number of points on the shown 20 scale.
+function staffShift(v, d) { const want = to20(staffEq(v)) + d; let lo = 1, hi = 99; for (let i = 0; i < 20; i++) { const mid = (lo + hi) / 2; if (to20(staffEq(mid)) < want) lo = mid; else hi = mid; } return clamp(Math.round((lo + hi) / 2), 1, 99); }
