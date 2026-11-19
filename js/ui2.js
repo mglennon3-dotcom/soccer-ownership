@@ -174,12 +174,16 @@ function theirPlayerLine(p) {
 // For a player offered to you: your weakest current starter in his position, to compare against.
 function weakestStarterLine(pid) {
   const p = G.players[pid]; if (!p) return "";
-  // The starters filling that position in the manager's formation, rated as they play there.
+  const form = mgr().form || "4-4-2", n = (FORMS[form] || []).filter(x => x === p.pos).length, pos = POS_NAME[p.pos].toLowerCase();
+  // Does the manager's formation use this player's position at all?
+  const uses = n ? `Your ${form} uses ${n === 1 ? "one" : n === 2 ? "two" : n === 3 ? "three" : n} ${pos}${n > 1 ? "s" : ""}.` : `<span class="warn">Your ${form} doesn't use a ${pos}</span>: he'd have to play out of position or sit out.`;
+  if (!n) return `<p class="small">${uses}</p>`;
   const at = o => o.p.pos === o.slot ? o.p.ovr : Math.min(o.p.ovr, roleRating(o.p, o.slot));  // his rating, or less out of position
   const xi = pickXI(my()).filter(o => o.slot === p.pos), w = xi.sort((a, b) => at(a) - at(b))[0];
-  if (!w) return `<p class="small muted">The manager's ${mgr().form || "4-4-2"} has no ${POS_NAME[p.pos].toLowerCase()} in it.</p>`;
+  if (!w) return `<p class="small">${uses} Nobody starts there at the moment.</p>`;
   const mid = p.club === G.club ? p.ovr : avg(ovrEstimate(p)), there = r20(at(w)), d = r20(mid) - there, out = w.p.pos !== w.slot ? ` (a ${POS_NAME[w.p.pos].toLowerCase()} playing out of position)` : "";
-  return `<p class="small ${d > 0 ? "good" : d < 0 ? "muted" : ""}">Your weakest starter there: <button class="lnk" data-act="player" data-id="${w.p.id}">${esc(w.p.name)}</button>${out}, ${w.p.age}, rated ${there} there${d > 0 ? ` (this player is ${d} better)` : d < 0 ? ` (${-d} better than this player)` : " (the same as this player)"}.</p>`;
+  const [a, b] = potEstimate(w.p).map(r20), pot = a === b ? `${a}` : `${a}–${b}`;
+  return `<p class="small">${uses}</p><p class="small ${d > 0 ? "good" : d < 0 ? "muted" : ""}">Your weakest starter there: <button class="lnk" data-act="player" data-id="${w.p.id}">${esc(w.p.name)}</button>${out}, ${w.p.age}, rated ${there} there, potential ${pot}${d > 0 ? ` (this player is ${d} better now)` : d < 0 ? ` (${-d} better than this player now)` : " (the same as this player now)"}.</p>`;
 }
 function choiceHTML(x) {
   return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.data && x.data.pid != null && G.players[x.data.pid] ? (G.players[x.data.pid].club === G.club ? myPlayerLine(G.players[x.data.pid]) : x.key !== "ySign" ? weakestStarterLine(x.data.pid) : "") : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
