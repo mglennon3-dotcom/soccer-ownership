@@ -345,7 +345,8 @@ function judgeStaffObjectives(d) {
   for (const t of list) if (staffOf(t.role)) trust(t.role, t.met ? 2 + t.lv : -2 - Math.min(3, t.lv - t.got), null);
   addMsg({ type: "objectives", title: `Staff targets: ${list.filter(t => t.met).length} of ${list.length} met`,
     rows: list.map(t => [`${ROLES_STAFF[t.role].l}: ${t.label} ${fmtT(t.k, t.v[t.lv - 1])}`, `${LVL_NAME[t.lv]}${t.got > t.lv ? ` · reached ${LVL_NAME[t.got].toLowerCase()}` : ""}`, String(fmtT(t.k, t.now)), t.met, staffOf(t.role) ? `${t.met ? "+" + (2 + t.lv) : "−" + (2 + Math.min(3, t.lv - t.got))} trust` : ""]),
-    foot: `Ratings: ${["manager", "recruit", "youth"].filter(r => staffOf(r) && G.sVerdict && G.sVerdict[r]).map(r => `${staffOf(r).name} ${G.sVerdict[r]}`).join("; ") || "no change (an ordinary season)"}.`,
+    foot: ["manager", "recruit", "youth"].filter(r => staffOf(r) && G.sVerdict && G.sVerdict[r]).map(r => { const tr = sum(list.filter(t => t.role === r), t => t.met ? 2 + t.lv : -(2 + Math.min(3, t.lv - t.got)));
+      return `${staffOf(r).name} (${ROLES_STAFF[r].l.toLowerCase()}) had ${G.sVerdict[r]}; trust ${tr >= 0 ? "+" : "−"}${Math.abs(tr)} overall.`; }),
     body: list.map(t => `${ROLES_STAFF[t.role].l}: ${t.label}: ${t.met ? "met" : "missed"}`).join(". ") + "." });
 }
 /* How each member of staff's season went, from -1 (awful) to +1 (tremendous). A met target scores by its level (modest
@@ -361,13 +362,14 @@ function staffSeasonVerdict(list, d) {
     const parts = list.filter(t => t.role === role).map(t => t.met ? LVL_SCORE[t.lv] : LVL_SCORE[t.got] * .5 - .35 * (t.lv - t.got));
     if (role === "manager" && d != null) parts.push(clamp(d / 6, -1, 1));
     if (!parts.length) continue;
-    const score = clamp(avg(parts), -1, 1); if (Math.abs(score) < .15) { (G.sVerdict ||= {})[role] = "no change (an ordinary season)"; continue; }
+    const score = clamp(avg(parts), -1, 1); if (Math.abs(score) < .15) { (G.sVerdict ||= {})[role] = `an ordinary season: rating ${sr20(staffAvg(s))}, potential ${staffPot20(s)}, unchanged`; continue; }
+    const pot0 = staffPot20(s);
     const shift = Math.sign(score) * Math.pow(Math.abs(score), 1.4) * 1.5;  // up to about 2 points on the shown 20 scale
     const before = staffAvg(s);
     for (const k of Object.keys(s.at)) s.at[k] = staffShift(s.at[k], shift * rf(.7, 1.3));
     s.ceil = Math.max(staffShift(staffCeil(s), shift * 1.2), Math.max(...Object.values(s.at)));
     const word = score >= .7 ? "a tremendous season" : score >= .35 ? "a very good season" : score > 0 ? "a good season" : score <= -.7 ? "an awful season" : score <= -.35 ? "a poor season" : "a disappointing season";
-    const a = sr20(before), b = sr20(staffAvg(s)); (G.sVerdict ||= {})[role] = `${word.replace(/^an? /, "")}: ${a === b ? `ratings edge ${shift > 0 ? "up" : "down"}` : `${a} → ${b}`}, ceiling ${shift > 0 ? "up" : "down"}`;
+    const a = sr20(before), b = sr20(staffAvg(s)); (G.sVerdict ||= {})[role] = `${word}: rating ${a === b ? `${a} (edging ${shift > 0 ? "up" : "down"})` : `${a} → ${b}`}, potential ${pot0} → ${staffPot20(s)}`;
     news(`${s.name} (${ROLES_STAFF[role].l.toLowerCase()}) had ${word}: ${a === b ? `ratings edge ${shift > 0 ? "up" : "down"}` : `ratings ${shift > 0 ? "rise" : "fall"} from ${a} to ${b}`}, ${shift > 0 ? "with more room to grow" : "with a lower ceiling"}.`, true);
   }
 }

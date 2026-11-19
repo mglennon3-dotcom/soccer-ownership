@@ -45,7 +45,10 @@ function objectivesCard() {
 const teamAvg = x => { const xi = pickXI(x); return xi.length ? r20(avg(xi.map(o => roleRating(o.p, o.slot)))) : "—"; };
 // The young players a partner club would lend you (outside its first team, at your level), best prospects first.
 // A club's youth set-up at a glance: academy level, its youth manager's scouting (staff 1-20 scale) and reputation.
-const youthLine = x => { const w = pedigreeWord(x); return `Academy level <b>${x.acadLvl || 0}</b>/10 · youth scouting <b>${sr20(aiYouthScout(x))}</b>${w ? ` · <span class="${w[1]}">${w[0].toLowerCase()}</span> <span class="small muted">(${w[2]})</span>` : ""}`; };
+// A feeder's academy: its record with youth decides how good the youngsters it offers you on first refusal tend to be
+// (it doesn't change how your players develop on loan there: that's its coaching and training ground).
+const FEEDER_YOUTH = { good: "the youngsters it offers you on first refusal tend to be better", poor: "the youngsters it offers you on first refusal tend to be a little weaker" };
+const youthLine = x => { const w = pedigreeWord(x); return `Academy level <b>${x.acadLvl || 0}</b>/10 · youth scouting <b>${sr20(aiYouthScout(x))}</b>${w ? ` · <span class="${w[1]}">${w[0].toLowerCase()}</span> <span class="small muted">(${w[1] === "good" ? FEEDER_YOUTH.good : FEEDER_YOUTH.poor})</span>` : ""}`; };
 function partnerLendable(x, c = my()) { const xi = new Set(pickXI(x).map(o => o.p.id)); return x.squad.map(P).filter(q => !q.acad && !q.loan && q.age <= 23 && !xi.has(q.id) && lendsTo(q, c)).sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1]); }
 function partnerLoanRows(x, avail, max) {
   return `<div class="stack" style="gap:4px;margin-top:6px">${avail.slice(0, max).map(q => { const t = playerLoanTerms(q, x);
