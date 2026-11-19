@@ -194,7 +194,7 @@ const ACT = {
   buyback: async el => { const i = G.board.inv[+el.dataset.i]; if (await ask(`Buy back ${i.name}'s ${i.pct}% for ${money(buyBackPrice(i))} of your own money?`)) { buyBack(+el.dataset.i); render(); saveGame(); } },
   meettrust: () => { meetTrust(); render(); },
   trustseat: async () => { if (await ask("Give the supporters' trust a seat on the board?")) { G.sTrust.seat = true; trustRel(12, "A supporters' trust director joins the board."); moodHit(my(), 3); render(); } },
-  setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) { const el = $("#obj-" + k); o[k] = el ? el.value : "none"; } setObjectives(o); render(); saveGame(); },
+  setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) { const el = $("#obj-" + k); o[k] = el ? +el.value || 0 : 0; } setObjectives(o); render(); saveGame(); },
   objreset: () => { G.obj = null; render(); },
   sobjedit: () => { STO_EDIT = true; render(); },
   setsobj: () => { if (!staffTargetsOpen()) return toast("Staff targets are set in week 1 of pre-season."); const L = staffTargetLevels(), S = { recruit: { posK: $("#so-recruit-posK").value } };

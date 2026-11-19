@@ -29,12 +29,13 @@ function objectivesCard() {
   if (!canSet || o) {
     const c = my();
     return `<section class="card"><div class="card-h"><h2>This season's targets</h2>${o && G.phase === "summer" ? `<button class="btn sm" data-act="objreset">Change</button>` : ""}</div>
-      ${o ? `<dl class="ledger">${Object.keys(OBJ).filter(k => o[k] && (o[k] !== "none" || !OBJ[k].show)).map(k => `<dt>${objLabel(k)}</dt><dd>${objText(k, o[k])}</dd>`).join("")}<dt>Squad suggests</dt><dd>${ord(o.exp)} place</dd>${G.phase === "season" ? `<dt>Now</dt><dd>${ord(posOf(c.lg, c.id))}</dd>` : ""}</dl>` : `<p class="muted">No targets were set this season. Set them in pre-season.</p>`}</section>`;
+      ${o ? `<dl class="ledger">${Object.keys(OBJ).filter(k => o[k] && o[k] !== "none").map(k => `<dt>${objLabel(k)}</dt><dd>${objText(k, o[k])}${typeof o[k] === "number" ? ` <span class="small muted">· ${LVL_NAME[o[k]].toLowerCase()}</span>` : ""}</dd>`).join("")}<dt>Squad suggests</dt><dd>${ord(o.exp)} place</dd>${G.phase === "season" ? `<dt>Now</dt><dd>${ord(posOf(c.lg, c.id))}</dd>` : ""}</dl>` : `<p class="muted">No targets were set this season. Set them in pre-season.</p>`}</section>`;
   }
+  const L = clubTargetLevels();
   return `<section class="card summary"><div class="card-h"><h2>Set this season's targets</h2></div>
-    <p class="small muted" style="margin-bottom:10px">They're announced to the fans. Ambitious targets lift spirits now and hurt more if missed. The squad currently looks like a ${ord(expectedPos())}-place side. The manager will say if he thinks a target is unrealistic.</p>
-    <div class="price-grid">${Object.entries(OBJ).filter(([, D]) => !D.show || D.show()).map(([k, D]) => `<label class="small"><b>${objLabel(k)}</b><select id="obj-${k}">${Object.entries(D.opts).map(([v, [l, w]]) => `<option value="${v}" ${v === "none" ? "selected" : ""}>${l}${k === "lg" && v !== "none" ? ` (${ord(lgTarget(v, my().lg))} or better)` : ""}${w ? ` · ${w >= 2.5 ? "bold" : w >= 1.5 ? "ambitious" : "modest"}` : ""}</option>`).join("")}</select></label>`).join("")}</div>
-    <p class="small muted" style="margin-top:8px">Meeting a target raises the club's standing and wins new supporters, more for a bold one; missing any costs standing and support, a little more for a modest one you should have managed. Finishing above or below where the squad suggests counts too.</p>
+    <p class="small muted" style="margin-bottom:10px">They're announced to the fans. Pick a level for each, or no target. The squad currently looks like a ${ord(expectedPos())}-place side; the manager will say if he thinks a league target is unrealistic.</p>
+    <div class="price-grid">${Object.entries(L).map(([k, v]) => `<label class="small"><b>${objLabel(k)}</b><select id="obj-${k}">${LVL_NAME.map((n, i) => `<option value="${i}">${i ? `${n}: ${OBJ[k].txt(v[i - 1])}` : n}</option>`).join("")}</select></label>`).join("")}</div>
+    <p class="small muted" style="margin-top:8px">Meeting a harder target raises the club's standing and wins more new supporters, the hardest most of all; falling short costs more the further short you finish. Finishing where the squad suggested (or better) is never a failure in the league, and beating it counts in your favour.</p>
     <div class="row" style="margin-top:10px"><button class="btn primary" data-act="setobj">Announce targets</button></div></section>`;
 }
 
