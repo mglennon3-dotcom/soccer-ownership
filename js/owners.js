@@ -451,7 +451,7 @@ function aiTransferBudget(c) {
    from it: the seller banks the fee in its accounts and adds half of it to its own budget. A club can't bid, buy from
    another club or sign from outside the game beyond what it has left (clubs abroad are not limited). Fees count in the
    year's accounts. */
-const tbOf = c => c.abroad || isMine(c) ? Infinity : (c.tb ?? (c.tb = aiTransferBudget(c)));
+const tbOf = c => isMine(c) ? Infinity : c.abroad ? (c.tb ?? (c.tb = foreignBudget(c))) : (c.tb ?? (c.tb = aiTransferBudget(c)));
 const canAfford = (c, fee) => tbOf(c) >= fee;
 // Fees between clubs shrink down the pyramid: most non-league moves are free or a token payment.
 const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];
@@ -460,6 +460,9 @@ function payFee(buyer, seller, fee) {
   if (!fee) return;
   if (buyer && !buyer.abroad && !isMine(buyer)) { buyer.tb = tbOf(buyer) - fee; buyer.tnet = (buyer.tnet || 0) - fee; }
   if (seller && !seller.abroad && !isMine(seller)) { seller.tnet = (seller.tnet || 0) + fee; seller.tb = tbOf(seller) + fee * .5; }
+  // Clubs abroad keep a transfer budget too: spent on buying, half of any sale added (and counted toward next summer's).
+  if (buyer && buyer.abroad) buyer.tb = tbOf(buyer) - fee;
+  if (seller && seller.abroad) { seller.tb = tbOf(seller) + fee * .5; seller.fsold = (seller.fsold || 0) + fee; }
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
 function aiTransfer(p, to, fee = aiFee(p)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); }

@@ -10,9 +10,14 @@
    and standing drift a little each summer, and their squads are kept up to strength. */
 "use strict";
 
-const FOREIGN = {  // [clubs, standard of the best club (out of 100), Champions Cup places, Shield places]; top flights at Premier Division standard
+const FOREIGN = {  // [clubs, standard of the best club (out of 100), Champions Cup places, Shield places]; the standards are re-set against England each summer (FOREIGN_RANK)
   ESP: [12, 87, 5, 5], GER: [12, 86, 5, 5], ITA: [12, 86, 5, 5], FRA: [10, 84, 4, 4], POR: [9, 83, 3, 4], NED: [8, 82, 3, 3], BEL: [8, 81, 3, 3],
 };
+/* Where each league sits against the Premier Division: [the English rank its best club matches, ranks per club below it].
+   Spain and Germany are on a par (their best is as good as England's best, and they spread across the whole division);
+   France and Italy a step down (their best is about the 3rd-6th best in England); Portugal, the Netherlands and Belgium
+   match the bottom half of the Premier Division. Ranks past 20 run on below the Premier Division's weakest side. */
+const FOREIGN_RANK = { ESP: [0, 1.7], GER: [0, 1.7], ITA: [3.5, 1.5], FRA: [4, 1.7], POR: [9.5, 1.6], NED: [10, 1.7], BEL: [11, 1.6] };
 const CONT = {
   CC: { name: "Champions Cup", short: "Champions Cup", join: 15e6, win: 2.8e6, draw: .9e6, rounds: [9.6e6, 10.6e6, 12.5e6, 15.5e6], champ: 4.5e6 },
   CS: { name: "Continental Shield", short: "Shield", join: 3.6e6, win: .6e6, draw: .2e6, rounds: [1.2e6, 1.8e6, 2.8e6, 4.6e6], champ: 4e6 },
@@ -39,10 +44,27 @@ function makeForeign() {
         coach: aiCoach(rep), squad: [], train: clamp(Math.round(lvl / 10), 4, 10), acadLvl: clamp(Math.round(lvl / 11), 3, 10),
         cap: foreignCap(lvl), fans: foreignFans(lvl), founded: G.year - ri(60, 130), trophies: [] };
       c.base = lvl; c.own = newOwner(c);
-      G.clubs.push(c); G.foreign.push(c.id); foreignSquad(c);
+      G.clubs.push(c); G.foreign.push(c.id);
     }
   }
+  foreignLevels(true); for (const id of G.foreign) foreignSquad(CL(id));
 }
+/* Each foreign club's standard, from the English Premier Division as it is now: its clubs' average starters, best first
+   (carried on below the 20th at a step a club), read off at the league's ranks. A foreign club's starters come out a
+   little above its standard; the measured gap (G.fOff) is taken off so the starters themselves match. */
+function foreignLevels(snap) {
+  const e = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === 1 && c.squad.length >= 11).map(c => avg(pickXI(c).map(o => o.p.ovr))).sort((a, b) => b - a);
+  const E = e.length >= 10 ? e : Array.from({ length: 20 }, (_, k) => TIER_XI[1] + 7 - k * .75);
+  const at = r => { const n = E.length - 1; if (r <= n) { const a = Math.floor(r), b = Math.min(n, a + 1); return E[a] + (E[b] - E[a]) * (r - a); } return E[n] - (r - n) * 1.4; };
+  const fc = (G.foreign || []).map(CL).filter(c => c && c.squad.length >= 11);
+  if (fc.length && !snap) G.fOff = (G.fOff ?? 1.5) * .5 + avg(fc.map(c => avg(pickXI(c).map(o => o.p.ovr)) - c.lvl)) * .5;
+  for (const [code, [top, step]] of Object.entries(FOREIGN_RANK)) {
+    const cs = (G.foreign || []).map(CL).filter(c => c && c.country === code).sort((a, b) => (b.base ?? b.lvl) - (a.base ?? a.lvl));
+    cs.forEach((c, i) => { c.base = clamp(at(top + i * step) - (G.fOff ?? 1.5), 50, 95); if (snap) c.lvl = c.base + normal() * .6; });
+  }
+}
+/* Money abroad: a summer transfer budget by size, plus half of last season's sales (the same rule as at home). */
+const foreignBudget = c => Math.round(40e6 * Math.pow(1.12, c.lvl - 82) / 1e5) * 1e5;
 /* Filling a gap: a free agent who fits the club's standard first (countrymen preferred), otherwise a new player. */
 function foreignSignFA(c, pos) {
   const fits = G.fa.map(P).filter(p => p && p.pos === pos && p.age <= 32 && p.ovr >= c.lvl - 7 && p.ovr <= c.lvl + 4);
@@ -57,6 +79,7 @@ function foreignSquad(c, faOnly) {
   for (const [pos, n] of Object.entries(SQUAD_MIX)) for (let i = have(pos); i < n; i++) {
     if (foreignSignFA(c, pos)) continue;
     if (faOnly) break;
+    if (R() < .5 && foreignSign(c, pos)) continue;
     const age = ri(19, 33), ovr = clamp(Math.round(c.lvl + 2 - i * 3 + spreadN()), 40, 94);
     const p = makePlayer({ pos, ovr, age, nat: R() < .7 ? c.country : pickNat(c.country), club: c.id, pot: seniorPot(ovr, age) });
     p.yrs = ri(1, 4); c.squad.push(p.id); p.hist.push([G.year, c.short]);
@@ -67,10 +90,30 @@ function foreignSquad(c, faOnly) {
 // Each summer: standing and strength drift, squads are topped up.
 function foreignSummer() {
   for (const id of G.foreign || []) {
-    const c = CL(id); c.base ??= c.lvl; c.lvl = clamp(c.lvl + (c.base - c.lvl) * .15 + normal() * 1.2, 55, 92); c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98);
-    foreignSquad(c);
+    const c = CL(id); c.base ??= c.lvl; c.lvl = clamp(c.lvl + (c.base - c.lvl) * .35 + normal() * 1.2, 50, 95); c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98);
+    c.tb = foreignBudget(c) + Math.max(0, c.fsold || 0) * .5; c.fsold = 0;
   }
+  foreignLevels();
+  for (const id of G.foreign || []) { foreignUpgrade(CL(id)); foreignSquad(CL(id)); }
   foreignBuys();
+}
+/* Foreign clubs shop the way English ones do: a regular well below their standard is replaced, from a club no bigger
+   than they are (abroad or in England's top two divisions) when they can afford the fee. */
+function foreignUpgrade(c) {
+  for (const pos of POS) {
+    const ps = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2), weak = ps[need - 1];
+    if (weak && weak.ovr < c.lvl - 5 && R() < .6) foreignSign(c, pos);
+  }
+}
+function foreignSign(c, pos) {
+  const target = Math.round(c.lvl + normal() * 4);
+  const sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : !x.gone && x.tier <= 2 && (x.rep || 0) <= c.rep + 3));
+  const pool = []; for (const x of sellers) for (const id of x.squad) { const q = P(id); if (q && q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30 && canAfford(c, aiFee(q))) pool.push(q); }
+  if (!pool.length) return false;
+  const p = pick(pool), from = CL(p.club); aiTransfer(p, c); p.wage = aiWage(p, c); p.yrs = ri(2, 4);
+  if (!from.abroad) { aiSquadCheck(from, true); G.exports = (G.exports || 0) + 1; if (from.lg === (my() || {}).lg || p.ovr >= 85) news(`${p.name} leaves ${from.name} for ${c.name} in ${COUNTRY[c.country].name}.`); }
+  else foreignSquad(from);
+  return true;
 }
 /* Stars abroad: each summer the big foreign clubs buy players from the top two English divisions who are clearly better
    than their division's standard, likelier the bigger the gap. Without it the best talent would pile up in England. */
@@ -80,8 +123,8 @@ function foreignBuys() {
     const std = TIER_XI[c.tier];  // measured against the division's real level (its average starter), so the biggest clubs lose stars too
     for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.age > 31) continue; const gap = p.ovr - std - 4;
       if (gap <= 0 || R() > Math.min(.06, .01 + gap * .005)) continue;
-      const to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6); if (!to.length) continue; const b = pick(to);
-      aiTransfer(p, b, Math.round(aiFee(p) * .7 / 1e4) * 1e4); p.wage = aiWage(p, b); p.yrs = ri(2, 4); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;
+      const fee = Math.round(aiFee(p) * .7 / 1e4) * 1e4, to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6 && x.rep >= (c.rep || 0) - 3 && canAfford(x, fee)); if (!to.length) continue; const b = pick(to);
+      aiTransfer(p, b, fee); p.wage = aiWage(p, b); p.yrs = ri(2, 4); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;
       if (c.lg === (my() || {}).lg || p.ovr >= 85) news(`${p.name} leaves ${c.name} for ${b.name} in ${COUNTRY[b.country].name}.`); } } }
 // During a window foreign clubs plug gaps from the free agents only (new players are made only in the summer).
 function foreignJanuary() { for (const id of G.foreign || []) foreignSquad(CL(id), true); }
