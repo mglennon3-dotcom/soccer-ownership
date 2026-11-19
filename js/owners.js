@@ -150,10 +150,10 @@ const TIER_LOSS = [0, .12, .52, .42, .37, .42, .32, .27];
 const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l < 0) return l;
   const t = TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0);
   // In the four professional divisions the spending rule caps losses; reckless owners plan past it anyway.
-  return c.tier <= 4 && !["gambler", "crypto", "hostile"].includes(st) ? Math.min(t, SPEND_LIMIT - .05) : t; };
+  return c.tier <= 4 && !reckless(c) ? Math.min(t, SPEND_LIMIT - .05) : t; };
 function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1);
   // The spending rule: in the professional divisions only reckless owners plan to lose more than it allows.
-  return c.tier <= 4 && !["gambler", "crypto", "hostile"].includes((c.own || {}).style) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b; }
+  return c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b; }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageAt(p.ovr, c.tier) : 0; });
 const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, c.tier === 1 ? 1.2 : 1.45);  // Premier pay is held nearer the going rate
@@ -164,7 +164,7 @@ function aiAccounts(c) {
   c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net) };
   if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
-    else if (r.ratio > SPEND_LIMIT - .15 && c.tier <= 4 && !["gambler", "crypto", "hostile"].includes(o.style)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // the principal comes down a little each year
+    else if (r.ratio > SPEND_LIMIT - .15 && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
   if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { administration(c); c.debt = Math.round(c.debt * .4); return; }
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
@@ -177,7 +177,7 @@ function aiAccounts(c) {
     if (here) news(`${old} have run out of money and are forced to sell ${c.name}. ${c.own.name} take over.`, c.lg === my().lg);
     return;
   }
-  if (net < 0 && -net > inc * Math.max(0, spendTarget(c)) + Math.max(0, lossCap(c)) + inc * .1) {
+  if (net < 0 && !c.splash && -net > inc * Math.max(0, spendTarget(c)) + Math.max(0, lossCap(c)) + inc * .1) {
     c.cut = 2;
     const p = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0], b = p && buyerFor(p, 8);
     if (b && b !== c) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); }
@@ -252,10 +252,10 @@ function administration(c) {
   for (const p of best) { const b = buyerFor(p, 8); if (b && b !== c) { moveTo(p, b); p.wage = aiWage(p, b); } }
   const where = c.lg === my().lg || c.half === my().half;
   news(`${c.name} have gone into administration under ${c.own.name}. They start next season on minus ten points and have sold their best players.`, where);
-  c.own = newOwner(c, pick(["local", "fanowned", "moneyball", "absentee"]));
+  c.own = newOwner(c, pick(["local", "fanowned", "moneyball", "absentee"])); delete c.splash;
 }
 function takeover(c) {
-  const old = c.own; c.own = newOwner(c);
+  const old = c.own; c.own = newOwner(c); delete c.splash;
   if (c.own.style === "sugar" || c.own.style === "celebrity") c.rep = Math.min(99, c.rep + 3);
   if (c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || c.own.style === "sugar")
     news(`Takeover: ${c.own.name} buy ${c.name} from ${old.name}. ${OWNER_STYLES[c.own.style].l}: ${OWNER_STYLES[c.own.style].d.split(".")[0].toLowerCase()}.`, c.lg === my().lg);
@@ -361,7 +361,7 @@ function diversitySummer() {
     const pool = Object.values(G.players).filter(p => p.club >= 0 && p.club !== G.club && !p.acad && !p.loan && p.age <= 32 && !(p.stunY > G.year - 4) && p.ovr >= c.lvl + 6 && hugeAsk(p, c) && willJoin(p, c) && CL(p.club) && !CL(p.club).gone);
     if (!pool.length) continue;
     const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.round(hugeWage(p, c) / 100) * 100, why = affinity(p, c);
-    moveTo(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; aiSquadCheck(from, true); c.own.wealth -= Math.round(valueOf(p));
+    moveTo(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; aiSquadCheck(from, true); c.own.wealth -= Math.round(valueOf(p));
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) drops down from ${from.name} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
   // Going home.
@@ -416,4 +416,8 @@ function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
     let b = p && buyerFor(p, 8); if (p && (!b || b === c)) { const ab = G.clubs.filter(x => x.abroad && Math.abs(x.lvl - p.ovr) < 8); b = ab.length ? pick(ab) : null; }
     if (!b || b === c) continue; moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); sold.push(p.name + " to " + b.name + (b.abroad ? ` (${COUNTRY[b.country].name})` : "")); }
   if (sold.length && (c.lg === my().lg || c.tier === 1)) news(`${c.name} sell to stay within the spending rule: ${sold.join(", ")}.`); }
-const ruleRoom = c => c.abroad || c.tier > 4 || ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || aiBill(c) <= aiBudget(c) * 1.2;
+const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBudget(c) * 1.2;
+// Owners who play by their own rules: reckless styles, and any owner who has made a statement signing. They ignore the
+// spending rule when planning, never sell to balance the books, and live with what follows: points deductions, debt,
+// administration, or running out of money and having to sell the club.
+const reckless = c => ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || !!c.splash;
