@@ -79,7 +79,7 @@ function foreignBuys() {
   for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || c.tier > 2) continue;
     const std = TIER_XI[c.tier];  // measured against the division's real level (its average starter), so the biggest clubs lose stars too
     for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.age > 31) continue; const gap = p.ovr - std - 4;
-      if (gap <= 0 || R() > Math.min(.1, .015 + gap * .008)) continue;
+      if (gap <= 0 || R() > Math.min(.06, .01 + gap * .005)) continue;
       const to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6); if (!to.length) continue; const b = pick(to);
       aiTransfer(p, b, Math.round(aiFee(p) * .7 / 1e4) * 1e4); p.wage = aiWage(p, b); p.yrs = ri(2, 4); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;
       if (c.lg === (my() || {}).lg || p.ovr >= 85) news(`${p.name} leaves ${c.name} for ${b.name} in ${COUNTRY[b.country].name}.`); } } }

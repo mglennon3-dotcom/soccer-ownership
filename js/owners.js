@@ -99,7 +99,7 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
 // Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
 // What an AI club pays: the going rate scaled by its pay level (set each summer from what it can afford). Clubs abroad
 // pay by their owner's spending.
-const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1)) / 100) * 100);  // nobody earns more than €500k a week
+const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
    more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
@@ -196,7 +196,16 @@ const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "ho
 const TIER_XI = [0, 82.5, 73, 66.8, 61.8, 50, 40, 30];
 function levelCheck() { G.lvlAdj ||= [0, 0, 0, 0, 0, 0, 0, 0];
   for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t); if (!cs.length) continue;
-    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -14, 12); } }
+    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -14, 12); }
+  wageCheck(); }
+/* Wage inflation, division by division: when money pours in (TV, crowds, transfer fees) players' pay rises with it, and
+   when a division is bleeding it falls. Each summer AI pay in a division moves so that about three clubs in ten finish
+   a season in the black. */
+function wageCheck() { G.wInf ||= [1, 1, 1, 1, 1, 1, 1, 1];
+  for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t && c.aiFin && c.aiFin.y === G.year - 1); if (cs.length < 6) continue;
+    const share = cs.filter(c => c.aiFin.net >= 0).length / cs.length, w0 = G.wInf[t], w = clamp(w0 + (share - .3) * .4, .6, 2.5); if (Math.abs(w - w0) < .005) continue;
+    G.wInf[t] = Math.round(w * 1000) / 1000;
+    for (const c of G.clubs) if (!c.gone && !c.abroad && !isMine(c) && c.tier === t) for (const id of c.squad) { const p = G.players[id]; if (p && !p.acad && !p.loan) p.wage = Math.min(500e3 * 52, Math.round(p.wage * G.wInf[t] / w0 / 100) * 100); } } }
 function ownersSummer() {
   levelCheck();
   G.tierW = calcTierW();
