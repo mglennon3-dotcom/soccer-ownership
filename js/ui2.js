@@ -102,16 +102,16 @@ function pgComps() {
    owner (how they price tickets, how hard they push the brand). */
 function clubNumbers(x) {
   if (isMine(x)) { const att = (x.att || []).length ? Math.round(avg(x.att)) : matchdayForecast(x).crowd;
-    return { rep: x.rep, budget: x.budget.wages, tbud: x.budget.transfer || 0, wages: wageBill(x), ticket: x.prices.ticket, att, staff: staffBill(x), comm: commercialValue(x), merch: Math.max(0, merchFor(x)) * 52, cap: capacity(x), fans: x.fans }; }
+    return { rep: x.rep, budget: x.budget.wages, tbud: Math.max(0, (x.budget.transfer || 0) - (x.spentT || 0)), wages: wageBill(x), ticket: x.prices.ticket, att, staff: staffBill(x), comm: commercialValue(x), merch: Math.max(0, merchFor(x)) * 52, cap: capacity(x), fans: x.fans }; }
   const { ticket, att, staff, comm, merch } = aiEstimate(x);
-  return { rep: x.rep, budget: x.abroad ? 0 : aiBudget(x), tbud: aiTransferBudget(x), wages: sum(x.squad, id => G.players[id] ? G.players[id].wage : 0), ticket, att, staff, comm, merch, cap: x.cap || 0, fans: x.fans };
+  return { rep: x.rep, budget: x.abroad ? 0 : aiBudget(x), tbud: x.abroad ? 0 : Math.max(0, tbOf(x)), wages: sum(x.squad, id => G.players[id] ? G.players[id].wage : 0), ticket, att, staff, comm, merch, cap: x.cap || 0, fans: x.fans };
 }
 function compareCard(c) {
   const clubs = G.leagues[c.lg].clubs.map(CL), rows = clubs.map(x => ({ x, ...clubNumbers(x) })), others = rows.filter(r => !isMine(r.x));
   const av = k => avg(others.map(r => r[k])), me = rows.find(r => isMine(r.x));
   const rank = k => rows.filter(r => r[k] > me[k]).length + 1;
   const vs = (k, f, lowGood) => { const a = av(k), d = a ? (me[k] - a) / a : 0; return `<tr><td style="text-align:left">${f[0]}</td><td class="num">${f[1](me[k])}</td><td class="num muted">${f[1](a)}</td><td class="num small ${Math.abs(d) < .05 || lowGood === null ? "muted" : (d > 0) !== !!lowGood ? "good" : "warn"}">${d > 0 ? "+" : ""}${Math.round(d * 100)}%</td><td class="num small">${ord(rank(k))}</td></tr>`; };
-  const F = { rep: ["Prestige", v => Math.round(v)], budget: ["Wage budget (a year)", v => money(v)], tbud: ["Transfer budget (this season)", v => money(v)], wages: ["Player wages", v => pw(v)], ticket: ["Match ticket", v => money(v)], att: ["Average crowd", v => Math.round(v).toLocaleString("en-GB")],
+  const F = { rep: ["Prestige", v => Math.round(v)], budget: ["Wage budget (a year)", v => money(v)], tbud: ["Transfer budget left", v => money(v)], wages: ["Player wages", v => pw(v)], ticket: ["Match ticket", v => money(v)], att: ["Average crowd", v => Math.round(v).toLocaleString("en-GB")],
     staff: ["Staff wages (a year)", v => money(v)], comm: ["Commercial value (a year)", v => money(v)], merch: ["Merchandise (a year)", v => money(v)], cap: ["Stadium", v => Math.round(v).toLocaleString("en-GB")], fans: ["Supporters", v => Math.round(v).toLocaleString("en-GB")] };
   return `<section class="card"><div class="card-h"><h2>You against your division</h2><span class="small muted">${esc(LEAGUES[c.lg].name)}</span></div>
     <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left"></th><th>You</th><th>Division avg</th><th>Diff</th><th>Rank</th></tr></thead><tbody>
@@ -121,7 +121,7 @@ function compareCard(c) {
       { k: "name", l: "Club", left: true, v: r => r.x.name, f: r => `${crest(r.x, 14)} <button class="lnk" data-act="club" data-id="${r.x.id}">${isMine(r.x) ? `<b>${esc(r.x.name)}</b>` : esc(r.x.name)}</button>` },
       { k: "rep", l: "Prestige", r: true, v: r => r.rep, f: r => Math.round(r.rep) },
       { k: "budget", l: "Wage budget", r: true, v: r => r.budget, f: r => money(r.budget) },
-      { k: "tbud", l: "Transfers", r: true, v: r => r.tbud, f: r => money(r.tbud) },
+      { k: "tbud", l: "To spend", r: true, v: r => r.tbud, f: r => money(r.tbud) },
       { k: "wages", l: "Wages", r: true, v: r => r.wages, f: r => pw(r.wages) },
       { k: "ticket", l: "Ticket", r: true, v: r => r.ticket, f: r => money(r.ticket) },
       { k: "att", l: "Crowd", r: true, v: r => r.att, f: r => r.att.toLocaleString("en-GB") },

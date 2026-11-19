@@ -173,7 +173,7 @@ function sellToAI(p, byOwner, fee) {
   if (!buyer) return release(p, byOwner);
   fee = fee ?? Math.round(valueOf(p) * rf(.75, 1.05) / 1000) * 1000;
   logMove("out", p, { club: buyer.name, fee, wage: p.wage, by: byOwner ? "you" : "administrators" });
-  moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", fee);
+  payFee(buyer, null, fee); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", fee);
   news(`${p.name} is sold to ${buyer.name} for ${money(fee)}${byOwner ? " (your decision)" : ""}.`, true);
   return buyer;
 }
@@ -206,6 +206,7 @@ function bidsWeek(c) {
       const want = bidders().filter(x => x.lvl >= p.ovr - 4 && (x.tier < c.tier || x.abroad || (x.tier === c.tier && x.rep > c.rep + 5)));
       if (!want.length) continue;
       buyer = wpick(want, x => bidWeight(x, p, c)); amt = feeRound(valueOf(p) * rf(2, 5) * (1 + form * .1));
+      if (!canAfford(buyer, amt)) continue;  // they can't raise it
       addMsg({ type: "bid", keen: buyer.tier < c.tier || buyer.rep > c.rep + 8 || buyer.abroad, nfs: true, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}, though he's not for sale` });
       continue;
     }
@@ -229,6 +230,7 @@ function bidsWeek(c) {
       amt = Math.round(valueOf(p) * rf(.9, 1.45) * (1 + form * .2) * (buyer.own ? 1 + OWNER_STYLES[buyer.own.style].poach * .3 : 1) / 1000) * 1000;
     }
     if (amt < 1000) amt = 1000;
+    if (!canAfford(buyer, amt)) continue;  // they haven't the budget for it
     const fw = formWord(seasonForm(p)), keen = buyer.tier < c.tier || buyer.rep > c.rep + 8 || (p.list && R() < .7);
     addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
@@ -274,7 +276,7 @@ function answerBid(m, accept, auto) {
 function completeSale(p, buyer, amt, auto) {
   if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`);
   logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto ? "recruit" : "you" });
-  leaveClub(p); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", amt);
+  leaveClub(p); payFee(buyer, null, amt); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", amt);
   news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
 }
 
@@ -286,7 +288,7 @@ function completeSale(p, buyer, amt, auto) {
 const feeRound = v => { const st = v < 10e3 ? 100 : v < 100e3 ? 500 : v < 1e6 ? 5000 : 50000; return Math.round(v / st) * st; };
 function bidMax(m) {
   const p = G.players[m.pid];
-  return m.max ??= Math.max(m.amt, feeRound(m.amt * (p && p.list ? rf(1.04, 1.25) : rf(1.1, 1.5)) * (1 + Math.max(0, seasonForm(p || {})) * .1)));
+  return m.max ??= Math.max(m.amt, Math.min(tbOf(CL(m.club)), feeRound(m.amt * (p && p.list ? rf(1.04, 1.25) : rf(1.1, 1.5)) * (1 + Math.max(0, seasonForm(p || {})) * .1))));
 }
 function counterBid(m, ask) {
   const p = G.players[m.pid], buyer = CL(m.club), max = bidMax(m);
@@ -312,9 +314,9 @@ function maybeWar(m, p, buyer) {
   const c = my(), star = p.ovr >= TIER_LVL[c.tier] + 5 || (p.age <= 21 && p.pot >= TIER_LVL[c.tier] + 10), form = Math.max(0, seasonForm(p));
   const chance = clamp(.12 + (star ? .25 : 0) + form * .15 + (valueOf(p) > m.amt ? .1 : 0), 0, .6);
   if (R() > chance) return false;
-  const rivals = shuffle(bidders().filter(x => x.id !== buyer.id && x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 8)).slice(0, R() < .4 ? 2 : 1);
+  const rivals = shuffle(bidders().filter(x => x.id !== buyer.id && x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 8 && canAfford(x, m.amt * 1.2))).slice(0, R() < .4 ? 2 : 1);
   if (!rivals.length) return false;
-  const bids = [{ id: buyer.id, amt: m.amt, max: bidMax(m) }, ...rivals.map(x => { const amt = feeRound(m.amt * rf(1.04, 1.2)); return { id: x.id, amt, max: feeRound(amt * rf(1.03, 1.35)) }; })];
+  const bids = [{ id: buyer.id, amt: m.amt, max: bidMax(m) }, ...rivals.map(x => { const amt = feeRound(m.amt * rf(1.04, 1.2)); return { id: x.id, amt, max: Math.max(amt, Math.min(tbOf(x), feeRound(amt * rf(1.03, 1.35)))) }; })];
   m.answer = "accepted: then other clubs came in";
   addMsg({ type: "war", pid: p.id, bids, keen: m.keen, rec: m.rec, title: `Bidding war for ${p.name}!` });
   news(`Word gets out that you've accepted ${money(m.amt)} for ${p.name}: ${rivals.map(x => clubLabel(x)).join(" and ")} come in with higher offers.`, true);

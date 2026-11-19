@@ -81,7 +81,7 @@ function foreignBuys() {
     for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.age > 31) continue; const gap = p.ovr - std - 5;
       if (gap <= 0 || R() > Math.min(.2, .03 + gap * .012)) continue;
       const to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6); if (!to.length) continue; const b = pick(to);
-      moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;
+      aiTransfer(p, b, Math.round(aiFee(p) * .7 / 1e4) * 1e4); p.wage = aiWage(p, b); p.yrs = ri(2, 4); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;
       if (c.lg === (my() || {}).lg || p.ovr >= 85) news(`${p.name} leaves ${c.name} for ${b.name} in ${COUNTRY[b.country].name}.`); } } }
 // During a window foreign clubs plug gaps from the free agents only (new players are made only in the summer).
 function foreignJanuary() { for (const id of G.foreign || []) foreignSquad(CL(id), true); }

@@ -92,7 +92,7 @@ function aiMoveIn(c) {
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
-function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0); }
+function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0) + clamp((c.feeAvg || 0) / Math.max(1, aiIncome(c)) * 20, 0, 4); }  // transfer profit is reinvested in the squad
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
@@ -140,7 +140,7 @@ const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.ro
    The owner then bends it: a profit-seeker budgets for a surplus, a spender for a loss (his tolerance), more again while
    chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
    as income, so they show up here. */
-const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.max(0, c.feeAvg || 0) * 1.6 - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
 /* What he aims for. Like real football, most clubs spend beyond their means and the owner covers the gap: the planned
    loss (a share of income) is deepest in the First Division, where everyone gambles on promotion, and smallest at the
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
@@ -160,8 +160,9 @@ const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, c.tier =
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
-  const o = c.own, inc = aiIncome(c), cost0 = aiCosts(c), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
-  c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net) };
+  const o = c.own, fees = c.tnet || 0, inc = aiIncome(c) + Math.max(0, fees), cost0 = aiCosts(c) + Math.max(0, -fees), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
+  c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net), fees: Math.round(fees) }; c.tnet = 0;
+  c.feeAvg = Math.round((c.feeAvg || 0) * .5 + fees * .5);  // selling clubs reinvest: recent transfer profit feeds the wage budget (aiAfford)
   if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if (r.ratio > SPEND_LIMIT - .15 && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // the principal comes down a little each year
@@ -180,7 +181,7 @@ function aiAccounts(c) {
   if (net < 0 && !c.splash && -net > inc * Math.max(0, spendTarget(c)) + Math.max(0, lossCap(c)) + inc * .1) {
     c.cut = 2;
     const p = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0], b = p && buyerFor(p, 8);
-    if (b && b !== c) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); }
+    if (b && b !== c) { aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); }
     if (c.lg === my().lg) news(`${o.name} order cuts at ${c.name} after losing ${money(-net)} last season${b && b !== c ? `: ${p.name} is sold to ${b.name}` : ""}.`);
   } else if (c.cut) c.cut--;
 }
@@ -194,7 +195,7 @@ const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "ho
 const TIER_XI = [0, 82.5, 73, 66.8, 61.8, 50, 40, 30];
 function levelCheck() { G.lvlAdj ||= [0, 0, 0, 0, 0, 0, 0, 0];
   for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t); if (!cs.length) continue;
-    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -10, 6); } }
+    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -14, 6); } }
 function ownersSummer() {
   levelCheck();
   G.tierW = calcTierW();
@@ -220,7 +221,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
-    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) c.pay = Math.round(payLevel(c) * 100) / 100; }
+    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); } }
     c.lvl = clubStandard(c);
   }
   hostileCheck();
@@ -249,7 +250,7 @@ function hostileCheck() {
 function administration(c) {
   c.ded = 10; c.rep = Math.max(1, c.rep - 4);
   const best = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.ovr - a.ovr).slice(0, 3);
-  for (const p of best) { const b = buyerFor(p, 8); if (b && b !== c) { moveTo(p, b); p.wage = aiWage(p, b); } }
+  for (const p of best) { const b = buyerFor(p, 8, .6); if (b && b !== c) { aiTransfer(p, b, Math.round(aiFee(p) * .6 / 1e4) * 1e4); p.wage = aiWage(p, b); } }  // a fire sale
   const where = c.lg === my().lg || c.half === my().half;
   news(`${c.name} have gone into administration under ${c.own.name}. They start next season on minus ten points and have sold their best players.`, where);
   c.own = newOwner(c, pick(["local", "fanowned", "moneyball", "absentee"])); delete c.splash;
@@ -346,9 +347,9 @@ function diversitySummer() {
     for (const p of stars) {
       if (R() > .22) continue;
       if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
-      const to = pick(G.clubs.filter(x => !x.gone && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2)));
+      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p)))));
       if (!to) continue;
-      moveTo(p, to); p.wage = aiWage(p, to); p.yrs = ri(2, 4);
+      aiTransfer(p, to); p.wage = aiWage(p, to); p.yrs = ri(2, 4);
       if (c.lg === my().lg || to.lg === my().lg || p.ovr >= 85) news(`${p.name} leaves champions ${c.name} for ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""}, looking for a new challenge.`);
     }
   }
@@ -362,7 +363,7 @@ function diversitySummer() {
     const pool = Object.values(G.players).filter(p => p.club >= 0 && p.club !== G.club && !p.acad && !p.loan && p.age <= 32 && !(p.stunY > G.year - 4) && p.ovr >= c.lvl + 6 && hugeAsk(p, c) && willJoin(p, c) && CL(p.club) && !CL(p.club).gone);
     if (!pool.length) continue;
     const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.round(hugeWage(p, c) / 100) * 100, why = affinity(p, c);
-    moveTo(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; aiSquadCheck(from, true); c.own.wealth -= Math.round(valueOf(p));
+    aiTransfer(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; aiSquadCheck(from, true);  // the fee comes out of the budget, however far below zero
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) drops down from ${from.name} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
   // Going home.
@@ -404,7 +405,7 @@ function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
   for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
     const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[i];
     let b = p && buyerFor(p, 8); if (p && (!b || b === c)) { const ab = G.clubs.filter(x => x.abroad && Math.abs(x.lvl - p.ovr) < 8); b = ab.length ? pick(ab) : null; }
-    if (!b || b === c) continue; moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); sold.push(p.name + " to " + b.name + (b.abroad ? ` (${COUNTRY[b.country].name})` : "")); }
+    if (!b || b === c) continue; aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); sold.push(p.name + " to " + b.name + (b.abroad ? ` (${COUNTRY[b.country].name})` : "")); }
   if (sold.length && (c.lg === my().lg || c.tier === 1)) news(`${c.name} sell to stay within the spending rule: ${sold.join(", ")}.`); }
 const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBudget(c) * 1.2;
 // Owners who play by their own rules: reckless styles, and any owner who has made a statement signing. They ignore the
@@ -434,3 +435,20 @@ function aiTransferBudget(c) {
   const own = S.spend > 0 ? Math.min(c.own.wealth * .02 * S.spend / 6, inc * 2) : 0;
   return Math.round((inc * (.12 + lt * .6) + own) * squeeze(c) * (c.cut ? .5 : 1) * (c.splash ? 2 : 1) / 1e4) * 1e4;
 }
+/* ---------- real transfer budgets ----------
+   Each AI club gets its transfer budget (aiTransferBudget) every summer, to last the season. Fees between clubs are paid
+   from it: the seller banks the fee in its accounts and adds half of it to its own budget. A club can't bid, buy from
+   another club or sign from outside the game beyond what it has left (clubs abroad are not limited). Fees count in the
+   year's accounts. */
+const tbOf = c => c.abroad || isMine(c) ? Infinity : (c.tb ?? (c.tb = aiTransferBudget(c)));
+const canAfford = (c, fee) => tbOf(c) >= fee;
+// Fees between clubs shrink down the pyramid: most non-league moves are free or a token payment.
+const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];
+const aiFee = p => p.club >= 0 ? Math.round(valueOf(p) * (CL(p.club).abroad ? 1 : FEE_TIER[CL(p.club).tier]) / 1e3) * 1e3 : 0;
+function payFee(buyer, seller, fee) {
+  if (!fee) return;
+  if (buyer && !buyer.abroad && !isMine(buyer)) { buyer.tb = tbOf(buyer) - fee; buyer.tnet = (buyer.tnet || 0) - fee; }
+  if (seller && !seller.abroad && !isMine(seller)) { seller.tnet = (seller.tnet || 0) + fee; seller.tb = tbOf(seller) + fee * .5; }
+}
+// An AI-to-AI move with its fee (the seller is wherever he plays now).
+function aiTransfer(p, to, fee = aiFee(p)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); }

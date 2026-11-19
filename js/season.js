@@ -302,7 +302,7 @@ function yearTurnover() {
   // Talent moves up: players far better than their club are bought by a club at their level.
   for (const p of Object.values(G.players)) {
     if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
-    if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { moveTo(p, buyer); p.wage = aiWage(p, buyer); p.yrs = ri(2, 4); } }
+    if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { aiTransfer(p, buyer); p.wage = aiWage(p, buyer); p.yrs = ri(2, 4); } }
   }
   // Good free agents don't stay unemployed: a club at their level takes them on.
   for (const p of G.fa.map(P).filter(p => p && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
@@ -319,10 +319,10 @@ function wantsRenewal(p, core) {
   return useful && wageBill(c) + Math.max(0, demandWage(p, c) - p.wage) <= c.budget.wages * 1.05;
 }
 // The club below a player's level that would buy him: one whose standard matches his rating.
-function buyerFor(p, belowTier) {
+function buyerFor(p, belowTier, feeF = 1) {
   // The closest few clubs by standard; a player better than every club goes to one of the strongest.
   // Clubs bound by the spending rule don't take on more pay once their wage bill is well past what they can afford.
-  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(ruleRoom).slice(0, 6);
+  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF)).slice(0, 6);
   return cs.length && Math.abs(cs[0].lvl - p.ovr) < 5 || (cs.length && p.ovr > cs[0].lvl) ? pick(cs) : null;
 }
 
@@ -518,10 +518,13 @@ function aiSign(c, pos) {
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     const lower = G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && x.tier <= c.tier + 2);
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
-    if (pool.length) p = pick(pool);
+    const afford = pool.filter(q => canAfford(c, aiFee(q)));
+    if (afford.length) p = pick(afford);
   }
-  if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); }
-  moveTo(p, c); p.wage = aiWage(p, c); p.yrs = ri(1, 4);
+  // Nobody affordable at another club: someone from outside the game (abroad, or below the pyramid) on a free.
+  if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); moveTo(p, c); }
+  else aiTransfer(p, c);
+  p.wage = aiWage(p, c); p.yrs = ri(1, 4);
 }
 
 /* ---------- inbox ---------- */
