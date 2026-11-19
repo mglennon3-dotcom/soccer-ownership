@@ -117,7 +117,7 @@ function shortlist(c, need, max = 6) {
    Every move in and out of your club, kept for the Activity page: who, when, from or to whom, the fee, the wage, and
    who did the deal. */
 function logMove(kind, p, o = {}) {
-  (G.tlog ||= []).unshift({ y: G.year, ph: G.phase, w: G.week, kind, id: p.id, name: p.name, pos: p.pos, age: p.age, r: r20(p.ovr), ...o });
+  (G.tlog ||= []).unshift({ t: (G.tseq = (G.tseq || 0) + 1), y: G.year, ph: G.phase, w: G.week, kind, id: p.id, name: p.name, pos: p.pos, age: p.age, r: r20(p.ovr), ...o });
   if (G.tlog.length > 800) G.tlog.length = 800;
 }
 function signPlayer(p, fee, wage, byOwner, how) {

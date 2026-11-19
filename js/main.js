@@ -194,6 +194,8 @@ const ACT = {
   trustseat: async () => { if (await ask("Give the supporters' trust a seat on the board?")) { G.sTrust.seat = true; trustRel(12, "A supporters' trust director joins the board."); moodHit(my(), 3); render(); } },
   setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) { const el = $("#obj-" + k); o[k] = el ? el.value : "none"; } setObjectives(o); render(); saveGame(); },
   objreset: () => { G.obj = null; render(); },
+  sobjedit: () => { STO_EDIT = true; render(); },
+  setsobj: () => { const S = {}; for (const role of Object.keys(SOBJ)) { S[role] = {}; for (const k of Object.keys(SOBJ[role])) { const el = $(`#so-${role}-${k}`); if (!el || el.value === "") continue; S[role][k] = k === "pos" ? el.value : +el.value; } } STO_EDIT = false; setStaffObjectives(S); render(); saveGame(); },
   approach: el => { approachPartner(CL(+el.dataset.id)); render(); saveGame(); },
   endpartner: async el => { const id = +el.dataset.id; if (await ask(`End the partnership with ${CL(id).name}?`)) { endPartner(id); render(); saveGame(); } },
   addfeeder: el => { addFeeder(CL(+el.dataset.id)); render(); saveGame(); },
@@ -333,6 +335,7 @@ const ACT = {
   },
 };
 const CHANGE = {
+
   autoreg: el => { G.autoReg = el.checked; if (el.checked) { syncReg(); toast(windowOpen() ? "Your best 25 are registered." : "Your best 25 will be registered when the next window opens."); } render(); saveGame(); },
   starhunt: el => { G.starHunt = el.checked; toast(el.checked ? "Your head of recruitment may now chase stars on huge wages." : "Your head of recruitment will leave the stars alone."); render(); },
   price: el => { const c = my(), k = el.dataset.k, v = num(el);

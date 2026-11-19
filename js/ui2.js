@@ -22,7 +22,7 @@ function pgBoard() {
   const sale = `<section class="card"><div class="card-h"><h2>Sell the club</h2></div><p class="small muted" style="margin-bottom:8px">Sell your ${B.own}% and buy another club with the money. The investors, loans and debts stay with this club.</p>
     ${so.length ? `<div class="stack" style="gap:8px">${so.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b><br><span class="small muted">${OWNER_STYLES[o.style].l}: ${OWNER_STYLES[o.style].d}</span></span><span class="row"><b class="num">${money(o.amt)}</b><button class="btn sm danger" data-act="acceptsale" data-i="${i}">Sell</button></span></div>`).join("")}</div>` : `<button class="btn" data-act="putsale">Put the club up for sale</button>`}
     ${(G.career || []).length ? `<h3 style="margin:12px 0 6px">Clubs you've owned</h3>${G.career.map(x => `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: sold to ${esc(x.by)} for ${money(x.sold)}</p>`).join("")}` : ""}</section>`;
-  return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}${own}</div><div class="stack">${trustC}${sale}</div></div>`;
+  return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}${staffTargetsCard()}${own}</div><div class="stack">${trustC}${sale}</div></div>`;
 }
 function objectivesCard() {
   const o = G.obj && G.obj.y === G.year ? G.obj : null, canSet = G.phase === "summer";
@@ -452,3 +452,23 @@ function supportersCard(c) {
     ${Object.entries(FAN_KINDS).map(([k, [l, d]]) => `<div class="row between small" style="padding:3px 0;gap:8px;flex-wrap:nowrap"><span><span class="dot" style="background:${col[k]}"></span> <b>${l}</b> <span class="muted">${d}</span></span><b class="num">${m[k]}%</b></div>`).join("")}
     <details style="margin-top:6px"><summary class="small">Mostly ${FAN_KINDS[top][0].toLowerCase()}. What shifts it</summary><p class="small muted" style="margin-top:4px">The mix shifts each summer: promotions bring fair-weather fans (relegation sends them away and leaves the loyal), steady seasons and a happy crowd build loyalty, terraces build a hardcore, and cheap tickets and a family stand bring in the community.</p></details></section>`;
 }
+
+/* Staff targets on the Board page: set in pre-season (any you leave blank don't count), then progress through the season. */
+function staffTargetsCard() {
+  const c = my(), S = G.sobj && G.sobj.y === G.year ? G.sobj : null, edit = G.phase === "summer" && (!S || STO_EDIT);
+  const last = (() => { const lg = G.history[0]; return lg ? ` Last season: ${lg.pos ? ord(lg.pos) : "—"} place.` : ""; })();
+  if (!edit) {
+    const list = S ? staffTargets(c) : [];
+    return `<section class="card"><div class="card-h"><h2>Staff targets</h2>${S && G.phase === "summer" ? `<button class="btn sm" data-act="sobjedit">Change</button>` : ""}</div>
+      ${list.length ? `<div class="tbl-wrap"><table class="proj"><tbody>${list.map(([role, k, l, t, now, met]) => `<tr><td style="text-align:left"><span class="small muted">${ROLES_STAFF[role].l}</span><br>${l}${k === "pos" ? "" : ` ${k === "sales" ? money(t) : t}`}</td><td class="num ${met ? "good" : ""}">${k === "sales" ? money(now) : now}${met ? " ✓" : ""}</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted" style="margin-top:6px">Where each stands now. Judged at the end of the season: met targets earn trust, missed ones cost it.</p>` : `<p class="muted small">${G.phase === "summer" ? "No staff targets set." : "No staff targets were set this season. Set them in pre-season."}</p>${G.phase === "summer" ? `<button class="btn sm" data-act="sobjedit">Set staff targets</button>` : ""}`}</section>`;
+  }
+  const T = S || {}, v = (role, k) => (T[role] || {})[k] ?? "", num = (role, k, l, step = 1) => { const was = G.sLast && G.sLast[role] ? G.sLast[role][k] : null; return `<label class="small"><b>${l}</b><input type="number" min="0" step="${step}" id="so-${role}-${k}" value="${v(role, k)}" placeholder="no target">${was ? `<span class="small muted">last season ${k === "sales" ? money(was) : was}</span>` : ""}</label>`; };
+  return `<section class="card"><div class="card-h"><h2>Set staff targets</h2></div>
+    <p class="small muted" style="margin-bottom:10px">Leave a box empty for no target. Ratings and potential are shown ratings (out of 20); growth is rating points gained from today.${last}</p>
+    <h3 style="margin:6px 0">${ROLES_STAFF.manager.l}</h3><div class="price-grid">${num("manager", "goals", "League goals")}${num("manager", "assists", "Assists")}${num("manager", "cs", "League clean sheets")}${num("manager", "ymin", "Minutes for under-21s", 90)}${num("manager", "grow", "Squad growth (points, total)", .5)}</div>
+    <h3 style="margin:10px 0 6px">${ROLES_STAFF.recruit.l}</h3><div class="price-grid"><label class="small"><b>Sign a player for</b><select id="so-recruit-pos"><option value="">no target</option>${POS.map(p => `<option value="${p}" ${v("recruit", "pos") === p ? "selected" : ""}>${POS_NAME[p]}</option>`).join("")}</select></label>${num("recruit", "posR", "…rated at least")}${num("recruit", "u21", "An under-21 with potential of at least")}${num("recruit", "sales", "Player sales of at least (€)", 100000)}</div>
+    <h3 style="margin:10px 0 6px">${ROLES_STAFF.youth.l}</h3><div class="price-grid">${num("youth", "find", "A new academy player with potential of at least")}${num("youth", "one", "One academy player grows by (points)", .5)}${num("youth", "avg", "Academy average growth (points)", .1)}</div>
+    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="setsobj">Set staff targets</button></div></section>`;
+}
+let STO_EDIT = false;

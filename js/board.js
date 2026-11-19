@@ -184,8 +184,8 @@ function myAdministration(c) {
 const CUP_OPTS = { win: ["Win it", 3], final: ["Reach the final", 2.5], sf: ["Reach the semi-finals", 2], qf: ["Reach the quarter-finals", 1.5], r5: ["Reach the fifth round", 1.2], r4: ["Reach the fourth round", 1], r3: ["Reach the third round", .8], tie: ["Win a tie", .6], none: ["No target", 0] };
 const OBJ = {
   lg: { l: "League", opts: { title: ["Win the league", 3], up: ["Win promotion", 2.5], po: ["Reach the play-offs", 2], top: ["Finish in the top half", 1.5], safe: ["Avoid relegation", 1], none: ["No target", 0] } },
-  cup: { l: "National Cup", opts: CUP_OPTS },
-  cup2: { l: () => my().tier <= 4 ? "League Cup" : "National Trophy", opts: CUP_OPTS },
+  cup: { l: "National Cup", show: () => CUP_DEF.NC.tiers.includes(my().tier), opts: CUP_OPTS },
+  cup2: { l: () => my().tier <= 4 ? "League Cup" : "National Trophy", show: () => CUP_DEF[my().tier <= 4 ? "LC" : "TR"].tiers.includes(my().tier), opts: CUP_OPTS },
   eu: { l: () => euKey() ? CONT[euKey()].name : "Europe", show: () => !!euKey(), opts: { win: ["Win it", 3], sf: ["Reach the semi-finals", 2.5], qf: ["Reach the quarter-finals", 2], ko: ["Get out of the group", 1.5], none: ["No target", 0] } },
   fin: { l: "Finances", opts: { big: ["A profit of 10% of income", 2.5], profit: ["Make a profit", 2], wages: ["Wages under 60% of income", 1.2], even: ["Lose no more than 10% of income", 1.2], debt: ["End with less debt than we start", 1], loss20: ["Lose no more than 20% of income", .8], rule: ["Stay within the spending rule", .5], none: ["No target", 0] } },
   youth: { l: "Youth", opts: { y5: ["Five academy debuts", 2.5], reg: ["An academy graduate plays 20 league games", 2], y3: ["Three academy debuts", 2], sale: ["Sell an academy graduate for a good fee", 1.5], y2: ["Two academy debuts", 1.5], y1: ["One academy debut", 1], none: ["No target", 0] } },
@@ -224,11 +224,12 @@ function cupMet(key, v, id) {
 }
 function judgeObjectives(report) {
   const o = G.obj, c = my(); G.objRes = [];
-  if (!o || o.y !== report.y) return;
+  G.sLast = staffProgress(c);  // last season's figures, shown when you set next season's staff targets
+  if (!o || o.y !== report.y) { judgeStaffObjectives(); return; }
   const res = (k, met) => { if (!o[k] || o[k] === "none") return; G.objRes.push({ k, t: objText(k, o[k]), w: objW(k, o[k]), met }); };
   res("lg", report.pos <= lgTarget(o.lg, report.lg) || (o.lg === "up" && report.up) || (o.lg === "po" && report.po));
-  res("cup", cupMet("NC", o.cup, c.id));
-  res("cup2", cupMet((o.tier || c.tier) <= 4 ? "LC" : "TR", o.cup2, c.id));
+  // A cup only counts if you were in it (played at least one tie).
+  for (const [k, key] of [["cup", "NC"], ["cup2", (o.tier || c.tier) <= 4 ? "LC" : "TR"]]) if (cupFurthest(key, c.id).mine.length) res(k, cupMet(key, o[k], c.id));
   if (o.eu && o.eu !== "none") { const K = Object.values(G.cont || {}).find(K => K.teams && K.teams.includes(c.id)), far = K ? Math.max(-1, ...K.ko.map((R, i) => R.ties.some(t => t.h === c.id || t.a === c.id) ? i : -1)) : -2;
     res("eu", { win: !!K && K.win === c.id, sf: far >= 2, qf: far >= 1, ko: far >= 0 }[o.eu]); }
   const f = c.finLast, inc = f ? ledgerIncome(f) : 0, net = f ? inc - ledgerCosts(f) + (f.build || 0) : 0;  // building work isn't counted against you
@@ -238,15 +239,69 @@ function judgeObjectives(report) {
   const sold = (G.tlog || []).some(m => m.y === report.y && m.kind === "out" && G.players[m.id] && G.players[m.id].yAcad === c.id && (m.fee || 0) >= GRAD_FEE[o.tier || c.tier]);
   res("youth", { y5: debuts >= 5, y3: debuts >= 3, y2: debuts >= 2, y1: debuts >= 1, reg: regular, sale: sold }[o.youth]);
   // Mood and the manager, as before; then standing and support.
-  const hype = G.hype || 0; let rep = 0, fans = 0;
+  const hype = G.hype || 0, d = (o.exp || report.pos) - report.pos; let rep = 0, fans = 0;
   for (const r of G.objRes) {
+    // Finishing where the squad suggested (or better) is no failure, even short of an ambitious league target.
+    if (r.k === "lg" && !r.met && d >= 0) { r.t += " (but no worse than the squad suggested)"; continue; }
     if (r.met) { moodHit(c, r.k === "lg" ? 6 : 2 + r.w); if (r.k === "lg") trust("manager", 5, null); rep += r.w * .5; fans += r.w * .015; }
     else { moodHit(c, -(r.k === "lg" ? 5 + hype * 2 : 2)); if (r.k === "lg") trust("manager", -4, null); rep -= .6 + (3.2 - r.w) * .2; fans -= .01 + (3.2 - r.w) * .005; }
   }
   // Beating (or falling short of) what the squad suggested.
-  const d = (o.exp || report.pos) - report.pos; rep += clamp(d * .4, -3, 3); fans += clamp(d * .006, -.03, .04);
+  rep += clamp(d * .4, -3, 3); fans += clamp(d * .006, -.03, .04);
   const before = c.fans; c.rep = clamp(Math.round((c.rep + rep) * 10) / 10, 1, 99); c.fans = Math.max(50, Math.round(c.fans * (1 + fans)));
   const dF = c.fans - before, why = `${d > 0 ? `finishing ${d} place${d > 1 ? "s" : ""} above` : d < 0 ? `finishing ${-d} place${d < -1 ? "s" : ""} below` : "finishing where"} the squad suggested`;
   if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`, body: G.objRes.map(r => `${r.t}: ${r.met ? "met" : "missed"}`).join(". ") + `. With ${why}, the club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.` });
-  G.hype = 0;
+  G.hype = 0; judgeStaffObjectives();
+}
+
+/* ---------- staff targets ----------
+   Set in pre-season alongside the club's targets, each one optional. Meeting one earns that member of staff's trust and
+   a little extra from him; missing one costs trust. Measured over the season (growth from when the targets were set).
+     Manager: league goals, assists, league clean sheets, minutes for under-21s, and the squad's total growth (shown
+       rating points gained by the players who were here when the targets were set).
+     Head of recruitment: sign a player for a position at a minimum rating; sign an under-21 with a minimum potential;
+       raise a total in player sales.
+     Youth manager: a new academy player with a minimum potential; one academy player growing a number of points; the
+       academy's average growth. */
+const SOBJ = {
+  manager: { goals: ["League goals", "n"], assists: ["Assists (all competitions)", "n"], cs: ["League clean sheets", "n"], ymin: ["Minutes for under-21s", "n"], grow: ["Squad growth (rating points, in total)", "n"] },
+  recruit: { pos: ["Sign a player for this position…", "pos"], posR: ["…rated at least", "n"], u21: ["Sign an under-21 with potential of at least", "n"], sales: ["Player sales of at least (€)", "n"] },
+  youth: { find: ["Bring in an academy player with potential of at least", "n"], one: ["One academy player grows by at least (points)", "n"], avg: ["Academy average growth of at least (points)", "n"] },
+};
+const mins = p => ((p.s.app || 0) - (p.s.sub || 0)) * 90 + (p.s.sub || 0) * 25;
+// Where each staff target stands now (the same measures are used at the end of the season).
+function staffProgress(c = my()) {
+  const S = G.sobj || {}, y = G.year, base = S.base || {}, lg = (G.myRes || []).filter(r => r.comp === c.lg), sq = c.squad.map(P).filter(Boolean);
+  // Only transfers since the targets were set count.
+  const after = m => m.y === y && (S.seq0 == null || (m.t || 0) > S.seq0);
+  const ins = (G.tlog || []).filter(m => m.kind === "in" && after(m)), outs = (G.tlog || []).filter(m => m.kind === "out" && after(m));
+  const gain = p => base[p.id] != null ? to20(p.ovr) - to20(base[p.id]) : null;
+  const acad = sq.filter(p => p.acad || p.yAcad === c.id), ag = acad.map(gain).filter(v => v != null);
+  return {
+    manager: { goals: sum(lg, r => r.gf), assists: sum(sq, p => p.s.a || 0), cs: lg.filter(r => r.ga === 0).length, ymin: sum(sq.filter(p => p.age <= 21), mins),
+      grow: Math.round(sum(sq.filter(p => !p.acad), p => Math.max(0, gain(p) || 0)) * 10) / 10 },
+    recruit: { pos: ins.filter(m => !S.recruit || m.pos === S.recruit.pos).map(m => m.r).reduce((a, b) => Math.max(a, b), 0), u21: Math.max(0, ...ins.filter(m => m.age <= 20 && G.players[m.id]).map(m => r20(G.players[m.id].pot))), sales: sum(outs, m => m.fee || 0) },
+    youth: { find: Math.max(0, ...acad.filter(p => base[p.id] == null).map(p => r20(p.pot))), one: Math.round(Math.max(0, ...ag) * 10) / 10, avg: ag.length ? Math.round(avg(ag) * 10) / 10 : 0 },
+  };
+}
+// Each set target as [role, key, label, target, now, met].
+function staffTargets(c = my()) {
+  const S = G.sobj; if (!S || S.y !== G.year) return [];
+  const P0 = staffProgress(c), out = [];
+  for (const role of ["manager", "recruit", "youth"]) { const T = S[role] || {};
+    for (const [k, [l]] of Object.entries(SOBJ[role])) {
+      if (k === "pos" || k === "posR") continue; const t = T[k]; if (t == null || t === "") continue;
+      out.push([role, k, l, t, P0[role][k], P0[role][k] >= t]); }
+    if (role === "recruit" && T.pos) out.push([role, "pos", `Sign a ${POS_NAME[T.pos].toLowerCase()} rated at least ${T.posR || 1}`, T.posR || 1, P0.recruit.pos, P0.recruit.pos >= (T.posR || 1)]);
+  }
+  return out;
+}
+function setStaffObjectives(S) {
+  const c = my(); G.sobj = { ...S, y: G.year, seq0: G.tseq || 0, base: Object.fromEntries(c.squad.map(P).filter(Boolean).map(p => [p.id, p.ovr])) };
+  const n = staffTargets(c).length; if (n) news(`You set ${n} target${n > 1 ? "s" : ""} for your staff for the season.`, true);
+}
+function judgeStaffObjectives() {
+  const list = staffTargets(); if (!list.length) return;
+  for (const [role, , , , , met] of list) if (staffOf(role)) trust(role, met ? 5 : -4, null);
+  addMsg({ type: "objectives", title: `Staff targets: ${list.filter(x => x[5]).length} of ${list.length} met`, body: list.map(([role, k, l, t, now, met]) => `${ROLES_STAFF[role].l}: ${l}${k === "pos" ? "" : " " + (k === "sales" ? money(t) : t)} (${k === "sales" ? money(now) : now}): ${met ? "met" : "missed"}`).join(". ") + ". Staff who meet their targets trust you more; missed targets cost trust." });
 }
