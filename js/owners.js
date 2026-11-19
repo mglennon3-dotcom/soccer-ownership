@@ -182,7 +182,9 @@ function ownersSummer() {
     if (c.gone || isMine(c)) continue;
     c.own ||= newOwner(c); const S = ownStyle(c);
     // Building: ground, training ground, academy.
-    if (c.build && c.build.left == null && G.year >= c.build.open) aiMoveIn(c);  // builds started before weekly timing
+    if (c.build && c.build.left == null && G.year >= c.build.open) aiMoveIn(c);
+    // An academy player good enough for the first team gets a professional contract.
+    if (!c.abroad) for (const id of c.squad) { const p = G.players[id]; if (p && p.acad && p.age >= 16 && p.ovr >= TIER_LVL[c.tier] - 4) { p.acad = false; p.wage = aiWage(p, c); p.yrs = ri(2, 4); } }  // builds started before weekly timing
     aiMoveCheck(c);
     if (R() < S.build) { c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.05, 1.2) / 100) * 100); c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0)); }
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
