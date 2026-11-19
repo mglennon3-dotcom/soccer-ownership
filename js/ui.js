@@ -295,12 +295,12 @@ function playerModal(id) {
       <p class="small muted">Players are only sold when a club makes an offer. Transfer-listed players attract offers while a window is open, usually below their value; they arrive in your inbox with your head of recruitment's advice. Listing a player yourself goes over his head, and the manager won't like losing a first-choice player. Protected players are never sold by your staff and are offered new contracts. Players on the loan list draw loan offers from clubs at their level while a window is open. Players marked not for sale only draw huge bids (two to five times their value), and one who's outgrown the club or is underpaid may resent it.</p>`;
   } else {
     const fee = askingFee(p), wage = playerAsk(p), ok = willJoin(p, my()) && wage != null;
-    const lendable = loanable(p) && lendsTo(p) && loansOpen() && !inTheirXI(p), T = lendable && p.lt && p.lt.w === windowId() ? p.lt : null;
-    const said = LOAN_SAY && LOAN_SAY.id === p.id ? LOAN_SAY.t : "", pick0 = T && T.tries ? Math.round(T.min * 10) * 10 : 50;
+    const lendable = loanable(p) && lendsTo(p) && loansOpen() && !inTheirXI(p), T = lendable ? playerLoanTerms(p) : null;
+    const said = LOAN_SAY && LOAN_SAY.id === p.id ? LOAN_SAY.t : "", pick0 = T ? Math.round(T.min * 10) * 10 : 50;
     acts = `<div class="row"><button class="btn primary" data-act="buy" data-id="${p.id}" ${ok ? "" : "disabled"}>Make an offer</button><span class="small muted">${ok ? `Asking fee about ${fee ? money(fee) : "nothing (free agent)"}; he'd want about ${pw(wage)}.${keenToJoin(p) && wage < demandWage(p, my()) * .95 ? ` <span class="good">He really wants to come: he'd take less than his going rate (${pw(demandWage(p, my()))}).</span>` : keenToJoin(p) ? ` <span class="muted">He's keen, but won't take much less than he earns now.</span>` : ""}` : "He isn't interested in joining, whatever the money."}</span></div>
       ${lendable ? `<div class="sugg"><b class="small">Borrow him to the end of the season</b>${T && T.no ? `<p class="small muted">${esc(said || `${CL(p.club).name} won't lend him to you this window.`)}</p>` : `
         <div class="row" style="margin-top:6px"><label class="small">You pay <select id="lshare">${[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(v => `<option value="${v}" ${v === pick0 ? "selected" : ""}>${v}% · ${pw(p.wage * v / 100)}</option>`).join("")}</select></label><button class="btn sm" data-act="loanask" data-id="${p.id}">Ask</button></div>
-        <p class="small ${said ? "warn" : "muted"}">${esc(said || `He earns ${pw(p.wage)}. Offer to cover less and they may say no; they'll tell you what they want.`)}</p>`}</div>` : ""}
+        <p class="small ${said ? "warn" : "muted"}">${esc(said || `${CL(p.club).name} want you to pay ${pw(loanPay(p) ?? 0)}.`)}</p>`}</div>` : ""}
       ${(() => { const s = staffOf("recruit"); if (!s) return `<p class="small muted">Hire a head of recruitment and you can suggest players to them.</p>`; const on = suggested(p), canLoan = loanable(p), v = suggView(p, my(), false), vl = canLoan ? suggView(p, my(), true) : null;
         const cls = x => x.ok ? "good" : x.money ? "warn" : x.wait ? "" : "muted";
         return `<div class="sugg"><b class="small">${on ? `You've suggested ${on.loan ? "borrowing" : "signing"} him` : "Suggest him to your head of recruitment"}</b>
@@ -731,8 +731,10 @@ function pgMarket() {
       { k: "int", l: "Interest", v: x => ({ keen: 3, open: 2, sign: 1, no: 0 })[x.i.k], f: x => `<span class="small ${x.i.cls}">${x.i.w}</span>` },
       { k: "club", l: "Club", left: true, v: x => fromName(x.p), f: x => `<span class="small">${esc(fromName(x.p))}</span>` },
       { k: "fee", l: F.tab === "loans" ? "Value" : "Fee", r: true, v: x => x.fee, f: x => F.tab === "loans" ? money(valueOf(x.p)) : x.fee ? money(x.fee) : "Free" },
-      { k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => pw(x.p.wage) },
-      { k: "ask", l: F.tab === "loans" ? "Half wage" : "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => F.tab === "loans" ? pw(x.p.wage / 2) : x.i.ask != null ? pw(x.i.ask) : "—" },
+      ...(F.tab === "loans" ? [] : [{ k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => pw(x.p.wage) }]),
+      // On loan: the wage his club wants you to pay this window (or that he isn't available to you).
+      F.tab === "loans" ? { k: "ask", l: "You'd pay", r: true, v: x => loanPay(x.p) ?? 1e12, f: x => loanPay(x.p) != null ? pw(loanPay(x.p)) : `<span class="small muted">Not available</span>` }
+        : { k: "ask", l: "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => x.i.ask != null ? pw(x.i.ask) : "—" },
     ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}

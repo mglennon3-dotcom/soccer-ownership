@@ -35,6 +35,8 @@ function playerLoanTerms(p, from = CL(p.club)) {
   const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
   return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, 1), tries: 0, no: R() < (partner ? .05 : .2) };
 }
+// What his club wants you to pay in wages to borrow him this window, or null if he isn't available to you.
+const loanPay = p => { if (p.club < 0 || !lendsTo(p)) return null; const T = playerLoanTerms(p); return T.no ? null : Math.round(p.wage * T.min / 100) * 100; };
 function askLoan(p, share) {
   const from = CL(p.club), T = playerLoanTerms(p);
   if (!lendsTo(p)) return { ok: false, t: `${from.name} won't send ${p.name} that far down: he's a ${TIER_NAME[naturalTier(p)]} player and they want him playing at that level.` };
