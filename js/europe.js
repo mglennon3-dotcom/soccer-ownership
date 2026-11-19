@@ -14,11 +14,13 @@
    Portugal, Belgium, the Netherlands, Turkey, Greece, Czechia, Poland, Norway, Denmark, Cyprus, Switzerland, Austria,
    Hungary, Croatia, Sweden, Scotland, Romania, Ukraine). [clubs, starting standard of the best club, Champions Cup places,
    Shield places]: the standards are re-set against England each summer (FOREIGN_RANK). The smaller leagues carry only
-   the clubs that matter in Europe and in the market. */
+   the clubs that matter in Europe and in the market. Places follow the ranking: 1st-5th four in the Champions Cup and
+   two in the Shield, 6th three and two, 7th-12th two and two, 13th-15th two and one, the rest one and one. That is more
+   clubs than either competition holds, so the lower-ranked entrants play off in a summer qualifying round. */
 const FOREIGN = {
-  ITA: [12, 86, 4, 2], ESP: [12, 87, 4, 2], GER: [12, 86, 4, 2], FRA: [10, 84, 3, 2], POR: [9, 83, 2, 2], BEL: [8, 81, 2, 2], NED: [8, 82, 2, 2],
-  TUR: [6, 80, 1, 1], GRE: [5, 78, 1, 1], CZE: [5, 77, 1, 1], POL: [5, 77, 1, 1], SCA: [5, 76, 1, 1], DEN: [5, 76, 1, 1],
-  CYP: [4, 75, 0, 1], SUI: [5, 75, 0, 1], AUT: [5, 75, 0, 1], HUN: [4, 74, 0, 1], CRO: [4, 74, 0, 1], SWE: [5, 74, 0, 1], SCO: [5, 74, 1, 1], ROU: [4, 73, 0, 1], UKR: [4, 73, 0, 1],
+  ITA: [12, 86, 4, 2], ESP: [12, 87, 4, 2], GER: [12, 86, 4, 2], FRA: [10, 84, 4, 2], POR: [9, 83, 3, 2], BEL: [8, 81, 2, 2], NED: [8, 82, 2, 2],
+  TUR: [6, 80, 2, 2], GRE: [5, 78, 2, 2], CZE: [5, 77, 2, 2], POL: [5, 77, 2, 2], SCA: [5, 76, 2, 1], DEN: [5, 76, 2, 1], CYP: [4, 75, 2, 1],
+  SUI: [5, 75, 1, 1], AUT: [5, 75, 1, 1], HUN: [4, 74, 1, 1], CRO: [4, 74, 1, 1], SWE: [5, 74, 1, 1], SCO: [5, 74, 1, 1], ROU: [4, 73, 1, 1], UKR: [4, 73, 1, 1],
 };
 /* Where each league sits against the Premier Division: [the English rank its best club matches, ranks per club below it].
    Italy, Spain and Germany are on a par (their best is as good as England's best, spread across the whole division);
@@ -174,7 +176,30 @@ function foreignEntrants() {
   const byC = {}; for (const id of G.foreign) { const c = CL(id); (byC[c.country] ||= []).push(c); }
   const out = { CC: [], CS: [] };
   for (const [code, [, , ncc, ncs]] of Object.entries(FOREIGN)) { const L = (byC[code] || []).sort((a, b) => b.lvl - a.lvl); out.CC.push(...L.slice(0, ncc).map(c => c.id)); out.CS.push(...L.slice(ncc, ncc + ncs).map(c => c.id)); }
+  // Entrants come in ranking order (country by country, best first), so the play-offs fall to the lower-ranked ones.
+  const slots = { CC: 32 - ((G.qual || {}).CC || []).length, CS: 32 - ((G.qual || {}).CS || []).length };
+  G.cqual = [];
+  for (const k of ["CC", "CS"]) out[k] = contQualify(k, out[k], slots[k]);
+  if (G.cqual.length) news(`European qualifying: ${G.cqual.length} play-offs decided. ${G.cqual.filter(q => q.up).slice(0, 3).map(q => `${CL(q.w).name} (${countryOf(CL(q.w))}) knock out ${CL(q.l).name}`).join("; ") || "The favourites came through"}.`);
   return out;
+}
+/* Qualifying: the five leagues ranked just below England (Italy, Spain, Germany, France, Portugal) go straight in;
+   everyone else plays off over two legs, settled on strength with a good dose of chance, the weakest paired best
+   against worst, round after round until the competition is down to 32. */
+const CONT_DIRECT = new Set(["ITA", "ESP", "GER", "FRA", "POR"]);
+function contQualify(k, ids, slots) {
+  const direct = ids.filter(id => CONT_DIRECT.has(CL(id).country)); let pool = ids.filter(id => !CONT_DIRECT.has(CL(id).country));
+  while (direct.length + pool.length > slots && pool.length >= 2) {
+    const ties = Math.min(direct.length + pool.length - slots, Math.floor(pool.length / 2));
+    pool.sort((a, b) => CL(b).lvl - CL(a).lvl);
+    const safe = pool.slice(0, pool.length - ties * 2), q = pool.slice(pool.length - ties * 2), won = [];
+    for (let i = 0; i < ties; i++) {
+      const a = CL(q[i]), b = CL(q[q.length - 1 - i]), pa = 1 / (1 + Math.exp(-(a.lvl - b.lvl) / 4)), aWins = R() < pa, w = aWins ? a : b, l = aWins ? b : a;
+      won.push(w.id); G.cqual.push({ k, w: w.id, l: l.id, up: !aWins });
+    }
+    pool = [...safe, ...won];
+  }
+  return [...direct, ...pool].slice(0, slots);
 }
 
 /* ---------- the competitions ---------- */
