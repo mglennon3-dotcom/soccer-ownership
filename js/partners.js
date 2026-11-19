@@ -22,7 +22,8 @@ const loanable = p => p.club >= 0 && p.club !== G.club && !p.loan && !p.acad && 
 const myWage = p => p.loan && p.loan.to === G.club ? p.wage * p.loan.share : p.wage;
 /* A loan is about games at the right level: any club, however big, lends a player to a club in the division that suits
    his ability, or one below it, but not further down (he'd learn nothing). */
-const lendsTo = (p, c = my()) => c.tier - naturalTier(p) <= 1;
+// ...but a youngster already good enough to start for an average side in his own division only goes to that division.
+const lendsTo = (p, c = my()) => { const nt = naturalTier(p); return c.tier - nt <= (p.ovr >= TIER_XI[nt] - 1 ? 0 : 1); };
 const inTheirXI = p => pickXI(CL(p.club)).some(o => o.p === p);
 // Non-league football (the National Division and below) allows loans all season; above that, only in a window.
 const loansOpen = () => windowOpen() || (G.club != null && my().tier >= 5);
