@@ -354,6 +354,16 @@ function diversitySummer() {
   // Rivals spend to catch up.
   if (dyn.length) { const t = table("L1"); t.slice(0, 10).forEach(r => { const x = CL(r.id); if (isMine(x) || dyn.includes(x) || ownStyle(x).spend < 0) return; if (R() < .5) { x.chase = 2; if (x.lg === my().lg) news(`${x.name}'s owner promises to spend whatever it takes to end ${dyn[0].name}'s run.`); } }); }
   for (const c of G.clubs) if (c.chase) c.chase--;
+  // Rich owners' statement signings: now and then a billionaire, celebrity or big-spending owner below the Premier lures
+  // a star down on a huge wage. Only money-motivated players, or ones with an affinity for the club, are tempted.
+  for (const c of G.clubs) {
+    if (c.gone || c.abroad || isMine(c) || c.tier < 2 || !c.own || !["sugar", "celebrity", "crypto", "gambler"].includes(c.own.style) || c.own.wealth < 100e6 * (c.tier <= 3 ? 1 : .3) || R() > .12) continue;
+    const pool = Object.values(G.players).filter(p => p.club >= 0 && p.club !== G.club && !p.acad && !p.loan && p.age <= 32 && !(p.stunY > G.year - 4) && p.ovr >= c.lvl + 6 && hugeAsk(p, c) && willJoin(p, c) && CL(p.club) && !CL(p.club).gone);
+    if (!pool.length) continue;
+    const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.round(hugeWage(p, c) / 100) * 100, why = affinity(p, c);
+    moveTo(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; aiSquadCheck(from, true); c.own.wealth -= Math.round(valueOf(p));
+    if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) drops down from ${from.name} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
+  }
   // Going home.
   for (const c of G.clubs) {
     if (c.gone || c.abroad) continue;

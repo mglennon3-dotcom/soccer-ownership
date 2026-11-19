@@ -19,10 +19,23 @@ const naturalTier = p => { let best = 7; for (let t = 1; t <= 7; t++) if (Math.a
    above his division's average starter: a 15 one division, a 16 or better not at all. */
 const joinRoom = p => { const t = naturalTier(p), over = p.ovr - TIER_XI[t];
   return p.age < 31 ? (over >= -1 ? 0 : 1) : Math.max(0, 2 - Math.floor(Math.max(0, over) / 3)); };
-// Within his room he'll consider you at a fair price; up to two divisions past it only for a huge wage (see playerAsk);
-// beyond that, never.
-const willJoin = (p, c) => c.abroad || c.tier - naturalTier(p) <= joinRoom(p) + 2;
+/* Past his room, only two kinds of player can be tempted, and only by a huge wage: a money-motivated one, or one with an
+   affinity for the club (he grew up supporting it, came through its academy, or was a favourite there). Never more than
+   two divisions past his room, and never the very best players in the game (a shown 16.5 or better). */
+const STAR_NEVER = 90;
+function boyhoodOf(p) {
+  if (p.boy !== undefined) return p.boy;
+  const reg = homeOf(p), cs = reg ? G.clubs.filter(x => !x.gone && !x.abroad && x.region === reg) : [];
+  return (p.boy = cs.length && R() < .6 ? pick(cs).id : null);
+}
+const affinity = (p, c) => boyhoodOf(p) === c.id ? "grew up supporting the club" : p.yAcad === c.id ? "came through the club's academy" : favLevel(p, c.id) ? "was a favourite here" : null;
+const greedy = p => prefsOf(p, P_FACTORS).top.includes("money");
+const tempted = (p, c) => p.ovr < STAR_NEVER && (greedy(p) || !!affinity(p, c));
 const hugeAsk = (p, c = my()) => c.tier - naturalTier(p) > joinRoom(p);
+const willJoin = (p, c) => { if (c.abroad) return true; const d = c.tier - naturalTier(p), r = joinRoom(p); return d <= r || (d <= r + 2 && tempted(p, c)); };
+// What it takes: his own level's rate, 15% more per division dropped and, past his room, at least double again.
+function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier - nt), beyond = drop - joinRoom(p), over = Math.max(0, p.ovr - TIER_XI[nt]);
+  return wageAt(p.ovr, nt) * wageMult(p, c) * (1 + .15 * drop) * (beyond > 0 ? 2 + (beyond - 1) * .5 + over * .1 : 1); }
 // xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once.
 function askingFee(p, xi) {
   if (p.club === -1) return 0;
