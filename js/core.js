@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.69.2";
+const VERSION = "0.70.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -231,8 +231,9 @@ function potEstimate(p) {
   let judge = 35;
   if (p.club === G.club) judge = p.acad ? staffAttr("youth", "judge", 35) : staffAttr("manager", "dev", 35);
   else judge = staffAttr("recruit", "judge", 25) + scoutBoost();
-  const sd = clamp((100 - judge) / 9, 1, 9), est = clamp(p.pot + p.pn * sd, p.ovr, 100), w = Math.max(1, sd * 1.2);
-  return [snap20(Math.max(p.ovr, est - w)), snap20(Math.min(100, est + w))];
+  // Worked on the shown 1-20 scale, centred on the truth: the better the judge, the closer and tighter the range.
+  const sd = clamp((100 - judge) / 22, .4, 4), now = to20(p.ovr), est = clamp(to20(p.pot) + p.pn * sd * .6, now, 20), w = Math.max(.5, sd * 1.1);
+  return [snap20(from20(Math.max(now, est - w))), snap20(from20(Math.min(20, est + w)))];
 }
 function ovrEstimate(p) {
   if (p.club === G.club || (p.club >= 0 && CL(p.club).lg === my().lg)) return [snap20(p.ovr), snap20(p.ovr)];
@@ -271,6 +272,9 @@ function growthType(p) {
 // Balanced so fast developers, normal players and late bloomers end up in the same place on average (the sum of each
 // one's growth rates over a career is the same); only the timing differs. A wonderkid outgrows them all.
 const GT_MULT = (t, age) => t === "wonder" ? 1.45 : t === "fast" ? (age <= 20 ? 1.3 : .42) : t === "late" ? (age <= 20 ? .55 : 1.75) : 1;
+// Calibrated so about 40% reach their ceiling on average (more with regular football and good coaching, fewer without),
+// the same at every level of potential and for every growth profile.
+let GROW_K = .98, GROW_M = .1, GROW_B = .32;
 const isWonderkid = p => p.age <= 21 && growthType(p) === "wonder" && to20(p.pot) >= 17;  // a slump that drops his ceiling ends it
 function develop(p, dt, teamGames) {
   const c = p.club >= 0 ? CL(p.club) : null, e = envOf(c), gt = growthType(p);
@@ -279,7 +283,15 @@ function develop(p, dt, teamGames) {
     if (p.acad) play = .55 + e.acad * .03;  // academy football: better at a better academy
     else play = teamGames > 3 ? clamp(p.s.app / teamGames, 0, 1) : .5;
     const cond = (.35 + .65 * play) * (.62 + e.train * .045 + (p.acad ? e.ydev : e.dev) * .004) * (.7 + p.gs / 167);
-    const gain = (p.pot - (p.ovr + (p.frac || 0))) * (GROW_AGE[p.age] || (gt === "late" ? (p.age === 28 ? .03 : .02) : 0)) * GT_MULT(gt, p.age) * cond * dt;
+    // Growth is progress along his own journey, from where he started (p.dvb, shown 1-20 scale) to his ceiling, so a
+    // youngster heading from 4 to 8 and one heading from 6 to 17 have the same chance of getting there. It aims a little
+    // past the ceiling so a player who plays and is well coached can actually reach it; he never grows past it this way.
+    const rate = (GROW_AGE[p.age] || (gt === "late" ? (p.age === 28 ? .03 : .02) : 0)) * GT_MULT(gt, p.age) * cond * dt * GROW_K;
+    const s0 = to20(p.ovr + (p.frac || 0)), cap = to20(p.pot), base = Math.min(p.dvb ??= s0, s0), span = Math.max(.5, cap - base);
+    // A longer journey is travelled a little faster, so getting the last half-point is as likely for a 6-to-17 prospect
+    // as for a 4-to-8 one.
+    const f = (s0 - base) / span, rr = rate * Math.pow(span / 6, GROW_B), s1 = Math.min(cap, base + Math.min(1, f + Math.max(0, 1 + GROW_M - f) * rr) * span);
+    const gain = Math.max(0, from20(s1) - (p.ovr + (p.frac || 0)));
     p.frac = (p.frac || 0) + gain;
     const whole = Math.trunc(p.frac);
     if (whole) { const before = p.ovr; shiftPlayer(p, whole); p.frac -= (p.ovr - before) || whole; }
