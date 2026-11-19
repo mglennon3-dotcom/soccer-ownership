@@ -103,6 +103,7 @@ function upgradeSave() {
   // club); any still at your club on such a contract moves onto the emergency cap.
   // Ratings as they stand (a save from before the arrows had none): the arrows start from here.
   for (const p of Object.values(G.players)) if (p.r0 == null) p.r0 = r20(p.ovr);
+  if (!G.dir2) { G.dir2 = true; if (G.club != null && G.board) for (const d of Object.values(G.board.dir)) if (d) d.wage = dirWage(d); }  // directors now paid from turnover
   if (G.club != null) syncReg();  // auto-registration: the best 25 while a window is open
   if (!G.brk1) { G.brk1 = true; if (G.club != null) for (const id of my().squad.slice()) { const p = G.players[id]; if (p) breakSlump(p); } }  // one-off: the summer roll this squad missed
   if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too

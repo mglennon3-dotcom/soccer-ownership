@@ -82,8 +82,23 @@ const DIRECTORS = {
   ops: { l: "Operations director", d: "Cheaper, quicker building work and better pitch care." },
 };
 const dirSkill = k => G.board && G.board.dir[k] ? G.board.dir[k].skill : 0;
+/* Directors are paid a share of the club's turnover (its regular income, not player sales): about 0.6% for a weak one,
+   1.2% for a typical Second Division one and up to about 1.8% for the best, plus a quarter for each division he steps
+   down. Like managers, each belongs to a level (his skill read like a staff reputation) and will drop at most two
+   divisions (three once he's 58), less the higher he stands within his own level. Pay is renewed each summer. */
+function clubTurnover(c = my()) {
+  const f = c.finLast, core = f => f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + (f.para || 0) + (f.network || 0);
+  return Math.max(f ? core(f) : 0, TV[c.tier] + COMM_T[c.tier] + capacity(c) * REF_TICKET[c.tier] * 23 * .6, 50e3);
+}
+const dirDrop = d => Math.max(0, my().tier - repTier(d.skill));
+const dirWilling = d => dirDrop(d) <= dropRoom({ rep: d.skill, age: d.age });
+const dirWage = d => Math.max(10e3, Math.round(clubTurnover() * (.004 + d.skill * .00014) * Math.pow(1.25, dirDrop(d)) / 1000) * 1000);
 function directorCands(k) {
-  const out = []; for (let i = 0; i < 5; i++) { const skill = Math.round(clamp(30 + normal() * 16 + (8 - my().tier) * 3, 8, 98) * 2) / 2; out.push({ role: k, name: nameFor("ENG"), age: ri(30, 60), skill, wage: Math.round(20000 * Math.pow(1.045, skill) * (1 + (7 - my().tier) * .25) / 1000) * 1000 }); }
+  const out = [];
+  for (let g = 0; g < 60 && out.length < 5; g++) {
+    const lvl = clamp(my().tier + ri(-2, 1), 1, 7), skill = Math.round(clamp(TIER_REP[lvl] + normal() * 8, 5, 98) * 2) / 2, d = { role: k, name: nameFor("ENG"), age: ri(30, 64), skill };
+    if (!dirWilling(d)) continue; d.wage = dirWage(d); out.push(d);
+  }
   return out.sort((a, b) => b.skill - a.skill);
 }
 const dirWages = () => G.board ? sum(Object.values(G.board.dir).filter(Boolean), d => d.wage) : 0;
