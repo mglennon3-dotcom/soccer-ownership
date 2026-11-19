@@ -369,12 +369,16 @@ function pitchWeek(c, homeGame) {
   if (homeGame && atHome(c)) S.pitch -= PITCH[S.ptype || "grass"].wear * rf(.7, 1.4) * (G.wx ? wxAt(c).wear : 1) * wearMult();
   S.pitch = clamp(S.pitch + (G.phase === "summer" ? 3 : .35), 5, 100);
   if (S.pitch < 40 && homeGame) moodHit(c, -.4);
+  // During the season, a pitch that gets poor (and again if it turns into a mudbath) comes to you as a decision.
+  if (G.phase !== "summer" && !S.relay) for (const lim of [50, 35]) if (before >= lim && S.pitch < lim && !G.inbox.some(m => m.key === "relayAsk" && !m.done)) {
+    const t = S.ptype || "grass"; addChoice("relayAsk", `The pitch is ${pitchWord(S.pitch)[0].toLowerCase()} (${Math.round(S.pitch)}/100)`, `The groundsman says it will only get worse with every home game: it blunts passing football, causes more injuries and annoys supporters. Re-laying it with ${PITCH[t].l.toLowerCase()} costs ${money(PITCH[t].cost(c))} and takes about three weeks; otherwise it's re-laid in the summer.`,
+      [`Re-lay it now (${money(PITCH[t].cost(c))})`, "Wait for the summer"], { type: t }, 1); break; }
   if (pitchWord(before)[0] !== pitchWord(S.pitch)[0] && S.pitch < before && S.pitch < 65) news(`The groundsman reports the pitch is now ${pitchWord(S.pitch)[0].toLowerCase()} (${Math.round(S.pitch)}/100).`, S.pitch < 50);
 }
-function relayPitch(type) {
+function relayPitch(type, auto) {
   const c = my(), S = c.fac.stadium, cost = PITCH[type].cost(c);
   spend("build", cost); S.relay = { type, left: G.phase === "summer" ? 2 : 3 };
-  news(`The pitch is being re-laid with ${PITCH[type].l.toLowerCase()} (${money(cost)}).`, true);
+  news(`The pitch is being re-laid with ${PITCH[type].l.toLowerCase()} (${money(cost)})${auto ? " as it is every summer, ready for the new season" : ""}.`, true);
 }
 
 /* ---------- other uses of the stadium ----------
@@ -710,4 +714,11 @@ function dealsSeasonEnd(c = my()) {
       news(`${d.brand}'s ${SLOTS[d.slot].l.toLowerCase()} deal has run its full term. They'd like to talk about a renewal, and other brands notice a club that honours its deals.`, true); }
   }
   c.deals = c.deals.filter(d => d.yrs > 0);
+}
+
+/* Every summer the pitch is re-laid with the same surface unless it's still in excellent condition (80+), paid for and
+   ready before the season starts. */
+function summerRelay(c = my()) {
+  const S = c.fac.stadium; if (!S.own || S.relay || S.pitch >= 80 || S.rebuilding) return;
+  relayPitch(S.ptype || "grass", true);
 }

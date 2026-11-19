@@ -183,7 +183,7 @@ function inboxCard(urgent) {
       return `<div class="decision"><b>${esc(x.title)}</b>${myPlayerLine(p)}<p class="small">${POS_NAME[p.pos]}, ${p.age}, valued at about ${money(valueOf(p))}. You accepted an offer, and now others want him too. If you don't decide within two weeks he goes to the highest bidder.</p>
         ${x.bids.map(b => `<div class="row between small" style="padding:2px 0"><span>${esc(clubLabel(CL(b.id)))}</span><b class="num ${b === T ? "good" : ""}">${b.out ? '<span class="muted">dropped out</span>' : money(b.amt)}</b></div>`).join("")}
         <div class="row" style="margin-top:6px"><button class="btn sm primary" data-act="war" data-id="${x.id}" data-v="sell">Sell to ${esc(CL(T.id).name)} for ${money(T.amt)}</button>${x.final ? "" : `<button class="btn sm" data-act="war" data-id="${x.id}" data-v="raise">Ask for best and final offers</button>`}<button class="btn sm" data-act="war" data-id="${x.id}" data-v="keep">Keep him</button></div></div>`; }
-    return `<div class="decision"><b>${esc(x.title)}</b><p class="small">${esc(x.body || "")}</p>${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}" style="margin-top:6px">View</button>` : ""}</div>`;
+    return `<div class="decision"><b>${esc(x.title)}</b>${x.rows ? msgRows(x) : `<p class="small">${esc(x.body || "")}</p>`}${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}" style="margin-top:6px">View</button>` : ""}</div>`;
   }).join("")}</div></section>`;
 }
 function resultsList(rs) {
@@ -868,4 +868,12 @@ function squadStats(c, ps, xi) {
     { k: "car", l: "Career", r: true, v: p => (p.tot || [0])[0] + (p.s.app || 0), f: p => `<span class="small">${(p.tot || [0, 0])[0] + (p.s.app || 0)} · ${(p.tot || [0, 0])[1] + (p.s.g || 0)}g</span>` },  // past seasons plus this one
   ], ps, { sort: { k: "min", d: -1 } })}
   <p class="small muted" style="margin-top:8px">All competitions this season. Minutes: 90 a start, about 25 off the bench. G+A /90 needs three games' worth of minutes; form needs ten games (judged on goal threat for his position, and on playing every week for keepers and centre-backs). "For us": games, goals and assists for the club in all seasons; "Career": games and goals everywhere.</p>`;
+}
+
+// A report laid out as a table (targets): each row [what, level, result, met?], then a summary line.
+function msgRows(x) {
+  // Stacked, one block a target: readable on a phone. Status on the first line, level and result underneath.
+  return `<div class="stack" style="gap:6px;margin-top:6px">${x.rows.map(([what, lvl, res, ok]) => `<div style="border-top:1px solid var(--line, rgba(127,127,127,.25));padding-top:6px">
+    <div class="row between" style="gap:8px;align-items:flex-start;flex-wrap:nowrap"><span class="small" style="font-weight:600;flex:1;min-width:0">${esc(what)}</span><span class="small ${ok === "ok" ? "muted" : ok ? "good" : "bad"}" style="white-space:nowrap">${ok === "ok" ? "≈ fine" : ok ? "✓ met" : "✗ missed"}</span></div>
+    <div class="small muted">${lvl ? `${esc(lvl)} · ` : ""}result: <b style="color:var(--ink, inherit)">${esc(res)}</b></div></div>`).join("")}</div>${x.foot ? `<p class="small" style="margin-top:8px">${esc(x.foot)}</p>` : ""}`;
 }

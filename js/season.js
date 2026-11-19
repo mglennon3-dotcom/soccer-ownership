@@ -71,6 +71,7 @@ function advance() {
   if (c.cash >= 0) G.warnedDebt = false;
 }
 function summerWeek() {
+  if (G.week === 0) summerRelay();
   if (G.week === 1) partnerWindow();
   if (G.week === 2 || G.week === 5) foreignLoans();
   friendlyWeek();

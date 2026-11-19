@@ -63,3 +63,5 @@ DECIDE.awayHelp = (m, i) => { const c = my(), k = fanCare(c);
 DECIDE.awayRefund = (m, i) => { const c = my(), k = fanCare(c);
   if (i === 0) { spend("refunds", m.data.cost); moodHit(c, 3 * k); trustRel(8); bumpMedia(2); news("The club refunds the travelling supporters after the heavy defeat. It goes down well."); }
   else moodHit(c, -1 * k); };
+
+DECIDE.relayAsk = (m, i) => { const S = my().fac.stadium; if (i === 0 && S.own && !S.relay) relayPitch(m.data.type || S.ptype || "grass"); };

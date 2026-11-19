@@ -260,8 +260,9 @@ function judgeObjectives(report) {
     const vals = o.v[k], hi = OBJ[k].hi !== false, now = got[k], reached = vals.filter(x => hi ? now >= x : now <= x).length, met = reached >= lv;
     let score = met ? LVL_SCORE[lv] : LVL_SCORE[reached] * .5 - .35 * (lv - reached);
     let t = objText(k, lv);
-    if (k === "lg" && !met && d >= 0) { score = Math.max(0, score); t += " (but no worse than the squad suggested)"; }
-    G.objRes.push({ k, t, lv, met, reached, score });
+    const excused = k === "lg" && !met && d >= 0;
+    if (excused) { score = Math.max(0, score); t += " (but no worse than the squad suggested)"; }
+    G.objRes.push({ k, t, lv, met, reached, score, excused });
     moodHit(c, Math.round(score * 6)); rep += score * 1.5; fans += score * .04;
     if (k === "lg") trust("manager", met ? 5 : d >= 0 ? 0 : -4, null);
   }
@@ -269,7 +270,11 @@ function judgeObjectives(report) {
   rep += clamp(d * .4, -3, 3); fans += clamp(d * .006, -.03, .04);
   const before = c.fans; c.rep = clamp(Math.round((c.rep + rep) * 10) / 10, 1, 99); c.fans = Math.max(50, Math.round(c.fans * (1 + fans)));
   const dF = c.fans - before, why = `${d > 0 ? `finishing ${d} place${d > 1 ? "s" : ""} above` : d < 0 ? `finishing ${-d} place${d < -1 ? "s" : ""} below` : "finishing where"} the squad suggested`;
-  if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`, body: G.objRes.map(r => `${r.t} (${LVL_NAME[r.lv].toLowerCase()}): ${r.met ? "met" : "missed"}${r.reached > r.lv ? `, reaching the ${LVL_NAME[r.reached].toLowerCase()} level` : ""}`).join(". ") + `. With ${why}, the club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.` });
+  const fmtGot = (k, v) => v == null ? "—" : k === "lg" ? ORD(v) : k === "fin" ? `${v > 0 ? "+" : ""}${v}% of income` : k === "wages" ? `${v}% of income` : k === "cup" || k === "cup2" ? (v >= 8 ? "won it" : CUP_TXT[v] ? CUP_TXT[v].replace(/^Reach the /, "reached the ").replace(/^Win a tie$/, "won a tie") : "out at the first hurdle") : k === "eu" ? ["out in the group", "reached the last 16", "reached the quarter-finals", "reached the semi-finals", "reached the final", "won it"][v] || "—" : String(v);
+  if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`,
+    rows: G.objRes.map(r => [`${objLabel(r.k)}: ${r.t.replace(" (but no worse than the squad suggested)", "")}`, `${LVL_NAME[r.lv]}${r.excused ? " · no worse than the squad suggested" : ""}${r.reached > r.lv ? ` · reached ${LVL_NAME[r.reached].toLowerCase()}` : ""}`, fmtGot(r.k, got[r.k]), r.met || (r.excused ? "ok" : false)]),
+    foot: `Finished ${ORD(report.pos)}; the squad suggested ${ORD(o.exp || report.pos)}. The club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.`,
+    body: G.objRes.map(r => `${r.t}: ${r.met ? "met" : "missed"}`).join(". ") + "." });
   G.hype = 0; judgeStaffObjectives(o.exp ? d : null);
 }
 /* ---------- staff targets ----------
@@ -336,7 +341,10 @@ function judgeStaffObjectives(d) {
   staffSeasonVerdict(list, d);
   if (!list.length) return;
   for (const t of list) if (staffOf(t.role)) trust(t.role, t.met ? 2 + t.lv : -2 - Math.min(3, t.lv - t.got), null);
-  addMsg({ type: "objectives", title: `Staff targets: ${list.filter(t => t.met).length} of ${list.length} met`, body: list.map(t => `${ROLES_STAFF[t.role].l}: ${t.label} ${fmtT(t.k, t.v[t.lv - 1])} (${LVL_NAME[t.lv].toLowerCase()}): ${fmtT(t.k, t.now)}, ${t.met ? "met" : "missed"}${t.got > t.lv ? `, beating the ${LVL_NAME[t.got].toLowerCase()} level` : ""}`).join(". ") + "." });
+  addMsg({ type: "objectives", title: `Staff targets: ${list.filter(t => t.met).length} of ${list.length} met`,
+    rows: list.map(t => [`${ROLES_STAFF[t.role].l}: ${t.label} ${fmtT(t.k, t.v[t.lv - 1])}`, `${LVL_NAME[t.lv]}${t.got > t.lv ? ` · reached ${LVL_NAME[t.got].toLowerCase()}` : ""}`, String(fmtT(t.k, t.now)), t.met]),
+    foot: "Staff who meet their targets trust you more, and their ratings follow how the season went.",
+    body: list.map(t => `${ROLES_STAFF[t.role].l}: ${t.label}: ${t.met ? "met" : "missed"}`).join(". ") + "." });
 }
 /* How each member of staff's season went, from -1 (awful) to +1 (tremendous). A met target scores by its level (modest
    .25, fair .45, ambitious .7, hardest 1); a missed one earns half the score of the level it did reach, less .35 for
