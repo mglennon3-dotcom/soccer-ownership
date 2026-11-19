@@ -296,6 +296,11 @@ function yearTurnover() {
     // Three summers without a club and he's out of the game for good (no newcomer replaces him: he was never missed).
     else if (p.club === -1 && G.year - (p.faY ?? G.year) >= 3) retire(p, true);
   }
+  // A generational talent this summer? About one year in two, at one academy somewhere: better academies and clubs with
+  // a youth record are likelier, but anyone can be lucky.
+  G.genClub = null;
+  if (R() < .55) { const cs = G.clubs.filter(x => !x.gone && !x.abroad && (isMine(x) ? x.fac.acad.lvl : x.acadLvl) > 0);
+    if (cs.length) G.genClub = wpick(cs, x => ((isMine(x) ? x.fac.acad.lvl : x.acadLvl) + 1) * (1 + Math.max(0, youthPedigree(x)) / 3)).id; }
   // Academy graduates: AI clubs keep the good ones; yours are decided by your youth manager (or you, on the Academy page).
   for (const c of G.clubs) {
     if (c.gone) continue;
@@ -369,13 +374,15 @@ function youthIntake(c) {
   const gold = R() < GOLD_RATE * gemMult(c) ? Math.min(s.n, ri(2, 4)) : 0;
   for (let i = 0; i < s.n; i++) {
     const pot = Math.round(oldToNew(i < gold ? clamp(rh(s.mean + 18 + R() * 22), 8, 94) : drawPotential(s.mean, s.exc, gemMult(c)))), age = ri(15, 16);
-    // A wonderkid: a very high ceiling and already close to it (about a third of the very best prospects).
-    const wonder = to20(pot) >= 15 && R() < .35, ovr = wonder ? clamp(Math.round(from20(to20(pot) - rf(4, 5.5))), 12, pot) : clamp(Math.round(pot * rf(.48, .6) + normal() * 3), 12, pot);
+    // A generational talent: a ceiling of 18.5+ and already among the best (14-17 at 16), about half of those once-in-a-generation prospects.
+    const gen = i === 0 && G.genClub === c.id, potG = gen ? Math.round(from20(rf(18.6, 20))) : pot;
+    const wonder = gen || (to20(pot) >= 18.5 && R() < .5), ovr = wonder ? clamp(Math.round(from20(Math.max(14, to20(potG) - rf(2.5, 4)))), 12, potG) : clamp(Math.round(pot * rf(.48, .6) + normal() * 3), 12, pot);
     const nat = s.wide && R() < .3 ? pickNat("ENG") : "ENG";
-    const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat, club: c.id, pot, acad: true, lean: LEAN[s.phil], wage: 500 }); p.yAcad = c.id;
-    p.gt = wonder ? "wonder" : undefined; if (!wonder) growthType(p);
+    const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat, club: c.id, pot: potG, acad: true, lean: LEAN[s.phil], wage: 500 }); p.yAcad = c.id;
+    p.gt = wonder ? "wonder" : undefined; p.wk2 = true; if (!wonder) growthType(p);
+    if (wonder) news(`${isMine(c) ? "Your" : `${c.name}'s`} academy has produced a generational talent: ${p.name} (${p.pos}, ${p.age}) is already one of the best in the world.`, isMine(c));
     p.yrs = 3; c.squad.push(p.id); p.hist.push([G.year, c.short]); got.push(p);
-    if (pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot, club: c.id, y: G.year });
+    if (potG >= 95) G.wonders.push({ id: p.id, name: p.name, pot: potG, club: c.id, y: G.year });
   }
   if (gold) { (G.golden ||= []).push({ club: c.id, y: G.year, n: gold });
     if (isMine(c)) news(`A golden generation: the coaches think this year's intake holds ${gold} exceptional prospects.`, true);
