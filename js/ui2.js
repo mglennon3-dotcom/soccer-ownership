@@ -169,7 +169,7 @@ function weakestStarterLine(pid) {
   return `<p class="small ${d > 0 ? "good" : d < 0 ? "muted" : ""}">Your weakest starter there: <button class="lnk" data-act="player" data-id="${w.p.id}">${esc(w.p.name)}</button>${out}, ${w.p.age}, rated ${there} there${d > 0 ? ` (this player is ${d} better)` : d < 0 ? ` (${-d} better than this player)` : " (the same as this player)"}.</p>`;
 }
 function choiceHTML(x) {
-  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${["pLoan", "fFirst"].includes(x.key) && x.data ? weakestStarterLine(x.data.pid) : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
+  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.data && x.data.pid != null && G.players[x.data.pid] && G.players[x.data.pid].club !== G.club && !(x.data.p && x.data.p.acad) && x.key !== "ySign" ? weakestStarterLine(x.data.pid) : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
 }
 function loansCard() {
   const c = my(), t = loanTerms(100000, 5);
