@@ -361,14 +361,21 @@ function diversitySummer() {
   for (const p of Object.values(G.players)) {
     if (p.club === -2) continue;
     const r = R(), up = (p.age <= 27 ? .03 : p.age <= 31 ? .012 : .004) * (p.ovr >= 80 ? .5 : 1), down = p.age >= 29 ? .03 + (p.age - 29) * .01 : .012;
-    if (r < up) { const d = ri(3, 7); shiftPlayer(p, d); p.pot = Math.min(100, Math.max(p.pot, p.ovr) + ri(2, 8)); if (p.club === G.club) news(`${p.name} has had a breakthrough year: he's suddenly much better (now rated ${r20(p.ovr)}), and the coaches think there's more to come.`, true); }
-    else if (r < up + down) { const d = ri(3, 8); shiftPlayer(p, -d); p.pot = Math.max(p.ovr, p.pot - d); if (p.club === G.club) news(`${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true); }
+    if (r < up || r < up + down) {
+      // The swing is measured on the shown scale: up to three points either way (a 10 can become a 13 or a 7), and the
+      // player's potential moves by the same amount.
+      const s = to20(p.ovr), sp = to20(Math.max(p.pot, p.ovr)), d = (r < up ? 1 : -1) * rf(1, 3);
+      const ovr = clamp(Math.round(from20(clamp(s + d, 1, 20))), 1, 100), pot = clamp(Math.round(from20(clamp(sp + d, 1, 20))), ovr, 100);
+      shiftPlayer(p, ovr - p.ovr); p.pot = Math.max(pot, p.ovr);
+      if (p.club === G.club) news(r < up ? `${p.name} has had a breakthrough year: he's suddenly much better (now rated ${r20(p.ovr)}), and the coaches think there's more to come.` : `${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true);
+    }
   }
 }
 
 /* ---------- the spending rule ----------
-   In the four professional divisions a club may lose at most 35% of its income in a season, however rich its owner.
-   Breaking it costs points next season: 4 for a loss up to half of income, 8 up to three-quarters, 12 beyond. */
+   In the four professional divisions a club may lose at most 35% of its income over three seasons, however rich its owner
+   (stadium, training ground and academy spending don't count). Breaking it costs points next season: 4 for losses up to
+   half of income, 8 up to three-quarters, 12 beyond. */
 const SPEND_LIMIT = .35;
 const spendPenalty = (tier, net, inc) => { if (tier > 4 || net >= 0 || inc <= 0) return 0; const r = -net / inc; return r <= SPEND_LIMIT ? 0 : r <= .5 ? 4 : r <= .75 ? 8 : 12; };
 // Judged over the last three seasons together (as real rules are), so one bad year after relegation isn't fatal.
