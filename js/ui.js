@@ -110,6 +110,9 @@ function checklist() {
   if (recent.length >= 3 && full >= 3) out.push([`${full} of your last ${recent.length} home games sold out. A bigger ground would earn more at the gate and the bar.`, "fac"]);
   if (c.fac.stadium.own && c.fac.stadium.pitch < 50 && !c.fac.stadium.relay) out.push(["The pitch is in poor condition.", "fac"]);
   if (c.cash < 0) out.push([`The club is overdrawn (${money(c.cash)}).`, "fin"]);
+  // Pre-season: weeks still without a friendly (fewer than two in all and the side starts the season rusty).
+  if (G.phase === "summer") { const free = freeWeeks().length, have = (G.friendlies || []).length;
+    if (free) out.push([`${free} pre-season week${free > 1 ? "s have" : " has"} no friendly yet${have < 2 ? `: with fewer than two, the side starts the season rusty` : ""}. Arrange them on Competitions → Pre-season.`, "league"]); }
   return out;
 }
 function pgHome() {
@@ -184,7 +187,7 @@ function inboxCard(urgent) {
         ${x.bids.map(b => `<div class="row between small" style="padding:2px 0"><span>${esc(clubLabel(CL(b.id)))}</span><b class="num ${b === T ? "good" : ""}">${b.out ? '<span class="muted">dropped out</span>' : money(b.amt)}</b></div>`).join("")}
         <div class="row" style="margin-top:6px"><button class="btn sm primary" data-act="war" data-id="${x.id}" data-v="sell">Sell to ${esc(CL(T.id).name)} for ${money(T.amt)}</button>${x.final ? "" : `<button class="btn sm" data-act="war" data-id="${x.id}" data-v="raise">Ask for best and final offers</button>`}<button class="btn sm" data-act="war" data-id="${x.id}" data-v="keep">Keep him</button></div></div>`; }
     if (x.type === "objectives" && !x.rows) oldObjRows(x);  // a report written before reports were laid out
-    return `<div class="decision"><b>${esc(x.title)}</b>${x.rows ? msgRows(x) : `<p class="small">${esc(x.body || "")}</p>`}${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}" style="margin-top:6px">View</button>` : ""}</div>`;
+    return `<div class="decision"><b>${esc(x.title)}</b>${x.rows ? msgRows(x) : `<p class="small">${esc(x.body || "")}</p>`}${x.go ? `<button class="btn sm" data-act="page" data-p="${x.go}" style="margin-top:6px">${esc(x.goL || "Go")}</button>` : ""}${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}" style="margin-top:6px">View</button>` : ""}</div>`;
   }).join("")}</div></section>`;
 }
 function resultsList(rs) {
