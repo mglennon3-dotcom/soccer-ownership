@@ -427,8 +427,8 @@ function agreeIncoming(p, fee, wage, rec) { p.toMe = { fee, wage, y: G.year, w: 
 // What deals agreed by your head of recruitment have already promised from the budgets (all agreed players' wages count).
 const pendFees = () => sum(incoming().filter(p => p.toMe.rec), p => p.toMe.fee);
 const pendWages = () => sum(incoming(), p => p.toMe.wage);
-/* Out of the window your head of recruitment agrees deals too: your suggestions first (a free agent he signs straight
-   away), then now and again a player for a position the squad needs, at most two of his own agreed at a time. */
+/* Out of the window your head of recruitment only acts on your suggestions: he agrees the deal (a free agent he signs
+   straight away) and the player joins when the window opens. His own targets wait for the window. */
 function headOffWindow(c) {
   const s = staffOf("recruit"); if (!s || G.club == null) return;
   for (const x of sugg().slice()) { if (x.loan) continue; const p = G.players[x.id];
@@ -436,10 +436,6 @@ function headOffWindow(c) {
     if (p.toMe) continue; const v = suggView(p, c, false); if (!v.ok) continue;
     if (p.club === -1) signPlayer(p, 0, v.ask, false, "suggestion"); else agreeIncoming(p, v.fee, v.ask, s);
     G.sugg = sugg().filter(y => y !== x); news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null); }
-  const mine = incoming().filter(p => p.toMe.rec); if (mine.length >= 2 || R() > .2) return;
-  for (const need of squadNeeds(c)) { if (mine.some(p => p.pos === need.pos)) continue;
-    const best = shortlist(c, need, 1)[0]; if (!best || best.p.club < 0 || best.p.toMe) continue;
-    agreeIncoming(best.p, negotiated(askingFee(best.p)), best.p._ask, s); break; }
 }
 function completeIncoming() {
   for (const p of Object.values(G.players)) { if (!p.toMe) continue; const A = p.toMe; delete p.toMe;
