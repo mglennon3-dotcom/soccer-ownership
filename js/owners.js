@@ -92,7 +92,7 @@ function aiMoveIn(c) {
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
-function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0) + clamp((c.feeAvg || 0) / Math.max(1, aiIncome(c)) * 20, 0, 4); }  // transfer profit is reinvested in the squad
+function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0) + clamp((c.feeAvg || 0) / Math.max(1, aiIncome(c)) * 10, 0, 2); }  // transfer profit is reinvested in the squad
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
