@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.55.0";
+const VERSION = "0.56.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -327,7 +327,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { dir2: true, brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
@@ -382,7 +382,7 @@ function foundClub(o) {
   for (const id of out.squad.slice()) toFreeAgent(P(id));
   out.squad = []; out.gone = true; L.clubs = L.clubs.filter(id => id !== outId);
   const regions = COUNTRY.ENG.regions.filter(r => r[3] === o.half);
-  G.board = { own: 100, inv: [], dir: {}, offers: [] }; G.sTrust = { rel: 50, members: 0, seat: false }; G.net = { partner: null, feeders: [] }; G.loans = [];
+  G.board = { own: 100, inv: [], offers: [] }; G.sTrust = { rel: 50, members: 0, seat: false }; G.net = { partner: null, feeders: [] }; G.loans = [];
   const c = { id: G.clubs.length, name: o.name, town: o.town || o.name.split(" ")[0], short: shortFor(o.short || o.name), half: o.half, region: o.region || pick(regions)[0],
     lg, tier: 7, rep: 4, media: 8, color: o.color || "#b42323", coach: null, squad: [], lvl: TIER_LVL[7] - 3, train: 0, acadLvl: 0, cap: 0, fans: 120, gone: false, founded: G.year, trophies: [],
     cash: 0, mood: 60, morale: 55,

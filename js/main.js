@@ -13,7 +13,7 @@ async function saveGame() {
 }
 async function listSaves() { try { const all = await dbDo("readonly", st => st.getAll()); return (all || []).sort((a, b) => b.at - a.at); } catch { return []; } }
 function upgradeSave() {
-  G.board ||= { own: 100, inv: [], dir: {}, offers: [] }; G.sTrust ||= { rel: 50, members: 0, seat: false }; G.net ||= { partner: null, feeders: [] }; G.loans ||= [];
+  G.board ||= { own: 100, inv: [], offers: [] }; G.sTrust ||= { rel: 50, members: 0, seat: false }; G.net ||= { partner: null, feeders: [] }; G.loans ||= [];
   for (const c of G.clubs) if (!c.gone && !isMine(c) && !c.own) c.own = newOwner(c);
   if (!G.cups) startCups();
   if (!G.foreign) { makeForeign(); G.cont = {}; }
@@ -103,7 +103,7 @@ function upgradeSave() {
   // club); any still at your club on such a contract moves onto the emergency cap.
   // Ratings as they stand (a save from before the arrows had none): the arrows start from here.
   for (const p of Object.values(G.players)) if (p.r0 == null) p.r0 = r20(p.ovr);
-  if (!G.dir2) { G.dir2 = true; if (G.club != null && G.board) for (const d of Object.values(G.board.dir)) if (d) d.wage = dirWage(d); }  // directors now paid from turnover
+  if (G.board && G.board.dir) delete G.board.dir;  // directors were removed
   if (G.club != null) syncReg();  // auto-registration: the best 25 while a window is open
   if (!G.brk1) { G.brk1 = true; if (G.club != null) for (const id of my().squad.slice()) { const p = G.players[id]; if (p) breakSlump(p); } }  // one-off: the summer roll this squad missed
   if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too
@@ -190,9 +190,6 @@ const ACT = {
   seekinv: () => { G.board.offers = investmentOffers(); if (!G.board.offers.length) toast("You can't sell any more without losing control."); render(); },
   sellstake: async el => { const o = G.board.offers[+el.dataset.i]; if (o && await ask(`Sell ${o.pct}% of the club to ${o.name} for ${money(o.amt)}?`)) { sellStake(o); render(); saveGame(); } },
   buyback: async el => { const i = G.board.inv[+el.dataset.i]; if (await ask(`Buy back ${i.name}'s ${i.pct}% for ${money(buyBackPrice(i))} of your own money?`)) { buyBack(+el.dataset.i); render(); saveGame(); } },
-  dircands: el => dirModal(el.dataset.k),
-  hiredir: el => { const d = DIRC[+el.dataset.i]; G.board.dir[d.role] = d; news(`${d.name} is appointed ${DIRECTORS[d.role].l.toLowerCase()}.`); closeModal(); render(); saveGame(); },
-  firedir: async el => { const k = el.dataset.k, d = G.board.dir[k]; if (await ask(`Dismiss ${d.name}? Half a year's pay.`)) { spend("directors", d.wage / 2); G.board.dir[k] = null; render(); } },
   meettrust: () => { meetTrust(); render(); },
   trustseat: async () => { if (await ask("Give the supporters' trust a seat on the board?")) { G.sTrust.seat = true; trustRel(12, "A supporters' trust director joins the board."); moodHit(my(), 3); render(); } },
   setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) o[k] = $("#obj-" + k).value; setObjectives(o); render(); saveGame(); },

@@ -14,8 +14,6 @@ function pgBoard() {
     ${B.inv.length ? `<div class="stack" style="gap:8px">${B.inv.map((i, idx) => `<div class="row between offer"><span><b>${esc(i.name)}</b> · ${i.pct}% · paid ${money(i.amt)}<br><span class="small muted">${INVESTOR[i.type].d}</span></span><span class="row">${moodBar(i.mood)}<button class="btn sm" data-act="buyback" data-i="${idx}" ${G.owner.wealth < buyBackPrice(i) ? "disabled" : ""}>Buy back (${money(buyBackPrice(i))})</button></span></div>`).join("")}</div>` : ""}
     <div class="row" style="margin-top:10px"><button class="btn" data-act="seekinv" ${B.own <= 56 ? "disabled" : ""}>Look for investors</button></div>
     ${offers.length ? `<div class="stack" style="margin-top:10px;gap:8px">${offers.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b> · ${INVESTOR[o.type].l}<br><span class="small muted">${INVESTOR[o.type].d}</span></span><span class="row"><b class="num">${money(o.amt)} for ${o.pct}%</b><button class="btn sm primary" data-act="sellstake" data-i="${i}">Accept</button></span></div>`).join("")}</div>` : ""}</section>`;
-  const dirs = `<section class="card"><div class="card-h"><h2>Directors</h2></div><p class="small muted" style="margin-bottom:8px">Business-side staff. Their skill is out of 20.</p>
-    ${Object.entries(DIRECTORS).map(([k, D]) => { const d = B.dir[k]; return `<div class="row between offer"><span><b>${D.l}</b><br><span class="small muted">${D.d}</span></span>${d ? `<span class="row"><span>${esc(d.name)} · ${staff20(d.skill)} · ${money(d.wage)}/yr</span><button class="btn sm danger" data-act="firedir" data-k="${k}">Dismiss</button></span>` : `<button class="btn sm" data-act="dircands" data-k="${k}">Find one</button>`}</div>`; }).join("")}</section>`;
   const trustC = `<section class="card"><div class="card-h"><h2>Supporters' trust</h2><span>${moodBar(T.rel)} <span class="small muted">relations ${Math.round(T.rel)}</span></span></div>
     <dl class="ledger"><dt>Members</dt><dd>${T.members.toLocaleString("en-GB")}</dd><dt>Seat on the board</dt><dd>${T.seat ? "Yes" : "No"}</dd>${T.freeze ? `<dt>Ticket price freeze</dt><dd>${seasonLabel(T.freeze)}</dd>` : ""}${T.u18 ? `<dt>Under-18 tickets</dt><dd>Half price</dd>` : ""}</dl>
     <p class="small muted" style="margin:10px 0">The organised fans. They make demands through the season. When supporters are angry and relations are poor, they protest at home games: smaller crowds and bad headlines.</p>
@@ -24,7 +22,7 @@ function pgBoard() {
   const sale = `<section class="card"><div class="card-h"><h2>Sell the club</h2></div><p class="small muted" style="margin-bottom:8px">Sell your ${B.own}% and buy another club with the money. The investors, loans and debts stay with this club.</p>
     ${so.length ? `<div class="stack" style="gap:8px">${so.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b><br><span class="small muted">${OWNER_STYLES[o.style].l}: ${OWNER_STYLES[o.style].d}</span></span><span class="row"><b class="num">${money(o.amt)}</b><button class="btn sm danger" data-act="acceptsale" data-i="${i}">Sell</button></span></div>`).join("")}</div>` : `<button class="btn" data-act="putsale">Put the club up for sale</button>`}
     ${(G.career || []).length ? `<h3 style="margin:12px 0 6px">Clubs you've owned</h3>${G.career.map(x => `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: sold to ${esc(x.by)} for ${money(x.sold)}</p>`).join("")}` : ""}</section>`;
-  return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}${own}</div><div class="stack">${trustC}${dirs}${sale}</div></div>`;
+  return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}${own}</div><div class="stack">${trustC}${sale}</div></div>`;
 }
 function objectivesCard() {
   const o = G.obj && G.obj.y === G.year ? G.obj : null, canSet = G.phase === "summer";
@@ -38,12 +36,7 @@ function objectivesCard() {
     <div class="price-grid">${Object.entries(OBJ).map(([k, D]) => `<label class="small"><b>${D.l}</b><select id="obj-${k}">${Object.entries(D.opts).map(([v, l]) => `<option value="${v}" ${v === "none" ? "selected" : ""}>${l}${k === "lg" && v !== "none" ? ` (${ord(lgTarget(v, my().lg))} or better)` : ""}</option>`).join("")}</select></label>`).join("")}</div>
     <div class="row" style="margin-top:10px"><button class="btn primary" data-act="setobj">Announce targets</button></div></section>`;
 }
-function dirModal(k) {
-  const list = directorCands(k); DIRC = list;
-  modal(`<div class="modal-h"><div><p class="eyebrow">Candidates</p><h2>${DIRECTORS[k].l}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b">${list.map((d, i) => `<div class="row between offer"><span><b>${esc(d.name)}</b><br>${staff20(d.skill)}</span><span class="row"><span class="num">${money(d.wage)}/yr</span><button class="btn sm primary" data-act="hiredir" data-i="${i}">Appoint</button></span></div>`).join("")}</div>`);
-}
-let DIRC = [];
+
 
 /* ---------- Network ---------- */
 // A club's team average: its manager's first-choice eleven, on the 1-20 scale.
@@ -169,7 +162,7 @@ function loansCard() {
   const c = my(), t = loanTerms(100000, 5);
   return `<section class="card"><div class="card-h"><h2>Borrowing</h2><span class="small muted">Debt ${money(debtOf())}</span></div>
     ${(G.loans || []).length ? `<div class="stack" style="gap:6px">${G.loans.map(l => `<div class="row between offer"><span><b>${esc(l.lender)}</b>: ${money(l.amt)} at ${(l.rate * 100).toFixed(1)}% from ${l.y}<br><span class="small muted">${money(l.left)} left · ${money(l.weekly)} a week</span></span><button class="btn sm" data-act="repayloan" data-id="${l.id}">Pay off (${money(l.left * 1.02)})</button></div>`).join("")}</div>` : `<p class="muted small">No bank loans.</p>`}
-    <p class="small muted" style="margin:10px 0">The bank will lend up to ${money(t.max)} more, against what the club is worth${c.fac.stadium.own ? " (more with your own ground)" : ""}. Rates rise with your debt, and a finance director brings them down. An overdraft beyond the bank's limit for eight weeks means administration: ten points docked and your best players sold.</p>
+    <p class="small muted" style="margin:10px 0">The bank will lend up to ${money(t.max)} more, against what the club is worth${c.fac.stadium.own ? " (more with your own ground)" : ""}. Rates rise with your debt. An overdraft beyond the bank's limit for eight weeks means administration: ten points docked and your best players sold.</p>
     <div class="row"><label class="small">Borrow € <input type="text" inputmode="decimal" class="num-in" id="ln-amt" value="${fmtNum(Math.min(t.max, 100000))}"></label><label class="small">over <select id="ln-yrs">${[3, 5, 10, 20].map(y => `<option ${y === 5 ? "selected" : ""}>${y}</option>`).join("")}</select> years</label><button class="btn sm" data-act="loanq">See terms</button></div>
     <h3 style="margin:14px 0 6px">Your own loans to the club</h3><p class="small">Lent so far: ${money(G.owner.lent || 0)} (interest-free; take it back when the club can afford it).</p>
     <div class="row" style="margin-top:6px"><input type="text" inputmode="decimal" class="num-in" id="ol-amt" placeholder="Amount"><button class="btn sm" data-act="olend">Lend</button><button class="btn sm" data-act="orecall">Take back</button></div></section>`;

@@ -1,4 +1,4 @@
-/* The boardroom: what the club is worth, who owns it, the directors who run the business side, the supporters'
+/* The boardroom: what the club is worth, who owns it, the supporters'
    trust, bank loans, and the objectives you set each season. */
 "use strict";
 
@@ -72,42 +72,12 @@ DECIDE.invExit = (m, k) => {
   news(`${m.data.name} sell their ${i.pct}% to ${i.name}, a ${OWNER_STYLES[st].l.toLowerCase()}. Expect a difficult boardroom.`, true);
 };
 
-/* ---------- directors ----------
-   Business-side staff, each with a skill out of 100 (shown out of 20):
-   finance (cheaper loans, lower running costs), commercial (better sponsors and merchandise), operations
-   (cheaper, quicker building, a pitch that lasts). */
-const DIRECTORS = {
-  finance: { l: "Finance director", d: "Cheaper loans and lower running costs." },
-  commercial: { l: "Commercial director", d: "Better sponsorship offers and merchandise sales." },
-  ops: { l: "Operations director", d: "Cheaper, quicker building work and better pitch care." },
-};
-const dirSkill = k => G.board && G.board.dir[k] ? G.board.dir[k].skill : 0;
-/* Directors are paid a share of the club's turnover (its regular income, not player sales): about 0.6% for a weak one,
-   1.2% for a typical Second Division one and up to about 1.8% for the best, plus a quarter for each division he steps
-   down. Like managers, each belongs to a level (his skill read like a staff reputation) and will drop at most two
-   divisions (three once he's 58), less the higher he stands within his own level. Pay is renewed each summer. */
-function clubTurnover(c = my()) {
-  const f = c.finLast, core = f => f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + (f.para || 0) + (f.network || 0);
-  return Math.max(f ? core(f) : 0, TV[c.tier] + COMM_T[c.tier] + capacity(c) * REF_TICKET[c.tier] * 23 * .6, 50e3);
-}
-const dirDrop = d => Math.max(0, my().tier - repTier(d.skill));
-const dirWilling = d => dirDrop(d) <= dropRoom({ rep: d.skill, age: d.age });
-const dirWage = d => Math.max(10e3, Math.round(clubTurnover() * (.004 + d.skill * .00014) * Math.pow(1.25, dirDrop(d)) / 1000) * 1000);
-function directorCands(k) {
-  const out = [];
-  for (let g = 0; g < 60 && out.length < 5; g++) {
-    const lvl = clamp(my().tier + ri(-2, 1), 1, 7), skill = Math.round(clamp(TIER_REP[lvl] + normal() * 8, 5, 98) * 2) / 2, d = { role: k, name: nameFor("ENG"), age: ri(30, 64), skill };
-    if (!dirWilling(d)) continue; d.wage = dirWage(d); out.push(d);
-  }
-  return out.sort((a, b) => b.skill - a.skill);
-}
-const dirWages = () => G.board ? sum(Object.values(G.board.dir).filter(Boolean), d => d.wage) : 0;
-// Effects, each scaling with skill: up to 2.5 points off loan rates, 10% off upkeep, 20% on sponsors, 15% off building.
-const loanCut = () => dirSkill("finance") / 100 * .025;
-const upkeepMult = () => (1 - dirSkill("finance") / 1000) * (1 - vpt("finance") * .02);
-const commMult = () => 1 + dirSkill("commercial") / 500;
-const buildMult = () => 1 - dirSkill("ops") * .0015;
-const wearMult = () => 1 - dirSkill("ops") * .003;
+/* The finance trust vision point (vpt) still trims upkeep; there are no directors any more. */
+const loanCut = () => 0;
+const upkeepMult = () => 1 - vpt("finance") * .02;
+const commMult = () => 1;
+const buildMult = () => 1;
+const wearMult = () => 1;
 
 /* ---------- the supporters' trust ----------
    The organised fans. Membership grows with your support and how they feel about you. They make demands; give them a
@@ -148,8 +118,8 @@ DECIDE.trustAsk = (m, i) => {
 function meetTrust() { const T = G.sTrust; T.met = G.year; trustRel(6, "You meet the supporters' trust. They appreciate being heard."); }
 
 /* ---------- loans ----------
-   The bank lends against what the club is worth, at a rate set by the division, the debt you already carry and your
-   finance director. Repaid weekly over the term; pay off early for a 2% fee. You can also lend the club your own
+   The bank lends against what the club is worth, at a rate set by the division and the debt you already carry.
+   Repaid weekly over the term; pay off early for a 2% fee. You can also lend the club your own
    money interest-free and take it back later. */
 const debtOf = () => sum(G.loans || [], l => l.left);
 function loanTerms(amt, years) {

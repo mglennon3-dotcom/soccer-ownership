@@ -173,7 +173,6 @@ function staffSummer() {
     const moved = Object.keys(s.at).map(k => s.at[k] - s.prev[k]).reduce((a, b) => a + b, 0);
     if (Math.abs(moved) >= 4) news(`${s.name} has ${moved > 0 ? "improved" : "declined"} over the season (${ROLES_STAFF[role].l.toLowerCase()}).`);
   }
-  for (const [k, d] of Object.entries((G.board || {}).dir || {})) { if (!d) continue; d.age = (d.age || ri(35, 55)) + 1; if (d.age >= 68 || (d.age >= 60 && R() < .12)) { G.board.dir[k] = null; news(`${d.name} retires as ${DIRECTORS[k].l.toLowerCase()}.`, true); } else { d.skill = clamp(rh(d.skill + (d.age < 45 ? rf(0, 2) : d.age < 56 ? rf(-.5, 1) : -rf(.5, 2))), 5, 99); d.wage = dirWage(d); } }  // pay renewed against this year's turnover
   for (const U of Object.values(G.pools || {})) for (const s of U.list || []) s.age++;  // the staff universe ages too
   // Rival managers age and retire too.
   for (const x of G.clubs) { if (x.gone || isMine(x) || !x.coach) continue; const co = x.coach; co.age = (co.age || ri(36, 62)) + 1;

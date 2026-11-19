@@ -75,7 +75,7 @@ const ACAD_DESC = ["No academy", "Evening sessions for local young players", "A 
 
 function startBuild(kind, q) {
   const c = my(), block = boardBlocks(q.cost); if (block) { news(block, true); return block; }
-  q = { ...q, cost: Math.round(q.cost * buildMult() * (1 - vpt("facilities") * .02) / 1e4) * 1e4, weeks: Math.max(2, Math.round(q.weeks * (1 - dirSkill("ops") * .002))) };
+  q = { ...q, cost: Math.round(q.cost * buildMult() * (1 - vpt("facilities") * .02) / 1e4) * 1e4, weeks: Math.max(2, Math.round(q.weeks)) };
   if (kind === "stadium") c.fac.stadium.build = { ...q, left: q.weeks, total: q.weeks };
   else c.fac[kind].build = { lvl: q.lvl, cost: q.cost, left: q.weeks, total: q.weeks };
   spend("build", q.cost); if (kind === "stadium") stadiumLoan(q.cost, q.label || "the work");
@@ -293,7 +293,7 @@ const staffBill = c => sum(Object.values(c.staff).filter(Boolean), s => s.wage);
 const upkeep = c => c.fac.stadium.soldOld ? facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl) : upkeepMult() * (stadiumUpkeep(c) + (c.fac.stadium.heat ? heatQuote(c).upkeep : 0)) + ventureUpkeep(c) + facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl);
 function weeklyAccounts(c) {
   spend("wages", wageBill(c) / 52);
-  spend("staff", staffBill(c) / 52); spend("directors", dirWages() / 52);
+  spend("staff", staffBill(c) / 52);
   spend("fac", upkeep(c) / 52);
   spend("acad", c.budget.acad / 52);
   spend("scout", c.budget.scout / 52);
