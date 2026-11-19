@@ -108,7 +108,8 @@ function shortlist(c, need, max = 6) {
   for (const q of abroadPool(TIER_LVL[c.tier])) if (q.pos === need.pos) pool.push(q);
   const full = regList(c).length >= REG_MAX;  // a full 25-man list: only under-21s could play
   // Stars dropping down for a huge wage are only chased if you've told him to (Market page).
-  const ok = pool.filter(q => { if ((full && !regExempt(q)) || !willJoin(q, c) || (!G.starHunt && hugeAsk(q, c)) || q.age > 34 || negotiated(askingFee(q)) > left || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
+  // A youth-and-potential recruiter only buys young players (23 or under): he'd rather leave a place unfilled.
+  const ok = pool.filter(q => { if ((phil === "potential" && q.age > 23) || (full && !regExempt(q)) || !willJoin(q, c) || (!G.starHunt && hugeAsk(q, c)) || q.age > 34 || negotiated(askingFee(q)) > left || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
   return ok.map(q => ({ p: q, sc: scoutScore(q, need, c, phil) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, max);
 }
 
@@ -156,7 +157,8 @@ function headWeek(c) {
   }
   for (const need of squadNeeds(c)) {
     if (signed >= lim) break;
-    const best = shortlist(c, need, 1)[0]; if (!best) continue;
+    const best = shortlist(c, need, 1)[0];
+    if (!best) { const s = staffOf("recruit"); if (s && s.phil === "potential" && G.phase === "summer" && G.week === SUMMER_WEEKS - 2 && need.kind === "depth" && need.short >= 2) news(`${s.name} can't find a young ${POS_NAME[need.pos].toLowerCase()} the budget stretches to, and won't sign an older one: the squad is ${need.short} short there.`, true); continue; }
     signPlayer(best.p, negotiated(askingFee(best.p)), best.p._ask, false); signed++;
   }
   // Too many seniors: he transfer-lists the least useful and waits for offers. Only a squad far too big at the end of
