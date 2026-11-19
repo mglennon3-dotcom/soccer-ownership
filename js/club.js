@@ -633,15 +633,16 @@ function seasonTax(c) {
   const tax = Math.round(taxable * TAX); if (tax) { spend("tax", tax); news(`Corporation tax on the season's profit: ${money(tax)}${carry ? ` (after ${money(Math.min(carry, profit))} of earlier losses set against it)` : ""}.`); }
   return tax;
 }
-/* Away days. Fans ask for help with coaches to long trips and big games; after a heavy away defeat you can refund the
+/* Away days. Fans ask for help with coaches to long trips (the other half of the country, or abroad); after a heavy away defeat you can refund the
    supporters who travelled. Loyal and hardcore fans care most. */
 const fanCare = c => 1 + fanShare(c, "loyal") + fanShare(c, "hard");
 function awayHelpWeek() {
   const c = my(), nf = nextFixture(); if (!nf || nf.a !== c.id || nf.w > G.week + 1 || G.awayAsk === G.year * 100 + nf.w) return;
-  const opp = CL(nf.h), big = tripF(c, opp) > 1.5 || isDerby(c, opp) || opp.tier < c.tier; if (R() > (big ? .5 : .12)) return;
-  G.awayAsk = G.year * 100 + nf.w;
+  // Only for long trips (the other half of the country, or abroad), now and then, and not more than once in five weeks.
+  const opp = CL(nf.h); if (tripF(c, opp) <= 1.5 || R() > .35 || (G.awayAskW != null && G.awayAskY === G.year && nf.w - G.awayAskW < 5)) return;
+  G.awayAsk = G.year * 100 + nf.w; G.awayAskW = nf.w; G.awayAskY = G.year;
   const n = travellers(c, opp), cost = Math.round(n * (tripF(c, opp) > 1.5 ? 25 : 12) / 100) * 100; if (cost < 200) return;
-  addChoice("awayHelp", `Supporters ask for help getting to ${opp.name}`, `About ${n.toLocaleString("en-GB")} fans want to travel${tripF(c, opp) > 1.5 ? " on a long trip" : isDerby(c, opp) ? " to the derby" : ""}. The supporters' trust asks the club to put on coaches: ${money(cost)} to pay for them all, or half that to share the cost.`,
+  addChoice("awayHelp", `Supporters ask for help getting to ${opp.name}`, `About ${n.toLocaleString("en-GB")} fans want to make the long trip${opp.abroad ? " abroad" : ""}. The supporters' trust asks the club to put on coaches: ${money(cost)} to pay for them all, or half that to share the cost.`,
     ["Pay for the coaches", "Pay half", "Can't help this time"], { cost }, 1);
 }
 function awayRefundCheck(c, opp, gf, ga) {
