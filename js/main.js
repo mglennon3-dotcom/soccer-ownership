@@ -344,6 +344,7 @@ const ACT = {
   },
 };
 const CHANGE = {
+  renewtick: el => { const p = P(+el.dataset.id); p.keep = el.checked; if (p.keep) { p.list = false; } news(p.keep ? `${p.name} will be offered a new contract when his runs out.` : `${p.name} is no longer marked to be kept.`); render(); saveGame(); },
 
   autoreg: el => { G.autoReg = el.checked; if (el.checked) { syncReg(); toast(windowOpen() ? "Your best 25 are registered." : "Your best 25 will be registered when the next window opens."); } render(); saveGame(); },
   starhunt: el => { G.starHunt = el.checked; toast(el.checked ? "Your head of recruitment may now chase stars on huge wages." : "Your head of recruitment will leave the stars alone."); render(); },
