@@ -278,7 +278,7 @@ function growthType(p) {
 const GT_MULT = (t, age) => t === "flop" ? .12 : t === "wonder" ? 1.45 : t === "fast" ? (age <= 20 ? 1.3 : .42) : t === "late" ? (age <= 20 ? .55 : 1.75) : 1;
 // Calibrated so about 40% reach their ceiling on average (more with regular football and good coaching, fewer without),
 // the same at every level of potential and for every growth profile.
-let GROW_K = 1.32, GROW_M = .1, GROW_B = .32;  // tuned for the coaching most players get (AI clubs)
+let GROW_K = 1.05, GROW_M = .1, GROW_B = .32;  // tuned for the coaching most players get (AI clubs)
 const isWonderkid = p => p.age <= 21 && growthType(p) === "wonder" && to20(p.pot) >= 17;  // a slump that drops his ceiling ends it
 function develop(p, dt, teamGames) {
   const c = p.club >= 0 ? CL(p.club) : null, e = envOf(c), gt = growthType(p);
