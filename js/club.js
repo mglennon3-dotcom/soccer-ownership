@@ -249,9 +249,13 @@ function commercialValue(c) {
 }
 // How far you've outgrown a deal: what the slot would fetch now against what it pays.
 const dealGrowth = (c, d) => commercialValue(c) * SLOTS[d.slot].share / Math.max(1, d.amt);
+/* Brands remember a club that walks out on its sponsors. Each deal broken early adds to their wariness (more for more of
+   the deal left unpaid); it fades by about 40% each summer. While they're wary, fewer brands make offers, they offer less,
+   and they rarely come to you unprompted. */
+const brandWary = () => clamp(G.wary || 0, 0, 1);
 function makeOffers(slot) {
-  const c = my(), base = commercialValue(c) * SLOTS[slot].share, out = [];
-  for (let i = 0; i < 3; i++) {
+  const c = my(), w = brandWary(), base = commercialValue(c) * SLOTS[slot].share * (1 - w * .35), out = [], n = Math.max(1, 3 - Math.round(w * 3));
+  for (let i = 0; i < n; i++) {
     const yrs = ri(1, 4), amt = Math.round(base * rf(.7, 1.12) * (1 - (yrs - 1) * .04) / 500) * 500;  // longer deals pay a little less a year
     const brand = slot === "kit" ? pick(KIT_BRANDS) : pick(BRANDS) + " " + pick(BRAND_KIND);
     out.push({ slot, brand, amt, yrs, bonus: Math.round(amt * rf(.1, .4) / 500) * 500, exp: 6 });
@@ -269,7 +273,7 @@ function refreshOffers(c, force) {
     // (a new deal replaces the old one from signing). Outgrow it by half and brands come to you.
     const grown = deal && deal.yrs > 0 ? dealGrowth(c, deal) : 0;
     if (((!deal || deal.yrs <= 0) && !have.length) || (force === s && (!deal || deal.yrs <= 1 || grown >= 1.25))) { c.offers = c.offers.filter(o => o.slot !== s).concat(makeOffers(s)); }
-    else if (!force && grown >= 1.5 && !have.length && G.phase !== "playoffs" && R() < .08) { c.offers = c.offers.concat(makeOffers(s)); news(`Brands have noticed how the club has grown: there are new offers for your ${SLOTS[s].l.toLowerCase()} deal, worth about ${Math.round((grown - 1) * 100)}% more than ${deal.brand} pay.`, true); }
+    else if (!force && grown >= 1.5 && !have.length && G.phase !== "playoffs" && R() < .08 * (1 - brandWary())) { c.offers = c.offers.concat(makeOffers(s)); news(`Brands have noticed how the club has grown: there are new offers for your ${SLOTS[s].l.toLowerCase()} deal, worth about ${Math.round((grown - 1) * 100)}% more than ${deal.brand} pay.`, true); }
   }
 }
 /* Breaking a sponsor deal early costs you: half of what it still had to pay (its remaining years, the current one
@@ -277,7 +281,9 @@ function refreshOffers(c, force) {
 const breakFee = d => { if (!d || d.yrs <= 0) return 0; const left = Math.max(0, d.yrs - 1) + (G.phase === "season" ? 1 - G.week / SEASON_WEEKS : 1); return Math.round(d.amt * left * .5 / 500) * 500; };
 function acceptOffer(o) {
   const c = my(), old = c.deals.find(d => d.slot === o.slot && d.yrs > 0), fee = breakFee(old);
-  if (old && fee) { spend("breaks", fee); news(`${o.brand} replace ${old.brand}. Breaking ${old.brand}'s deal costs ${money(fee)} in compensation.`, true); }
+  if (old && fee) { spend("breaks", fee); news(`${o.brand} replace ${old.brand}. Breaking ${old.brand}'s deal costs ${money(fee)} in compensation, and other brands take note.`, true);
+    const left = fee / Math.max(1, old.amt * .5);  // years of the deal walked out on
+    G.wary = clamp((G.wary || 0) + .12 + left * .08, 0, 1); (G.broken ||= []).unshift({ y: G.year, brand: old.brand, slot: old.slot }); G.broken.length = Math.min(G.broken.length, 10); }
   c.deals = c.deals.filter(d => d.slot !== o.slot).concat({ ...o, exp: undefined });
   c.offers = c.offers.filter(x => x.slot !== o.slot);
   if (o.slot === "stadium") c.fac.stadium.name = `The ${o.brand.split(" ")[0]} Stadium`;

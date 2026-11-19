@@ -62,9 +62,9 @@ function buyClub(c) {
   const m = genStaff("manager", rep); Object.assign(m, { name: c.coach.name, age: c.coach.age || m.age, phil: c.coach.style, form: c.coach.form, yrs: 2, trust: 55 });
   m.at.tac = c.coach.tac; m.at.dev = c.coach.dev; m.wage = staffWage("manager", rep); c.staff.manager = m;
   for (const r of ["recruit", "youth"]) { const s = genStaff(r, clamp(rep - 5, 3, 95)); s.wage = staffWage(r, s.rep); s.yrs = 2; c.staff[r] = s; }
-  for (const slot of ["shirt", "kit", "sleeve", "stadium"]) { const o = makeOffers(slot)[1]; o.yrs = ri(1, 3); acceptOffer(o); }
+  for (const slot of ["shirt", "kit", "sleeve", "stadium"]) { const L0 = makeOffers(slot), o = L0[1] || L0[0]; o.yrs = ri(1, 3); acceptOffer(o); }
   delete c.own; delete c.coach;
   G.board = { own: 100, inv: [], offers: [] }; G.sTrust = { rel: 50, members: 0, seat: false }; G.net = { partner: null, feeders: [] };
-  G.loans = []; G.obj = null; G.hype = 0; G.meddle = 0; G.myRes = []; G.redWeeks = 0;
+  G.loans = []; G.wary = 0; G.broken = []; G.obj = null; G.hype = 0; G.meddle = 0; G.myRes = []; G.redWeeks = 0;
   news(`You buy ${c.name} from ${old.name} for ${money(price)}. A new chapter begins in the ${LEAGUES[c.lg].name}.`, true);
 }
