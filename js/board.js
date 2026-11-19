@@ -178,44 +178,75 @@ function myAdministration(c) {
 
 /* ---------- objectives ----------
    Set before the season starts. They're announced: ambitious targets excite the supporters now and hurt more if
-   missed; meeting them pleases fans, staff and investors. The manager tells you if he thinks a target is unrealistic. */
+   missed. Each option has a weight for how hard it is (w). Meeting a target lifts the club's standing (reputation) and
+   brings in new supporters, more for a harder one; missing any target costs standing and support, a little more for
+   one you could easily have met. On top of the targets, finishing above or below where the squad suggests moves reputation and support too. */
+const CUP_OPTS = { win: ["Win it", 3], final: ["Reach the final", 2.5], sf: ["Reach the semi-finals", 2], qf: ["Reach the quarter-finals", 1.5], r5: ["Reach the fifth round", 1.2], r4: ["Reach the fourth round", 1], r3: ["Reach the third round", .8], tie: ["Win a tie", .6], none: ["No target", 0] };
 const OBJ = {
-  lg: { l: "League", opts: { title: "Win the league", up: "Win promotion", po: "Reach the play-offs", top: "Finish in the top half", safe: "Avoid relegation", none: "No target" } },
-  cup: { l: "National Cup", opts: { win: "Win it", final: "Reach the final", qf: "Reach the quarter-finals", r3: "Reach the third round", tie: "Win a tie", none: "No target" } },
-  fin: { l: "Finances", opts: { profit: "Make a profit", even: "Lose no more than 10% of income", none: "No target" } },
-  youth: { l: "Youth", opts: { y3: "Three academy debuts", y1: "One academy debut", none: "No target" } },
+  lg: { l: "League", opts: { title: ["Win the league", 3], up: ["Win promotion", 2.5], po: ["Reach the play-offs", 2], top: ["Finish in the top half", 1.5], safe: ["Avoid relegation", 1], none: ["No target", 0] } },
+  cup: { l: "National Cup", opts: CUP_OPTS },
+  cup2: { l: () => my().tier <= 4 ? "League Cup" : "National Trophy", opts: CUP_OPTS },
+  eu: { l: () => euKey() ? CONT[euKey()].name : "Europe", show: () => !!euKey(), opts: { win: ["Win it", 3], sf: ["Reach the semi-finals", 2.5], qf: ["Reach the quarter-finals", 2], ko: ["Get out of the group", 1.5], none: ["No target", 0] } },
+  fin: { l: "Finances", opts: { big: ["A profit of 10% of income", 2.5], profit: ["Make a profit", 2], wages: ["Wages under 60% of income", 1.2], even: ["Lose no more than 10% of income", 1.2], debt: ["End with less debt than we start", 1], loss20: ["Lose no more than 20% of income", .8], rule: ["Stay within the spending rule", .5], none: ["No target", 0] } },
+  youth: { l: "Youth", opts: { y5: ["Five academy debuts", 2.5], reg: ["An academy graduate plays 20 league games", 2], y3: ["Three academy debuts", 2], sale: ["Sell an academy graduate for a good fee", 1.5], y2: ["Two academy debuts", 1.5], y1: ["One academy debut", 1], none: ["No target", 0] } },
 };
+const objLabel = k => typeof OBJ[k].l === "function" ? OBJ[k].l() : OBJ[k].l;
+const objText = (k, v) => OBJ[k].opts[v] ? OBJ[k].opts[v][0] : v;
+const objW = (k, v) => OBJ[k].opts[v] ? OBJ[k].opts[v][1] : 0;
+// The European competition you're in (or have qualified for) this season, if any.
+function euKey() { const id = G.club;
+  for (const [k, K] of Object.entries(G.cont || {})) if (K.teams && K.teams.includes(id) && G.phase !== "summer") return k;
+  if (G.qual && G.qual.y === G.year) { if (G.qual.CC.includes(id)) return "CC"; if (G.qual.CS.includes(id)) return "CS"; }
+  return null; }
+// What a good fee for an academy graduate is in each division.
+const GRAD_FEE = [0, 5e6, 2e6, 750e3, 300e3, 100e3, 40e3, 15e3];
 // The finishing position each league target needs.
 function lgTarget(k, lg) { const L = LEAGUES[lg], n = G.leagues[lg].clubs.length; return { title: 1, up: Math.max(1, L.auto), po: L.po ? L.po[1] : Math.max(1, L.auto), top: Math.floor(n / 2), safe: n - L.down, none: n }[k]; }
 // Where the squad should finish: its rank by team rating in the division.
 function expectedPos(c = my()) { const L = G.leagues[c.lg], s = id => avg(pickXI(CL(id)).map(o => roleRating(o.p, o.slot))); return L.clubs.map(id => [id, s(id)]).sort((a, b) => b[1] - a[1]).findIndex(x => x[0] === c.id) + 1; }
 function setObjectives(o) {
-  const c = my(); G.obj = { ...o, y: G.year, exp: expectedPos(c) };
+  const c = my(); G.obj = { ...o, y: G.year, exp: expectedPos(c), debt0: debtOf(), tier: c.tier };
   const tgt = lgTarget(o.lg, c.lg), stretch = G.obj.exp - tgt;  // places better than the squad suggests
   if (o.lg !== "none") { moodHit(c, clamp(stretch, -3, 6)); G.hype = Math.max(0, Math.round(stretch / 3)); }
-  if (staffOf("manager") && stretch > 6) trust("manager", -6, `thinks "${OBJ.lg.opts[o.lg].toLowerCase()}" is unrealistic with this squad.`);
+  if (staffOf("manager") && stretch > 6) trust("manager", -6, `thinks "${objText("lg", o.lg).toLowerCase()}" is unrealistic with this squad.`);
   else if (staffOf("manager") && o.lg !== "none" && stretch <= 0) trust("manager", 2, null);
   if (o.youth !== "none" && mgr().focus === "youth") trust("manager", 3, null);
-  news(`You set the season's targets: ${Object.entries(o).filter(([, v]) => v !== "none").map(([k, v]) => OBJ[k].opts[v].toLowerCase()).join(", ") || "none"}.`, true);
+  news(`You set the season's targets: ${Object.entries(o).filter(([, v]) => v !== "none").map(([k, v]) => objText(k, v).toLowerCase()).join(", ") || "none"}.`, true);
+}
+// The furthest round a club reached in a domestic cup (0 = first round ... 7 = final), or -1 if it didn't play in it.
+function cupFurthest(key, id) {
+  const K = G.cups && G.cups[key], R = ["First round", "Second round", "Third round", "Fourth round", "Fifth round", "Quarter-finals", "Semi-finals", "Final"];
+  const mine = K ? K.log.filter(x => x.h === id || x.a === id) : []; return { K, mine, far: Math.max(-1, ...mine.map(x => R.indexOf(x.r))) };
+}
+function cupMet(key, v, id) {
+  const { K, mine, far } = cupFurthest(key, id);
+  return { win: !!K && K.win === id, final: far >= 7, sf: far >= 6, qf: far >= 5, r5: far >= 4, r4: far >= 3, r3: far >= 2, tie: mine.some(x => x.w === id), none: true }[v];
 }
 function judgeObjectives(report) {
   const o = G.obj, c = my(); G.objRes = [];
   if (!o || o.y !== report.y) return;
-  const res = (k, met) => { if (o[k] === "none") return; G.objRes.push({ k, t: OBJ[k].opts[o[k]], met }); };
+  const res = (k, met) => { if (!o[k] || o[k] === "none") return; G.objRes.push({ k, t: objText(k, o[k]), w: objW(k, o[k]), met }); };
   res("lg", report.pos <= lgTarget(o.lg, report.lg) || (o.lg === "up" && report.up) || (o.lg === "po" && report.po));
-  // Judged by the furthest round the club played in (so a club with a first-round bye isn't asked for an extra round).
-  const NC_ROUNDS = ["First round", "Second round", "Third round", "Fourth round", "Fifth round", "Quarter-finals", "Semi-finals", "Final"];
-  const nc = G.cups && G.cups.NC, mine = nc ? nc.log.filter(x => x.h === c.id || x.a === c.id) : [], furthest = Math.max(-1, ...mine.map(x => NC_ROUNDS.indexOf(x.r)));
-  res("cup", { win: !!nc && nc.win === c.id, final: furthest >= 7, qf: furthest >= 5, r3: furthest >= 2, tie: mine.some(x => x.w === c.id), none: true }[o.cup]);
-  const f = c.finLast, net = f ? ledgerIncome(f) - ledgerCosts(f) + (f.build || 0) : 0;  // building work isn't counted against you
-  res("fin", o.fin === "profit" ? net > 0 : net > -(f ? ledgerIncome(f) * .1 : 0));
+  res("cup", cupMet("NC", o.cup, c.id));
+  res("cup2", cupMet((o.tier || c.tier) <= 4 ? "LC" : "TR", o.cup2, c.id));
+  if (o.eu && o.eu !== "none") { const K = Object.values(G.cont || {}).find(K => K.teams && K.teams.includes(c.id)), far = K ? Math.max(-1, ...K.ko.map((R, i) => R.ties.some(t => t.h === c.id || t.a === c.id) ? i : -1)) : -2;
+    res("eu", { win: !!K && K.win === c.id, sf: far >= 2, qf: far >= 1, ko: far >= 0 }[o.eu]); }
+  const f = c.finLast, inc = f ? ledgerIncome(f) : 0, net = f ? inc - ledgerCosts(f) + (f.build || 0) : 0;  // building work isn't counted against you
+  res("fin", { big: net >= inc * .1, profit: net > 0, wages: f && f.wages <= inc * .6, even: net > -inc * .1, debt: debtOf() < (o.debt0 || 0) || (!o.debt0 && !debtOf()), loss20: net > -inc * .2, rule: net > -inc * SPEND_LIMIT }[o.fin]);
   const debuts = c.squad.map(P).filter(p => p.age <= 21 && p.hist.length && p.hist[0][1] === c.short && p.debut === report.y).length;
-  res("youth", debuts >= (o.youth === "y3" ? 3 : 1));
-  const hype = G.hype || 0;
+  const regular = c.squad.map(P).some(p => p.yAcad === c.id && !p.acad && p.s.app >= 20);
+  const sold = (G.tlog || []).some(m => m.y === report.y && m.kind === "out" && G.players[m.id] && G.players[m.id].yAcad === c.id && (m.fee || 0) >= GRAD_FEE[o.tier || c.tier]);
+  res("youth", { y5: debuts >= 5, y3: debuts >= 3, y2: debuts >= 2, y1: debuts >= 1, reg: regular, sale: sold }[o.youth]);
+  // Mood and the manager, as before; then standing and support.
+  const hype = G.hype || 0; let rep = 0, fans = 0;
   for (const r of G.objRes) {
-    if (r.met) { moodHit(c, r.k === "lg" ? 6 : 3); if (r.k === "lg") trust("manager", 5, null); }
-    else { moodHit(c, -(r.k === "lg" ? 5 + hype * 2 : 2)); if (r.k === "lg") trust("manager", -4, null); }
+    if (r.met) { moodHit(c, r.k === "lg" ? 6 : 2 + r.w); if (r.k === "lg") trust("manager", 5, null); rep += r.w * .5; fans += r.w * .015; }
+    else { moodHit(c, -(r.k === "lg" ? 5 + hype * 2 : 2)); if (r.k === "lg") trust("manager", -4, null); rep -= .6 + (3.2 - r.w) * .2; fans -= .01 + (3.2 - r.w) * .005; }
   }
-  if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`, body: G.objRes.map(r => `${r.t}: ${r.met ? "met" : "missed"}`).join(". ") + "." });
+  // Beating (or falling short of) what the squad suggested.
+  const d = (o.exp || report.pos) - report.pos; rep += clamp(d * .4, -3, 3); fans += clamp(d * .006, -.03, .04);
+  const before = c.fans; c.rep = clamp(Math.round((c.rep + rep) * 10) / 10, 1, 99); c.fans = Math.max(50, Math.round(c.fans * (1 + fans)));
+  const dF = c.fans - before, why = `${d > 0 ? `finishing ${d} place${d > 1 ? "s" : ""} above` : d < 0 ? `finishing ${-d} place${d < -1 ? "s" : ""} below` : "finishing where"} the squad suggested`;
+  if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`, body: G.objRes.map(r => `${r.t}: ${r.met ? "met" : "missed"}`).join(". ") + `. With ${why}, the club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.` });
   G.hype = 0;
 }
