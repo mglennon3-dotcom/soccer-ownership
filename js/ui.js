@@ -827,9 +827,12 @@ function forecastCard(c) {
       ${Math.abs(d) >= 1000 ? `<dt>Change from your earlier budgets</dt><dd class="${d < 0 ? "bad" : "good"}">${sign(d)}</dd>` : ""}
       ${c.tier <= 4 ? `<dt>Spending rule (three seasons)</dt><dd class="${F.ratio > SPEND_LIMIT ? "bad" : F.ratio > SPEND_LIMIT - .1 ? "warn" : "good"}">${Math.round(F.ratio * 100)}% of income lost (limit 35%)${F.ratio > SPEND_LIMIT ? ": points deduction" : ""}</dd>` : ""}</dl>
     <details style="margin-top:8px"><summary class="small">How it adds up</summary><div class="tbl-wrap"><table class="proj"><tbody>
-      <tr><td style="text-align:left">So far this season</td><td class="num">${sign(F.sofar)}</td></tr>
+      <tr class="sec"><td colspan="2">So far this season</td></tr>
+      ${c.fin.sales ? `<tr><td style="text-align:left">Player sales</td><td class="num">+${money(c.fin.sales)}</td></tr>` : ""}
+      ${c.fin.buys ? `<tr><td style="text-align:left">Transfer fees paid</td><td class="num">−${money(c.fin.buys)}</td></tr>` : ""}
+      <tr><td style="text-align:left">${c.fin.sales || c.fin.buys ? "Everything else" : "Result so far"}</td><td class="num">${sign(F.sofar - (c.fin.sales || 0) + (c.fin.buys || 0))}</td></tr>
       <tr class="sec"><td colspan="2">Still to come in</td></tr>${rows(F.rest, "+")}
       <tr class="sec"><td colspan="2">Still to go out</td></tr>${rows(F.out, "−")}
       <tr class="tot"><td style="text-align:left">Projected result</td><td class="num ${F.net < 0 ? "bad" : "good"}">${sign(F.net)}</td></tr></tbody></table></div></details>
-    <p class="small muted" style="margin-top:6px">This season's books so far plus the rest at today's rates. ${F.windowAhead ? "Assumes your head of recruitment uses the wage and transfer budgets in the coming window. " : ""}League merit money for ${ordinal(F.pos)} place. Cup runs, Europe, player sales, building work and one-off bills aren't included.</p></section>`;
+    <p class="small muted" style="margin-top:6px">This season's books so far plus the rest at today's rates. ${F.windowAhead ? "Assumes your head of recruitment uses the wage and transfer budgets in the coming window. " : ""}League merit money for ${ordinal(F.pos)} place. Player sales count as they happen; future sales, cup runs, Europe, building work and one-off bills aren't forecast.</p></section>`;
 }
