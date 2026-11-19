@@ -28,8 +28,9 @@ const FOREIGN = {
    bottom half of the Premier Division; then the rest by the ranking. Ranks past 20 run on below the Premier Division's
    weakest side (about the First Division's best). */
 const FOREIGN_RANK = { ITA: [0, 1.7], ESP: [0, 1.7], GER: [.5, 1.7], FRA: [4, 1.7], POR: [9.5, 1.6], BEL: [10.5, 1.6], NED: [11, 1.6],
-  TUR: [13, 1.8], GRE: [15, 2], CZE: [16, 2], POL: [17, 2], SCA: [18, 2], DEN: [18.5, 2], CYP: [20, 2.2], SUI: [20, 2], AUT: [20.5, 2],
-  HUN: [21.5, 2.2], CRO: [21.5, 2.2], SWE: [22, 2], SCO: [22, 3], ROU: [23, 2.2], UKR: [23, 2.2] };
+  TUR: [13, 2], GRE: [15, 3], CZE: [16, 3], POL: [17, 3], SCA: [18, 3.5], DEN: [18.5, 3.5], CYP: [20, 5],
+  // The bottom eight: a club or two near the top of the First Division, the weakest down at Third Division level.
+  SUI: [24, 12], AUT: [25, 12], HUN: [28, 14], CRO: [26, 14], SWE: [27, 12], SCO: [22, 15], ROU: [30, 14], UKR: [30, 14] };
 const CONT = {
   CC: { name: "Champions Cup", short: "Champions Cup", join: 15e6, win: 2.8e6, draw: .9e6, rounds: [9.6e6, 10.6e6, 12.5e6, 15.5e6], champ: 4.5e6 },
   CS: { name: "Continental Shield", short: "Shield", join: 3.6e6, win: .6e6, draw: .2e6, rounds: [1.2e6, 1.8e6, 2.8e6, 4.6e6], champ: 4e6 },
@@ -70,13 +71,15 @@ function addForeignLeagues() {
   if (!made.length) return;
   foreignLevels(); for (const c of made) { c.lvl = c.base + normal() * .6; c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98); c.cap = foreignCap(c.lvl); c.fans = foreignFans(c.lvl); foreignSquad(c); }
 }
-/* Each foreign club's standard, from the English Premier Division as it is now: its clubs' average starters, best first
-   (carried on below the 20th at a step a club), read off at the league's ranks. A foreign club's starters come out a
+/* Each foreign club's standard, from English football as it is now: every club in the top four divisions by its
+   average starters, best first (the Premier Division's 20, then the First, Second and Third Divisions' 24 each), read
+   off at the league's ranks; rank 20 is the First Division's best, about 68 the Third Division's. A foreign club's starters come out a
    little above its standard; the measured gap (G.fOff) is taken off so the starters themselves match. */
 function foreignLevels(snap) {
-  const e = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === 1 && c.squad.length >= 11).map(c => avg(pickXI(c).map(o => o.p.ovr))).sort((a, b) => b - a);
-  const E = e.length >= 10 ? e : Array.from({ length: 20 }, (_, k) => TIER_XI[1] + 7 - k * .75);
-  const at = r => { const n = E.length - 1; if (r <= n) { const a = Math.floor(r), b = Math.min(n, a + 1); return E[a] + (E[b] - E[a]) * (r - a); } return E[n] - (r - n) * .8; };
+  const E = [];
+  for (let t = 1; t <= 4; t++) { const e = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === t && c.squad.length >= 11).map(c => avg(pickXI(c).map(o => o.p.ovr))).sort((a, b) => b - a);
+    E.push(...(e.length >= 10 ? e : Array.from({ length: t === 1 ? 20 : 24 }, (_, k) => TIER_XI[t] + 4 - k * 8 / 24))); }
+  const at = r => { const n = E.length - 1; if (r <= n) { const a = Math.floor(r), b = Math.min(n, a + 1); return E[a] + (E[b] - E[a]) * (r - a); } return E[n] - (r - n) * .5; };
   const fc = (G.foreign || []).map(CL).filter(c => c && c.squad.length >= 11);
   if (fc.length && !snap) G.fOff = (G.fOff ?? 1.5) * .5 + avg(fc.map(c => avg(pickXI(c).map(o => o.p.ovr)) - c.lvl)) * .5;
   for (const [code, [top, step]] of Object.entries(FOREIGN_RANK)) {
@@ -119,7 +122,7 @@ function foreignSummer() {
   foreignBuys();
 }
 /* Foreign clubs shop the way English ones do: a regular well below their standard is replaced, from a club no bigger
-   than they are (abroad or in England's top two divisions) when they can afford the fee. */
+   than they are (abroad or in England's top four divisions) when they can afford the fee. */
 function foreignUpgrade(c) {
   for (const pos of POS) {
     const ps = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2), weak = ps[need - 1];
@@ -128,7 +131,7 @@ function foreignUpgrade(c) {
 }
 function foreignSign(c, pos) {
   const target = Math.round(c.lvl + normal() * 4);
-  const sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : !x.gone && x.tier <= 2 && (x.rep || 0) <= c.rep + 3));
+  const sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : !x.gone && x.tier <= 4 && (x.rep || 0) <= c.rep + 3));
   const pool = []; for (const x of sellers) for (const id of x.squad) { const q = P(id); if (q && q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30 && canAfford(c, aiFee(q))) pool.push(q); }
   if (!pool.length) return false;
   const p = pick(pool), from = CL(p.club); aiTransfer(p, c); p.wage = aiWage(p, c); p.yrs = ri(2, 4);
