@@ -420,6 +420,17 @@ function suggest(p, loan) {
 }
 
 /* ---------- you, overruling your staff ---------- */
+/* Agreed out of the window: a player at another club can agree to join you; the deal goes through, and the fee is paid,
+   when the next window opens. Until then his club won't sell him to anyone else. If he leaves the game (or the club is
+   gone) the deal falls through; if his contract runs out in the meantime he comes on a free. */
+function agreeIncoming(p, fee, wage) { p.toMe = { fee, wage, y: G.year, w: G.week }; news(`Agreed: ${p.name} will join from ${fromName(p)} when the transfer window opens${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true); }
+function completeIncoming() {
+  for (const p of Object.values(G.players)) { if (!p.toMe) continue; const A = p.toMe; delete p.toMe;
+    if (p.club === G.club) continue;
+    const seller = p.club >= 0 ? CL(p.club) : null;
+    if (seller && seller.gone && !seller.abroad) { news(`${p.name}'s move falls through: ${seller.name} no longer exist.`, true); continue; }
+    ownerBuy(p, p.club === -1 ? 0 : A.fee, A.wage); } }
+const incoming = () => Object.values(G.players).filter(p => p.toMe);
 function ownerBuy(p, fee, wage) {
   G.meddle = (G.meddle || 0) + 1;
   const c = my(), onList = shortlist(c, { pos: p.pos, kind: "depth", weakest: 0 }, 8).some(x => x.p === p);
@@ -481,7 +492,7 @@ function completeAgreed(c = my()) {
 }
 function marketWeek() {
   const c = my();
-  if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) completeAgreed(c);
+  if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
   headWeek(c); bidsWeek(c); loanOffersWeek(c);
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do

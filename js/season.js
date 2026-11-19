@@ -535,7 +535,7 @@ function aiSign(c, pos) {
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     // The four professional divisions also shop abroad, from clubs no bigger than they are: imports cost a fee that leaves the country.
     const lower = G.clubs.filter(x => !isMine(x) && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier > c.tier && x.tier <= c.tier + 2));
-    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
+    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     const afford = pool.filter(q => canAfford(c, aiFee(q)));
     if (afford.length) p = pick(afford);
   }

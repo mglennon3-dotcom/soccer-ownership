@@ -132,7 +132,7 @@ function foreignUpgrade(c) {
 function foreignSign(c, pos) {
   const target = Math.round(c.lvl + normal() * 4);
   const sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : !x.gone && x.tier <= 4 && (x.rep || 0) <= c.rep + 3));
-  const pool = []; for (const x of sellers) for (const id of x.squad) { const q = P(id); if (q && q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30 && canAfford(c, aiFee(q))) pool.push(q); }
+  const pool = []; for (const x of sellers) for (const id of x.squad) { const q = P(id); if (q && q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30 && canAfford(c, aiFee(q))) pool.push(q); }
   if (!pool.length) return false;
   const p = pick(pool), from = CL(p.club); aiTransfer(p, c); p.wage = aiWage(p, c); p.yrs = ri(2, 4);
   if (!from.abroad) { aiSquadCheck(from, true); G.exports = (G.exports || 0) + 1; if (from.lg === (my() || {}).lg || p.ovr >= 85) news(`${p.name} leaves ${from.name} for ${c.name} in ${COUNTRY[c.country].name}.`); }
@@ -145,7 +145,7 @@ function foreignBuys() {
   const buyers = (G.foreign || []).map(CL).filter(c => c && c.abroad); if (!buyers.length) return;
   for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || c.tier > 2) continue;
     const std = TIER_XI[c.tier];  // measured against the division's real level (its average starter), so the biggest clubs lose stars too
-    for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.age > 31) continue; const gap = p.ovr - std - 4;
+    for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.toMe || p.age > 31) continue; const gap = p.ovr - std - 4;
       if (gap <= 0 || R() > Math.min(.06, .01 + gap * .005)) continue;
       const fee = Math.round(aiFee(p) * .7 / 1e4) * 1e4, to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6 && x.rep >= (c.rep || 0) - 3 && canAfford(x, fee)); if (!to.length) continue; const b = pick(to);
       aiTransfer(p, b, fee); p.wage = aiWage(p, b); p.yrs = ri(2, 4); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;

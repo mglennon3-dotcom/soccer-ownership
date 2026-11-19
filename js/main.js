@@ -269,8 +269,9 @@ const ACT = {
     if (fee < ask * .95) return toast(`${p.club >= 0 ? CL(p.club).name : "His club"} turn the offer down. They want about ${money(ask)}.`);
     const a = playerAppeal(p, wage);
     if (a.score < a.pr.thr) return toast(`${p.name} turns you down. ${refusalReason(a, P_FACTORS)}`);
-    ownerBuy(p, fee, wage); closeModal(); render(); saveGame();
+    if (!windowOpen() && p.club >= 0) agreeIncoming(p, fee, wage); else ownerBuy(p, fee, wage); closeModal(); render(); saveGame();
   },
+  unagree: el => { const p = P(+el.dataset.id); if (p && p.toMe) { delete p.toMe; news(`You pull out of the agreed deal for ${p.name}.`); } closeModal(); render(); saveGame(); },
   cands: el => { HIRE_F.role = el.dataset.r; HIRE_F.phil = HIRE_F.focus = HIRE_F.form = ""; PAGE = "hire"; closeModal(); render(); scrollTo(0, 0); },
   hire: el => {
     const s = CANDS.list[+el.dataset.i], wage = num($("#cw" + el.dataset.i)) * 52, yrs = +$("#cy" + el.dataset.i).value;
