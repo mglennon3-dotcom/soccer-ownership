@@ -453,22 +453,24 @@ function supportersCard(c) {
     <details style="margin-top:6px"><summary class="small">Mostly ${FAN_KINDS[top][0].toLowerCase()}. What shifts it</summary><p class="small muted" style="margin-top:4px">The mix shifts each summer: promotions bring fair-weather fans (relegation sends them away and leaves the loyal), steady seasons and a happy crowd build loyalty, terraces build a hardcore, and cheap tickets and a family stand bring in the community.</p></details></section>`;
 }
 
-/* Staff targets on the Board page: set in pre-season (any you leave blank don't count), then progress through the season. */
+/* Staff targets on the Board page: chosen in week 1 of pre-season, then progress through the season. */
 function staffTargetsCard() {
-  const c = my(), S = G.sobj && G.sobj.y === G.year ? G.sobj : null, edit = G.phase === "summer" && (!S || STO_EDIT);
-  const last = (() => { const lg = G.history[0]; return lg ? ` Last season: ${lg.pos ? ord(lg.pos) : "—"} place.` : ""; })();
+  const c = my(), S = G.sobj && G.sobj.y === G.year ? G.sobj : null, open = staffTargetsOpen(), edit = open && (!S || STO_EDIT);
   if (!edit) {
     const list = S ? staffTargets(c) : [];
-    return `<section class="card"><div class="card-h"><h2>Staff targets</h2>${S && G.phase === "summer" ? `<button class="btn sm" data-act="sobjedit">Change</button>` : ""}</div>
-      ${list.length ? `<div class="tbl-wrap"><table class="proj"><tbody>${list.map(([role, k, l, t, now, met]) => `<tr><td style="text-align:left"><span class="small muted">${ROLES_STAFF[role].l}</span><br>${l}${k === "pos" ? "" : ` ${k === "sales" ? money(t) : t}`}</td><td class="num ${met ? "good" : ""}">${k === "sales" ? money(now) : now}${met ? " ✓" : ""}</td></tr>`).join("")}</tbody></table></div>
-      <p class="small muted" style="margin-top:6px">Where each stands now. Judged at the end of the season: met targets earn trust, missed ones cost it.</p>` : `<p class="muted small">${G.phase === "summer" ? "No staff targets set." : "No staff targets were set this season. Set them in pre-season."}</p>${G.phase === "summer" ? `<button class="btn sm" data-act="sobjedit">Set staff targets</button>` : ""}`}</section>`;
+    return `<section class="card"><div class="card-h"><h2>Staff targets</h2>${S && open ? `<button class="btn sm" data-act="sobjedit">Change</button>` : ""}</div>
+      ${list.length ? `<div class="tbl-wrap"><table class="proj"><tbody>${list.map(t => `<tr><td style="text-align:left"><span class="small muted">${ROLES_STAFF[t.role].l} · ${LVL_NAME[t.lv].toLowerCase()}</span><br>${t.label} ${fmtT(t.k, t.v[t.lv - 1])}</td><td class="num ${t.met ? "good" : ""}">${fmtT(t.k, t.now)}${t.met ? " ✓" : ""}${t.got ? `<br><span class="small muted">${LVL_NAME[t.got].toLowerCase()} level reached</span>` : ""}</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted" style="margin-top:6px">Where each stands now. At the end of the season, a met target is rewarded by its level (the hardest most); a missed one costs more the further short it falls. Staff ratings, potential and trust move with it.</p>`
+      : `<p class="muted small">${open ? "No staff targets set." : "No staff targets this season. They're set in week 1 of pre-season."}</p>${open ? `<button class="btn sm" data-act="sobjedit">Set staff targets</button>` : ""}`}</section>`;
   }
-  const T = S || {}, v = (role, k) => (T[role] || {})[k] ?? "", num = (role, k, l, step = 1) => { const was = G.sLast && G.sLast[role] ? G.sLast[role][k] : null; return `<label class="small"><b>${l}</b><input type="number" min="0" step="${step}" id="so-${role}-${k}" value="${v(role, k)}" placeholder="no target">${was ? `<span class="small muted">last season ${k === "sales" ? money(was) : was}</span>` : ""}</label>`; };
-  return `<section class="card"><div class="card-h"><h2>Set staff targets</h2></div>
-    <p class="small muted" style="margin-bottom:10px">Leave a box empty for no target. Ratings and potential are shown ratings (out of 20); growth is rating points gained from today.${last}</p>
-    <h3 style="margin:6px 0">${ROLES_STAFF.manager.l}</h3><div class="price-grid">${num("manager", "goals", "League goals")}${num("manager", "assists", "Assists")}${num("manager", "cs", "League clean sheets")}${num("manager", "ymin", "Minutes for under-21s", 90)}${num("manager", "grow", "Squad growth (points, total)", .5)}</div>
-    <h3 style="margin:10px 0 6px">${ROLES_STAFF.recruit.l}</h3><div class="price-grid"><label class="small"><b>Sign a player for</b><select id="so-recruit-pos"><option value="">no target</option>${POS.map(p => `<option value="${p}" ${v("recruit", "pos") === p ? "selected" : ""}>${POS_NAME[p]}</option>`).join("")}</select></label>${num("recruit", "posR", "…rated at least")}${num("recruit", "u21", "An under-21 with potential of at least")}${num("recruit", "sales", "Player sales of at least (€)", 100000)}</div>
-    <h3 style="margin:10px 0 6px">${ROLES_STAFF.youth.l}</h3><div class="price-grid">${num("youth", "find", "A new academy player with potential of at least")}${num("youth", "one", "One academy player grows by (points)", .5)}${num("youth", "avg", "Academy average growth (points)", .1)}</div>
+  const L = staffTargetLevels(c), cur = (role, k) => S && S[role] && S[role][k] ? S[role][k].lv : 0;
+  const sel = (role, k) => { const [l, v] = L[role][k]; return `<label class="small"><b>${l}</b><select id="so-${role}-${k}">${LVL_NAME.map((n, i) => `<option value="${i}" ${cur(role, k) === i ? "selected" : ""}>${i ? `${n}: ${fmtT(k, v[i - 1])}` : n}</option>`).join("")}</select></label>`; };
+  const grp = role => Object.keys(L[role]).map(k => sel(role, k)).join("");
+  return `<section class="card"><div class="card-h"><h2>Set staff targets</h2><span class="small muted">${G.week === 0 ? "week 1 of pre-season" : "this summer only: any week"}</span></div>
+    <p class="small muted" style="margin-bottom:10px">Pick a level for each, or no target. Meeting a harder target is rewarded more, the hardest most of all; falling short costs more the further short you finish. Ratings and potential are shown ratings out of 20; growth is rating points gained this season.</p>
+    <h3 style="margin:6px 0">${ROLES_STAFF.manager.l}</h3><div class="price-grid">${grp("manager")}</div>
+    <h3 style="margin:10px 0 6px">${ROLES_STAFF.recruit.l}</h3><div class="price-grid"><label class="small"><b>Position</b><select id="so-recruit-posK">${POS.map(p => `<option value="${p}" ${S && S.recruit && S.recruit.posK === p ? "selected" : ""}>${POS_NAME[p]}</option>`).join("")}</select></label>${grp("recruit")}</div>
+    <h3 style="margin:10px 0 6px">${ROLES_STAFF.youth.l}</h3><div class="price-grid">${grp("youth")}</div>
     <div class="row" style="margin-top:10px"><button class="btn primary" data-act="setsobj">Set staff targets</button></div></section>`;
 }
 let STO_EDIT = false;

@@ -255,71 +255,79 @@ function judgeObjectives(report) {
 }
 
 /* ---------- staff targets ----------
-   Set in pre-season alongside the club's targets, each one optional. Meeting one earns that member of staff's trust and
-   a little extra from him; missing one costs trust. Measured over the season (growth from when the targets were set).
-     Manager: league goals, assists, league clean sheets, minutes for under-21s, and the squad's total growth (shown
-       rating points gained by the players who were here when the targets were set).
-     Head of recruitment: sign a player for a position at a minimum rating; sign an under-21 with a minimum potential;
-       raise a total in player sales.
-     Youth manager: a new academy player with a minimum potential; one academy player growing a number of points; the
-       academy's average growth. */
-const SOBJ = {
-  manager: { goals: ["League goals", "n"], assists: ["Assists (all competitions)", "n"], cs: ["League clean sheets", "n"], ymin: ["Minutes for under-21s", "n"], grow: ["Squad growth (rating points, in total)", "n"] },
-  recruit: { pos: ["Sign a player for this position…", "pos"], posR: ["…rated at least", "n"], u21: ["Sign an under-21 with potential of at least", "n"], sales: ["Player sales of at least (€)", "n"] },
-  youth: { find: ["Bring in an academy player with potential of at least", "n"], one: ["One academy player grows by at least (points)", "n"], avg: ["Academy average growth of at least (points)", "n"] },
-};
-const mins = p => ((p.s.app || 0) - (p.s.sub || 0)) * 90 + (p.s.sub || 0) * 25;
-// Where each staff target stands now (the same measures are used at the end of the season).
-function staffProgress(c = my()) {
-  const S = G.sobj || {}, y = G.year, base = S.base || {}, lg = (G.myRes || []).filter(r => r.comp === c.lg), sq = c.squad.map(P).filter(Boolean);
-  // Only transfers since the targets were set count.
-  const after = m => m.y === y && (S.seq0 == null || (m.t || 0) > S.seq0);
-  const ins = (G.tlog || []).filter(m => m.kind === "in" && after(m)), outs = (G.tlog || []).filter(m => m.kind === "out" && after(m));
-  const gain = p => base[p.id] != null ? to20(p.ovr) - to20(base[p.id]) : null;
-  const acad = sq.filter(p => p.acad || p.yAcad === c.id), ag = acad.map(gain).filter(v => v != null);
+   Set in week 1 of pre-season, each one optional. Every target comes in four levels worked out from the club's
+   situation: modest, fair, ambitious and hardest. What counts is the level you set and the level reached: meeting a
+   harder target is rewarded more (the hardest most of all), and falling short costs more the further short of it you
+   finish. Measured over the season; recruitment counts every signing and sale this season.
+     Manager: the top scorer's goals, league goals, league clean sheets, assists, minutes for under-21s, and the squad's
+       total growth (shown rating points gained by the players here at the start of the season).
+     Head of recruitment: a player for a chosen position rated at least a level; an under-21 with potential of at least
+       a level; total player sales.
+     Youth manager: a new academy player with potential of at least a level; one academy player's growth; the academy's
+       average growth. */
+const LVL_NAME = ["No target", "Modest", "Fair", "Ambitious", "Hardest"];
+function staffTargetLevels(c = my()) {
+  const n = Math.max(1, (G.leagues[c.lg].clubs.length - 1) * 2), xi = Math.round(to20(TIER_XI[c.tier] + ((G.lvlAdj || [])[c.tier] || 0)));
+  const inc = c.finLast ? ledgerIncome(c.finLast) : TV[c.tier] + COMM_T[c.tier], r = v => Math.round(v);
   return {
-    manager: { goals: sum(lg, r => r.gf), assists: sum(sq, p => p.s.a || 0), cs: lg.filter(r => r.ga === 0).length, ymin: sum(sq.filter(p => p.age <= 21), mins),
-      grow: Math.round(sum(sq.filter(p => !p.acad), p => Math.max(0, gain(p) || 0)) * 10) / 10 },
-    recruit: { pos: ins.filter(m => !S.recruit || m.pos === S.recruit.pos).map(m => m.r).reduce((a, b) => Math.max(a, b), 0), u21: Math.max(0, ...ins.filter(m => m.age <= 20 && G.players[m.id]).map(m => r20(G.players[m.id].pot))), sales: sum(outs, m => m.fee || 0) },
-    youth: { find: Math.max(0, ...acad.filter(p => base[p.id] == null).map(p => r20(p.pot))), one: Math.round(Math.max(0, ...ag) * 10) / 10, avg: ag.length ? Math.round(avg(ag) * 10) / 10 : 0 },
+    manager: { top: ["Top scorer's goals", [10, 15, 20, 30]], goals: ["League goals", [n * 1.1, n * 1.3, n * 1.55, n * 1.85].map(r)], cs: ["League clean sheets", [n * .2, n * .27, n * .35, n * .45].map(r)],
+      assists: ["Assists", [n * .75, n * .9, n * 1.1, n * 1.3].map(r)], ymin: ["Minutes for under-21s", [n * 90 * 1.5, n * 90 * 3, n * 90 * 5, n * 90 * 7].map(v => Math.round(v / 100) * 100)], grow: ["Squad growth (rating points, total)", [2, 4, 6, 9]] },
+    recruit: { pos: ["Sign a player for the position, rated at least", [xi - 1, xi, xi + 1, xi + 3].map(v => clamp(v, 1, 20))], u21: ["Sign an under-21 with potential of at least", [xi, xi + 2, xi + 4, xi + 6].map(v => clamp(v, 1, 20))],
+      sales: ["Player sales of at least", [.02, .05, .1, .2].map(f => Math.round(inc * f / 1e4) * 1e4)] },
+    youth: { find: ["A new academy player with potential of at least", [xi - 1, xi + 1, xi + 3, xi + 5].map(v => clamp(v, 1, 20))], one: ["One academy player grows by (points)", [1, 1.5, 2.5, 4]], avg: ["Academy average growth (points)", [.3, .6, 1, 1.5]] },
   };
 }
-// Each set target as [role, key, label, target, now, met].
+// Staff targets can be set in week 1 of pre-season (and, the summer they arrived, any week of it).
+const staffTargetsOpen = () => G.phase === "summer" && (G.week === 0 || G.sgrace === G.year);
+const mins = p => ((p.s.app || 0) - (p.s.sub || 0)) * 90 + (p.s.sub || 0) * 25;
+function staffProgress(c = my()) {
+  const S = G.sobj || {}, y = G.year, base = S.base || {}, lg = (G.myRes || []).filter(r => r.comp === c.lg), sq = c.squad.map(P).filter(Boolean);
+  const ins = (G.tlog || []).filter(m => m.kind === "in" && m.y === y), outs = (G.tlog || []).filter(m => m.kind === "out" && m.y === y);
+  const gain = p => base[p.id] != null ? to20(p.ovr) - to20(base[p.id]) : null;
+  const acad = sq.filter(p => p.acad || p.yAcad === c.id), ag = acad.map(gain).filter(v => v != null), r1 = v => Math.round(v * 10) / 10;
+  const pos = S.recruit && S.recruit.posK;
+  return {
+    manager: { top: Math.max(0, ...sq.map(p => p.s.g || 0)), goals: sum(lg, r => r.gf), cs: lg.filter(r => r.ga === 0).length, assists: sum(sq, p => p.s.a || 0), ymin: sum(sq.filter(p => p.age <= 21), mins),
+      grow: r1(sum(sq.filter(p => !p.acad), p => Math.max(0, gain(p) || 0))) },
+    recruit: { pos: Math.max(0, ...ins.filter(m => !pos || m.pos === pos).map(m => m.r || 0)), u21: Math.max(0, ...ins.filter(m => m.age <= 20 && G.players[m.id]).map(m => r20(G.players[m.id].pot))), sales: sum(outs, m => m.fee || 0) },
+    youth: { find: Math.max(0, ...acad.filter(p => base[p.id] == null).map(p => r20(p.pot))), one: r1(Math.max(0, ...ag)), avg: ag.length ? r1(avg(ag)) : 0 },
+  };
+}
+// Each set target: { role, k, label, lv (set), v (the four level values), now, got (level reached), met }.
 function staffTargets(c = my()) {
   const S = G.sobj; if (!S || S.y !== G.year) return [];
-  const P0 = staffProgress(c), out = [];
-  for (const role of ["manager", "recruit", "youth"]) { const T = S[role] || {};
-    for (const [k, [l]] of Object.entries(SOBJ[role])) {
-      if (k === "pos" || k === "posR") continue; const t = T[k]; if (t == null || t === "") continue;
-      out.push([role, k, l, t, P0[role][k], P0[role][k] >= t]); }
-    if (role === "recruit" && T.pos) out.push([role, "pos", `Sign a ${POS_NAME[T.pos].toLowerCase()} rated at least ${T.posR || 1}`, T.posR || 1, P0.recruit.pos, P0.recruit.pos >= (T.posR || 1)]);
+  const now = staffProgress(c), out = [];
+  for (const role of ["manager", "recruit", "youth"]) for (const [k, T] of Object.entries(S[role] || {})) {
+    if (!T || !T.lv || !T.v) continue; const v = now[role][k], got = T.v.filter(x => v >= x).length;
+    out.push({ role, k, label: T.label + (k === "pos" && S.recruit.posK ? ` (${POS_NAME[S.recruit.posK].toLowerCase()})` : ""), lv: T.lv, v: T.v, now: v, got, met: got >= T.lv });
   }
   return out;
 }
 function setStaffObjectives(S) {
-  const c = my(); G.sobj = { ...S, y: G.year, seq0: G.tseq || 0, base: Object.fromEntries(c.squad.map(P).filter(Boolean).map(p => [p.id, p.ovr])) };
+  const c = my(); G.sobj = { ...S, y: G.year, base: Object.fromEntries(c.squad.map(P).filter(Boolean).map(p => [p.id, p.ovr])) };
   const n = staffTargets(c).length; if (n) news(`You set ${n} target${n > 1 ? "s" : ""} for your staff for the season.`, true);
 }
+const fmtT = (k, v) => k === "sales" ? money(v) : v;
 function judgeStaffObjectives(d) {
   const list = staffTargets();
   staffSeasonVerdict(list, d);
   if (!list.length) return;
-  for (const [role, , , , , met] of list) if (staffOf(role)) trust(role, met ? 5 : -4, null);
-  addMsg({ type: "objectives", title: `Staff targets: ${list.filter(x => x[5]).length} of ${list.length} met`, body: list.map(([role, k, l, t, now, met]) => `${ROLES_STAFF[role].l}: ${l}${k === "pos" ? "" : " " + (k === "sales" ? money(t) : t)} (${k === "sales" ? money(now) : now}): ${met ? "met" : "missed"}`).join(". ") + ". Staff who meet their targets trust you more; missed targets cost trust." });
+  for (const t of list) if (staffOf(t.role)) trust(t.role, t.met ? 2 + t.lv : -2 - Math.min(3, t.lv - t.got), null);
+  addMsg({ type: "objectives", title: `Staff targets: ${list.filter(t => t.met).length} of ${list.length} met`, body: list.map(t => `${ROLES_STAFF[t.role].l}: ${t.label} ${fmtT(t.k, t.v[t.lv - 1])} (${LVL_NAME[t.lv].toLowerCase()}): ${fmtT(t.k, t.now)}, ${t.met ? "met" : "missed"}${t.got > t.lv ? `, beating the ${LVL_NAME[t.got].toLowerCase()} level` : ""}`).join(". ") + "." });
 }
-
-/* How each member of staff's season went, from -1 (awful) to +1 (tremendous): how far above or below each of his targets
-   he finished (half again as much as the target is the top of the scale, half as much the bottom) and, for the manager,
-   where the team finished against where the squad suggested (six places either way is the top or bottom). His skills
-   and ceiling move with it, on a curve: an ordinary season barely moves him, a tremendous one lifts him by up to two
-   points on the 20 scale, an awful one drops him as far. */
+/* How each member of staff's season went, from -1 (awful) to +1 (tremendous). A met target scores by its level (modest
+   .25, fair .45, ambitious .7, hardest 1); a missed one earns half the score of the level it did reach, less .35 for
+   each level short (so falling one short of the hardest scores about nothing, and reaching nothing is the worst). For the manager, the
+   league finish against where the squad suggested counts too (six places either way is the top or bottom). Skills and
+   ceiling move on a curve: up to about two shown points for a tremendous season, as far down for an awful one. */
+const LVL_SCORE = [0, .25, .45, .7, 1];
 function staffSeasonVerdict(list, d) {
   for (const role of ["manager", "recruit", "youth"]) {
     const s = staffOf(role); if (!s || !s.at) continue;
-    const parts = list.filter(x => x[0] === role).map(([, , , t, now]) => clamp(((now || 0) / Math.max(1e-9, t) - 1) * 2, -1, 1));
+    const parts = list.filter(t => t.role === role).map(t => t.met ? LVL_SCORE[t.lv] : LVL_SCORE[t.got] * .5 - .35 * (t.lv - t.got));
     if (role === "manager" && d != null) parts.push(clamp(d / 6, -1, 1));
     if (!parts.length) continue;
-    const score = avg(parts); if (Math.abs(score) < .15) continue;
+    const score = clamp(avg(parts), -1, 1); if (Math.abs(score) < .15) continue;
     const shift = Math.sign(score) * Math.pow(Math.abs(score), 1.4) * 1.5;  // up to about 2 points on the shown 20 scale
     const before = staffAvg(s);
     for (const k of Object.keys(s.at)) s.at[k] = staffShift(s.at[k], shift * rf(.7, 1.3));

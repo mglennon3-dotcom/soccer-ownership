@@ -104,6 +104,8 @@ function upgradeSave() {
   // Ratings as they stand (a save from before the arrows had none): the arrows start from here.
   for (const p of Object.values(G.players)) if (p.r0 == null) p.r0 = r20(p.ovr);
   if (G.board && G.board.dir) delete G.board.dir;  // directors were removed
+  // Staff targets: the first summer they exist can be set in any week of it; old-style targets are cleared.
+  if (!G.sgrace1) { G.sgrace1 = true; if (G.phase === "summer") G.sgrace = G.year; if (G.sobj && G.sobj.manager && Object.values(G.sobj.manager).some(v => typeof v === "number")) G.sobj = null; }
   if (G.club != null) syncReg();  // auto-registration: the best 25 while a window is open
   if (!G.brk1) { G.brk1 = true; if (G.club != null) for (const id of my().squad.slice()) { const p = G.players[id]; if (p) breakSlump(p); } }  // one-off: the summer roll this squad missed
   if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too
@@ -195,7 +197,9 @@ const ACT = {
   setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) { const el = $("#obj-" + k); o[k] = el ? el.value : "none"; } setObjectives(o); render(); saveGame(); },
   objreset: () => { G.obj = null; render(); },
   sobjedit: () => { STO_EDIT = true; render(); },
-  setsobj: () => { const S = {}; for (const role of Object.keys(SOBJ)) { S[role] = {}; for (const k of Object.keys(SOBJ[role])) { const el = $(`#so-${role}-${k}`); if (!el || el.value === "") continue; S[role][k] = k === "pos" ? el.value : +el.value; } } STO_EDIT = false; setStaffObjectives(S); render(); saveGame(); },
+  setsobj: () => { if (!staffTargetsOpen()) return toast("Staff targets are set in week 1 of pre-season."); const L = staffTargetLevels(), S = { recruit: { posK: $("#so-recruit-posK").value } };
+    for (const role of Object.keys(L)) { S[role] ||= {}; for (const [k, [label, v]] of Object.entries(L[role])) { const lv = +($(`#so-${role}-${k}`) || {}).value || 0; if (lv) S[role][k] = { lv, v, label }; } }
+    STO_EDIT = false; setStaffObjectives(S); render(); saveGame(); },
   approach: el => { approachPartner(CL(+el.dataset.id)); render(); saveGame(); },
   endpartner: async el => { const id = +el.dataset.id; if (await ask(`End the partnership with ${CL(id).name}?`)) { endPartner(id); render(); saveGame(); } },
   addfeeder: el => { addFeeder(CL(+el.dataset.id)); render(); saveGame(); },
