@@ -98,12 +98,14 @@ function unhappiness(p, c) {
 /* Pay rises: every four weeks a player paid well under his worth (under 80% of the going rate for his rating) may ask
    for one, up to the going rate. Give it, meet him halfway (he'll take it, a little grudgingly), or refuse (he's
    unsettled and the grievance stays). Left unanswered, your head of recruitment decides on the wage budget. */
+// A player who joined this season (summer or January) doesn't ask for a new deal until next season.
+const joinedThisSeason = p => (p.payLog || []).some(x => x.why === "signed" && x.y === G.year) || (G.tlog || []).some(m => m.kind === "in" && m.id === p.id && m.y === G.year);
 function payReviews() {
   const c = my(); if (G.phase === "playoffs" || G.week % 4 !== 0) return;
   let n = 0;
   for (const p of c.squad.map(P)) {
     if (n >= 2) break;
-    if (p.acad || p.loan || p.age > 35 || p.payY === G.year || G.inbox.some(m => m.key === "raise" && !m.done && m.data.pid === p.id)) continue;
+    if (p.acad || p.loan || p.age > 35 || p.payY === G.year || joinedThisSeason(p) || G.inbox.some(m => m.key === "raise" && !m.done && m.data.pid === p.id)) continue;
     const form = Math.max(0, seasonForm(p)), star = form >= .9 && p.s.app >= 10;
     // A breakout season: he wants paying like the player he's become, and he'll threaten to go if you won't.
     if (star && p.dealY !== G.year && p.wage < demandWage(p, c) * (1.2 + form * .2) && R() < .5) {
