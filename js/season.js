@@ -533,13 +533,16 @@ function aiSign(c, pos) {
   const fas = G.fa.map(P).filter(q => q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
   if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
-    const lower = G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && x.tier <= c.tier + 2);
+    // The top two divisions also shop abroad, as English clubs do: imports cost a fee that leaves the country.
+    const lower = G.clubs.filter(x => !x.gone && !isMine(x) && (x.abroad ? c.tier <= 2 && Math.abs(x.lvl - target) < 8 : x.tier > c.tier && x.tier <= c.tier + 2));
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     const afford = pool.filter(q => canAfford(c, aiFee(q)));
     if (afford.length) p = pick(afford);
   }
   // Nobody affordable at another club: someone from outside the game (abroad, or below the pyramid) on a free.
-  if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); moveTo(p, c); }
+  // In the professional divisions that player still costs a fee when the club can pay one (it leaves the game).
+  if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); moveTo(p, c);
+    const fee = c.tier <= 4 ? Math.round(valueOf(p) * FEE_TIER[c.tier] * .6 / 1e4) * 1e4 : 0; if (fee && canAfford(c, fee)) payFee(c, null, fee); }
   else aiTransfer(p, c);
   p.wage = aiWage(p, c); p.yrs = ri(1, 4);
 }
