@@ -698,11 +698,13 @@ const MKT_COUNTRIES = ["ENG", "ITA", "ESP", "GER", "FRA", "POR", "BEL", "NED", "
 const playerCountry = p => { const k = p.club >= 0 ? (CL(p.club).abroad ? CL(p.club).country : "ENG") : p.nat; return MKT_COUNTRIES.includes(k) ? k : COUNTRY[k] ? "EUR" : "ROW"; };
 // Favourites: players you're keeping an eye on (the market's Favourites tab). Players who've left the game drop off.
 const isFav = id => (G.favs || []).includes(id);
+// Players you've suggested to your head of recruitment, and those agreed to join (the market's Suggested tab).
+const suggPlayers = () => { const ids = new Set([...sugg().map(x => x.id), ...incoming().map(p => p.id)]); return [...ids].map(id => G.players[id]).filter(p => p && p.club !== G.club); };
 const favPlayers = () => (G.favs || []).map(id => G.players[id]).filter(p => p && p.club !== G.club);
 function pgMarket() {
   const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c), xiCache = {}, off = new Set(F.off || []);
-  const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"], ["favs", `Favourites${favPlayers().length ? ` (${favPlayers().length})` : ""}`]];
-  let base = F.tab === "favs" ? favPlayers() : F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
+  const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"], ["favs", `Favourites${favPlayers().length ? ` (${favPlayers().length})` : ""}`], ["sugg", `Suggested${suggPlayers().length ? ` (${suggPlayers().length})` : ""}`]];
+  let base = F.tab === "sugg" ? suggPlayers() : F.tab === "favs" ? favPlayers() : F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
   if (F.tab === "listed") base = base.filter(p => p.list || p.req);
   if (F.tab === "loans") base = base.filter(p => loanable(p) && lendsTo(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
   if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
@@ -742,7 +744,7 @@ function pgMarket() {
       <span class="cty-all small"><button class="lnk" data-act="mctyall" data-v="1" ${off.size ? "" : "disabled"}>Select all</button> · <button class="lnk" data-act="mctyall" data-v="0" ${off.size === MKT_COUNTRIES.length ? "disabled" : ""}>Unselect all</button></span></div>
     <p class="small muted" style="margin-bottom:8px">${pool.length.toLocaleString("en-GB")} player${pool.length === 1 ? "" : "s"} match${pool.length === 1 ? "es" : ""}${pool.length > 200 ? ": showing the first 200 in the order you sort by" : ""}.${F.tab === "loans" ? " Young players out of their club's first team: ask to borrow one from his card, and you pay half his wages to the end of the season." : ""}</p>
     ${sortTable("market-" + F.tab, [
-      { k: "name", l: "Player", left: true, v: x => x.p.name, f: x => `<button class="fav-btn sm ${isFav(x.p.id) ? "on" : ""}" data-act="fav" data-id="${x.p.id}" aria-pressed="${isFav(x.p.id)}" title="${isFav(x.p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(x.p.id) ? "★" : "☆"}</button><button class="lnk" data-act="player" data-id="${x.p.id}">${esc(x.p.name)}</button>${wkChip(x.p)}${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}${x.p.toMe ? ' <span class="chip xi">AGREED</span>' : ""}<br><span class="small muted">${esc((archetypeOf(x.p) || [""])[0])}</span>` },
+      { k: "name", l: "Player", left: true, v: x => x.p.name, f: x => `<button class="fav-btn sm ${isFav(x.p.id) ? "on" : ""}" data-act="fav" data-id="${x.p.id}" aria-pressed="${isFav(x.p.id)}" title="${isFav(x.p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(x.p.id) ? "★" : "☆"}</button><button class="lnk" data-act="player" data-id="${x.p.id}">${esc(x.p.name)}</button>${wkChip(x.p)}${x.p.list ? ' <span class="chip req">LISTED</span>' : ""}${x.p.toMe ? ' <span class="chip xi">AGREED</span>' : sugg().some(y => y.id === x.p.id) ? ` <span class="chip list">SUGGESTED${sugg().find(y => y.id === x.p.id).loan ? " LOAN" : ""}</span>` : ""}<br><span class="small muted">${esc((archetypeOf(x.p) || [""])[0])}</span>` },
       { k: "pos", l: "Pos", v: x => POS.indexOf(x.p.pos), f: x => `<span class="pos">${x.p.pos}</span>` },
       { k: "age", l: "Age", r: true, v: x => x.p.age, f: x => x.p.age },
       { k: "ovr", l: "Rating", v: x => x.e[0] + x.e[1], f: x => range(x.e) },
@@ -754,7 +756,7 @@ function pgMarket() {
       // On loan: the wage his club wants you to pay this window (or that he isn't available to you).
       F.tab === "loans" ? { k: "ask", l: "You'd pay", r: true, v: x => loanPay(x.p) ?? 1e12, f: x => loanPay(x.p) != null ? pw(loanPay(x.p)) : `<span class="small muted">Not available</span>` }
         : { k: "ask", l: "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => x.i.ask != null ? pw(x.i.ask) : "—" },
-    ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: F.tab === "favs" ? (favPlayers().length ? "None of your favourites match these filters." : "No favourites yet: tap the ☆ next to a player, here or on his card, to keep an eye on him.") : "Nobody matches these filters." })}</section></div>
+    ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: F.tab === "sugg" ? (suggPlayers().length ? "None of your suggestions match these filters." : "No suggestions yet: open a player's card and tap Suggest signing or Suggest a loan.") : F.tab === "favs" ? (favPlayers().length ? "None of your favourites match these filters." : "No favourites yet: tap the ☆ next to a player, here or on his card, to keep an eye on him.") : "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section>
