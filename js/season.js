@@ -304,7 +304,7 @@ function yearTurnover() {
   for (const p of G.fa.map(P).filter(p => p && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
   for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, false);
   freshFreeAgents();
-  foreignSummer();
+  foreignSummer(); aiListings();
   wonderWatch();
 }
 function wantsRenewal(p, core) {

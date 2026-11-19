@@ -101,6 +101,7 @@ function upgradeSave() {
   if (!G.aistaff2) { G.aistaff2 = true; for (const c of G.clubs) { if (c.gone && !c.abroad) continue; if (c.coach && !isMine(c)) { c.coach.dev = clamp(Math.round(aiStaffLvl(c.rep) + normal() * 9), 5, 97); c.coach.tac = clamp(Math.round((c.coach.tac + aiStaffLvl(c.rep) + normal() * 9) / 2), 5, 97); } delete c.yscout; } }
   // 0.50.4: emergency signings were paid by their own going rate (a former star keeper could cost millions at a small
   // club); any still at your club on such a contract moves onto the emergency cap.
+  if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too
   if (!G.pay13) { G.pay13 = true; for (const c of G.clubs) if (!isMine(c) && c.pay > 1.45) c.pay = 1.45; }  // AI pay levels now top out at 1.45
   if (G.club != null && !G.emerg1) { G.emerg1 = true; const c = my(), ids = new Set((G.tlog || []).filter(m => m.by === "emergency").map(m => m.id));
     for (const p of c.squad.map(P)) if (p && ids.has(p.id)) { const w = emergencyWage(p, c, .6); if (p.wage > w) { news(`${p.name}'s emergency contract is corrected to ${pw(w)}.`); p.wage = w; } } }

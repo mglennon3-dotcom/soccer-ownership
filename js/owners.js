@@ -315,9 +315,10 @@ DECIDE.poach = (m, i) => {
 /* AI clubs transfer-list players they can do without: well below the club's standard and out of the side, ageing
    reserves, and (for owners who like to sell) the odd regular. Listed players go cheaper. Refreshed each summer and
    again in January. */
+// Every other club, at home and abroad, lists its spare players (and now and then a starter) each summer and January.
 function aiListings() {
   for (const c of G.clubs) {
-    if (c.gone || isMine(c)) continue;
+    if ((c.gone && !c.abroad) || isMine(c)) continue;
     const S = ownStyle(c), xi = new Set(pickXI(c).map(o => o.p.id));
     for (const id of c.squad) { const p = P(id); if (p.acad || p.loan) continue;
       const spare = !xi.has(p.id) && (p.ovr < c.lvl - 5 || p.age >= 31);
