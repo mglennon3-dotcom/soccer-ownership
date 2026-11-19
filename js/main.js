@@ -330,6 +330,7 @@ const ACT = {
   },
 };
 const CHANGE = {
+  starhunt: el => { G.starHunt = el.checked; toast(el.checked ? "Your head of recruitment may now chase stars on huge wages." : "Your head of recruitment will leave the stars alone."); render(); },
   price: el => { const c = my(), k = el.dataset.k, v = num(el);
     if (k === "ticket" && G.sTrust && G.sTrust.freeze === G.year && v > c.prices.ticket) { toast("You promised the supporters' trust a price freeze this season."); render(); return; }
     c.prices[k] = v; render(); },

@@ -107,7 +107,8 @@ function shortlist(c, need, max = 6) {
   }
   for (const q of abroadPool(TIER_LVL[c.tier])) if (q.pos === need.pos) pool.push(q);
   const full = regList(c).length >= REG_MAX;  // a full 25-man list: only under-21s could play
-  const ok = pool.filter(q => { if ((full && !regExempt(q)) || !willJoin(q, c) || q.age > 34 || negotiated(askingFee(q)) > left || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
+  // Stars dropping down for a huge wage are only chased if you've told him to (Market page).
+  const ok = pool.filter(q => { if ((full && !regExempt(q)) || !willJoin(q, c) || (!G.starHunt && hugeAsk(q, c)) || q.age > 34 || negotiated(askingFee(q)) > left || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
   return ok.map(q => ({ p: q, sc: scoutScore(q, need, c, phil) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, max);
 }
 
