@@ -158,6 +158,15 @@ function weatherLine() {
   const c = my(), now = G.wx && WX[G.wx[c.half]], nx = G.wxNext && WX[G.wxNext[c.half]];
   return `<p class="small muted">${now ? `Weather: ${now.ico} ${now.l}` : ""}${nx ? ` · next week ${nx.ico} ${nx.l.toLowerCase()}${nx.off && !hasHeating(c) ? ' <span class="warn">(home games at risk)</span>' : ""}` : ""}</p>`;
 }
+// The last time a player of yours had his pay raised (or, failing that, when and on what he joined).
+function payHistoryLine(p) {
+  const L = p.payLog || [], rise = L.find(x => x.why !== "signed" && x.to > x.from), signed = L.find(x => x.why === "signed");
+  const join = signed || (G.tlog || []).find(m => m.kind === "in" && m.id === p.id), ago = y => G.year - y === 0 ? "this season" : G.year - y === 1 ? "last season" : `${G.year - y} seasons ago`;
+  if (rise) return `<p class="small">Last pay rise: <b>${ago(rise.y)}</b> (${seasonLabel(rise.y)}, ${rise.why}), from ${pw(rise.from)} to ${pw(rise.to)}.</p>`;
+  if (join) { const w0 = join.to || join.wage; return `<p class="small">No pay rise on record since he joined ${ago(join.y)} (${seasonLabel(join.y)})${w0 ? ` on ${pw(w0)}${w0 < p.wage ? `; he's on ${pw(p.wage)} now, so he has had rises since, from before records were kept` : ""}` : ""}.</p>`; }
+  if (p.yAcad === G.club) return `<p class="small">No pay rise on record since he came through the academy.</p>`;
+  return `<p class="small muted">No pay rise on record.</p>`;
+}
 // For one of your players someone wants: his rating, potential, and whether he's in your starting side.
 function myPlayerLine(p) {
   const o = pickXI(my()).find(o => o.p === p), [a, b] = potEstimate(p).map(r20), pot = a === b ? `${a}` : `${a}–${b}`;
@@ -186,7 +195,7 @@ function weakestStarterLine(pid) {
   return `<p class="small">${uses}</p><p class="small ${d > 0 ? "good" : d < 0 ? "muted" : ""}">Your weakest starter there: <button class="lnk" data-act="player" data-id="${w.p.id}">${esc(w.p.name)}</button>${out}, ${w.p.age}, rated ${there} there, potential ${pot}${d > 0 ? ` (this player is ${d} better now)` : d < 0 ? ` (${-d} better than this player now)` : " (the same as this player now)"}.</p>`;
 }
 function choiceHTML(x) {
-  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.data && x.data.pid != null && G.players[x.data.pid] ? (G.players[x.data.pid].club === G.club ? myPlayerLine(G.players[x.data.pid]) : x.key !== "ySign" ? weakestStarterLine(x.data.pid) : "") : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
+  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.key === "raise" && x.data && G.players[x.data.pid] ? payHistoryLine(G.players[x.data.pid]) : ""}${x.data && x.data.pid != null && G.players[x.data.pid] ? (G.players[x.data.pid].club === G.club ? myPlayerLine(G.players[x.data.pid]) : x.key !== "ySign" ? weakestStarterLine(x.data.pid) : "") : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
 }
 function loansCard() {
   const c = my(), t = loanTerms(100000, 5);

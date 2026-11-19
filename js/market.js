@@ -126,7 +126,7 @@ function signPlayer(p, fee, wage, byOwner, how) {
   logMove("in", p, { club: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" });
   if (p.club === -2) G.abroad = G.abroad.filter(id => id !== p.id);
   p.abroad = undefined;
-  moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4); registerNew(p, c);
+  moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4); registerNew(p, c); logPay(p, 0, "signed");
   signingBoost(p, c);
   spend("buys", fee); if (!byOwner) c.spentT += fee;
   if (seller && !seller.gone) aiSquadCheck(seller, true);
@@ -250,7 +250,7 @@ function headAdvice(p, amt) {
 /* The improved contract that keeps a wanted player happy: about 30% more, for three or four years. */
 const newDealWage = p => Math.round(Math.max(p.wage * 1.3, demandWage(p, my()) * 1.15) / 100) * 100;
 function newDeal(p) {
-  const w = newDealWage(p); p.wage = w; p.yrs = ri(3, 4); p.unsettled = 0; p.blocked = 0; p.payGrudge = 0; p.dealY = G.year;
+  const w = newDealWage(p), was = p.wage; p.wage = w; logPay(p, was, "new deal"); p.yrs = ri(3, 4); p.unsettled = 0; p.blocked = 0; p.payGrudge = 0; p.dealY = G.year;
   news(`${p.name} signs an improved ${p.yrs}-year contract: ${pw(w)}. He's happy to stay.`, true);
 }
 /* choice: true/1 accept, false/0 reject, 2 reject and offer him a new deal. */

@@ -269,7 +269,7 @@ function yearTurnover() {
     const want = p.keep || wantsRenewal(p, core.has(p.id)), un = want ? unhappiness(p, mine) : null;
     const ask = want ? (un && R() < clamp(un.s * .22, 0, .75) ? null : playerAsk(p, mine)) : undefined;  // an unhappy player may simply say no
     if (ask === null) { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); gone.push(`${p.name} (turned down a new deal${un ? `: ${un.why[0]}` : ""})`); continue; }
-    if (ask !== undefined) { p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(ask / 100) * 100); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
+    if (ask !== undefined) { const was = p.wage; p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(ask / 100) * 100); logPay(p, was, "contract renewal"); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
     else { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); gone.push(p.name); }
   }
   if (kept.length || gone.length) addMsg({ type: "contracts", title: `Contracts: ${kept.length} renewed, ${gone.length} released`, body: (kept.length ? `New contracts: ${kept.join(", ")}. ` : "") + (gone.length ? `Leaving: ${gone.join(", ")}.` : "") });
@@ -296,7 +296,7 @@ function yearTurnover() {
   for (const c of G.clubs) {
     if (c.gone) continue;
     for (const id of c.squad.slice()) { const p = P(id); if (!p.acad || p.age < 19) continue;
-      if (isMine(c)) { if (p.keep || p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4) { p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, demandWage(p, c)); news(`Academy graduate ${p.name} (${p.pos}, ${r20(p.ovr)}) signs a professional contract.`, true); } else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released by the academy.`); } }
+      if (isMine(c)) { if (p.keep || p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4) { p.acad = false; p.yrs = 2; const was = p.wage; p.wage = Math.max(p.wage, demandWage(p, c)); logPay(p, was, "first professional contract"); news(`Academy graduate ${p.name} (${p.pos}, ${r20(p.ovr)}) signs a professional contract.`, true); } else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released by the academy.`); } }
       else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = ri(2, 3); p.wage = aiWage(p, c); } else { leaveClub(p); toFreeAgent(p); } }
     youthIntake(c);
   }
@@ -482,7 +482,7 @@ function wageClauses(c, up, down) {
   if (!up && !down) return;
   const ps = c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.to === c.id)), before = wageBill(c), quit = [];
   for (const p of ps) {
-    p.wage = Math.round(p.wage * (up ? 1 + CLAUSE : 1 - CLAUSE) / 100) * 100;
+    { const was = p.wage; p.wage = Math.round(p.wage * (up ? 1 + CLAUSE : 1 - CLAUSE) / 100) * 100; logPay(p, was, up ? "promotion clause" : "relegation clause"); }
     if (down) {
       const pr = prefsOf(p, P_FACTORS), greed = wageMult(p, c);
       if (pr.top.includes("money") || greed > 1.1) {

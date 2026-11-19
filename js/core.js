@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.63.8";
+const VERSION = "0.64.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -433,3 +433,6 @@ function archetypeOf(p) {
   for (const a of list) { const s = avg(a[1].map(k => (p.at[k] ?? 0) - off(k))); if (s > bs) { bs = s; best = a; } }
   return best;
 }
+
+// Your players' pay history: each change (signing, rise, new deal, renewal, clause), newest first, the last eight kept.
+function logPay(p, from, why) { if (!p || p.club !== G.club || p.wage === from) return; (p.payLog ||= []).unshift({ y: G.year, from: Math.round(from || 0), to: p.wage, why }); if (p.payLog.length > 8) p.payLog.length = 8; }

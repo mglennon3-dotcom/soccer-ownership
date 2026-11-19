@@ -122,8 +122,9 @@ function payReviews() {
 }
 DECIDE.raise = (m, i) => {
   const p = G.players[m.data.pid]; if (!p || p.club !== G.club) return;
-  if (i === 0) { p.wage = Math.max(p.wage, m.data.worth); p.unsettled = 0; p.payGrudge = 0; if (m.data.threat) { p.dealY = G.year; p.yrs = Math.max(p.yrs, 3); } news(`${p.name} gets his pay rise: ${pw(p.wage)}.`); }
-  else if (i === 1 && !(m.data.threat && R() < .4)) { p.wage = Math.max(p.wage, m.data.half); if (m.data.threat) p.dealY = G.year; news(`${p.name} accepts ${pw(p.wage)}, though he wanted more.`); }
+  const was = p.wage;
+  if (i === 0) { p.wage = Math.max(p.wage, m.data.worth); logPay(p, was, "pay rise"); p.unsettled = 0; p.payGrudge = 0; if (m.data.threat) { p.dealY = G.year; p.yrs = Math.max(p.yrs, 3); } news(`${p.name} gets his pay rise: ${pw(p.wage)}.`); }
+  else if (i === 1 && !(m.data.threat && R() < .4)) { p.wage = Math.max(p.wage, m.data.half); logPay(p, was, "pay rise"); if (m.data.threat) p.dealY = G.year; news(`${p.name} accepts ${pw(p.wage)}, though he wanted more.`); }
   else if (m.data.threat) {
     // He carries out the threat (a half-hearted offer can do it too).
     p.req = G.year; p.list = true; p.unsettled = Math.max(p.unsettled || 0, 10); p.payGrudge = (p.payGrudge || 0) + 1;
