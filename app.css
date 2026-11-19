@@ -527,3 +527,6 @@ select.fit-b{background-color:color-mix(in srgb,var(--loss) 22%,var(--surface));
 
 /* Favourite players: a star toggle on player cards and in the market. */
 .fav-btn{background:none;border:0;padding:0 4px 0 0;font-size:1.1em;line-height:1;cursor:pointer;color:var(--muted);vertical-align:baseline} .fav-btn.on{color:#d4a017} .fav-btn.sm{font-size:1em} .modal-h .fav-btn{font-size:.8em;padding-left:4px}
+
+/* Tactics depth chart: one card per position, rating first. */
+table.depth td{padding:5px 4px;vertical-align:middle;border-bottom:1px solid var(--line)} table.depth td.num{width:1%;white-space:nowrap} table.depth tr.muted .lnk{opacity:.75} .depth-grid{align-items:start}
