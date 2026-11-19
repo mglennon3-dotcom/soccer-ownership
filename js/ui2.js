@@ -158,6 +158,13 @@ function weatherLine() {
   const c = my(), now = G.wx && WX[G.wx[c.half]], nx = G.wxNext && WX[G.wxNext[c.half]];
   return `<p class="small muted">${now ? `Weather: ${now.ico} ${now.l}` : ""}${nx ? ` · next week ${nx.ico} ${nx.l.toLowerCase()}${nx.off && !hasHeating(c) ? ' <span class="warn">(home games at risk)</span>' : ""}` : ""}</p>`;
 }
+// For one of your players someone wants: his rating, potential, and whether he's in your starting side.
+function myPlayerLine(p) {
+  const o = pickXI(my()).find(o => o.p === p), [a, b] = potEstimate(p).map(r20), pot = a === b ? `${a}` : `${a}–${b}`;
+  const role = o ? (o.slot === p.pos ? `<span class="good">a starter</span> (${POS_NAME[o.slot].toLowerCase()})` : `<span class="good">a starter</span>, playing out of position at ${POS_NAME[o.slot].toLowerCase()}`)
+    : p.acad ? "in the academy" : p.inj ? `not starting (injured, ${p.inj} wk${p.inj > 1 ? "s" : ""})` : `<span class="muted">not in the starting side</span>`;
+  return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>: rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>`;
+}
 // For a player offered to you: your weakest current starter in his position, to compare against.
 function weakestStarterLine(pid) {
   const p = G.players[pid]; if (!p) return "";
@@ -169,7 +176,7 @@ function weakestStarterLine(pid) {
   return `<p class="small ${d > 0 ? "good" : d < 0 ? "muted" : ""}">Your weakest starter there: <button class="lnk" data-act="player" data-id="${w.p.id}">${esc(w.p.name)}</button>${out}, ${w.p.age}, rated ${there} there${d > 0 ? ` (this player is ${d} better)` : d < 0 ? ` (${-d} better than this player)` : " (the same as this player)"}.</p>`;
 }
 function choiceHTML(x) {
-  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.data && x.data.pid != null && G.players[x.data.pid] && G.players[x.data.pid].club !== G.club && !(x.data.p && x.data.p.acad) && x.key !== "ySign" ? weakestStarterLine(x.data.pid) : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
+  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.data && x.data.pid != null && G.players[x.data.pid] ? (G.players[x.data.pid].club === G.club ? myPlayerLine(G.players[x.data.pid]) : x.key !== "ySign" ? weakestStarterLine(x.data.pid) : "") : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
 }
 function loansCard() {
   const c = my(), t = loanTerms(100000, 5);
