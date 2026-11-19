@@ -212,6 +212,7 @@ function pgSquad() {
   const outList = (G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id);
   SQT.out = ["Loaned out", () => false];
   SQT.stats = ["Stats", p => !p.acad || (p.s.app || 0) > 0];
+  const LS = loanSuggestions(c); SQT.sugloan = ["Suggested loans", p => LS.has(p.id)];
   const all = c.squad.map(P), ps = (tab === "out" ? outList : all.filter((SQT[tab] || SQT.first)[1])).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
   return `<section class="card"><div class="card-h"><h2>Squad</h2></div>
@@ -223,7 +224,7 @@ function pgSquad() {
     ${tab === "acad" && ps.length ? (() => { for (const id of [...ASEL]) if (!ps.some(p => p.id === id)) ASEL.delete(id); const n = ASEL.size;
       return `<div class="bulk"><button class="btn sm" data-act="aselall">${n === ps.length ? "Clear all" : "Select all"}</button><span class="small muted">${n ? `${n} selected` : "Tick players to act on several at once."}</span>
         ${n ? `<span class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-act="abulk" data-v="keep">Keep</button><button class="btn sm" data-act="abulk" data-v="unkeep">Don't keep</button><button class="btn sm" data-act="abulk" data-v="promote">Pro contract</button><button class="btn sm danger" data-act="abulk" data-v="release">Release</button></span>` : ""}</div>`; })() : ""}
-    ${ps.length && tab === "stats" ? squadStats(c, ps, xi) : ps.length ? `${sortTable("squad-" + tab, [
+    ${ps.length && tab === "sugloan" ? loanSuggestTable(c, ps, LS) : tab === "sugloan" ? `<p class="muted">No young player with that kind of potential is short of games right now.</p>` : ps.length && tab === "stats" ? squadStats(c, ps, xi) : ps.length ? `${sortTable("squad-" + tab, [
       ...(tab === "acad" ? [{ k: "sel", l: "✓", f: p => `<input type="checkbox" data-act="asel" data-id="${p.id}" ${ASEL.has(p.id) ? "checked" : ""} aria-label="Select ${esc(p.name)}">` }] : []),
       { k: "name", l: "Player", left: true, v: p => p.name, f: p => `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> ${xi.has(p.id) ? '<span class="chip xi" title="First-choice XI">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.unsettled > 0 ? '<span class="chip sus" title="Unsettled">UNS</span>' : ""}${p.req ? '<span class="chip req" title="Has asked to leave">OUT</span>' : ""}${p.agreed && CL(p.agreed.club) ? `<span class="chip req" title="Sold: joins ${esc(CL(p.agreed.club).name)} when the window opens">SOLD</span>` : ""}${!p.acad && !isReg(p, c) && !(p.loan && p.loan.from === c.id) ? '<span class="chip inj" title="Not registered: cannot play">NR</span>' : ""}${p.force ? '<span class="chip sus" title="Your pick: the manager must start him">OP</span>' : ""}${p.keep ? '<span class="chip list" title="Protected: kept and renewed">KP</span>' : ""}${p.nfs ? '<span class="chip xi" title="Not for sale">NFS</span>' : ""}${p.list ? '<span class="chip req" title="Transfer-listed">TL</span>' : ""}${p.loanList ? '<span class="chip hg" title="Available for loan">LL</span>' : ""}${favChip(p, c.id, true)}${p.loan ? '<span class="chip hg" title="On loan here">LN</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}<br><span class="small muted">${esc((archetypeOf(p) || [""])[0])}</span>` },
       { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
@@ -893,4 +894,35 @@ function oldObjRows(x) {
     rest.push(t);
   }
   if (rows.length) { x.rows = rows; if (rest.length) x.foot = rest.join(". ") + "."; }
+}
+
+/* Suggested loans: players 23 or under with potential at least a typical starter's in your division (your manager's
+   estimate) who neither start nor are first backup in their position. Games elsewhere will do them more good. */
+function loanSuggestions(c) {
+  const out = new Map(), form = FORMS[mgr().form || "4-4-2"] || [], xi = pickXI(c), inXI = new Set(xi.map(o => o.p.id));
+  const bar = TIER_XI[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) - 2;  // about a typical starter here
+  for (const pos of POS) {
+    const slots = form.filter(x => x === pos).length;
+    const depth = c.squad.map(P).filter(p => p && p.pos === pos && !p.acad && !(p.loan && p.loan.to === c.id)).sort((a, b) => b.ovr - a.ovr);
+    const bench = depth.filter(p => !inXI.has(p.id));  // the first of these is first backup (if the formation uses the position)
+    bench.forEach((p, i) => {
+      if (p.age > 23 || p.loan || p.agreed || (slots && i === 0)) return;
+      const [lo, hi] = potEstimate(p); if ((lo + hi) / 2 < bar) return;
+      out.set(p.id, { order: slots ? i + slots + 1 : null, why: slots ? `${ORD(i + slots + 1)} choice ${POS_NAME[pos].toLowerCase()}` : `your ${mgr().form || "4-4-2"} has no ${POS_NAME[pos].toLowerCase()}` });
+    });
+  }
+  return out;
+}
+function loanSuggestTable(c, ps, LS) {
+  return `<p class="small" style="margin-bottom:8px">Young players with the potential to start at this level who aren't starting or first backup: a season of games on loan will do them more good. Put them on the loan list and clubs at their level will make offers${c.tier >= 5 ? " (non-league loans run all season)" : " while a window is open"}.</p>
+  ${sortTable("squad-sugloan", [
+    { k: "name", l: "Player", left: true, v: p => p.name, f: p => `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${p.loanList ? ' <span class="chip acad">LOAN LIST</span>' : ""}` },
+    { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos), f: p => `<span class="pos">${p.pos}</span>` },
+    { k: "age", l: "Age", r: true, v: p => p.age, f: p => p.age },
+    { k: "ovr", l: "Rating", v: p => p.ovr, f: p => rating(p.ovr) },
+    { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
+    { k: "depth", l: "Place in the side", left: true, v: p => LS.get(p.id).order ?? 99, f: p => `<span class="small">${esc(LS.get(p.id).why)}</span>` },
+    { k: "app", l: "Apps", r: true, v: p => p.s.app || 0, f: p => p.s.app || 0 },
+    { k: "act", l: "", f: p => `<button class="btn sm ${p.loanList ? "" : "primary"}" data-act="sugloan" data-id="${p.id}">${p.loanList ? "Take off loan list" : "Put on loan list"}</button>` },
+  ], ps, { sort: { k: "pot", d: -1 } })}`;
 }
