@@ -82,7 +82,7 @@ const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier
 const BUILD_SQUEEZE = { sugar: 1, celebrity: .95, gambler: .95, crypto: .95, hostile: .95, multiclub: .9, meddler: .9, explayer: .88, dynasty: .88, moneyball: .85, local: .85, academy: .85, fanowned: .8, developer: .8, absentee: .75, stripper: .7 };
 const squeeze = c => c.build ? BUILD_SQUEEZE[(c.own || {}).style] ?? .85 : 1;
 // Every week, AI building work moves on, the same as yours.
-function boostWeek() { if (G.phase !== "season") return; for (const c of G.clubs) { if (c.bounce > 0) c.bounce--; if (c.compl > 0) c.compl--; } }
+function boostWeek() { if (G.phase !== "season") return; for (const c of G.clubs) { if (c.bounceW) delete c.bounceW; else if (c.bounce > 0) c.bounce--; if (c.compl) delete c.compl; } }
 function aiBuildWeek() { boostWeek(); for (const c of G.clubs) if (c.build && c.build.left != null && !c.gone && --c.build.left <= 0) aiMoveIn(c); }
 function aiMoveIn(c) {
   const b = c.build, old = c.cap; c.build = null;
@@ -260,7 +260,7 @@ function ownersCheck(w) {
   for (const k of LG_KEYS) {
     const t = table(k), n = t.length;
     t.forEach((r, i) => { const c = CL(r.id); if (!isMine(c)) c.push = i < Math.max(2, Math.round(n * .25)); if (isMine(c) || i < n * .66 || !c.own) return;
-      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); c.bounce = 6; if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
+      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); newBounce(c, true); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
   }
 }
 /* Sponsors: a celebrity or billionaire owner nearby hoovers up local sponsorship. */
@@ -326,8 +326,6 @@ function aiListings() {
    - Breakouts and slumps: a few players suddenly get much better (and their ceiling rises); a few fall off a cliff. */
 const titlesRecent = (c, n = 3) => (c.trophies || []).filter(t => t[1] === "Premier Division" && t[0] >= G.year - n).length;
 function diversitySummer() {
-  // Champions' complacency: last season's champions of every league start the new one a little flat.
-  for (const c of G.clubs) if (!c.gone && (c.trophies || []).some(t => t[0] >= G.year - 1 && LG_KEYS.some(k => LEAGUES[k].name === t[1]))) { c.compl = 10; if (isMine(c)) news("Champions: the manager warns the squad against complacency. Expect a slow start."); }
   // An ageing core: a team whose starters average 30+ is warned about (yours) or reported (rivals in your league).
   for (const c of G.clubs) { if (c.gone || c.abroad || !(c.lg === my().lg || isMine(c))) continue; const a = xiAge(c);
     if (a >= 30) news(isMine(c) ? `Your manager warns that the starting side is ageing (average ${a.toFixed(1)}): the core will decline together unless it's refreshed.` : `${c.name}'s starting side is ageing (average ${a.toFixed(1)}).`, isMine(c)); }
@@ -378,8 +376,10 @@ const spendRolling = (c, net, inc) => { const h = (c.psr || []).slice(-2).concat
 function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.psr || []).length >= 2 ? spendPenalty(c.tier, r.N, r.I) : 0;  // judged once three seasons are on record
   c.psr = pen ? [] : (c.psr || []).concat([[Math.round(net), Math.round(inc)]]).slice(-3);  // a punished club starts afresh
   return { pen, ratio: r.ratio }; }
-// A team's lift or dip this week: a new manager's bounce, champions' complacency early in a season.
-const clubBoost = c => (c.bounce > 0 ? 1.5 : 0) - (c.compl > 0 ? 1.2 : 0);
+// A new manager's first four weeks: usually a lift, but about one time in four the players take against him and it's a dip.
+const newBounce = (c, afterGames) => { c.bounce = 4; if (afterGames) c.bounceW = true;  // appointed after this week's games: the count starts next week
+  c.bounceS = R() < .25 ? -1 : 1; };
+const clubBoost = c => c.bounce > 0 ? 1.5 * (c.bounceS || 1) : 0;
 const inEurope = c => Object.values(G.cont || {}).some(K => (K.teams || []).includes(c.id));
 // The starting XI's average age, and whether it's an ageing core.
 const xiAge = c => avg(pickXI(c).map(o => o.p.age));
