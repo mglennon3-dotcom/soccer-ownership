@@ -14,9 +14,11 @@ function demandWage(p, c) {
    is nearest his rating. He'll drop one division below it (two once he's 31 and winding down), but no further,
    whatever the money. Free agents included. */
 const naturalTier = p => { let best = 7; for (let t = 1; t <= 7; t++) if (Math.abs(TIER_LVL[t] - p.ovr) < Math.abs(TIER_LVL[best] - p.ovr)) best = t; return best; };
-/* How far down he'll go: one division (two once he's 31), less the further he stands above his own division's average
-   starter. A 15 or better won't leave the Premier until he's 31, and a 16 or better won't drop at all. */
-const joinRoom = p => { const t = naturalTier(p), over = Math.max(0, p.ovr - TIER_XI[t]); return Math.max(0, (p.age >= 31 ? 2 : 1) - Math.floor(over / 3)); };
+/* How far down he'll go. In his prime (under 31) a player good enough to start for an average side in his division won't
+   drop out of it at all; a weaker one will go one division lower. From 31 he'll go two lower, less the further he stands
+   above his division's average starter: a 15 one division, a 16 or better not at all. */
+const joinRoom = p => { const t = naturalTier(p), over = p.ovr - TIER_XI[t];
+  return p.age < 31 ? (over >= -1 ? 0 : 1) : Math.max(0, 2 - Math.floor(Math.max(0, over) / 3)); };
 const willJoin = (p, c) => c.abroad || c.tier - naturalTier(p) <= joinRoom(p);
 // xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once.
 function askingFee(p, xi) {
