@@ -209,6 +209,7 @@ function endSeason() {
   for (const k of LG_KEYS) { const ids = G.leagues[k].clubs, n = ids.length; ids.forEach(id => { const c = CL(id); const prev = table2(k, id, n); c.rep = clamp(Math.round(c.rep + (TIER_REP[c.tier] + prev - c.rep) * .3), 1, 99); }); }
   (G.repLog ||= []).push([G.year, my().rep]);  // the prestige tracker's season-by-season line
   ownersSummer();
+  diversitySummer();
   yearTurnover();
   acadDropouts(mine);
   feedersSummer();

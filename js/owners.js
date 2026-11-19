@@ -91,7 +91,7 @@ function aiMoveIn(c) {
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
-function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8; }
+function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0); }
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
@@ -148,7 +148,7 @@ const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(
 const TIER_LOSS = [0, .12, .52, .42, .37, .42, .32, .27];
 const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l < 0) return l;
   return TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0); };
-function aiBudget(c) { return aiAfford(c) * squeeze(c) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
+function aiBudget(c) { return aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageAt(p.ovr, c.tier) : 0; });
 const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.5);
@@ -303,5 +303,52 @@ function aiListings() {
     for (const id of c.squad) { const p = P(id); if (p.acad || p.loan) continue;
       const spare = !xi.has(p.id) && (p.ovr < c.lvl - 5 || p.age >= 31);
       p.list = spare ? R() < .5 : xi.has(p.id) ? R() < S.sells * .03 : false; }
+  }
+}
+
+/* ---------- keeping the top flight open ----------
+   Each summer:
+   - Stars at a dominant club (two of the last three titles) start wanting a new challenge: some move to a rival or
+     abroad. Yours ask for a transfer.
+   - Rivals of a dominant club spend to catch up: ambitious owners in the top half of the Premier push for two seasons.
+   - Foreign players in their late twenties and thirties sometimes want to go home. AI clubs sell them to a club in
+     their country; yours ask you.
+   - Breakouts and slumps: a few players suddenly get much better (and their ceiling rises); a few fall off a cliff. */
+const titlesRecent = (c, n = 3) => (c.trophies || []).filter(t => t[1] === "Premier Division" && t[0] >= G.year - n).length;
+function diversitySummer() {
+  const top = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === 1), dyn = top.filter(c => titlesRecent(c) >= 2);
+  // Stars want a new challenge.
+  for (const c of dyn) {
+    const stars = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.age >= 23 && p.age <= 31 && rating200(p.ovr) >= 150).sort((a, b) => b.ovr - a.ovr).slice(0, 5);
+    for (const p of stars) {
+      if (R() > .22) continue;
+      if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
+      const to = pick(G.clubs.filter(x => !x.gone && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2)));
+      if (!to) continue;
+      moveTo(p, to); p.wage = aiWage(p, to); p.yrs = ri(2, 4);
+      if (c.lg === my().lg || to.lg === my().lg || p.ovr >= 85) news(`${p.name} leaves champions ${c.name} for ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""}, looking for a new challenge.`);
+    }
+  }
+  // Rivals spend to catch up.
+  if (dyn.length) { const t = table("L1"); t.slice(0, 10).forEach(r => { const x = CL(r.id); if (isMine(x) || dyn.includes(x) || ownStyle(x).spend < 0) return; if (R() < .5) { x.chase = 2; if (x.lg === my().lg) news(`${x.name}'s owner promises to spend whatever it takes to end ${dyn[0].name}'s run.`); } }); }
+  for (const c of G.clubs) if (c.chase) c.chase--;
+  // Going home.
+  for (const c of G.clubs) {
+    if (c.gone || c.abroad) continue;
+    for (const p of c.squad.map(P)) {
+      if (!p || p.acad || p.loan || p.nat === "ENG" || p.age < 28 || R() > .05) continue;
+      const home = G.clubs.filter(x => x.abroad && x.country === p.nat && Math.abs(x.lvl - p.ovr) < 12);
+      if (isMine(c)) { if (home.length && !G.inbox.some(m => m.key === "homeGo" && !m.done)) addChoice("homeGo", `${p.name} wants to go home`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He misses ${NAT_NAME[p.nat] || "home"} and ${pick(home).name} want him. They'd pay about ${money(valueOf(p) * .8)}.`, ["Let him go", "Persuade him to stay"], { pid: p.id, to: pick(home).id }, 0); continue; }
+      if (!home.length) continue;
+      const to = pick(home); moveTo(p, to); p.wage = aiWage(p, to); p.yrs = ri(1, 3);
+      if (c.lg === my().lg && p.ovr >= TIER_LVL[c.tier]) news(`${p.name} leaves ${c.name} to go home to ${to.name} in ${COUNTRY[to.country].name}.`);
+    }
+  }
+  // Breakouts and slumps.
+  for (const p of Object.values(G.players)) {
+    if (p.club === -2) continue;
+    const r = R(), up = (p.age <= 27 ? .03 : p.age <= 31 ? .012 : .004) * (p.ovr >= 80 ? .5 : 1), down = p.age >= 29 ? .03 + (p.age - 29) * .01 : .012;
+    if (r < up) { const d = ri(3, 7); shiftPlayer(p, d); p.pot = Math.min(100, Math.max(p.pot, p.ovr) + ri(2, 8)); if (p.club === G.club) news(`${p.name} has had a breakthrough year: he's suddenly much better (now rated ${r20(p.ovr)}), and the coaches think there's more to come.`, true); }
+    else if (r < up + down) { const d = ri(3, 8); shiftPlayer(p, -d); p.pot = Math.max(p.ovr, p.pot - d); if (p.club === G.club) news(`${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true); }
   }
 }

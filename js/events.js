@@ -51,6 +51,10 @@ DECIDE.acadLeave = (m, i) => { const p = G.players[m.data.pid], c = my(); if (!p
   const y = staffOf("youth"), ok = R() < (y ? .35 + staffAvg(y) / 200 : .25);
   if (ok) { p.stayY = G.year; news(`${y ? y.name : "The coaches"} talk${y ? "s" : ""} ${p.name} round: he'll give it another year.`); }
   else { news(`${p.name} can't be persuaded.`); acadLeave(p, c); } };
+// A foreign player wants to go home: sell him to the club in his country, or try to keep him (he may sulk).
+DECIDE.homeGo = (m, i) => { const p = G.players[m.data.pid], to = CL(m.data.to), c = my(); if (!p || p.club !== c.id) return;
+  if (i === 0 && to) { const fee = Math.round(valueOf(p) * .8 / 1000) * 1000; logMove("out", p, { club: to.name, fee, wage: p.wage, by: "you" }); moveTo(p, to); p.wage = aiWage(p, to); earn("sales", fee); news(`${p.name} goes home to ${to.name} for ${money(fee)}.`, true); return; }
+  if (R() < .5) news(`${p.name} agrees to stay for now.`); else { p.unsettled = Math.max(p.unsettled || 0, 10); news(`${p.name} is unhappy at being kept from going home.`, true); } };
 // Away days (see club.js): helping supporters travel, and refunds after a heavy away defeat.
 DECIDE.awayHelp = (m, i) => { const c = my(), k = fanCare(c);
   if (i === 0) { spend("travel", m.data.cost); moodHit(c, 2.5 * k); trustRel(6); news("The club pays for supporters' coaches to the away game. The trust is delighted."); }
