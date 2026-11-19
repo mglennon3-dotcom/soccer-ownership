@@ -139,7 +139,7 @@ const jobRate = role => staffWage(role, jobRep());
 function effDemand(s) {
   const mine = s === staffOf(s.role), above = !mine && s.emp != null && empDrop(s) >= 1;
   // Quality and dropping below his level together come to at most 2.5× the going rate.
-  let base = above ? s.demand * levelPremium(s) : Math.min(s.demand, jobRate(s.role) * Math.min(2.5, clamp(1 + (s.rep - jobRep()) / 40, 1, 2.5) * levelPremium(s)));
+  let base = above ? s.demand * levelPremium(s) : Math.min(s.demand, jobRate(s.role) * skillPayF(staffR200(s), jobRep()) * Math.min(2.5, clamp(1 + (s.rep - jobRep()) / 40, 1, 2.5) * levelPremium(s)));
   // The manager is always the best-paid job at the club: the others are capped at the going rate for a manager.
   if (s.role !== "manager" && !above) base = Math.min(base, jobRate("manager") * .9);
   return base * (s.emp != null && !mine ? 1.15 : 1) * dropPremium(s);

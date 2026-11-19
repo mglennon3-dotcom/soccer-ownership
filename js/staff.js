@@ -48,6 +48,11 @@ const partTime = rep => repLevel(rep) < 58;
 const REP_R200 = [[0, 0], [11, 20], [20, 40], [28, 50], [36, 60], [45, 70], [58, 100], [78, 130], [99, 170]];
 const STAFF_PAYF = [[0, 1], [28, 1.15], [45, 1.3], [78, 1.3], [99, .52]];
 const interpAt = (T, x) => { if (x <= T[0][0]) return T[0][1]; for (let i = 1; i < T.length; i++) { const [a, u] = T[i - 1], [b, v] = T[i]; if (x <= b) return u + (v - u) * (x - a) / (b - a); } return T[T.length - 1][1]; };
+/* Skill moves pay: against what's usual for his reputation (on the 200 scale), each 10 points better adds about a
+   quarter, each 10 worse takes about a fifth off, between about half and double. */
+const staffR200 = s => to20(staffEq(staffAvg(s))) * 10;
+const skillPayF = (r200, rep) => clamp(Math.pow(1.25, (r200 - interpAt(REP_R200, clamp(rep, 0, 99))) / 10), .5, 2);
+const staffMarket = s => staffWage(s.role, s.rep) * skillPayF(staffR200(s), s.rep);
 function staffWage(role, rep) {
   const r = interpAt(REP_R200, clamp(rep, 0, 99)); let wk = 500000;
   for (let i = 1; i < PAY200.length; i++) { const [a, x] = PAY200[i - 1], [b, y] = PAY200[i]; if (r <= b) { wk = x * Math.pow(y / x, (r - a) / (b - a)); break; } }
@@ -65,7 +70,7 @@ function genStaff(role, rep) {
   // Room to grow: under 40, from his best attribute up by (40 - age) x 0.8-2, plus a little luck; a rare prospect more.
   if (age < 40) { const top = Math.max(...Object.values(s.at)); s.ceil = clamp(rh(top + (40 - age) * rf(.8, 2) + Math.abs(normal()) * 8 + (R() < .04 ? 15 : 0)), top, 99); }
   if (role === "manager") s.form = pick(FORM_KEYS);
-  s.demand = Math.round(staffWage(role, rep) * rf(.85, 1.2) / 1000) * 1000;
+  s.demand = Math.round(staffMarket(s) * rf(.85, 1.2) / 1000) * 1000;
   s.tol = clamp(Math.round(15 + R() * 80), 5, 100);
   return s;
 }
@@ -244,7 +249,7 @@ function candidates(role) {
   const P = (G.pools ||= {}), now = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week);
   let U = P[role];
   if (!U || !U.u || U.u < 2) U = P[role] = { t: now, u: 2, list: [] };
-  if (!U.pay3) { U.pay3 = true; for (const s of U.list) s.demand = Math.round(staffWage(role, s.rep) * rf(.85, 1.2) / 1000) * 1000; }  // older saves (and the 0.30 redraw: more young coaches)
+  if (!U.pay3) { U.pay3 = true; for (const s of U.list) s.demand = Math.round(staffMarket(s) * rf(.85, 1.2) / 1000) * 1000; }  // older saves (and the 0.30 redraw: more young coaches)
   if (now - U.t >= 6 || U.list.length < STAFF_UNIVERSE) {
     if (now - U.t >= 6) U.list = U.list.filter(s => s.age < 68 && R() > .1);
     while (U.list.length < STAFF_UNIVERSE) U.list.push(genStaff(role, staffLevel()));
