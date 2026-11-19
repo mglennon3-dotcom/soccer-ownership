@@ -10,14 +10,24 @@
    and standing drift a little each summer, and their squads are kept up to strength. */
 "use strict";
 
-const FOREIGN = {  // [clubs, standard of the best club (out of 100), Champions Cup places, Shield places]; the standards are re-set against England each summer (FOREIGN_RANK)
-  ESP: [12, 87, 5, 5], GER: [12, 86, 5, 5], ITA: [12, 86, 5, 5], FRA: [10, 84, 4, 4], POR: [9, 83, 3, 4], NED: [8, 82, 3, 3], BEL: [8, 81, 3, 3],
+/* The other leagues, in the order of the continental ranking (England first; then Italy, Spain, Germany, France,
+   Portugal, Belgium, the Netherlands, Turkey, Greece, Czechia, Poland, Norway, Denmark, Cyprus, Switzerland, Austria,
+   Hungary, Croatia, Sweden, Scotland, Romania, Ukraine). [clubs, starting standard of the best club, Champions Cup places,
+   Shield places]: the standards are re-set against England each summer (FOREIGN_RANK). The smaller leagues carry only
+   the clubs that matter in Europe and in the market. */
+const FOREIGN = {
+  ITA: [12, 86, 4, 2], ESP: [12, 87, 4, 2], GER: [12, 86, 4, 2], FRA: [10, 84, 3, 2], POR: [9, 83, 2, 2], BEL: [8, 81, 2, 2], NED: [8, 82, 2, 2],
+  TUR: [6, 80, 1, 1], GRE: [5, 78, 1, 1], CZE: [5, 77, 1, 1], POL: [5, 77, 1, 1], SCA: [5, 76, 1, 1], DEN: [5, 76, 1, 1],
+  CYP: [4, 75, 0, 1], SUI: [5, 75, 0, 1], AUT: [5, 75, 0, 1], HUN: [4, 74, 0, 1], CRO: [4, 74, 0, 1], SWE: [5, 74, 0, 1], SCO: [5, 74, 1, 1], ROU: [4, 73, 0, 1], UKR: [4, 73, 0, 1],
 };
 /* Where each league sits against the Premier Division: [the English rank its best club matches, ranks per club below it].
-   Spain and Germany are on a par (their best is as good as England's best, and they spread across the whole division);
-   France and Italy a step down (their best is about the 3rd-6th best in England); Portugal, the Netherlands and Belgium
-   match the bottom half of the Premier Division. Ranks past 20 run on below the Premier Division's weakest side. */
-const FOREIGN_RANK = { ESP: [0, 1.7], GER: [0, 1.7], ITA: [3.5, 1.5], FRA: [4, 1.7], POR: [9.5, 1.6], NED: [10, 1.7], BEL: [11, 1.6] };
+   Italy, Spain and Germany are on a par (their best is as good as England's best, spread across the whole division);
+   France a step down (its best about the 4th-6th best in England); Portugal, Belgium and the Netherlands match the
+   bottom half of the Premier Division; then the rest by the ranking. Ranks past 20 run on below the Premier Division's
+   weakest side (about the First Division's best). */
+const FOREIGN_RANK = { ITA: [0, 1.7], ESP: [0, 1.7], GER: [.5, 1.7], FRA: [4, 1.7], POR: [9.5, 1.6], BEL: [10.5, 1.6], NED: [11, 1.6],
+  TUR: [13, 1.8], GRE: [15, 2], CZE: [16, 2], POL: [17, 2], SCA: [18, 2], DEN: [18.5, 2], CYP: [20, 2.2], SUI: [20, 2], AUT: [20.5, 2],
+  HUN: [21.5, 2.2], CRO: [21.5, 2.2], SWE: [22, 2], SCO: [22, 3], ROU: [23, 2.2], UKR: [23, 2.2] };
 const CONT = {
   CC: { name: "Champions Cup", short: "Champions Cup", join: 15e6, win: 2.8e6, draw: .9e6, rounds: [9.6e6, 10.6e6, 12.5e6, 15.5e6], champ: 4.5e6 },
   CS: { name: "Continental Shield", short: "Shield", join: 3.6e6, win: .6e6, draw: .2e6, rounds: [1.2e6, 1.8e6, 2.8e6, 4.6e6], champ: 4e6 },
@@ -35,19 +45,28 @@ const foreignCap = lvl => Math.round(Math.max(15000 + (lvl - 70) * 2800, 15000 *
 const foreignFans = lvl => Math.round(Math.max(12000 + (lvl - 70) * 2600, 12000 * Math.pow(1.08, lvl - 70), 2000) * rf(.8, 1.2));
 function makeForeign() {
   G.foreign = [];
-  for (const [code, [n, top]] of Object.entries(FOREIGN)) {
-    const K = COUNTRY[code];
-    for (let i = 0; i < n; i++) {
-      const t = foreignTown(K), lvl = top - i * 2.2 + normal() * .8, rep = clamp(Math.round(55 + (lvl - 70) * 2.2), 30, 98);
-      const c = { id: G.clubs.length, name: pick(K.fmt).replace("{t}", t), town: t, short: stripAcc(t).replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase(), country: code,
-        abroad: true, gone: true, lg: null, tier: 1, half: null, region: pick(K.regions)[0], rep, lvl, color: CLUB_COLORS[G.clubs.length % CLUB_COLORS.length],
-        coach: aiCoach(rep), squad: [], train: clamp(Math.round(lvl / 10), 4, 10), acadLvl: clamp(Math.round(lvl / 11), 3, 10),
-        cap: foreignCap(lvl), fans: foreignFans(lvl), founded: G.year - ri(60, 130), trophies: [] };
-      c.base = lvl; c.own = newOwner(c);
-      G.clubs.push(c); G.foreign.push(c.id);
-    }
-  }
+  for (const code of Object.keys(FOREIGN)) makeForeignLeague(code);
   foreignLevels(true); for (const id of G.foreign) foreignSquad(CL(id));
+}
+function makeForeignLeague(code) {
+  const K = COUNTRY[code], [n, top] = FOREIGN[code], made = [];
+  for (let i = 0; i < n; i++) {
+    const t = foreignTown(K), lvl = top - i * 2.2 + normal() * .8, rep = clamp(Math.round(55 + (lvl - 70) * 2.2), 30, 98);
+    const c = { id: G.clubs.length, name: pick(K.fmt).replace("{t}", t), town: t, short: stripAcc(t).replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase(), country: code,
+      abroad: true, gone: true, lg: null, tier: 1, half: null, region: pick(K.regions)[0], rep, lvl, color: CLUB_COLORS[G.clubs.length % CLUB_COLORS.length],
+      coach: aiCoach(rep), squad: [], train: clamp(Math.round(lvl / 10), 4, 10), acadLvl: clamp(Math.round(lvl / 11), 3, 10),
+      cap: foreignCap(lvl), fans: foreignFans(lvl), founded: G.year - ri(60, 130), trophies: [] };
+    c.base = lvl; c.own = newOwner(c);
+    G.clubs.push(c); G.foreign.push(c.id); made.push(c);
+  }
+  return made;
+}
+// 0.72: a world from before gains the newer leagues, set against England as it is now and given squads.
+function addForeignLeagues() {
+  const have = new Set((G.foreign || []).map(id => CL(id).country)), made = [];
+  for (const code of Object.keys(FOREIGN)) if (!have.has(code)) made.push(...makeForeignLeague(code));
+  if (!made.length) return;
+  foreignLevels(); for (const c of made) { c.lvl = c.base + normal() * .6; c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98); c.cap = foreignCap(c.lvl); c.fans = foreignFans(c.lvl); foreignSquad(c); }
 }
 /* Each foreign club's standard, from the English Premier Division as it is now: its clubs' average starters, best first
    (carried on below the 20th at a step a club), read off at the league's ranks. A foreign club's starters come out a
@@ -55,12 +74,12 @@ function makeForeign() {
 function foreignLevels(snap) {
   const e = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === 1 && c.squad.length >= 11).map(c => avg(pickXI(c).map(o => o.p.ovr))).sort((a, b) => b - a);
   const E = e.length >= 10 ? e : Array.from({ length: 20 }, (_, k) => TIER_XI[1] + 7 - k * .75);
-  const at = r => { const n = E.length - 1; if (r <= n) { const a = Math.floor(r), b = Math.min(n, a + 1); return E[a] + (E[b] - E[a]) * (r - a); } return E[n] - (r - n) * 1.4; };
+  const at = r => { const n = E.length - 1; if (r <= n) { const a = Math.floor(r), b = Math.min(n, a + 1); return E[a] + (E[b] - E[a]) * (r - a); } return E[n] - (r - n) * .8; };
   const fc = (G.foreign || []).map(CL).filter(c => c && c.squad.length >= 11);
   if (fc.length && !snap) G.fOff = (G.fOff ?? 1.5) * .5 + avg(fc.map(c => avg(pickXI(c).map(o => o.p.ovr)) - c.lvl)) * .5;
   for (const [code, [top, step]] of Object.entries(FOREIGN_RANK)) {
     const cs = (G.foreign || []).map(CL).filter(c => c && c.country === code).sort((a, b) => (b.base ?? b.lvl) - (a.base ?? a.lvl));
-    cs.forEach((c, i) => { c.base = clamp(at(top + i * step) - (G.fOff ?? 1.5), 50, 95); if (snap) c.lvl = c.base + normal() * .6; });
+    cs.forEach((c, i) => { c.base = clamp(at(top + i * step) - (G.fOff ?? 1.5), 50, 95); if (snap) { c.lvl = c.base + normal() * .6; c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98); c.cap = foreignCap(c.lvl); c.fans = foreignFans(c.lvl); c.coach = aiCoach(c.rep); } });
   }
 }
 /* Money abroad: a summer transfer budget by size, plus half of last season's sales (the same rule as at home). */

@@ -694,8 +694,8 @@ function interestOf(p) {
   return m >= .08 && !down ? { w: "Keen", k: "keen", cls: "good", ask } : m >= 0 ? { w: "Open", k: "open", cls: "", ask } : { w: "For more money", k: "sign", cls: "warn", ask };
 }
 // Where a player plays (or, for a free agent, where he's from): the country chips on the market filter.
-const MKT_COUNTRIES = ["ENG", "ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "ROW"];
-const playerCountry = p => p.club >= 0 ? (CL(p.club).abroad ? CL(p.club).country : "ENG") : MKT_COUNTRIES.includes(p.nat) ? p.nat : "ROW";
+const MKT_COUNTRIES = ["ENG", "ITA", "ESP", "GER", "FRA", "POR", "BEL", "NED", "EUR", "ROW"];  // EUR: the smaller European leagues
+const playerCountry = p => { const k = p.club >= 0 ? (CL(p.club).abroad ? CL(p.club).country : "ENG") : p.nat; return MKT_COUNTRIES.includes(k) ? k : COUNTRY[k] ? "EUR" : "ROW"; };
 function pgMarket() {
   const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c), xiCache = {}, off = new Set(F.off || []);
   const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"]];
@@ -735,7 +735,7 @@ function pgMarket() {
     ${F.tab === "loans" && partners().length ? `<div class="offer" style="display:block;margin-bottom:12px"><b>From your partner clubs</b>${partners().map(pt => { const x = CL(pt.id); if (!x) return ""; const av = partnerLendable(x, c);
       return `<div style="margin-top:8px"><span class="small">${crest(x, 14)} <b>${esc(x.name)}</b> <span class="muted">${esc(clubWhere(x))} · ${av.length} player${av.length === 1 ? "" : "s"}</span></span>${av.length ? partnerLoanRows(x, av, 6) : `<p class="small muted">No young players at your level yet.</p>`}</div>`; }).join("")}
       <p class="small muted" style="margin-top:6px">Partner clubs are keener to lend to you: they ask you to pay less of the wages. Tap a player to ask.</p></div>` : ""}
-    <div class="cty-tog" role="group" aria-label="Countries to search"><span class="small muted">Countries</span>${MKT_COUNTRIES.map(k => { const on = !off.has(k); return `<button class="cty ${on ? "on" : ""}" data-act="mcty" data-k="${k}" aria-pressed="${on}">${k === "ROW" ? "Rest of world" : esc(COUNTRY[k].name)}</button>`; }).join("")}
+    <div class="cty-tog" role="group" aria-label="Countries to search"><span class="small muted">Countries</span>${MKT_COUNTRIES.map(k => { const on = !off.has(k); return `<button class="cty ${on ? "on" : ""}" data-act="mcty" data-k="${k}" aria-pressed="${on}">${k === "ROW" ? "Rest of world" : k === "EUR" ? "Rest of Europe" : esc(COUNTRY[k].name)}</button>`; }).join("")}
       <span class="cty-all small"><button class="lnk" data-act="mctyall" data-v="1" ${off.size ? "" : "disabled"}>Select all</button> · <button class="lnk" data-act="mctyall" data-v="0" ${off.size === MKT_COUNTRIES.length ? "disabled" : ""}>Unselect all</button></span></div>
     <p class="small muted" style="margin-bottom:8px">${pool.length.toLocaleString("en-GB")} player${pool.length === 1 ? "" : "s"} match${pool.length === 1 ? "es" : ""}${pool.length > 200 ? ": showing the first 200 in the order you sort by" : ""}.${F.tab === "loans" ? " Young players out of their club's first team: ask to borrow one from his card, and you pay half his wages to the end of the season." : ""}</p>
     ${sortTable("market-" + F.tab, [

@@ -196,8 +196,12 @@ const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "ho
 const TIER_XI = [0, 82.5, 73, 66.8, 61.8, 50, 40, 30];
 function levelCheck() { G.lvlAdj ||= [0, 0, 0, 0, 0, 0, 0, 0];
   for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t); if (!cs.length) continue;
-    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -14, 12); }
-  wageCheck(); }
+    // Judged on the season just played (sampled in midwinter, after the summer's comings and goings), not on squads
+    // the morning after the season, before the bigger clubs have taken their pick.
+    const now = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))), mid = (G.xiMid || [])[t], xi = mid ? (now + mid * 2) / 3 : now;
+    G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -14, 12); }
+  G.xiMid = null; wageCheck(); }
+function levelSample() { G.xiMid = [0]; for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t); G.xiMid[t] = cs.length ? avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))) : 0; } }
 /* Wage inflation, division by division: when money pours in (TV, crowds, transfer fees) players' pay rises with it, and
    when a division is bleeding it falls. Each summer AI pay in a division moves so that about three clubs in ten finish
    a season in the black. */
