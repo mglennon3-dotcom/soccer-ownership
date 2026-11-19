@@ -425,3 +425,12 @@ function breakSlump(p) {
     if (p.club === G.club) news(r < up ? `${p.name} has had a breakthrough year: he's suddenly much better (now rated ${r20(p.ovr)}), and the coaches think there's more to come.` : `${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true);
   }
 }
+/* An AI club's transfer budget for the season (an estimate from its books): a share of income set by how much its owner
+   will lose, squeezed while it builds and cut back when ordered to; rich spenders add some of their own fortune, and an
+   owner who has made a statement signing doubles it. */
+function aiTransferBudget(c) {
+  if (c.abroad || !c.own) return 0;
+  const S = ownStyle(c), inc = aiIncome(c), lt = Math.max(0, spendTarget(c));
+  const own = S.spend > 0 ? Math.min(c.own.wealth * .02 * S.spend / 6, inc * 2) : 0;
+  return Math.round((inc * (.12 + lt * .6) + own) * squeeze(c) * (c.cut ? .5 : 1) * (c.splash ? 2 : 1) / 1e4) * 1e4;
+}
