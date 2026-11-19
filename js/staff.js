@@ -99,7 +99,7 @@ function hire(s, wage, yrs) {
   hiredExPro(s);
   (G.filled ||= {})[s.role] = true; if (G.pools && G.pools[s.role]) G.pools[s.role].list = G.pools[s.role].list.filter(x => x !== s);
   news(`${s.name} is appointed ${ROLES_STAFF[s.role].l.toLowerCase()} on ${money(wage)} a year for ${yrs} year${yrs > 1 ? "s" : ""}.`, true);
-  if (s.role === "manager") c.form = s.form;
+  if (s.role === "manager") { c.form = s.form; if (G.phase === "season") c.bounce = 6; }
 }
 // Releasing staff early costs half their remaining contract.
 const payoff = s => Math.round(s.wage * Math.max(0, s.yrs - (G.phase === "season" ? G.week / 46 : 0)) * .5);

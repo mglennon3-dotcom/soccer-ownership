@@ -82,7 +82,8 @@ const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier
 const BUILD_SQUEEZE = { sugar: 1, celebrity: .95, gambler: .95, crypto: .95, hostile: .95, multiclub: .9, meddler: .9, explayer: .88, dynasty: .88, moneyball: .85, local: .85, academy: .85, fanowned: .8, developer: .8, absentee: .75, stripper: .7 };
 const squeeze = c => c.build ? BUILD_SQUEEZE[(c.own || {}).style] ?? .85 : 1;
 // Every week, AI building work moves on, the same as yours.
-function aiBuildWeek() { for (const c of G.clubs) if (c.build && c.build.left != null && !c.gone && --c.build.left <= 0) aiMoveIn(c); }
+function boostWeek() { if (G.phase !== "season") return; for (const c of G.clubs) { if (c.bounce > 0) c.bounce--; if (c.compl > 0) c.compl--; } }
+function aiBuildWeek() { boostWeek(); for (const c of G.clubs) if (c.build && c.build.left != null && !c.gone && --c.build.left <= 0) aiMoveIn(c); }
 function aiMoveIn(c) {
   const b = c.build, old = c.cap; c.build = null;
   (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = b.cap; c.site = b.site; c.moved = { y: G.year, km: b.km, from: old }; c.opened = G.year;
@@ -147,17 +148,23 @@ const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) - aiEstimate(
    ordering cuts.) */
 const TIER_LOSS = [0, .12, .52, .42, .37, .42, .32, .27];
 const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l < 0) return l;
-  return TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0); };
-function aiBudget(c) { return aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1); }
+  const t = TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0);
+  // In the four professional divisions the spending rule caps losses; reckless owners plan past it anyway.
+  return c.tier <= 4 && !["gambler", "crypto", "hostile"].includes(st) ? Math.min(t, SPEND_LIMIT - .05) : t; };
+function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1);
+  // The spending rule: in the professional divisions only reckless owners plan to lose more than it allows.
+  return c.tier <= 4 && !["gambler", "crypto", "hostile"].includes((c.own || {}).style) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b; }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageAt(p.ovr, c.tier) : 0; });
-const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.5);
+const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.25);
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
   const o = c.own, inc = aiIncome(c), cost0 = aiCosts(c), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
   c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net) };
-  if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));  // the principal comes down a little each year
+  if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));
+  { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
+    else if (r.ratio > SPEND_LIMIT - .15 && c.tier <= 4 && !["gambler", "crypto", "hostile"].includes(o.style)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
   if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { administration(c); c.debt = Math.round(c.debt * .4); return; }
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
@@ -247,10 +254,13 @@ function takeover(c) {
 /* Impatient owners sack managers mid-season when the team is in the bottom third. */
 function ownersCheck(w) {
   if (![10, 20, 30].includes(w)) return;
+  { const c = my(), f = c.fin, inc = ledgerIncome(f), net = inc - (ledgerCosts(f) - f.build - f.acad);
+    const r = spendRolling(c, net, inc);
+    if (w >= 20 && c.tier <= 4 && inc > 0 && r.ratio > SPEND_LIMIT) news(`Spending rule warning: counting this season so far, you've lost ${Math.round(r.ratio * 100)}% of your income over three seasons. Above 35% at the season's end, the club will be docked points (stadium, training ground and academy spending don't count).`, true); }
   for (const k of LG_KEYS) {
     const t = table(k), n = t.length;
     t.forEach((r, i) => { const c = CL(r.id); if (!isMine(c)) c.push = i < Math.max(2, Math.round(n * .25)); if (isMine(c) || i < n * .66 || !c.own) return;
-      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
+      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); c.bounce = 6; if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
   }
 }
 /* Sponsors: a celebrity or billionaire owner nearby hoovers up local sponsorship. */
@@ -316,6 +326,11 @@ function aiListings() {
    - Breakouts and slumps: a few players suddenly get much better (and their ceiling rises); a few fall off a cliff. */
 const titlesRecent = (c, n = 3) => (c.trophies || []).filter(t => t[1] === "Premier Division" && t[0] >= G.year - n).length;
 function diversitySummer() {
+  // Champions' complacency: last season's champions of every league start the new one a little flat.
+  for (const c of G.clubs) if (!c.gone && (c.trophies || []).some(t => t[0] >= G.year - 1 && LG_KEYS.some(k => LEAGUES[k].name === t[1]))) { c.compl = 10; if (isMine(c)) news("Champions: the manager warns the squad against complacency. Expect a slow start."); }
+  // An ageing core: a team whose starters average 30+ is warned about (yours) or reported (rivals in your league).
+  for (const c of G.clubs) { if (c.gone || c.abroad || !(c.lg === my().lg || isMine(c))) continue; const a = xiAge(c);
+    if (a >= 30) news(isMine(c) ? `Your manager warns that the starting side is ageing (average ${a.toFixed(1)}): the core will decline together unless it's refreshed.` : `${c.name}'s starting side is ageing (average ${a.toFixed(1)}).`, isMine(c)); }
   const top = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === 1), dyn = top.filter(c => titlesRecent(c) >= 2);
   // Stars want a new challenge.
   for (const c of dyn) {
@@ -352,3 +367,27 @@ function diversitySummer() {
     else if (r < up + down) { const d = ri(3, 8); shiftPlayer(p, -d); p.pot = Math.max(p.ovr, p.pot - d); if (p.club === G.club) news(`${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true); }
   }
 }
+
+/* ---------- the spending rule ----------
+   In the four professional divisions a club may lose at most 35% of its income in a season, however rich its owner.
+   Breaking it costs points next season: 4 for a loss up to half of income, 8 up to three-quarters, 12 beyond. */
+const SPEND_LIMIT = .35;
+const spendPenalty = (tier, net, inc) => { if (tier > 4 || net >= 0 || inc <= 0) return 0; const r = -net / inc; return r <= SPEND_LIMIT ? 0 : r <= .5 ? 4 : r <= .75 ? 8 : 12; };
+// Judged over the last three seasons together (as real rules are), so one bad year after relegation isn't fatal.
+const spendRolling = (c, net, inc) => { const h = (c.psr || []).slice(-2).concat([[net, inc]]), N = h.reduce((s, x) => s + x[0], 0), I = h.reduce((s, x) => s + x[1], 0); return { N, I, ratio: I > 0 ? Math.max(0, -N / I) : 0 }; };
+function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.psr || []).length >= 2 ? spendPenalty(c.tier, r.N, r.I) : 0;  // judged once three seasons are on record
+  c.psr = pen ? [] : (c.psr || []).concat([[Math.round(net), Math.round(inc)]]).slice(-3);  // a punished club starts afresh
+  return { pen, ratio: r.ratio }; }
+// A team's lift or dip this week: a new manager's bounce, champions' complacency early in a season.
+const clubBoost = c => (c.bounce > 0 ? 1.5 : 0) - (c.compl > 0 ? 1.2 : 0);
+const inEurope = c => Object.values(G.cont || {}).some(K => (K.teams || []).includes(c.id));
+// The starting XI's average age, and whether it's an ageing core.
+const xiAge = c => avg(pickXI(c).map(o => o.p.age));
+// Near the limit, a club sells its dearest players until the wage bill is close to what it can afford (three at most).
+function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
+  for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
+    const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[i];
+    let b = p && buyerFor(p, 8); if (p && (!b || b === c)) { const ab = G.clubs.filter(x => x.abroad && Math.abs(x.lvl - p.ovr) < 8); b = ab.length ? pick(ab) : null; }
+    if (!b || b === c) continue; moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); sold.push(p.name + " to " + b.name + (b.abroad ? ` (${COUNTRY[b.country].name})` : "")); }
+  if (sold.length && (c.lg === my().lg || c.tier === 1)) news(`${c.name} sell to stay within the spending rule: ${sold.join(", ")}.`); }
+const ruleRoom = c => c.abroad || c.tier > 4 || ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || aiBill(c) <= aiBudget(c) * 1.2;

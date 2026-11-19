@@ -179,6 +179,8 @@ function endSeason() {
   if (wentUp) { const b = sum(mine.deals, d => d.bonus); if (b) { earn("spons", b); news(`Sponsors pay ${money(b)} in promotion bonuses.`); } }
   judgeObjectives({ ...report, up: wentUp, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club) });
   seasonTax(mine);
+  { const f0 = mine.fin, inc = ledgerIncome(f0), net = inc - (ledgerCosts(f0) - f0.build - f0.acad), r = spendRule(mine, net, inc);
+    mine.ded = r.pen; if (r.pen) news(`The league docks you ${r.pen} points for next season: over three seasons you lost ${Math.round(r.ratio * 100)}% of your income, past the 35% the spending rule allows.`, true); }
   // History
   const f = mine.fin;
   G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: [...Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }),
@@ -307,7 +309,8 @@ function wantsRenewal(p, core) {
 // The club below a player's level that would buy him: one whose standard matches his rating.
 function buyerFor(p, belowTier) {
   // The closest few clubs by standard; a player better than every club goes to one of the strongest.
-  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 6);
+  // Clubs bound by the spending rule don't take on more pay once their wage bill is well past what they can afford.
+  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(ruleRoom).slice(0, 6);
   return cs.length && Math.abs(cs[0].lvl - p.ovr) < 5 || (cs.length && p.ovr > cs[0].lvl) ? pick(cs) : null;
 }
 
@@ -321,6 +324,7 @@ const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2 + youthPedigre
    first-team regulars (20+ games in a season) and fades slowly without them. Points of potential on every intake. */
 const youthPedigree = c => c.ypd ??= isMine(c) ? 0 : R() < .12 ? Math.round(rf(4, 9) * 10) / 10 : R() < .11 ? Math.round(rf(-3, -1) * 10) / 10 : Math.round(rf(-.5, 1.5) * 10) / 10;
 const pedigreeWord = c => { const v = youthPedigree(c); return v >= 4 ? ["Renowned for developing youth", "good"] : v >= 2 ? ["A good record with youth", "good"] : v <= -1 ? ["A poor record with youth", "warn"] : null; };
+const GOLD_RATE = .006;
 const gemMult = c => 1 + Math.max(0, youthPedigree(c)) / 5;
 // An AI club's youth scouting (its youth manager's scouting, as yours has): how well it finds players (staff-style 0-100). Better at clubs known for youth
 // and further up the pyramid; it lifts their intakes like a youth manager's scouting does yours.
@@ -341,14 +345,19 @@ const LEAN = { technical: { pas: 5, tec: 6, vis: 5, dri: 3, str: -4, pac: -2 }, 
 function youthIntake(c) {
   const s = intakeSpec(c); if (!s) return;
   const got = [];
+  // A golden generation: now and then an academy, often a modest one, turns up several gems in one intake.
+  const gold = R() < GOLD_RATE * gemMult(c) ? Math.min(s.n, ri(2, 4)) : 0;
   for (let i = 0; i < s.n; i++) {
-    const pot = Math.round(oldToNew(drawPotential(s.mean, s.exc, gemMult(c)))), age = ri(15, 16);
+    const pot = Math.round(oldToNew(i < gold ? clamp(rh(s.mean + 18 + R() * 22), 8, 94) : drawPotential(s.mean, s.exc, gemMult(c)))), age = ri(15, 16);
     const ovr = clamp(Math.round(pot * rf(.48, .6) + normal() * 3), 12, pot);
     const nat = s.wide && R() < .3 ? pickNat("ENG") : "ENG";
     const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat, club: c.id, pot, acad: true, lean: LEAN[s.phil], wage: 500 }); p.yAcad = c.id;
     p.yrs = 3; c.squad.push(p.id); p.hist.push([G.year, c.short]); got.push(p);
     if (pot >= 95) G.wonders.push({ id: p.id, name: p.name, pot, club: c.id, y: G.year });
   }
+  if (gold) { (G.golden ||= []).push({ club: c.id, y: G.year, n: gold });
+    if (isMine(c)) news(`A golden generation: the coaches think this year's intake holds ${gold} exceptional prospects.`, true);
+    else if (c.lg === my().lg) news(`${c.name}'s academy is said to have a golden generation coming through.`); }
   if (isMine(c)) {
     const best = got.slice().sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1])[0];
     const y = staffOf("youth");

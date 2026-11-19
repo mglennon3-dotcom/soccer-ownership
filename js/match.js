@@ -97,7 +97,8 @@ function playMatch(h, a, neutral, fr) {
   const H = CL(h), A = CL(a), xh = pickXI(H), xa = pickXI(A), ph = teamPower(H, xh), pa = teamPower(A, xa);
   const sh = STYLES[clubStyle(H)], sa = STYLES[clubStyle(A)], fh = styleFit(xh, clubStyle(H)), fa = styleFit(xa, clubStyle(A));
   const adv = neutral ? 0 : 2 + fanShare(H, "hard") * 2 + (isMine(H) ? terraceShare(H) * 1.2 + fzK(H) * .3 : 0), wx = G.wx ? wxAt(H) : WX.clear;
-  let lh = 1.3 * Math.exp(.065 * (ph.atk - pa.def + adv)), la = 1.3 * Math.exp(.065 * (pa.atk - ph.def - adv));
+  const bh = clubBoost(CL(h)), ba = clubBoost(CL(a));
+  let lh = 1.3 * Math.exp(.065 * (ph.atk - pa.def + adv + bh - ba)), la = 1.3 * Math.exp(.065 * (pa.atk - ph.def - adv + ba - bh));
   lh *= sh.for * (1 + .08 * fh) * sa.against * (1 - .06 * fa);
   la *= sa.for * (1 + .08 * fa) * sh.against * (1 - .06 * fh);
   // Bad weather: fewer goals, and passing football suffers most.
@@ -151,7 +152,7 @@ function forcedWeek() {
   }
 }
 function recoverWeek() {
-  for (const c of G.clubs) { if (c.gone && !c.abroad) continue; const back = 8 + (isMine(c) ? c.fac.train.lvl : c.train || 3) * .4;
+  for (const c of G.clubs) { if (c.gone && !c.abroad) continue; const back = 8 + (isMine(c) ? c.fac.train.lvl : c.train || 3) * .4 - (G.phase === "season" && inEurope(c) ? 2.5 : 0);
     for (const id of c.squad) { const p = P(id); if (p && p.fit != null && p.fit < 100) p.fit = Math.min(100, p.fit + back); } }
 }
 /* A game, goal or assist counts for the season and for the club he's playing for (a loan club included), so the
@@ -159,7 +160,7 @@ function recoverWeek() {
 function addStat(p, k) { p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||= {})[p.club] ||= [0, 0, 0])[k]++; }
 function injuryCheck(p, pq) {
   const c = CL(p.club), tl = isMine(c) ? c.fac.train.lvl : c.train, surf = pq != null && pq < 60 ? 1 + (60 - pq) / 50 : 1;
-  if (R() < .011 * (1.3 - tl * .05) * surf) {
+  if (R() < .011 * (1.3 - tl * .05) * surf * (G.phase === "season" && inEurope(c) ? 1.25 : 1)) {
     const wks = R() < .8 ? ri(1, 4) : R() < .8 ? ri(5, 12) : ri(13, 30); p.inj = wks; p.injT = wks;
     if (isMine(c)) { const bill = wks >= 5 ? medBill(c, wks) : 0; if (bill) spend("medical", bill); news(`${p.name} is injured and out for ${wks} week${wks > 1 ? "s" : ""}${bill ? `: treatment costs ${money(bill)}` : ""}.`, wks >= 8); }
   }
