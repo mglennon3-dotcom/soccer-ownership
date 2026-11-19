@@ -165,6 +165,12 @@ function myPlayerLine(p) {
     : p.acad ? "in the academy" : p.inj ? `not starting (injured, ${p.inj} wk${p.inj > 1 ? "s" : ""})` : `<span class="muted">not in the starting side</span>`;
   return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>: rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>`;
 }
+// For another club's player you're looking at: your scouts' view of his rating and potential, and his place at his club.
+function theirPlayerLine(p) {
+  const e = v => { const [a, b] = v.map(r20); return a === b ? `${a}` : `${a}–${b}`; }, x = p.club >= 0 ? CL(p.club) : null;
+  const role = !x ? (p.club === -1 ? "a free agent" : "abroad") : x.squad && pickXI(x).some(o => o.p === p) ? `<span class="good">a starter</span> at ${esc(x.name)}` : `<span class="muted">not starting</span> at ${esc(x.name)}`;
+  return `<p class="small"><b>${esc(p.name)}</b>, ${POS_NAME[p.pos].toLowerCase()}, ${p.age}: rated <b>${e(ovrEstimate(p))}</b>, potential <b>${e(potEstimate(p))}</b> · ${role} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>`;
+}
 // For a player offered to you: your weakest current starter in his position, to compare against.
 function weakestStarterLine(pid) {
   const p = G.players[pid]; if (!p) return "";
@@ -172,7 +178,7 @@ function weakestStarterLine(pid) {
   const at = o => o.p.pos === o.slot ? o.p.ovr : Math.min(o.p.ovr, roleRating(o.p, o.slot));  // his rating, or less out of position
   const xi = pickXI(my()).filter(o => o.slot === p.pos), w = xi.sort((a, b) => at(a) - at(b))[0];
   if (!w) return `<p class="small muted">The manager's ${mgr().form || "4-4-2"} has no ${POS_NAME[p.pos].toLowerCase()} in it.</p>`;
-  const there = r20(at(w)), d = r20(p.ovr) - there, out = w.p.pos !== w.slot ? ` (a ${POS_NAME[w.p.pos].toLowerCase()} playing out of position)` : "";
+  const mid = p.club === G.club ? p.ovr : avg(ovrEstimate(p)), there = r20(at(w)), d = r20(mid) - there, out = w.p.pos !== w.slot ? ` (a ${POS_NAME[w.p.pos].toLowerCase()} playing out of position)` : "";
   return `<p class="small ${d > 0 ? "good" : d < 0 ? "muted" : ""}">Your weakest starter there: <button class="lnk" data-act="player" data-id="${w.p.id}">${esc(w.p.name)}</button>${out}, ${w.p.age}, rated ${there} there${d > 0 ? ` (this player is ${d} better)` : d < 0 ? ` (${-d} better than this player)` : " (the same as this player)"}.</p>`;
 }
 function choiceHTML(x) {
