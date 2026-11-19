@@ -103,6 +103,7 @@ function seasonWeek() {
   youthScoutWeek();
   if (w % 3 === 2) devTick(1 / 16);
   G.week++;
+  if (G.week === JAN[0]) completeAgreed();  // the January window opens: sales agreed since the summer go through
   if (G.week >= SEASON_WEEKS) startPlayoffs();
 }
 function afterMatch(r, k) {
@@ -199,6 +200,7 @@ function endSeason() {
   G.meddle = (G.meddle || 0) * .6;
   mine.fac.stadium.held = 0;  // interference is slowly forgotten
   mine.finLast = mine.fin; mine.fin = newLedger(); mine.spentT = 0;
+  completeAgreed(mine);  // the summer window opens: sales agreed during the season go through, before contracts run out
   // Parachute payments move on a season; a club that has had them all stops getting them.
   for (const c of G.clubs) if (c.para && ++c.para.i >= c.para.n) delete c.para;
   // Apply the moves
