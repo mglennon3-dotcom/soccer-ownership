@@ -196,7 +196,7 @@ const clubLabel = x => x.abroad ? `${x.name} (${COUNTRY[x.country].name})` : x.n
    everyone knows you want to sell), and the bigger clubs come in for your stars whether they're listed or not. */
 function bidsWeek(c) {
   for (const p of c.squad.map(P)) {
-    if (p.acad || p.loan || !canSell(p) || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
+    if (p.acad || p.loan || p.agreed || !canSell(p) || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
     let buyer = null, amt = 0;
     if (p.nfs) {
       // Not for sale: only a star for your division or a player coming off a big season draws bids, and they have to
@@ -269,6 +269,12 @@ function answerBid(m, accept, auto) {
     const big = accept ? pickXI(my()).some(o => o.p === p) : m.amt >= valueOf(p) * 1.5;
     G.meddle = (G.meddle || 0) + (big ? .3 : .1);
     meddled("recruit", big ? -3 : -1, big ? (accept ? `would rather have kept ${p.name}.` : `thinks ${money(m.amt)} for ${p.name} was worth taking.`) : null);
+  }
+  if (accept && m.pre) {
+    // Agreed out of the window: he joins them when the next one opens.
+    p.agreed = { club: buyer.id, amt: m.amt, auto: !!auto }; m.answer = "agreed: he joins when the window opens";
+    news(`${p.name} will join ${clubLabel(buyer)} for ${money(m.amt)} when the transfer window opens${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}. Until then he stays and plays for you.`, true);
+    return;
   }
   if (accept) {
     if (!auto && maybeWar(m, p, buyer)) return;  // word gets out and other clubs come in
@@ -456,8 +462,26 @@ function ownerRelease(p) {
 }
 
 /* ---------- each week of a window ---------- */
+/* Out of the windows clubs still bid for players you've transfer-listed. A sale agreed then goes through when the next
+   window opens; until then the player stays (and plays) for you, and nobody else bids for him. */
+function offWindowBids(c = my()) {
+  for (const p of c.squad.map(P)) {
+    if (!p.list || p.acad || p.loan || p.agreed || !canSell(p) || p.age > 33 || R() > .08 || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
+    const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9); if (!want.length) continue;
+    const buyer = wpick(want, x => bidWeight(x, p, c)), amt = Math.max(1000, Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000);
+    if (!canAfford(buyer, amt)) continue;
+    addMsg({ type: "bid", pre: true, keen: R() < .7, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name} (listed): he'd join when the window opens` });
+  }
+}
+// When a window opens, sales agreed while it was shut go through.
+function completeAgreed(c = my()) {
+  for (const p of c.squad.map(P)) { if (!p || !p.agreed) continue; const A = p.agreed, buyer = CL(A.club); delete p.agreed;
+    if (!buyer || (buyer.gone && !buyer.abroad)) { news(`${p.name}'s move to ${buyer ? buyer.name : "his new club"} falls through: the club no longer exists.`, true); continue; }
+    completeSale(p, buyer, A.amt, A.auto); }
+}
 function marketWeek() {
   const c = my();
+  if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) completeAgreed(c);
   headWeek(c); bidsWeek(c); loanOffersWeek(c);
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
