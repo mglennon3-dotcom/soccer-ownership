@@ -341,7 +341,8 @@ const youthBase = (c, lvl) => 40 + lvl * 2.2 + (7 - c.tier) * 1.2 + youthPedigre
    from history (about 1 in 8 renowned, 1 in 10 poor). Yours is earned: it grows as your own graduates become
    first-team regulars (20+ games in a season) and fades slowly without them. Points of potential on every intake. */
 const youthPedigree = c => c.ypd ??= isMine(c) ? 0 : R() < .12 ? Math.round(rf(4, 9) * 10) / 10 : R() < .11 ? Math.round(rf(-3, -1) * 10) / 10 : Math.round(rf(-.5, 1.5) * 10) / 10;
-const pedigreeWord = c => { const v = youthPedigree(c); return v >= 4 ? ["Renowned for developing youth", "good"] : v >= 2 ? ["A good record with youth", "good"] : v <= -1 ? ["A poor record with youth", "warn"] : null; };
+// [label, colour, what it means for the club's academy intakes]
+const pedigreeWord = c => { const v = youthPedigree(c); return v >= 4 ? ["Renowned for developing youth", "good", "its intakes have much higher potential, and more gems"] : v >= 2 ? ["A good record with youth", "good", "its intakes have a little higher potential"] : v <= -1 ? ["A poor record with youth", "warn", "its intakes have a little lower potential than its academy level suggests"] : null; };
 const GOLD_RATE = .006;
 const gemMult = c => 1 + Math.max(0, youthPedigree(c)) / 5;
 // An AI club's youth scouting (its youth manager's scouting, as yours has): how well it finds players (staff-style 0-100). Better at clubs known for youth

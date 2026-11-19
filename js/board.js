@@ -199,7 +199,7 @@ const OBJ = {
   fin: { l: "Finances: the season's result", txt: v => v > 0 ? `A profit of ${v}% of income` : v === 0 ? "Break even" : `Lose no more than ${-v}% of income`, levels: () => [-20, -10, 0, 10] },
   wages: { l: "Finances: player wages", hi: false, txt: v => `Wages under ${v}% of income`, levels: () => [75, 65, 55, 45] },
   youth: { l: "Youth: academy debuts", txt: v => `${v} academy debut${v > 1 ? "s" : ""}`, levels: () => [1, 2, 3, 5] },
-  grads: { l: "Youth: a graduate's league games", txt: v => `An academy graduate plays ${v} league games`, levels: c => { const n = (G.leagues[c.lg].clubs.length - 1) * 2; return [.2, .4, .6, .8].map(f => Math.round(n * f)); } },
+  grads: { l: "Youth: a graduate's league games", txt: v => `An academy graduate plays ${v} league games`, levels: c => { const n = (G.leagues[c.lg].clubs.length - 1) * 2; return [.07, .13, .22, .33].map(f => Math.max(1, Math.round(n * f))); } },
 };
 const objLabel = k => typeof OBJ[k].l === "function" ? OBJ[k].l() : OBJ[k].l;
 // The text of a set target (old saves stored option names).
@@ -246,6 +246,8 @@ function clubAchieved(c, report, o) {
     youth: debuts, grads: Math.max(0, ...c.squad.map(P).filter(p => p.yAcad === c.id && !p.acad).map(p => p.s.app || 0)),
   };
 }
+// A target's effect: prestige and supporters, signed.
+const effTxt = (r, f) => Math.abs(r) < .05 && !f ? "no change" : `${r >= 0 ? "+" : "−"}${Math.abs(r).toFixed(1)} prestige, ${f >= 0 ? "+" : "−"}${Math.abs(f).toLocaleString("en-GB")} supporters`;
 // Old saves stored option names: map them onto levels.
 const OLD_LV = { lg: { title: 4, up: 4, po: 3, top: 2, safe: 1 }, cup: { win: 4, final: 4, sf: 3, qf: 3, r5: 2, r4: 2, r3: 1, tie: 1 }, fin: { big: 4, profit: 3, even: 2, loss20: 1, rule: 1, wages: 1, debt: 1 }, youth: { y5: 4, y3: 3, y2: 2, y1: 1, reg: 1, sale: 1 } };
 function judgeObjectives(report) {
@@ -262,7 +264,7 @@ function judgeObjectives(report) {
     let t = objText(k, lv);
     const excused = k === "lg" && !met && d >= 0;
     if (excused) { score = Math.max(0, score); t += " (but no worse than the squad suggested)"; }
-    G.objRes.push({ k, t, lv, met, reached, score, excused });
+    G.objRes.push({ k, t, lv, met, reached, score, excused, dRep: score * 1.5, dFans: Math.round(c.fans * score * .04) });
     moodHit(c, Math.round(score * 6)); rep += score * 1.5; fans += score * .04;
     if (k === "lg") trust("manager", met ? 5 : d >= 0 ? 0 : -4, null);
   }
@@ -272,8 +274,8 @@ function judgeObjectives(report) {
   const dF = c.fans - before, why = `${d > 0 ? `finishing ${d} place${d > 1 ? "s" : ""} above` : d < 0 ? `finishing ${-d} place${d < -1 ? "s" : ""} below` : "finishing where"} the squad suggested`;
   const fmtGot = (k, v) => v == null ? "—" : k === "lg" ? ORD(v) : k === "fin" ? `${v > 0 ? "+" : ""}${v}% of income` : k === "wages" ? `${v}% of income` : k === "cup" || k === "cup2" ? (v >= 8 ? "won it" : CUP_TXT[v] ? CUP_TXT[v].replace(/^Reach the /, "reached the ").replace(/^Win a tie$/, "won a tie") : "out at the first hurdle") : k === "eu" ? ["out in the group", "reached the last 16", "reached the quarter-finals", "reached the semi-finals", "reached the final", "won it"][v] || "—" : String(v);
   if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`,
-    rows: G.objRes.map(r => [`${objLabel(r.k)}: ${r.t.replace(" (but no worse than the squad suggested)", "")}`, `${LVL_NAME[r.lv]}${r.excused ? " · no worse than the squad suggested" : ""}${r.reached > r.lv ? ` · reached ${LVL_NAME[r.reached].toLowerCase()}` : ""}`, fmtGot(r.k, got[r.k]), r.met || (r.excused ? "ok" : false)]),
-    foot: `Finished ${ORD(report.pos)}; the squad suggested ${ORD(o.exp || report.pos)}. The club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.`,
+    rows: G.objRes.map(r => [`${objLabel(r.k)}: ${r.t.replace(" (but no worse than the squad suggested)", "")}`, `${LVL_NAME[r.lv]}${r.excused ? " · no worse than the squad suggested" : ""}${r.reached > r.lv ? ` · reached ${LVL_NAME[r.reached].toLowerCase()}` : ""}`, fmtGot(r.k, got[r.k]), r.met || (r.excused ? "ok" : false), effTxt(r.dRep, r.dFans)]),
+    foot: `Finished ${ORD(report.pos)}; the squad suggested ${ORD(o.exp || report.pos)}${d ? ` (${effTxt(clamp(d * .4, -3, 3), Math.round(before * clamp(d * .006, -.03, .04)))} from that)` : ""}. In all, the club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.`,
     body: G.objRes.map(r => `${r.t}: ${r.met ? "met" : "missed"}`).join(". ") + "." });
   G.hype = 0; judgeStaffObjectives(o.exp ? d : null);
 }
@@ -342,8 +344,8 @@ function judgeStaffObjectives(d) {
   if (!list.length) return;
   for (const t of list) if (staffOf(t.role)) trust(t.role, t.met ? 2 + t.lv : -2 - Math.min(3, t.lv - t.got), null);
   addMsg({ type: "objectives", title: `Staff targets: ${list.filter(t => t.met).length} of ${list.length} met`,
-    rows: list.map(t => [`${ROLES_STAFF[t.role].l}: ${t.label} ${fmtT(t.k, t.v[t.lv - 1])}`, `${LVL_NAME[t.lv]}${t.got > t.lv ? ` · reached ${LVL_NAME[t.got].toLowerCase()}` : ""}`, String(fmtT(t.k, t.now)), t.met]),
-    foot: "Staff who meet their targets trust you more, and their ratings follow how the season went.",
+    rows: list.map(t => [`${ROLES_STAFF[t.role].l}: ${t.label} ${fmtT(t.k, t.v[t.lv - 1])}`, `${LVL_NAME[t.lv]}${t.got > t.lv ? ` · reached ${LVL_NAME[t.got].toLowerCase()}` : ""}`, String(fmtT(t.k, t.now)), t.met, staffOf(t.role) ? `${t.met ? "+" + (2 + t.lv) : "−" + (2 + Math.min(3, t.lv - t.got))} trust` : ""]),
+    foot: `Ratings: ${["manager", "recruit", "youth"].filter(r => staffOf(r) && G.sVerdict && G.sVerdict[r]).map(r => `${staffOf(r).name} ${G.sVerdict[r]}`).join("; ") || "no change (an ordinary season)"}.`,
     body: list.map(t => `${ROLES_STAFF[t.role].l}: ${t.label}: ${t.met ? "met" : "missed"}`).join(". ") + "." });
 }
 /* How each member of staff's season went, from -1 (awful) to +1 (tremendous). A met target scores by its level (modest
@@ -353,18 +355,19 @@ function judgeStaffObjectives(d) {
    ceiling move on a curve: up to about two shown points for a tremendous season, as far down for an awful one. */
 const LVL_SCORE = [0, .25, .45, .7, 1];
 function staffSeasonVerdict(list, d) {
+  G.sVerdict = {};
   for (const role of ["manager", "recruit", "youth"]) {
     const s = staffOf(role); if (!s || !s.at) continue;
     const parts = list.filter(t => t.role === role).map(t => t.met ? LVL_SCORE[t.lv] : LVL_SCORE[t.got] * .5 - .35 * (t.lv - t.got));
     if (role === "manager" && d != null) parts.push(clamp(d / 6, -1, 1));
     if (!parts.length) continue;
-    const score = clamp(avg(parts), -1, 1); if (Math.abs(score) < .15) continue;
+    const score = clamp(avg(parts), -1, 1); if (Math.abs(score) < .15) { (G.sVerdict ||= {})[role] = "no change (an ordinary season)"; continue; }
     const shift = Math.sign(score) * Math.pow(Math.abs(score), 1.4) * 1.5;  // up to about 2 points on the shown 20 scale
     const before = staffAvg(s);
     for (const k of Object.keys(s.at)) s.at[k] = staffShift(s.at[k], shift * rf(.7, 1.3));
     s.ceil = Math.max(staffShift(staffCeil(s), shift * 1.2), Math.max(...Object.values(s.at)));
     const word = score >= .7 ? "a tremendous season" : score >= .35 ? "a very good season" : score > 0 ? "a good season" : score <= -.7 ? "an awful season" : score <= -.35 ? "a poor season" : "a disappointing season";
-    const a = sr20(before), b = sr20(staffAvg(s));
+    const a = sr20(before), b = sr20(staffAvg(s)); (G.sVerdict ||= {})[role] = `${word.replace(/^an? /, "")}: ${a === b ? `ratings edge ${shift > 0 ? "up" : "down"}` : `${a} → ${b}`}, ceiling ${shift > 0 ? "up" : "down"}`;
     news(`${s.name} (${ROLES_STAFF[role].l.toLowerCase()}) had ${word}: ${a === b ? `ratings edge ${shift > 0 ? "up" : "down"}` : `ratings ${shift > 0 ? "rise" : "fall"} from ${a} to ${b}`}, ${shift > 0 ? "with more room to grow" : "with a lower ceiling"}.`, true);
   }
 }
