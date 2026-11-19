@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.69.1";
+const VERSION = "0.69.2";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -255,9 +255,10 @@ function envOf(c) {
 }
 /* Growth profiles: everyone develops differently, and you don't see it (except a wonderkid, who is obvious).
    - Wonderkid (generational, a Lamine Yamal): one of the best in the world as a teenager, with a 19-20 ceiling.
-   - Fast developer (about 1 in 5): grows quickly while young, then slows from 22.
+   - Fast developer (about 1 in 5): grows quickly to 20, then mostly plateaus.
    - Normal (most).
-   - Late bloomer (about 1 in 5): slow as a teenager, then catches up from 21 and keeps growing to 29. */
+   - Late bloomer (about 1 in 5): slow to 20, then grows strongly and keeps growing to 29.
+   On average the three end up in the same place; only when they get there differs. */
 // A wonderkid is a generational talent: one of the best players in the world while still a teenager (a ceiling of
 // 18.5+ on the shown scale, and 14+ already). Maybe one a year or two across the whole game.
 const wonderOK = p => to20(p.pot) >= 18.5 && to20(p.ovr) >= 14 - Math.max(0, 19 - p.age) * .5;
@@ -267,7 +268,9 @@ function growthType(p) {
   if (p.age <= 19 && wonderOK(p)) return (p.gt = "wonder", p.wk2 = true, "wonder");
   const r = R(); return (p.gt = r < .2 ? "fast" : r < .8 ? "normal" : "late");
 }
-const GT_MULT = (t, age) => t === "wonder" ? 1.45 : t === "fast" ? (age <= 21 ? 1.5 : .8) : t === "late" ? (age <= 20 ? .55 : age <= 23 ? 1.1 : 1.45) : 1;
+// Balanced so fast developers, normal players and late bloomers end up in the same place on average (the sum of each
+// one's growth rates over a career is the same); only the timing differs. A wonderkid outgrows them all.
+const GT_MULT = (t, age) => t === "wonder" ? 1.45 : t === "fast" ? (age <= 20 ? 1.3 : .42) : t === "late" ? (age <= 20 ? .55 : 1.75) : 1;
 const isWonderkid = p => p.age <= 21 && growthType(p) === "wonder" && to20(p.pot) >= 17;  // a slump that drops his ceiling ends it
 function develop(p, dt, teamGames) {
   const c = p.club >= 0 ? CL(p.club) : null, e = envOf(c), gt = growthType(p);
