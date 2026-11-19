@@ -19,7 +19,10 @@ const naturalTier = p => { let best = 7; for (let t = 1; t <= 7; t++) if (Math.a
    above his division's average starter: a 15 one division, a 16 or better not at all. */
 const joinRoom = p => { const t = naturalTier(p), over = p.ovr - TIER_XI[t];
   return p.age < 31 ? (over >= -1 ? 0 : 1) : Math.max(0, 2 - Math.floor(Math.max(0, over) / 3)); };
-const willJoin = (p, c) => c.abroad || c.tier - naturalTier(p) <= joinRoom(p);
+// Within his room he'll consider you at a fair price; up to two divisions past it only for a huge wage (see playerAsk);
+// beyond that, never.
+const willJoin = (p, c) => c.abroad || c.tier - naturalTier(p) <= joinRoom(p) + 2;
+const hugeAsk = (p, c = my()) => c.tier - naturalTier(p) > joinRoom(p);
 // xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once.
 function askingFee(p, xi) {
   if (p.club === -1) return 0;

@@ -82,9 +82,12 @@ function playerAsk(p, c = my()) {
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
   // Stepping down a division he's paid as at his own level, plus 15% for each division he drops, and at least 10% over
-  // what he earns now. No discount, however much he likes the club.
-  const drop = p.club === G.club ? 0 : Math.max(0, c.tier - naturalTier(p));
-  if (drop) { const own = wageAt(p.ovr, naturalTier(p)) * wageMult(p, c) * (1 + .15 * drop), w0 = base * Math.max(1, ratioFor(Math.max(0, need)) + .001);
+  // what he earns now. No discount, however much he likes the club. Dropping further than he'd normally go (a player in
+  // his prime leaving the division he belongs in, a star of any age) has a price too, but a huge one: at least double,
+  // more the further he drops and the better he is.
+  const drop = p.club === G.club ? 0 : Math.max(0, c.tier - naturalTier(p)), beyond = drop - joinRoom(p);
+  if (drop) { const over = Math.max(0, p.ovr - TIER_XI[naturalTier(p)]), huge = beyond > 0 ? 2 + (beyond - 1) * .5 + over * .1 : 1;
+    const own = wageAt(p.ovr, naturalTier(p)) * wageMult(p, c) * (1 + .15 * drop) * huge, w0 = base * Math.max(1, ratioFor(Math.max(0, need)) + .001);
     return Math.ceil(Math.max(own, w0, p.club >= 0 ? p.wage * 1.1 : 0) / 100) * 100; }
   const floor = keenFloor(p, need), want = Math.ceil(base * (floor < .85 ? floor : Math.max(.85, ratioFor(Math.max(0, need)) + .001)) / 100) * 100;
   // Under contract elsewhere, he won't move for much less than he earns, unless he's keen and money isn't what drives him.

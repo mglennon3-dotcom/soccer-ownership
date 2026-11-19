@@ -671,6 +671,7 @@ function clubModal(id) {
 function interestOf(p) {
   const ask = playerAsk(p); if (ask == null || !willJoin(p, my())) return { w: "Not interested", k: "no", cls: "bad", ask: null };
   const sc = playerAppeal(p, demandWage(p, my())), m = sc.score - sc.pr.thr, down = my().tier > naturalTier(p);  // stepping down: never "keen"
+  if (hugeAsk(p)) return { w: "Only for a huge wage", k: "sign", cls: "warn", ask };
   return m >= .08 && !down ? { w: "Keen", k: "keen", cls: "good", ask } : m >= 0 ? { w: "Open", k: "open", cls: "", ask } : { w: "For more money", k: "sign", cls: "warn", ask };
 }
 // Where a player plays (or, for a free agent, where he's from): the country chips on the market filter.
