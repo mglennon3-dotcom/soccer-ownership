@@ -23,7 +23,7 @@ const REF_TICKET = [0, 55, 32, 25, 21, 17, 12, 8];
 const REF_CONC = [0, 6, 5, 4.5, 4, 3.5, 3, 2.5];
 const REF_SHIRT = [0, 80, 65, 58, 52, 48, 44, 40];
 // Central and merit money are pitched so a typical club, paying typical wages, roughly breaks even.
-const TV = [0, 28e6, 18e6, 4.2e6, 550e3, 84e3, 45e3, 8e3];  // central money per season
+const TV = [0, 28e6, 18e6, 2e6, 150e3, 84e3, 45e3, 8e3];  // central money per season
 const PRIZE_TOP = [0, 12e6, 500e3, 100e3, 50e3, 42e3, 20e3, 6e3];  // merit money for finishing top; scales down the table
 /* Match-day operations: stewards, policing, turnstiles, cleaning and ground staff. Every home game costs about 30% of
    the going ticket price per person through the gate, whatever you charge. */
