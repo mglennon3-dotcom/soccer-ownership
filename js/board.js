@@ -203,7 +203,7 @@ const OBJ = {
 };
 const objLabel = k => typeof OBJ[k].l === "function" ? OBJ[k].l() : OBJ[k].l;
 // The text of a set target (old saves stored option names).
-const objText = (k, lv, o = G.obj) => o && o.v && o.v[k] && lv ? OBJ[k].txt(o.v[k][lv - 1]) : typeof lv === "string" ? lv : "No target";
+const objText = (k, lv, o = G.obj) => typeof lv === "number" && lv && o && o.v && o.v[k] ? OBJ[k].txt(o.v[k][lv - 1]) || "No target" : typeof lv === "string" ? lv : "No target";
 // The European competition you're in (or have qualified for) this season, if any.
 function euKey() { const id = G.club;
   for (const [k, K] of Object.entries(G.cont || {})) if (K.teams && K.teams.includes(id) && G.phase !== "summer") return k;
