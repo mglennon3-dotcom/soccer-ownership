@@ -69,13 +69,20 @@ function foreignSummer() {
   for (const id of G.foreign || []) {
     const c = CL(id); c.base ??= c.lvl; c.lvl = clamp(c.lvl + (c.base - c.lvl) * .15 + normal() * 1.2, 55, 92); c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98);
     foreignSquad(c);
-    // Now and then a foreign club buys a player from an English club below its standard.
-    if (R() < .25) {
-      const t = Object.values(G.players).find(p => p.club >= 0 && !p.loan && !p.acad && p.age <= 29 && p.ovr >= c.lvl - 3 && p.ovr <= c.lvl + 5 && !CL(p.club).gone && !isMine(CL(p.club)) && CL(p.club).lvl < p.ovr && R() < .02);
-      if (t) { const from = CL(t.club); moveTo(t, c); t.wage = aiWage(t, c); t.yrs = ri(2, 4); aiSquadCheck(from, true); if (from.lg === (my() || {}).lg) news(`${t.name} leaves ${from.name} for ${c.name} in ${COUNTRY[c.country].name}.`); }
-    }
   }
+  foreignBuys();
 }
+/* Stars abroad: each summer the big foreign clubs buy players from the top two English divisions who are clearly better
+   than their division's standard, likelier the bigger the gap. Without it the best talent would pile up in England. */
+function foreignBuys() {
+  const buyers = (G.foreign || []).map(CL).filter(c => c && c.abroad); if (!buyers.length) return;
+  for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || c.tier > 2) continue;
+    const std = TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0);  // measured against the division, so the biggest clubs lose stars too
+    for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.age > 31) continue; const gap = p.ovr - std - 5;
+      if (gap <= 0 || R() > Math.min(.2, .03 + gap * .012)) continue;
+      const to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6); if (!to.length) continue; const b = pick(to);
+      moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;
+      if (c.lg === (my() || {}).lg || p.ovr >= 85) news(`${p.name} leaves ${c.name} for ${b.name} in ${COUNTRY[b.country].name}.`); } } }
 // During a window foreign clubs plug gaps from the free agents only (new players are made only in the summer).
 function foreignJanuary() { for (const id of G.foreign || []) foreignSquad(CL(id), true); }
 /* Foreign clubs' own league seasons, in the background: 38 games on the same weeks as a 20-club division. They aren't

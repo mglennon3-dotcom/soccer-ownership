@@ -92,14 +92,14 @@ function aiMoveIn(c) {
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
-function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0); }
+function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0); }
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
 // Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
 // What an AI club pays: the going rate scaled by its pay level (set each summer from what it can afford). Clubs abroad
 // pay by their owner's spending.
-const aiWage = (p, c) => Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1)) / 100) * 100;
+const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
    more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
@@ -156,7 +156,7 @@ function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) 
   return c.tier <= 4 && !["gambler", "crypto", "hostile"].includes((c.own || {}).style) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b; }
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageAt(p.ovr, c.tier) : 0; });
-const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, 1.25);
+const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, c.tier === 1 ? 1.2 : 1.45);  // Premier pay is held nearer the going rate
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
@@ -187,7 +187,16 @@ function aiAccounts(c) {
 const lossWord = c => { const t = spendTarget(c); return t < 0 ? "Wants a profit" : t < .08 ? "Keeps losses small" : t < .2 ? "Covers the usual losses" : t < .5 ? "Will lose a lot" : "Money no object"; };
 function coachFor(c) { const co = aiCoach(clamp(c.rep + ownStyle(c).spend * 3, 1, 99)); if (c.own && c.own.style === "explayer") { co.tac = Math.max(5, co.tac - ri(8, 18)); co.mate = true; } return co; }
 const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "hostile" && x.own.target === c.id);
+/* Keeping the divisions where they belong. Clubs top up their squads towards their standard and keep the better players,
+   so left alone every division slowly creeps upward. Each summer the standard each division's clubs aim for is nudged
+   so the average starter stays on target (shown: Premier 13, First 10, Second 7, Third 6, National 5, North/South 4,
+   Regional 2). */
+const TIER_XI = [0, 82.5, 73, 66.8, 61.8, 50, 40, 30];
+function levelCheck() { G.lvlAdj ||= [0, 0, 0, 0, 0, 0, 0, 0];
+  for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t); if (!cs.length) continue;
+    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -10, 6); } }
 function ownersSummer() {
+  levelCheck();
   G.tierW = calcTierW();
   for (const c of G.clubs) {
     if (c.gone || isMine(c)) continue;
