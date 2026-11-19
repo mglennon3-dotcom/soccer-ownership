@@ -83,6 +83,11 @@ function upgradeSave() {
   if (!G.pay11) { G.pay11 = true; const before = G.club != null ? wageBill(my()) : 0;
     for (const p of Object.values(G.players)) if (p.wage > 1000) { const r = wageFor(p.ovr) / Math.max(1, wageForV1(p.ovr)); if (Math.abs(r - 1) > .01) p.wage = Math.max(1000, Math.round(p.wage * r / 100) * 100); }
     G.tierW = null; if (G.club != null && before > 0) my().budget.wages = Math.round(my().budget.wages * wageBill(my()) / before / 1000) * 1000; }
+  // 0.50.0: First Division average starter about €40k a week, Premier about €75k: contracts move by the ratio of the
+  // new going rate to the old, and your wage budget moves with your bill.
+  if (!G.pay12) { G.pay12 = true; const before = G.club != null ? wageBill(my()) : 0;
+    for (const p of Object.values(G.players)) if (p.wage > 1000) { const r = wageFor(p.ovr) / Math.max(1, payOn(PAY200_V2, p.ovr)); if (Math.abs(r - 1) > .01) p.wage = Math.max(1000, Math.round(p.wage * r / 100) * 100); }
+    G.tierW = null; if (G.club != null && before > 0) my().budget.wages = Math.round(my().budget.wages * wageBill(my()) / before / 1000) * 1000; }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }

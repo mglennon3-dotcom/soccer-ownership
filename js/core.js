@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.49.4";
+const VERSION = "0.50.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -176,10 +176,13 @@ function wageBase(ovr) {
 const partTimeF = ovr => clamp(.15 + (ovr - 40) * .05, .15, 1);
 // (The pay scale before 0.49.1, kept only to move existing contracts across.)
 function wageForV1(ovr) { const o = oldEq(ovr); return Math.max(1000, Math.round(wageBase(o) * partTimeF(o) / 100) * 100); }
-/* Pay by rating, on the 200-point scale (shown rating x 10), per week: part-time money in the lower leagues, a steady
-   climb of about 2.4x every 10 points from 50 (a National Division average starter, about €1,000) to 100 (a First
-   Division average starter, about €75,000), then the top flight up to €500,000 for a 200. */
-const PAY200 = [[0, 19], [10, 19], [20, 133], [30, 254], [40, 437], [50, 1015], [60, 2395], [70, 5650], [80, 13330], [90, 31450], [100, 74200], [120, 131377], [140, 181854], [170, 255733], [190, 365385], [200, 500000]];
+/* Pay by rating, on the 200-point scale (shown rating x 10), per week: part-time money in the lower leagues, an even
+   climb from 50 (a National Division average starter, about €1,000) to 100 (a First Division average starter, about
+   €40,000) and 130 (a Premier average starter, about €75,000), then the Premier's best (170-180) on €250-300,000 and
+   €500,000 for a 200. */
+const PAY200 = [[0, 19], [10, 19], [20, 133], [30, 254], [40, 437], [50, 1015], [60, 2110], [70, 4390], [80, 9130], [90, 19000], [100, 40000], [110, 49300], [120, 60800], [130, 75000], [140, 101000], [150, 137000], [160, 185000], [170, 250000], [180, 300000], [190, 380000], [200, 500000]];
+// (The pay scale from 0.49.1-0.49.4, kept to move contracts across.)
+const PAY200_V2 = [[0, 19], [10, 19], [20, 133], [30, 254], [40, 437], [50, 1015], [60, 2395], [70, 5650], [80, 13330], [90, 31450], [100, 74200], [120, 131377], [140, 181854], [170, 255733], [190, 365385], [200, 500000]];
 const rating200 = ovr => to20(ovr) * 10;
 /* The same player costs more in a bigger division. The table is the rate at his natural level (the division whose
    average starter he matches: Premier 130, First 100, Second 70, Third 60, National 50, North/South 40, Regional 20);
@@ -190,11 +193,12 @@ function payTier(ovr) { const r = rating200(ovr); if (r >= 130) return 1; if (r 
   for (let t = 1; t < 7; t++) if (r >= DIV_AVG200[t + 1]) return t + (DIV_AVG200[t] - r) / (DIV_AVG200[t] - DIV_AVG200[t + 1]); return 7; }
 const divPremium = (ovr, tier) => clamp(Math.pow(1.25, payTier(ovr) - tier), .6, 1.8);
 const wageAt = (ovr, tier) => Math.round(wageFor(ovr) * divPremium(ovr, tier) / 100) * 100;
-function wageFor(ovr) {
+function payOn(T, ovr) {
   const r = clamp(rating200(ovr), 0, 200); let wk = 500000;
-  for (let i = 1; i < PAY200.length; i++) { const [a, x] = PAY200[i - 1], [b, y] = PAY200[i]; if (r <= b) { wk = x * Math.pow(y / x, (r - a) / (b - a)); break; } }
+  for (let i = 1; i < T.length; i++) { const [a, x] = T[i - 1], [b, y] = T[i]; if (r <= b) { wk = x * Math.pow(y / x, (r - a) / (b - a)); break; } }
   return Math.max(1000, Math.round(wk * 52 / 100) * 100);
 }
+const wageFor = ovr => payOn(PAY200, ovr);
 function valueOf(p) {
   const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1);
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
@@ -318,7 +322,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
