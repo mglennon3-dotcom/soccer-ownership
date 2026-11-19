@@ -101,6 +101,8 @@ function upgradeSave() {
   if (!G.aistaff2) { G.aistaff2 = true; for (const c of G.clubs) { if (c.gone && !c.abroad) continue; if (c.coach && !isMine(c)) { c.coach.dev = clamp(Math.round(aiStaffLvl(c.rep) + normal() * 9), 5, 97); c.coach.tac = clamp(Math.round((c.coach.tac + aiStaffLvl(c.rep) + normal() * 9) / 2), 5, 97); } delete c.yscout; } }
   // 0.50.4: emergency signings were paid by their own going rate (a former star keeper could cost millions at a small
   // club); any still at your club on such a contract moves onto the emergency cap.
+  // Ratings as they stand (a save from before the arrows had none): the arrows start from here.
+  for (const p of Object.values(G.players)) if (p.r0 == null) p.r0 = r20(p.ovr);
   if (!G.brk1) { G.brk1 = true; if (G.club != null) for (const id of my().squad.slice()) { const p = G.players[id]; if (p) breakSlump(p); } }  // one-off: the summer roll this squad missed
   if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too
   if (!G.pay13) { G.pay13 = true; for (const c of G.clubs) if (!isMine(c) && c.pay > 1.45) c.pay = 1.45; }  // AI pay levels now top out at 1.45

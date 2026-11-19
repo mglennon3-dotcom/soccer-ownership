@@ -17,6 +17,7 @@ function roundRobin(ids) {
   return rounds.concat(rounds.map(rd => rd.map(([x, y]) => [y, x])));
 }
 function startSeason() {
+  for (const p of Object.values(G.players)) if (p.r0 == null) p.r0 = r20(p.ovr);  // a first season's arrows start here
   for (const k of LG_KEYS) {
     const L = G.leagues[k]; L.rounds = roundRobin(shuffle(L.clubs.slice())); L.next = 0; L.tab = {};
     for (const id of L.clubs) L.tab[id] = { id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [] };
@@ -153,6 +154,8 @@ function devTick(dt) {
 
 /* ---------- the end of the season ---------- */
 function endSeason() {
+  // Each player's shown rating as the season ends: the squad page's arrows show movement since then.
+  for (const p of Object.values(G.players)) p.r0 = r20(p.ovr);
   qualify();  // Champions Cup and Continental Shield places for next season, from this table and the National Cup
   const moves = [], mine = my(), report = { y: G.year };
   for (const k of LG_KEYS) {
