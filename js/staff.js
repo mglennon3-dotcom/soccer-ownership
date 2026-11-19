@@ -41,13 +41,19 @@ function repLevel(rep) { for (let i = 1; i < REP_LVL.length; i++) { const [a, x]
 // Non-league staff (a reputation below the Football League) are part-time: a manager earns about what a typical player
 // there does, not a star; full-time pay comes in through the Third Division.
 const partTime = rep => repLevel(rep) < 58;
+/* Staff pay follows player pay. A reputation belongs to a level (Premier 78, First 58, Second 45, Third 36, National 28,
+   North/South 20, Regional 11), and the going rate for a manager there is about 1.3x what an average starter at that
+   level earns (a little less in the part-time lower leagues, and tapering at the very top so the best manager in the
+   game earns about a third of the best player). Youth managers and heads of recruitment earn 45% of that. */
+const REP_R200 = [[0, 0], [11, 20], [20, 40], [28, 50], [36, 60], [45, 70], [58, 100], [78, 130], [99, 170]];
+const STAFF_PAYF = [[0, 1], [28, 1.15], [45, 1.3], [78, 1.3], [99, .52]];
+const interpAt = (T, x) => { if (x <= T[0][0]) return T[0][1]; for (let i = 1; i < T.length; i++) { const [a, u] = T[i - 1], [b, v] = T[i]; if (x <= b) return u + (v - u) * (x - a) / (b - a); } return T[T.length - 1][1]; };
 function staffWage(role, rep) {
-  const lvl = repLevel(rep), k = lvl <= 65 ? 1.1 : 1.1 - (lvl - 65) / 25 * .79, full = wageBase(lvl + 5) * k, f = clamp((lvl - 55) / 5, 0, 1);
-  // Part-time pay shrinks further down: about 40% of a typical player's wage at Regional level, rising to the full
-  // wage by the National Division.
-  const pt = wageBase(lvl) * clamp(.4 + (lvl - 44) * .04, .4, 1), m = full * f + pt * (1 - f);
-  return Math.round(m * (role === "manager" ? 1 : .45) / 1000) * 1000;
+  const r = interpAt(REP_R200, clamp(rep, 0, 99)); let wk = 500000;
+  for (let i = 1; i < PAY200.length; i++) { const [a, x] = PAY200[i - 1], [b, y] = PAY200[i]; if (r <= b) { wk = x * Math.pow(y / x, (r - a) / (b - a)); break; } }
+  return Math.max(1000, Math.round(wk * 52 * interpAt(STAFF_PAYF, rep) * (role === "manager" ? 1 : .45) / 1000) * 1000);
 }
+
 /* Staff, like players: young coaches (a third are 26-35) start lower, being short of experience, but have more room to
    grow, the younger the more; now and then one is a real prospect. Older ones are what they are. */
 function genStaff(role, rep) {
