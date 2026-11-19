@@ -196,7 +196,7 @@ const hostileOf = c => G.clubs.find(x => !x.gone && x.own && x.own.style === "ho
 const TIER_XI = [0, 82.5, 73, 66.8, 61.8, 50, 40, 30];
 function levelCheck() { G.lvlAdj ||= [0, 0, 0, 0, 0, 0, 0, 0];
   for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t); if (!cs.length) continue;
-    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -14, 6); } }
+    const xi = avg(cs.map(c => avg(pickXI(c).map(o => o.p.ovr)))); G.lvlAdj[t] = clamp(G.lvlAdj[t] + (TIER_XI[t] - xi) * .35, -14, 12); } }
 function ownersSummer() {
   levelCheck();
   G.tierW = calcTierW();
@@ -346,7 +346,7 @@ function diversitySummer() {
   for (const c of dyn) {
     const stars = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.age >= 23 && p.age <= 31 && rating200(p.ovr) >= 150).sort((a, b) => b.ovr - a.ovr).slice(0, 5);
     for (const p of stars) {
-      if (R() > .22) continue;
+      if (R() > .3) continue;
       if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
       const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p)))));
       if (!to) continue;
@@ -465,6 +465,6 @@ function failGate(kind) {
   F[kind] = G.year + ri(3, 7); return true;
 }
 function rescue(c) {
-  c.cut = 2; if (c.own) c.own.wealth = Math.max(c.own.wealth, Math.round(aiIncome(c) * .25)); if (c.debt) c.debt = Math.round(c.debt * .7);
+  c.cut = Math.max(c.cut || 0, 1); if (c.own) c.own.wealth = Math.max(c.own.wealth, Math.round(aiIncome(c) * .25)); if (c.debt) c.debt = Math.round(c.debt * .7);
   ruleSales(c); if (c.lg === my().lg) news(`${c.name}'s owner ${c.own ? c.own.name : ""} is in financial trouble: cuts are ordered and the best-paid players are up for sale.`);
 }
