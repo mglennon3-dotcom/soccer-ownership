@@ -97,6 +97,8 @@ function upgradeSave() {
   if (!G.spay3) { G.spay3 = true;
     for (const U of Object.values(G.pools || {})) { U.empT = 0; for (const x of U.list || []) x.demand = Math.round(staffMarket(x) * rf(.85, 1.2) / 1000) * 1000; }
     if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) { st.demand = Math.round(staffMarket(st) * rf(.85, 1.2) / 1000) * 1000; const w = Math.ceil(effDemand(st) / 1000) * 1000; if (st.wage > w) st.wage = w; } }
+  // 0.50.3: AI managers' and youth scouting ratings now follow their club's level: existing ones are re-rated.
+  if (!G.aistaff2) { G.aistaff2 = true; for (const c of G.clubs) { if (c.gone && !c.abroad) continue; if (c.coach && !isMine(c)) { c.coach.dev = clamp(Math.round(aiStaffLvl(c.rep) + normal() * 9), 5, 97); c.coach.tac = clamp(Math.round((c.coach.tac + aiStaffLvl(c.rep) + normal() * 9) / 2), 5, 97); } delete c.yscout; } }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }

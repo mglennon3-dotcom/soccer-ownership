@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.50.2";
+const VERSION = "0.50.3";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -249,7 +249,9 @@ const GROW_AGE = { 15: .32, 16: .32, 17: .31, 18: .29, 19: .27, 20: .24, 21: .2,
 function envOf(c) {
   if (!c) return { train: 0, dev: 35, acad: 0, ydev: 30 };
   if (isMine(c)) return { train: c.fac.train.lvl, dev: staffAttr("manager", "dev", 30), acad: c.fac.acad.lvl, ydev: staffAttr("youth", "dev", 25) };
-  return { train: c.train, dev: c.coach.dev, acad: c.acadLvl, ydev: c.coach.dev };
+  // Player development reads a coach's skill against what's usual at his level, so better clubs don't simply develop
+  // everyone faster (their better coaching already shows in their standard).
+  const rel = c.coach.dev - aiStaffLvl(c.rep || 40) + 40; return { train: c.train, dev: rel, acad: c.acadLvl, ydev: rel };
 }
 function develop(p, dt, teamGames) {
   const c = p.club >= 0 ? CL(p.club) : null, e = envOf(c);
@@ -274,7 +276,10 @@ function develop(p, dt, teamGames) {
 
 /* ---------- AI clubs ---------- */
 const COACH_FIRST = ["Steve", "Gary", "Paul", "Mark", "Neil", "Darren", "Ian", "Graham", "Tony", "Kevin", "Lee", "Martin", "Simon", "Rob", "Chris"];
-function aiCoach(rep) { return { age: ri(34, 60), name: pick(COACH_FIRST) + " " + pick(NAMES.ENG[1]), style: pick(Object.keys(STYLES)), form: pick(FORM_KEYS), tac: clamp(Math.round(rep * .7 + 15 + normal() * 10), 10, 95), dev: clamp(Math.round(40 + normal() * 15), 10, 95) }; }
+/* An AI club's manager: both his tactics and his player development come from the club's standing (like the staff
+   you can hire), with a spread around it, so the best managers are at the biggest clubs. */
+const aiStaffLvl = rep => rep * .75 + 18;
+function aiCoach(rep) { return { age: ri(34, 60), name: pick(COACH_FIRST) + " " + pick(NAMES.ENG[1]), style: pick(Object.keys(STYLES)), form: pick(FORM_KEYS), tac: clamp(Math.round(aiStaffLvl(rep) + normal() * 9), 5, 97), dev: clamp(Math.round(aiStaffLvl(rep) + normal() * 9), 5, 97) }; }
 function townName() {
   const K = COUNTRY.ENG;
   for (let g = 0; g < 500; g++) { let t = pick(K.pre) + pick(K.suf); t = t[0].toUpperCase() + t.slice(1); if (!TOWN_BLOCK.has(t) && !G.towns[t]) { G.towns[t] = 1; return t; } }
@@ -322,7 +327,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);

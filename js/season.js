@@ -323,7 +323,9 @@ const pedigreeWord = c => { const v = youthPedigree(c); return v >= 4 ? ["Renown
 const gemMult = c => 1 + Math.max(0, youthPedigree(c)) / 5;
 // An AI club's youth scouting (its youth manager's scouting, as yours has): how well it finds players (staff-style 0-100). Better at clubs known for youth
 // and further up the pyramid; it lifts their intakes like a youth manager's scouting does yours.
-const aiYouthScout = c => c.yscout ??= clamp(Math.round(35 + normal() * 12 + youthPedigree(c) * 4 + (7 - c.tier) * 3), 10, 95);
+// Mostly set by the club's level (bigger clubs, better scouts), with a spread; clubs renowned for youth rate well anywhere.
+const YSCOUT_T = [0, 74, 62, 52, 46, 40, 34, 28];
+const aiYouthScout = c => c.yscout ??= clamp(Math.round(YSCOUT_T[c.tier] + normal() * 7 + youthPedigree(c) * 3), 5, 97);
 function intakeSpec(c) {
   if (isMine(c)) {
     const lvl = c.fac.acad.lvl; if (!lvl) return null;
