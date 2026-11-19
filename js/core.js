@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.70.0";
+const VERSION = "0.71.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -259,7 +259,9 @@ function envOf(c) {
    - Fast developer (about 1 in 5): grows quickly to 20, then mostly plateaus.
    - Normal (most).
    - Late bloomer (about 1 in 5): slow to 20, then grows strongly and keeps growing to 29.
-   On average the three end up in the same place; only when they get there differs. */
+   On average the three end up in the same place; only when they get there differs.
+   - Flop (about 1 in 15 of those with a ceiling of 12+): hardly develops at all, but his ceiling stays high, so he keeps
+     looking like a top prospect. Only a rare breakout rescues him. */
 // A wonderkid is a generational talent: one of the best players in the world while still a teenager (a ceiling of
 // 18.5+ on the shown scale, and 14+ already). Maybe one a year or two across the whole game.
 const wonderOK = p => to20(p.pot) >= 18.5 && to20(p.ovr) >= 14 - Math.max(0, 19 - p.age) * .5;
@@ -267,11 +269,13 @@ function growthType(p) {
   if (p.gt === "wonder" && !p.wk2) { p.wk2 = true; if (!wonderOK(p)) p.gt = "fast"; }  // the earlier, looser wonderkids are just fast developers
   if (p.gt) return p.gt;
   if (p.age <= 19 && wonderOK(p)) return (p.gt = "wonder", p.wk2 = true, "wonder");
+  // A flop: about one in fifteen youngsters with a high ceiling (12+) just won't develop, though he keeps looking the part.
+  if (p.age <= 20 && to20(p.pot) >= 12 && R() < 1 / 15) return (p.gt = "flop");
   const r = R(); return (p.gt = r < .2 ? "fast" : r < .8 ? "normal" : "late");
 }
 // Balanced so fast developers, normal players and late bloomers end up in the same place on average (the sum of each
 // one's growth rates over a career is the same); only the timing differs. A wonderkid outgrows them all.
-const GT_MULT = (t, age) => t === "wonder" ? 1.45 : t === "fast" ? (age <= 20 ? 1.3 : .42) : t === "late" ? (age <= 20 ? .55 : 1.75) : 1;
+const GT_MULT = (t, age) => t === "flop" ? .12 : t === "wonder" ? 1.45 : t === "fast" ? (age <= 20 ? 1.3 : .42) : t === "late" ? (age <= 20 ? .55 : 1.75) : 1;
 // Calibrated so about 40% reach their ceiling on average (more with regular football and good coaching, fewer without),
 // the same at every level of potential and for every growth profile.
 let GROW_K = .98, GROW_M = .1, GROW_B = .32;
@@ -296,7 +300,7 @@ function develop(p, dt, teamGames) {
     const whole = Math.trunc(p.frac);
     if (whole) { const before = p.ovr; shiftPlayer(p, whole); p.frac -= (p.ovr - before) || whole; }
     // Unused talent fades: a 19-23-year-old outside the side loses some ceiling.
-    if (!p.acad && p.age >= 19 && p.age <= 23 && teamGames > 8 && play < .2) { p.pfade = (p.pfade || 0) + 2 * dt * (1 - play * 5); if (p.pfade >= 1) { p.pfade--; p.pot = Math.max(p.ovr, p.pot - 1); } }
+    if (!p.acad && gt !== "flop" && p.age >= 19 && p.age <= 23 && teamGames > 8 && play < .2) { p.pfade = (p.pfade || 0) + 2 * dt * (1 - play * 5); if (p.pfade >= 1) { p.pfade--; p.pot = Math.max(p.ovr, p.pot - 1); } }
   }
   if (p.age >= 30) {
     const loss = (p.age - 29) * .55 * dt * (1.25 - p.gs / 200) * (1 + normal() * .3);
@@ -358,7 +362,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { sgrace1: true, brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { stunCap: true, sgrace1: true, brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);

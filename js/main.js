@@ -110,6 +110,8 @@ function upgradeSave() {
   { const a = G.sobj && G.sobj.manager && G.sobj.manager.assists; if (a && a.v && a.v[0] > 25) { a.v = [6, 10, 14, 20]; a.label = "Top assister's assists"; } }
   // One-off: Max Cutler's pay rise at South Kensington should have come with a new contract.
   if (!G.cutler4 && G.club != null) { G.cutler4 = true; const c = my(); if (/South Kensington/.test(c.name)) { const p = c.squad.map(id => G.players[id]).find(p => p && p.name === "Max Cutler"); if (p && p.yrs < 4) { p.yrs = 4; p.dealY = G.year; p.expiring = false; } } }
+  // Statement signings' wages were uncapped: anyone above €500k a week comes down to it (once).
+  if (!G.stunCap) { G.stunCap = true; for (const p of Object.values(G.players)) if (p.stunC != null && p.wage > 500e3 * 52) p.wage = 500e3 * 52; }
   if (G.club != null) syncReg();  // auto-registration: the best 25 while a window is open
   if (!G.brk1) { G.brk1 = true; if (G.club != null) for (const id of my().squad.slice()) { const p = G.players[id]; if (p) breakSlump(p); } }  // one-off: the summer roll this squad missed
   if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too

@@ -167,13 +167,14 @@ function aiAccounts(c) {
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if (r.ratio > SPEND_LIMIT - .15 && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
-  if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { administration(c); c.debt = Math.round(c.debt * .4); return; }
+  if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { if (failGate("adm")) { administration(c); c.debt = Math.round(c.debt * .4); return; } rescue(c); }
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
   o.lost = (o.lost || 0) + Math.max(0, -net);
   const here = c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1);
   if (!fan && o.wealth <= 0) {
     // Out of money: a reckless owner takes the club down with him; anyone else finds a buyer.
-    if (["gambler", "crypto", "stripper"].includes(o.style) || -net > inc * .5) { administration(c); return; }
+    if (["gambler", "crypto", "stripper"].includes(o.style) || -net > inc * .5) { if (failGate("adm")) { administration(c); return; } rescue(c); return; }
+    if (!failGate("sale")) { rescue(c); return; }
     const old = o.name; takeover(c); c.cut = 0;
     if (here) news(`${old} have run out of money and are forced to sell ${c.name}. ${c.own.name} take over.`, c.lg === my().lg);
     return;
@@ -215,10 +216,10 @@ function ownersSummer() {
     // Administration: overstretched clubs with reckless owners collapse.
     c.ded = 0;
     const over = c.lvl > TIER_LVL[c.tier] + 3 || c.own.style === "stripper";
-    if (over && R() < S.debt) administration(c);
+    if (over && R() < S.debt && failGate("adm")) administration(c);
     // Takeovers: a few clubs change hands each summer; supporter-owned clubs never do.
     if (c.own.style === "dynasty" && G.year - c.own.since >= 12 && R() < .1) succession(c);
-    else if (c.own.style === "crypto" && R() < .15) cryptoCrash(c);
+    else if (c.own.style === "crypto" && R() < .15 && failGate("adm")) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
     if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); } }
@@ -362,7 +363,7 @@ function diversitySummer() {
     if (c.gone || c.abroad || isMine(c) || c.tier < 2 || !c.own || !["sugar", "celebrity", "crypto", "gambler"].includes(c.own.style) || c.own.wealth < 100e6 * (c.tier <= 3 ? 1 : .3) || R() > .12) continue;
     const pool = Object.values(G.players).filter(p => p.club >= 0 && p.club !== G.club && !p.acad && !p.loan && p.age <= 32 && !(p.stunY > G.year - 4) && p.ovr >= c.lvl + 6 && hugeAsk(p, c) && willJoin(p, c) && CL(p.club) && !CL(p.club).gone);
     if (!pool.length) continue;
-    const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.round(hugeWage(p, c) / 100) * 100, why = affinity(p, c);
+    const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(500e3 * 52, Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages top out at €500k a week */, why = affinity(p, c);
     aiTransfer(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; aiSquadCheck(from, true);  // the fee comes out of the budget, however far below zero
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) drops down from ${from.name} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
@@ -420,7 +421,8 @@ function breakSlump(p) {
   if (r < up || r < up + down) {
     // The swing is measured on the shown scale: up to three points either way (a 10 can become a 13 or a 7), and the
     // player's potential moves by the same amount.
-    const s = to20(p.ovr), sp = to20(Math.max(p.pot, p.ovr)), d = (r < up ? 1 : -1) * rf(1, 3);
+    // Smaller for low-rated players: a full swing from about 10 up, half at 6, a quarter at 4 and below.
+    const s = to20(p.ovr), sp = to20(Math.max(p.pot, p.ovr)), d = (r < up ? 1 : -1) * rf(1, 3) * clamp((s - 2) / 8, .25, 1);
     const ovr = clamp(Math.round(from20(clamp(s + d, 1, 20))), 1, 100), pot = clamp(Math.round(from20(clamp(sp + d, 1, 20))), ovr, 100);
     shiftPlayer(p, ovr - p.ovr); p.pot = Math.max(pot, p.ovr);
     if (p.club === G.club) news(r < up ? `${p.name} has had a breakthrough year: he's suddenly much better (now rated ${r20(p.ovr)}), and the coaches think there's more to come.` : `${p.name} has fallen off a cliff: he's lost a lot of his ability (now rated ${r20(p.ovr)}).`, true);
@@ -452,3 +454,17 @@ function payFee(buyer, seller, fee) {
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
 function aiTransfer(p, to, fee = aiFee(p)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); }
+
+/* Clubs going under is rare: about one administration and one forced sale (an owner out of money having to sell) every
+   five years across the whole game, each drawn three to seven years after the last. A club in trouble before one is
+   due is rescued the hard way instead: the owner cuts back and sells his dearest players, scrapes together enough to
+   carry on, and any debt is partly restructured. */
+function failGate(kind) {
+  const F = (G.failNext ||= {}); if (F[kind] == null) F[kind] = G.year + ri(1, 6);
+  if (G.year < F[kind]) return false;
+  F[kind] = G.year + ri(3, 7); return true;
+}
+function rescue(c) {
+  c.cut = 2; if (c.own) c.own.wealth = Math.max(c.own.wealth, Math.round(aiIncome(c) * .25)); if (c.debt) c.debt = Math.round(c.debt * .7);
+  ruleSales(c); if (c.lg === my().lg) news(`${c.name}'s owner ${c.own ? c.own.name : ""} is in financial trouble: cuts are ordered and the best-paid players are up for sale.`);
+}
