@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.52.0";
+const VERSION = "0.52.1";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -404,7 +404,7 @@ function foundClub(o) {
   news(`${c.name} are founded. ${c.squad.length} players from an open trial day make up the first squad, and the club will play at ${HOSTS[0].name} while it has no ground of its own.`, true);
   return c;
 }
-function newLedger() { return { equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, network: 0, breaks: 0, stix: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, mdops: 0, travel: 0, refunds: 0, medical: 0, insure: 0, insclaim: 0, oldground: 0, util: 0, grading: 0, comm: 0, tax: 0, acad: 0, scout: 0, buys: 0, build: 0, interest: 0, invest: 0 }; }
+function newLedger() { return { para: 0, equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, network: 0, breaks: 0, stix: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, mdops: 0, travel: 0, refunds: 0, medical: 0, insure: 0, insclaim: 0, oldground: 0, util: 0, grading: 0, comm: 0, tax: 0, acad: 0, scout: 0, buys: 0, build: 0, interest: 0, invest: 0 }; }
 
 /* ---------- archetypes ----------
    What kind of player he is in his position, read from which attributes stand out against his own overall (allowing

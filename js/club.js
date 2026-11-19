@@ -303,7 +303,7 @@ function weeklyAccounts(c) {
   earn("events", ventureWeek(c)); concertWeek(c);
   if (G.phase === "season") earn("suites", suitesLet(c) * c.prices.suite / SEASON_WEEKS);
   corpWeek(c);
-  if (G.phase === "season") earn("tv", TV[c.tier] / 46);
+  if (G.phase === "season") { earn("tv", TV[c.tier] / 46); if (paraOf(c)) earn("para", paraOf(c) / 46); }
   if (c.cash < 0) spend("interest", -c.cash * .1 / 52);  // an overdraft at 10% a year
   feedersWeek(); loansWeek(c);
 }
@@ -321,7 +321,7 @@ function homeGameMoney(c, opp, league) {
   c.att = c.att || []; c.att.push(crowd);
   return crowd;
 }
-const ledgerIncome = f => (f.insclaim || 0) + (f.oldground || 0) + f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
+const ledgerIncome = f => (f.para || 0) + (f.insclaim || 0) + (f.oldground || 0) + f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
 const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + (f.mdops || 0) + (f.travel || 0) + (f.refunds || 0) + (f.medical || 0) + (f.insure || 0) + (f.util || 0) + (f.grading || 0) + (f.comm || 0) + (f.tax || 0) + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
@@ -630,3 +630,11 @@ function awayRefundCheck(c, opp, gf, ga) {
   addChoice("awayRefund", `${n.toLocaleString("en-GB")} fans travelled to see a ${ga}-${gf} defeat at ${opp.name}`, `Some clubs refund the supporters who made the trip after a humiliation like that. Refunding their tickets would cost ${money(cost)}.`,
     ["Refund the travelling fans", "Apologise, no refund"], { cost }, 1);
 }
+
+/* ---------- parachute payments ----------
+   A club relegated from the professional divisions keeps a share of the TV money of the division it left, to soften the fall.
+   From the Premier: 55%, 45% and 20% over three seasons (two seasons if it was only up for one). From the First Division:
+   20% then 10%; from the Second and Third: 30% then 15%. Payments stop if the club goes back up. */
+const PARA = { 1: [.55, .45, .2], 2: [.2, .1], 3: [.3, .15], 4: [.3, .15] };
+const paraOf = c => c.para && PARA[c.para.from] && c.para.i < c.para.n ? Math.round(TV[c.para.from] * PARA[c.para.from][c.para.i]) : 0;
+const paraPlan = c => c.para ? PARA[c.para.from].slice(c.para.i, c.para.n).map(f => Math.round(TV[c.para.from] * f)) : [];

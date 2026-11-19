@@ -192,13 +192,21 @@ function endSeason() {
   G.meddle = (G.meddle || 0) * .6;
   mine.fac.stadium.held = 0;  // interference is slowly forgotten
   mine.finLast = mine.fin; mine.fin = newLedger(); mine.spentT = 0;
+  // Parachute payments move on a season; a club that has had them all stops getting them.
+  for (const c of G.clubs) if (c.para && ++c.para.i >= c.para.n) delete c.para;
   // Apply the moves
   for (const [id, to] of moves) {
     const c = CL(id), from = c.lg;
+    if (to !== "OUT") { const ft = LEAGUES[from].tier;
+      if (to) delete c.para;  // promoted: the parachute stops
+      else if (PARA[ft]) { const up = G.year - (c.tierSince ?? -99) + 1, n = ft === 1 && up < 2 ? 2 : PARA[ft].length, np = { from: ft, i: 0, n };
+        if (!c.para || TV[ft] * PARA[ft][0] > paraOf(c)) c.para = np; }
+      c.tierSince = G.year + 1; }
     G.leagues[from].clubs = G.leagues[from].clubs.filter(x => x !== id);
     if (to === "OUT") { c.gone = true; for (const pid of c.squad.slice()) toFreeAgent(P(pid)); c.squad = []; continue; }
     const dest = to || leagueFor(LEAGUES[from].tier + 1, c.half);
     c.lg = dest; c.tier = LEAGUES[dest].tier; G.leagues[dest].clubs.push(id);
+    if (isMine(c) && !to && c.para && c.para.i === 0 && c.para.from === LEAGUES[from].tier) news(`Parachute payments: as a relegated club you'll receive ${paraPlan(c).map(money).join(", then ")} over the next ${paraPlan(c).length} seasons, unless you go straight back up.`, true);
     if (isMine(c)) {
       if (to) { moodHit(c, 18); news(`PROMOTED! ${c.name} will play in the ${LEAGUES[dest].name} next season.`, true);
         const g = gradingCost(c, LEAGUES[dest].tier); if (g) { spend("grading", g); news(`The ${LEAGUES[dest].name} requires ground-grading works before the season: ${money(g)}${c.fac.stadium.own ? "" : " (your share of the work at your landlord's ground)"}.`, true); } }

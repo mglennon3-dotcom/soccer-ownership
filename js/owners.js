@@ -123,7 +123,7 @@ function aiEstimate(x) {
 }
 // A season's income: TV, the gate (plus bar and shop), sponsors.
 // (plus a little for cup runs, merit money and selling players).
-function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
+function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
 const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
 // Travel, utilities, insurance and medical bills, and grading works on arriving in a new division.
