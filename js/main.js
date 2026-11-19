@@ -106,6 +106,8 @@ function upgradeSave() {
   if (G.board && G.board.dir) delete G.board.dir;  // directors were removed
   // Staff targets: the first summer they exist can be set in any week of it; old-style targets are cleared.
   if (!G.sgrace1) { G.sgrace1 = true; if (G.phase === "summer") G.sgrace = G.year; if (G.sobj && G.sobj.manager && Object.values(G.sobj.manager).some(v => typeof v === "number")) G.sobj = null; }
+  // The manager's assists target became one player's assists: a target set the old way is converted.
+  { const a = G.sobj && G.sobj.manager && G.sobj.manager.assists; if (a && a.v && a.v[0] > 25) { a.v = [6, 10, 14, 20]; a.label = "Top assister's assists"; } }
   if (G.club != null) syncReg();  // auto-registration: the best 25 while a window is open
   if (!G.brk1) { G.brk1 = true; if (G.club != null) for (const id of my().squad.slice()) { const p = G.players[id]; if (p) breakSlump(p); } }  // one-off: the summer roll this squad missed
   if (!G.list2) { G.list2 = true; if (G.club != null) aiListings(); }  // clubs abroad now transfer-list players too

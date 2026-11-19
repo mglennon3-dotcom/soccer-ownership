@@ -253,8 +253,16 @@ const dealGrowth = (c, d) => commercialValue(c) * SLOTS[d.slot].share / Math.max
    the deal left unpaid); it fades by about 40% each summer. While they're wary, fewer brands make offers, they offer less,
    and they rarely come to you unprompted. */
 const brandWary = () => clamp(G.wary || 0, 0, 1);
+/* And they remember a good partner. Every deal that runs its full term adds goodwill (it fades by about 30% each summer;
+   breaking a deal halves it). With goodwill, brands offer more (up to about 20% more), a fourth brand joins in, brands
+   come to you unprompted more often, and a sponsor whose deal has run its course offers to renew at a premium. */
+const brandGood = () => clamp(G.goodwill || 0, 0, .6);
+const brandMult = () => (1 + brandGood() * .35) * (1 - brandWary() * .35);
 function makeOffers(slot) {
-  const c = my(), w = brandWary(), base = commercialValue(c) * SLOTS[slot].share * (1 - w * .35), out = [], n = Math.max(1, 3 - Math.round(w * 3));
+  const c = my(), w = brandWary(), base = commercialValue(c) * SLOTS[slot].share * brandMult(), out = [], n = Math.max(1, 3 - Math.round(w * 3) + (brandGood() >= .25 && w < .1 ? 1 : 0));
+  // A sponsor whose deal is ending (or has just ended) offers to carry on, a little above the going rate.
+  const cur = c.deals.find(d => d.slot === slot && d.yrs <= 1), past = (G.lastBrand || {})[slot], renew = cur ? cur.brand : past && past.y >= G.year - 1 ? past.brand : null;
+  if (renew && w < .5) { const yrs = ri(2, 4), amt = Math.round(base * rf(1.05, 1.15) * (1 - (yrs - 1) * .04) / 500) * 500; out.push({ slot, brand: renew, amt, yrs, bonus: Math.round(amt * rf(.15, .4) / 500) * 500, exp: 6, renew: true }); }
   for (let i = 0; i < n; i++) {
     const yrs = ri(1, 4), amt = Math.round(base * rf(.7, 1.12) * (1 - (yrs - 1) * .04) / 500) * 500;  // longer deals pay a little less a year
     const brand = slot === "kit" ? pick(KIT_BRANDS) : pick(BRANDS) + " " + pick(BRAND_KIND);
@@ -273,21 +281,22 @@ function refreshOffers(c, force) {
     // (a new deal replaces the old one from signing). Outgrow it by half and brands come to you.
     const grown = deal && deal.yrs > 0 ? dealGrowth(c, deal) : 0;
     if (((!deal || deal.yrs <= 0) && !have.length) || (force === s && (!deal || deal.yrs <= 1 || grown >= 1.25))) { c.offers = c.offers.filter(o => o.slot !== s).concat(makeOffers(s)); }
-    else if (!force && grown >= 1.5 && !have.length && G.phase !== "playoffs" && R() < .08 * (1 - brandWary())) { c.offers = c.offers.concat(makeOffers(s)); news(`Brands have noticed how the club has grown: there are new offers for your ${SLOTS[s].l.toLowerCase()} deal, worth about ${Math.round((grown - 1) * 100)}% more than ${deal.brand} pay.`, true); }
+    else if (!force && grown >= 1.5 && !have.length && G.phase !== "playoffs" && R() < .08 * (1 - brandWary()) * (1 + brandGood() * 2)) { c.offers = c.offers.concat(makeOffers(s)); news(`Brands have noticed how the club has grown: there are new offers for your ${SLOTS[s].l.toLowerCase()} deal, worth about ${Math.round((grown - 1) * 100)}% more than ${deal.brand} pay.`, true); }
   }
 }
 /* Breaking a sponsor deal early costs you: half of what it still had to pay (its remaining years, the current one
    counted from where the season is). */
 const breakFee = d => { if (!d || d.yrs <= 0) return 0; const left = Math.max(0, d.yrs - 1) + (G.phase === "season" ? 1 - G.week / SEASON_WEEKS : 1); return Math.round(d.amt * left * .5 / 500) * 500; };
 function acceptOffer(o) {
-  const c = my(), old = c.deals.find(d => d.slot === o.slot && d.yrs > 0), fee = breakFee(old);
+  const c = my(), old = c.deals.find(d => d.slot === o.slot && d.yrs > 0), fee = old && old.brand === o.brand ? 0 : breakFee(old);  // renewing with the same brand breaks nothing
   if (old && fee) { spend("breaks", fee); news(`${o.brand} replace ${old.brand}. Breaking ${old.brand}'s deal costs ${money(fee)} in compensation, and other brands take note.`, true);
     const left = fee / Math.max(1, old.amt * .5);  // years of the deal walked out on
-    G.wary = clamp((G.wary || 0) + .12 + left * .08, 0, 1); (G.broken ||= []).unshift({ y: G.year, brand: old.brand, slot: old.slot }); G.broken.length = Math.min(G.broken.length, 10); }
+    G.wary = clamp((G.wary || 0) + .12 + left * .08, 0, 1); G.goodwill = (G.goodwill || 0) * .5; (G.broken ||= []).unshift({ y: G.year, brand: old.brand, slot: old.slot }); G.broken.length = Math.min(G.broken.length, 10); }
   c.deals = c.deals.filter(d => d.slot !== o.slot).concat({ ...o, exp: undefined });
   c.offers = c.offers.filter(x => x.slot !== o.slot);
   if (o.slot === "stadium") c.fac.stadium.name = `The ${o.brand.split(" ")[0]} Stadium`;
-  news(`${o.brand} sign a ${o.yrs}-year ${SLOTS[o.slot].l.toLowerCase()} deal worth ${money(o.amt)} a year (${money(o.bonus)} bonus for promotion).`, true);
+  if (G.lastBrand && G.lastBrand[o.slot]) delete G.lastBrand[o.slot];
+  news(`${o.brand} ${o.renew ? "renew with a" : "sign a"} ${o.yrs}-year ${SLOTS[o.slot].l.toLowerCase()} deal worth ${money(o.amt)} a year (${money(o.bonus)} bonus for promotion).`, true);
 }
 const sponsorTotal = c => sum(c.deals, d => d.amt);
 
@@ -689,4 +698,15 @@ function seasonForecast(c = my()) {
   const cost = sum(Object.values(out), v => v), net = sofar + inc - cost;
   const ratio = c.tier <= 4 ? spendRolling(c, ledgerIncome(f) + inc - (ledgerCosts(f) - f.build - f.acad + cost - (c.budget.acad / 52 * W)), ledgerIncome(f) + inc).ratio : 0;
   return { sofar, rest, out, inc, cost, net, W, home, pos, windowAhead, ratio };
+}
+
+/* Each summer every sponsor deal has a year less to run. One that reaches the end has been honoured in full: the brand
+   leaves on good terms (goodwill) and will offer to renew. */
+function dealsSeasonEnd(c = my()) {
+  for (const d of c.deals) {
+    d.yrs--;
+    if (d.yrs <= 0) { G.goodwill = clamp((G.goodwill || 0) + .05, 0, .6); (G.lastBrand ||= {})[d.slot] = { brand: d.brand, y: G.year };
+      news(`${d.brand}'s ${SLOTS[d.slot].l.toLowerCase()} deal has run its full term. They'd like to talk about a renewal, and other brands notice a club that honours its deals.`, true); }
+  }
+  c.deals = c.deals.filter(d => d.yrs > 0);
 }

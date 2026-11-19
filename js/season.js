@@ -184,6 +184,8 @@ function endSeason() {
   judgeObjectives({ ...report, up: wentUp, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club) });
   seasonTax(mine);
   if (G.wary) G.wary = G.wary < .03 ? 0 : Math.round(G.wary * .6 * 100) / 100;  // brands' wariness after broken deals fades
+  if (G.goodwill) G.goodwill = Math.round(G.goodwill * .7 * 100) / 100;  // and goodwill from honoured deals fades
+  dealsSeasonEnd(mine);
   { const f0 = mine.fin, inc = ledgerIncome(f0), net = inc - (ledgerCosts(f0) - f0.build - f0.acad), r = spendRule(mine, net, inc);
     mine.ded = r.pen; if (r.pen) news(`The league docks you ${r.pen} points for next season: over three seasons you lost ${Math.round(r.ratio * 100)}% of your income, past the 35% the spending rule allows.`, true); }
   // History

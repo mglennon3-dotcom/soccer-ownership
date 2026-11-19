@@ -277,7 +277,7 @@ function judgeObjectives(report) {
    situation: modest, fair, ambitious and hardest. What counts is the level you set and the level reached: meeting a
    harder target is rewarded more (the hardest most of all), and falling short costs more the further short of it you
    finish. Measured over the season; recruitment counts every signing and sale this season.
-     Manager: the top scorer's goals, league goals, league clean sheets, assists, minutes for under-21s, and the squad's
+     Manager: the top scorer's goals, league goals, league clean sheets, the top assister's assists, minutes for under-21s, and the squad's
        total growth (shown rating points gained by the players here at the start of the season).
      Head of recruitment: a player for a chosen position rated at least a level; an under-21 with potential of at least
        a level; total player sales.
@@ -292,7 +292,7 @@ function staffTargetLevels(c = my()) {
   const inc = c.finLast ? ledgerIncome(c.finLast) : TV[c.tier] + COMM_T[c.tier], r = v => Math.round(v);
   return {
     manager: { top: ["Top scorer's goals", [10, 15, 20, 30]], goals: ["League goals", [n * 1.1, n * 1.3, n * 1.55, n * 1.85].map(r)], cs: ["League clean sheets", [n * .2, n * .27, n * .35, n * .45].map(r)],
-      assists: ["Assists", [n * .75, n * .9, n * 1.1, n * 1.3].map(r)], ymin: ["Minutes for under-21s", [n * 90 * 1.5, n * 90 * 3, n * 90 * 5, n * 90 * 7].map(v => Math.round(v / 100) * 100)], grow: ["Squad growth (rating points, total)", [2, 4, 6, 9]] },
+      assists: ["Top assister's assists", [6, 10, 14, 20]], ymin: ["Minutes for under-21s", [n * 90 * 1.5, n * 90 * 3, n * 90 * 5, n * 90 * 7].map(v => Math.round(v / 100) * 100)], grow: ["Squad growth (rating points, total)", [2, 4, 6, 9]] },
     recruit: { pos: ["Sign a player for the position, rated at least", ladder([.25, .5, .75, .9])], u21: ["Sign an under-21 with potential of at least", ladder([.5, .75, .9, .97])],
       sales: ["Player sales of at least", [.02, .05, .1, .2].map(f => Math.round(inc * f / 1e4) * 1e4)] },
     youth: { find: ["A new academy player with potential of at least", ladder([.25, .5, .75, .9])], one: ["One academy player grows by (points)", [1, 1.5, 2.5, 4]], avg: ["Academy average growth (points)", [.3, .6, 1, 1.5]] },
@@ -308,7 +308,7 @@ function staffProgress(c = my()) {
   const acad = sq.filter(p => p.acad || p.yAcad === c.id), ag = acad.map(gain).filter(v => v != null), r1 = v => Math.round(v * 10) / 10;
   const pos = S.recruit && S.recruit.posK;
   return {
-    manager: { top: Math.max(0, ...sq.map(p => p.s.g || 0)), goals: sum(lg, r => r.gf), cs: lg.filter(r => r.ga === 0).length, assists: sum(sq, p => p.s.a || 0), ymin: sum(sq.filter(p => p.age <= 21), mins),
+    manager: { top: Math.max(0, ...sq.map(p => p.s.g || 0)), goals: sum(lg, r => r.gf), cs: lg.filter(r => r.ga === 0).length, assists: Math.max(0, ...sq.map(p => p.s.a || 0)), ymin: sum(sq.filter(p => p.age <= 21), mins),
       grow: r1(sum(sq.filter(p => !p.acad), p => Math.max(0, gain(p) || 0))) },
     recruit: { pos: Math.max(0, ...ins.filter(m => !pos || m.pos === pos).map(m => m.r || 0)), u21: Math.max(0, ...ins.filter(m => m.age <= 20 && G.players[m.id]).map(m => r20(G.players[m.id].pot))), sales: sum(outs, m => m.fee || 0) },
     youth: { find: Math.max(0, ...acad.filter(p => base[p.id] == null).map(p => r20(p.pot))), one: r1(Math.max(0, ...ag)), avg: ag.length ? r1(avg(ag)) : 0 },
