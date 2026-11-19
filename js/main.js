@@ -99,6 +99,10 @@ function upgradeSave() {
     if (G.club != null) for (const st of Object.values(my().staff).filter(Boolean)) { st.demand = Math.round(staffMarket(st) * rf(.85, 1.2) / 1000) * 1000; const w = Math.ceil(effDemand(st) / 1000) * 1000; if (st.wage > w) st.wage = w; } }
   // 0.50.3: AI managers' and youth scouting ratings now follow their club's level: existing ones are re-rated.
   if (!G.aistaff2) { G.aistaff2 = true; for (const c of G.clubs) { if (c.gone && !c.abroad) continue; if (c.coach && !isMine(c)) { c.coach.dev = clamp(Math.round(aiStaffLvl(c.rep) + normal() * 9), 5, 97); c.coach.tac = clamp(Math.round((c.coach.tac + aiStaffLvl(c.rep) + normal() * 9) / 2), 5, 97); } delete c.yscout; } }
+  // 0.50.4: emergency signings were paid by their own going rate (a former star keeper could cost millions at a small
+  // club); any still at your club on such a contract moves onto the emergency cap.
+  if (G.club != null && !G.emerg1) { G.emerg1 = true; const c = my(), ids = new Set((G.tlog || []).filter(m => m.by === "emergency").map(m => m.id));
+    for (const p of c.squad.map(P)) if (p && ids.has(p.id)) { const w = emergencyWage(p, c, .6); if (p.wage > w) { news(`${p.name}'s emergency contract is corrected to ${pw(w)}.`); p.wage = w; } } }
   if (!G.site2) { G.site2 = true;
     for (const c of G.clubs) { if (c.gone || c.abroad) continue;
       if (isMine(c)) { const S = c.fac.stadium; if (S.own) S.site = Math.max(newSite(S.cap), S.cap + usedSpace(S), buildNeeds(S)); }

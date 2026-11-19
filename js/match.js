@@ -78,15 +78,18 @@ function scorer(xi, kind) {
 }
 /* A side that can't field eleven (everyone sold, injured or suspended) signs trialists from the free agents to make up
    the numbers, so a match is never played a man short by accident. Only your club can end up here. */
+// An emergency short contract: part of his rate at this club, never more than about the division's typical wage.
+const emergencyWage = (p, c, k) => Math.max(1000, Math.round(Math.min(wageAt(p.ovr, c.tier) * k, wageFor(TIER_LVL[c.tier]) * 1.2) / 100) * 100);
 function emergencyXI(c) {
   // No fit keeper: the club signs one from the free agents for the match (and beyond, on a short contract).
   if (!c.squad.some(id => P(id).pos === "GK" && avail(P(id)) && (!P(id).acad || P(id).age >= 17) && isReg(P(id), c))) {
-    const gk = G.fa.map(P).filter(p => p && p.pos === "GK" && p.age <= 36).sort((a, b) => b.ovr - a.ovr)[0];
-    if (gk) { logMove("in", gk, { club: "Free agent", fee: 0, wage: 0, by: "emergency" }); moveTo(gk, c); registerNew(gk, c, true); gk.wage = Math.max(1000, Math.round(wageFor(gk.ovr) * .6 / 100) * 100); gk.yrs = 1; news(`With no fit goalkeeper, ${c.name} sign ${gk.name} from the free agents on a short contract.`, true); }
+    // The free-agent keeper nearest the club's own level (not the best one going), on an emergency wage.
+    const gk = G.fa.map(P).filter(p => p && p.pos === "GK" && p.age <= 36).sort((a, b) => Math.abs(a.ovr - TIER_LVL[c.tier]) - Math.abs(b.ovr - TIER_LVL[c.tier]))[0];
+    if (gk) { logMove("in", gk, { club: "Free agent", fee: 0, wage: 0, by: "emergency" }); moveTo(gk, c); registerNew(gk, c, true); gk.wage = emergencyWage(gk, c, .6); gk.yrs = 1; news(`With no fit goalkeeper, ${c.name} sign ${gk.name} from the free agents on a short contract.`, true); }
   }
   const need = 11 - pickXI(c).length; if (need <= 0) return;
   const fa = G.fa.map(P).filter(p => p && p.age <= 34).sort((a, b) => a.wage - b.wage);
-  for (const p of fa.slice(0, need)) { logMove("in", p, { club: "Free agent", fee: 0, wage: 0, by: "emergency" }); moveTo(p, c); registerNew(p, c, true); p.wage = Math.max(1000, Math.round(wageFor(p.ovr) * .5 / 100) * 100); p.yrs = 1; }
+  for (const p of fa.slice(0, need)) { logMove("in", p, { club: "Free agent", fee: 0, wage: 0, by: "emergency" }); moveTo(p, c); registerNew(p, c, true); p.wage = emergencyWage(p, c, .5); p.yrs = 1; }
   news(`${c.name} couldn't field eleven players: ${Math.min(need, fa.length)} trialist${need > 1 ? "s" : ""} from the free agents sign short contracts to make up the side.`, true);
 }
 function playMatch(h, a, neutral, fr) {
