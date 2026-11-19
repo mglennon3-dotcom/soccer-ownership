@@ -670,8 +670,8 @@ function clubModal(id) {
 /* How open a player is to joining you, from the same factors he weighs when you make an offer (appeal.js). */
 function interestOf(p) {
   const ask = playerAsk(p); if (ask == null || !willJoin(p, my())) return { w: "Not interested", k: "no", cls: "bad", ask: null };
-  const sc = playerAppeal(p, demandWage(p, my())), m = sc.score - sc.pr.thr;
-  return m >= .08 ? { w: "Keen", k: "keen", cls: "good", ask } : m >= 0 ? { w: "Open", k: "open", cls: "", ask } : { w: "For more money", k: "sign", cls: "warn", ask };
+  const sc = playerAppeal(p, demandWage(p, my())), m = sc.score - sc.pr.thr, down = my().tier > naturalTier(p);  // stepping down: never "keen"
+  return m >= .08 && !down ? { w: "Keen", k: "keen", cls: "good", ask } : m >= 0 ? { w: "Open", k: "open", cls: "", ask } : { w: "For more money", k: "sign", cls: "warn", ask };
 }
 // Where a player plays (or, for a free agent, where he's from): the country chips on the market filter.
 const MKT_COUNTRIES = ["ENG", "ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "ROW"];

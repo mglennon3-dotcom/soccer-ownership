@@ -81,6 +81,11 @@ function playerAsk(p, c = my()) {
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
+  // Stepping down a division he's paid as at his own level, plus 15% for each division he drops, and at least 10% over
+  // what he earns now. No discount, however much he likes the club.
+  const drop = p.club === G.club ? 0 : Math.max(0, c.tier - naturalTier(p));
+  if (drop) { const own = wageAt(p.ovr, naturalTier(p)) * wageMult(p, c) * (1 + .15 * drop), w0 = base * Math.max(1, ratioFor(Math.max(0, need)) + .001);
+    return Math.ceil(Math.max(own, w0, p.club >= 0 ? p.wage * 1.1 : 0) / 100) * 100; }
   const floor = keenFloor(p, need), want = Math.ceil(base * (floor < .85 ? floor : Math.max(.85, ratioFor(Math.max(0, need)) + .001)) / 100) * 100;
   // Under contract elsewhere, he won't move for much less than he earns, unless he's keen and money isn't what drives him.
   return p.club >= 0 ? Math.max(want, Math.ceil(p.wage * (floor < .85 ? Math.max(.75, floor + .15) : .95) / 100) * 100) : want;
@@ -92,7 +97,7 @@ function keenFloor(p, need) {
   const money = prefsOf(p, P_FACTORS).pri.money; if (need >= 0 || money >= .3) return .85;
   return clamp(.85 - Math.min(1, -need) * .45 * (1 - money / .3), .55, .85);
 }
-const keenToJoin = (p, c = my()) => { const pr = prefsOf(p, P_FACTORS), f = playerFactors(p, c); let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k]; return keenFloor(p, (pr.thr - other) / pr.pri.money) < .8; };
+const keenToJoin = (p, c = my()) => { if (p.club !== G.club && c.tier > naturalTier(p)) return false; const pr = prefsOf(p, P_FACTORS), f = playerFactors(p, c); let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k]; return keenFloor(p, (pr.thr - other) / pr.pri.money) < .8; };
 function playerAppeal(p, wage, c = my()) {
   const pr = prefsOf(p, P_FACTORS), f = { ...playerFactors(p, c), money: moneyF(wage / demandWage(p, c)) };
   return { f, pr, score: sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
