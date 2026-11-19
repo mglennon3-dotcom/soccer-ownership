@@ -210,6 +210,7 @@ function pgSquad() {
   // Players you've lent out live at their loan clubs: listed separately.
   const outList = (G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id);
   SQT.out = ["Loaned out", () => false];
+  SQT.stats = ["Stats", p => !p.acad || (p.s.app || 0) > 0];
   const all = c.squad.map(P), ps = (tab === "out" ? outList : all.filter((SQT[tab] || SQT.first)[1])).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
   return `<section class="card"><div class="card-h"><h2>Squad</h2></div>
@@ -221,7 +222,7 @@ function pgSquad() {
     ${tab === "acad" && ps.length ? (() => { for (const id of [...ASEL]) if (!ps.some(p => p.id === id)) ASEL.delete(id); const n = ASEL.size;
       return `<div class="bulk"><button class="btn sm" data-act="aselall">${n === ps.length ? "Clear all" : "Select all"}</button><span class="small muted">${n ? `${n} selected` : "Tick players to act on several at once."}</span>
         ${n ? `<span class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-act="abulk" data-v="keep">Keep</button><button class="btn sm" data-act="abulk" data-v="unkeep">Don't keep</button><button class="btn sm" data-act="abulk" data-v="promote">Pro contract</button><button class="btn sm danger" data-act="abulk" data-v="release">Release</button></span>` : ""}</div>`; })() : ""}
-    ${ps.length ? `${sortTable("squad-" + tab, [
+    ${ps.length && tab === "stats" ? squadStats(c, ps, xi) : ps.length ? `${sortTable("squad-" + tab, [
       ...(tab === "acad" ? [{ k: "sel", l: "✓", f: p => `<input type="checkbox" data-act="asel" data-id="${p.id}" ${ASEL.has(p.id) ? "checked" : ""} aria-label="Select ${esc(p.name)}">` }] : []),
       { k: "name", l: "Player", left: true, v: p => p.name, f: p => `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> ${xi.has(p.id) ? '<span class="chip xi" title="First-choice XI">XI</span>' : ""}${p.inj ? `<span class="chip inj">${p.inj}w</span>` : ""}${p.unsettled > 0 ? '<span class="chip sus" title="Unsettled">UNS</span>' : ""}${p.req ? '<span class="chip req" title="Has asked to leave">OUT</span>' : ""}${p.agreed && CL(p.agreed.club) ? `<span class="chip req" title="Sold: joins ${esc(CL(p.agreed.club).name)} when the window opens">SOLD</span>` : ""}${!p.acad && !isReg(p, c) && !(p.loan && p.loan.from === c.id) ? '<span class="chip inj" title="Not registered: cannot play">NR</span>' : ""}${p.force ? '<span class="chip sus" title="Your pick: the manager must start him">OP</span>' : ""}${p.keep ? '<span class="chip list" title="Protected: kept and renewed">KP</span>' : ""}${p.nfs ? '<span class="chip xi" title="Not for sale">NFS</span>' : ""}${p.list ? '<span class="chip req" title="Transfer-listed">TL</span>' : ""}${p.loanList ? '<span class="chip hg" title="Available for loan">LL</span>' : ""}${favChip(p, c.id, true)}${p.loan ? '<span class="chip hg" title="On loan here">LN</span>' : ""}${p.nat !== "ENG" ? ` <span class="muted small">${esc(NAT_NAME[p.nat] || p.nat)}</span>` : ""}<br><span class="small muted">${esc((archetypeOf(p) || [""])[0])}</span>` },
       { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
@@ -841,4 +842,30 @@ function forecastCard(c) {
       <tr class="sec"><td colspan="2">Still to go out</td></tr>${rows(F.out, "−")}
       <tr class="tot"><td style="text-align:left">Projected result</td><td class="num ${F.net < 0 ? "bad" : "good"}">${sign(F.net)}</td></tr></tbody></table></div></details>
     <p class="small muted" style="margin-top:6px">This season's books so far plus the rest at today's rates. ${F.windowAhead ? "Assumes your head of recruitment uses the wage and transfer budgets in the coming window. " : ""}League merit money for ${ordinal(F.pos)} place. Player sales count as they happen; future sales, cup runs, Europe, building work and one-off bills aren't forecast.</p></section>`;
+}
+
+/* The Stats tab: this season's numbers for everyone who's played (or could), with totals for the club and his career.
+   Minutes are counted as 90 for a start and about 25 off the bench. */
+function squadStats(c, ps, xi) {
+  const st = p => (p.s.app || 0) - (p.s.sub || 0), mn = p => st(p) * 90 + (p.s.sub || 0) * 25, ga = p => (p.s.g || 0) + (p.s.a || 0);
+  const per90 = p => mn(p) >= 270 ? ga(p) / mn(p) * 90 : null, atClub = p => (p.cs || {})[c.id] || [0, 0, 0];
+  const top = k => Math.max(0, ...ps.map(p => p.s[k] || 0));
+  const tg = top("g"), ta = top("a"), tot = { app: sum(ps, p => p.s.app || 0), g: sum(ps, p => p.s.g || 0), a: sum(ps, p => p.s.a || 0) };
+  return `<p class="small" style="margin-bottom:8px">This season: <b>${tot.g}</b> goals and <b>${tot.a}</b> assists from the squad${tg ? ` · top scorer ${esc(ps.find(p => p.s.g === tg).name)} (${tg})` : ""}${ta ? ` · most assists ${esc(ps.find(p => p.s.a === ta).name)} (${ta})` : ""}.</p>
+  ${sortTable("squad-stats", [
+    { k: "name", l: "Player", left: true, v: p => p.name, f: p => `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> ${xi.has(p.id) ? '<span class="chip xi" title="First-choice XI">XI</span>' : ""}${p.acad ? '<span class="chip acad">ACAD</span>' : ""}` },
+    { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
+    { k: "age", l: "Age", r: true, v: p => p.age, f: p => p.age },
+    { k: "st", l: "Starts", r: true, v: st, f: st },
+    { k: "sub", l: "Sub", r: true, v: p => p.s.sub || 0, f: p => p.s.sub || 0 },
+    { k: "min", l: "Mins", r: true, v: mn, f: p => mn(p).toLocaleString("en-GB") },
+    { k: "g", l: "Gls", r: true, v: p => p.s.g || 0, f: p => p.s.g ? `<b>${p.s.g}</b>` : 0 },
+    { k: "a", l: "Ast", r: true, v: p => p.s.a || 0, f: p => p.s.a || 0 },
+    { k: "ga", l: "G+A", r: true, v: ga, f: ga },
+    { k: "p90", l: "G+A /90", r: true, v: p => per90(p) ?? -1, f: p => per90(p) == null ? `<span class="muted">—</span>` : per90(p).toFixed(2) },
+    { k: "form", l: "Form", left: true, v: p => p.s.app >= 10 ? seasonForm(p) : -9, f: p => { if ((p.s.app || 0) < 10) return `<span class="small muted">too few games</span>`; const f = seasonForm(p), w = f >= 1.2 ? "exceptional" : f >= .5 ? "very good" : f >= .15 ? "good" : f <= -.5 ? "poor" : f <= -.15 ? "below par" : "steady"; return `<span class="small ${f >= .15 ? "good" : f <= -.15 ? "bad" : "muted"}">${w}</span>`; } },
+    { k: "club", l: "For us", r: true, v: p => atClub(p)[0], f: p => `<span class="small">${atClub(p)[0]} · ${atClub(p)[1]}g · ${atClub(p)[2]}a</span>` },
+    { k: "car", l: "Career", r: true, v: p => (p.tot || [0])[0] + (p.s.app || 0), f: p => `<span class="small">${(p.tot || [0, 0])[0] + (p.s.app || 0)} · ${(p.tot || [0, 0])[1] + (p.s.g || 0)}g</span>` },  // past seasons plus this one
+  ], ps, { sort: { k: "min", d: -1 } })}
+  <p class="small muted" style="margin-top:8px">All competitions this season. Minutes: 90 a start, about 25 off the bench. G+A /90 needs three games' worth of minutes; form needs ten games (judged on goal threat for his position, and on playing every week for keepers and centre-backs). "For us": games, goals and assists for the club in all seasons; "Career": games and goals everywhere.</p>`;
 }

@@ -102,7 +102,10 @@ function buzzWeek(c) { if (c.buzz && c.buzz.w > 0) c.buzz.w--; }
 const POS_RETURN = { ST: .42, W: .3, AM: .3, CM: .15, DM: .08, FB: .08, CB: .05, GK: 0 };
 function seasonForm(p) {
   const s = p.s.app >= 10 ? p.s : p.last && p.last.app >= 10 ? p.last : null; if (!s) return 0;
-  if (p.pos === "GK" || p.pos === "CB") return clamp((s.app - 30) / 12, -1, 1);  // ever-presents get noticed
+  // Ever-presents get noticed: this season against the league games his club has played so far, last season against 30.
+  if (p.pos === "GK" || p.pos === "CB") { const x = p.club >= 0 ? CL(p.club) : null, row = x && !x.abroad && G.leagues[x.lg] ? G.leagues[x.lg].tab[x.id] : null;
+    if (s === p.s && row && row.p) return clamp((s.app / row.p - .7) / .25, -1, .8);  // "very good", short of a star season until it is complete
+    return clamp((s.app - 30) / 12, -1, 1); }
   const exp = POS_RETURN[p.pos], cpg = (s.g + s.a * .6) / s.app;
   return clamp((cpg / exp - 1) * Math.min(1, s.app / 25), -1, 2);
 }
