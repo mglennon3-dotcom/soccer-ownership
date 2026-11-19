@@ -337,7 +337,11 @@ function staffCard(role) {
     <div class="row" style="margin-top:10px">${s.expiring ? `<button class="btn primary" data-act="renewstaff" data-r="${role}">Renew 3 years${staffAsk(s) != null ? ` (${pw(Math.max(s.wage, staffAsk(s)))})` : ""}</button>` : ""}<button class="btn" data-act="cands" data-r="${role}">Look for a replacement</button><button class="btn danger" data-act="dismiss" data-r="${role}">Dismiss</button></div></section>`;
 }
 function pgStaff() {
-  return `<p class="small muted" style="margin-bottom:12px">The job attracts staff of about reputation ${Math.round(attraction())} (division, facilities, and your fortune). Better people will come for more money; the very best won't drop this far at all. Trust falls when you overrule them or a season goes badly; below 20 they resign.</p>
+  // Tabs: everyone at a glance, then one per member of staff with his card and his targets for the season.
+  const tab = SUB.staff || "all", TABS = [["all", "Overview"], ...["manager", "recruit", "youth"].map(r => [r, ROLES_STAFF[r].l])];
+  const tabs = `<div class="chips" style="margin-bottom:14px">${TABS.map(([k, l]) => `<button data-act="sub" data-k="staff" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>`;
+  if (tab !== "all") return `${tabs}<div class="grid2"><div class="stack">${staffCard(tab)}</div><div class="stack">${staffTargetsCard(tab)}</div></div>`;
+  return `${tabs}<p class="small muted" style="margin-bottom:12px">The job attracts staff of about reputation ${Math.round(attraction())} (division, facilities, and your fortune). Better people will come for more money; the very best won't drop this far at all. Trust falls when you overrule them or a season goes badly; below 20 they resign.</p>
     <div class="grid3">${staffCard("manager")}${staffCard("recruit")}${staffCard("youth")}</div>`;
 }
 /* What a player or coach is weighing up: each factor's weight to him (his top two starred) and how you score on it. */

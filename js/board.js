@@ -324,9 +324,11 @@ function staffTargets(c = my()) {
   }
   return out;
 }
-function setStaffObjectives(S) {
-  const c = my(); G.sobj = { ...S, y: G.year, base: Object.fromEntries(c.squad.map(P).filter(Boolean).map(p => [p.id, p.ovr])) };
-  const n = staffTargets(c).length; if (n) news(`You set ${n} target${n > 1 ? "s" : ""} for your staff for the season.`, true);
+// One member of staff's targets (the others' stay as they are). Growth is measured from the first targets set this season.
+function setStaffObjectives(role, T) {
+  const c = my(), S = G.sobj && G.sobj.y === G.year ? G.sobj : { y: G.year, base: Object.fromEntries(c.squad.map(P).filter(Boolean).map(p => [p.id, p.ovr])) };
+  S[role] = T; G.sobj = S;
+  const n = staffTargets(c).filter(t => t.role === role).length, s = staffOf(role); if (n && s) news(`You set ${n} target${n > 1 ? "s" : ""} for ${s.name} this season.`, true);
 }
 const fmtT = (k, v) => k === "sales" ? money(v) : v;
 function judgeStaffObjectives(d) {

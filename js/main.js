@@ -196,10 +196,10 @@ const ACT = {
   trustseat: async () => { if (await ask("Give the supporters' trust a seat on the board?")) { G.sTrust.seat = true; trustRel(12, "A supporters' trust director joins the board."); moodHit(my(), 3); render(); } },
   setobj: () => { const o = {}; for (const k of Object.keys(OBJ)) { const el = $("#obj-" + k); o[k] = el ? +el.value || 0 : 0; } setObjectives(o); render(); saveGame(); },
   objreset: () => { G.obj = null; render(); },
-  sobjedit: () => { STO_EDIT = true; render(); },
-  setsobj: () => { if (!staffTargetsOpen()) return toast("Staff targets are set in week 1 of pre-season."); const L = staffTargetLevels(), S = { recruit: { posK: $("#so-recruit-posK").value } };
-    for (const role of Object.keys(L)) { S[role] ||= {}; for (const [k, [label, v]] of Object.entries(L[role])) { const lv = +($(`#so-${role}-${k}`) || {}).value || 0; if (lv) S[role][k] = { lv, v, label }; } }
-    STO_EDIT = false; setStaffObjectives(S); render(); saveGame(); },
+  sobjedit: el => { STO_EDIT = el.dataset.role; render(); },
+  setsobj: el => { if (!staffTargetsOpen()) return toast("Staff targets are set in week 1 of pre-season."); const role = el.dataset.role, L = staffTargetLevels()[role], T = {};
+    for (const [k, [label, v]] of Object.entries(L)) { const lv = +($(`#so-${role}-${k}`) || {}).value || 0; if (lv) T[k] = { lv, v, label }; }
+    if (role === "recruit") T.posK = $("#so-recruit-posK").value; STO_EDIT = null; setStaffObjectives(role, T); render(); saveGame(); },
   approach: el => { approachPartner(CL(+el.dataset.id)); render(); saveGame(); },
   endpartner: async el => { const id = +el.dataset.id; if (await ask(`End the partnership with ${CL(id).name}?`)) { endPartner(id); render(); saveGame(); } },
   addfeeder: el => { addFeeder(CL(+el.dataset.id)); render(); saveGame(); },

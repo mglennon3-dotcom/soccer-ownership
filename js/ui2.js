@@ -22,7 +22,7 @@ function pgBoard() {
   const sale = `<section class="card"><div class="card-h"><h2>Sell the club</h2></div><p class="small muted" style="margin-bottom:8px">Sell your ${B.own}% and buy another club with the money. The investors, loans and debts stay with this club.</p>
     ${so.length ? `<div class="stack" style="gap:8px">${so.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b><br><span class="small muted">${OWNER_STYLES[o.style].l}: ${OWNER_STYLES[o.style].d}</span></span><span class="row"><b class="num">${money(o.amt)}</b><button class="btn sm danger" data-act="acceptsale" data-i="${i}">Sell</button></span></div>`).join("")}</div>` : `<button class="btn" data-act="putsale">Put the club up for sale</button>`}
     ${(G.career || []).length ? `<h3 style="margin:12px 0 6px">Clubs you've owned</h3>${G.career.map(x => `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: sold to ${esc(x.by)} for ${money(x.sold)}</p>`).join("")}` : ""}</section>`;
-  return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}${staffTargetsCard()}${own}</div><div class="stack">${trustC}${sale}</div></div>`;
+  return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}<p class="small muted" style="margin:-4px 0 4px">Staff targets are set on the <button class="lnk small" data-act="page" data-p="staff">Staff</button> page, one tab for each member of staff.</p>${own}</div><div class="stack">${trustC}${sale}</div></div>`;
 }
 function objectivesCard() {
   const o = G.obj && G.obj.y === G.year ? G.obj : null, canSet = G.phase === "summer";
@@ -454,24 +454,23 @@ function supportersCard(c) {
     <details style="margin-top:6px"><summary class="small">Mostly ${FAN_KINDS[top][0].toLowerCase()}. What shifts it</summary><p class="small muted" style="margin-top:4px">The mix shifts each summer: promotions bring fair-weather fans (relegation sends them away and leaves the loyal), steady seasons and a happy crowd build loyalty, terraces build a hardcore, and cheap tickets and a family stand bring in the community.</p></details></section>`;
 }
 
-/* Staff targets on the Board page: chosen in week 1 of pre-season, then progress through the season. */
-function staffTargetsCard() {
-  const c = my(), S = G.sobj && G.sobj.y === G.year ? G.sobj : null, open = staffTargetsOpen(), edit = open && (!S || STO_EDIT);
+/* One member of staff's targets on his Staff tab: chosen in week 1 of pre-season, then progress through the season. */
+function staffTargetsCard(role) {
+  const c = my(), S = G.sobj && G.sobj.y === G.year ? G.sobj : null, open = staffTargetsOpen(), mine = S && S[role] && Object.values(S[role]).some(t => t && t.lv);
+  const edit = open && (!mine || STO_EDIT === role), who = staffOf(role);
+  if (!who) return `<section class="card"><div class="card-h"><h2>Targets</h2></div><p class="muted small">Appoint a ${ROLES_STAFF[role].l.toLowerCase()} to set targets.</p></section>`;
   if (!edit) {
-    const list = S ? staffTargets(c) : [];
-    return `<section class="card"><div class="card-h"><h2>Staff targets</h2>${S && open ? `<button class="btn sm" data-act="sobjedit">Change</button>` : ""}</div>
-      ${list.length ? `<div class="tbl-wrap"><table class="proj"><tbody>${list.map(t => `<tr><td style="text-align:left"><span class="small muted">${ROLES_STAFF[t.role].l} · ${LVL_NAME[t.lv].toLowerCase()}</span><br>${t.label} ${fmtT(t.k, t.v[t.lv - 1])}</td><td class="num ${t.met ? "good" : ""}">${fmtT(t.k, t.now)}${t.met ? " ✓" : ""}${t.got ? `<br><span class="small muted">${LVL_NAME[t.got].toLowerCase()} level reached</span>` : ""}</td></tr>`).join("")}</tbody></table></div>
-      <p class="small muted" style="margin-top:6px">Where each stands now. At the end of the season, a met target is rewarded by its level (the hardest most); a missed one costs more the further short it falls. Staff ratings, potential and trust move with it.</p>`
-      : `<p class="muted small">${open ? "No staff targets set." : "No staff targets this season. They're set in week 1 of pre-season."}</p>${open ? `<button class="btn sm" data-act="sobjedit">Set staff targets</button>` : ""}`}</section>`;
+    const list = staffTargets(c).filter(t => t.role === role);
+    return `<section class="card"><div class="card-h"><h2>Targets this season</h2>${mine && open ? `<button class="btn sm" data-act="sobjedit" data-role="${role}">Change</button>` : ""}</div>
+      ${list.length ? `<div class="tbl-wrap"><table class="proj"><tbody>${list.map(t => `<tr><td style="text-align:left"><span class="small muted">${LVL_NAME[t.lv].toLowerCase()}</span><br>${t.label} ${fmtT(t.k, t.v[t.lv - 1])}</td><td class="num ${t.met ? "good" : ""}">${fmtT(t.k, t.now)}${t.met ? " ✓" : ""}${t.got ? `<br><span class="small muted">${LVL_NAME[t.got].toLowerCase()} level reached</span>` : ""}</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted" style="margin-top:6px">Where each stands now. At the end of the season a met target is rewarded by its level (the hardest most); a missed one costs more the further short it falls. ${esc(who.name)}'s ratings, potential and trust move with it.</p>`
+      : `<p class="muted small">${open ? "No targets set yet." : "No targets this season. They're set in week 1 of pre-season."}</p>${open ? `<button class="btn sm" data-act="sobjedit" data-role="${role}">Set targets</button>` : ""}`}</section>`;
   }
-  const L = staffTargetLevels(c), cur = (role, k) => S && S[role] && S[role][k] ? S[role][k].lv : 0;
-  const sel = (role, k) => { const [l, v] = L[role][k]; return `<label class="small"><b>${l}</b><select id="so-${role}-${k}">${LVL_NAME.map((n, i) => `<option value="${i}" ${cur(role, k) === i ? "selected" : ""}>${i ? `${n}: ${fmtT(k, v[i - 1])}` : n}</option>`).join("")}</select></label>`; };
-  const grp = role => Object.keys(L[role]).map(k => sel(role, k)).join("");
-  return `<section class="card"><div class="card-h"><h2>Set staff targets</h2><span class="small muted">${G.week === 0 ? "week 1 of pre-season" : "this summer only: any week"}</span></div>
-    <p class="small muted" style="margin-bottom:10px">Pick a level for each, or no target. Meeting a harder target is rewarded more, the hardest most of all; falling short costs more the further short you finish. Ratings and potential are shown ratings out of 20; growth is rating points gained this season.</p>
-    <h3 style="margin:6px 0">${ROLES_STAFF.manager.l}</h3><div class="price-grid">${grp("manager")}</div>
-    <h3 style="margin:10px 0 6px">${ROLES_STAFF.recruit.l}</h3><div class="price-grid"><label class="small"><b>Position</b><select id="so-recruit-posK">${POS.map(p => `<option value="${p}" ${S && S.recruit && S.recruit.posK === p ? "selected" : ""}>${POS_NAME[p]}</option>`).join("")}</select></label>${grp("recruit")}</div>
-    <h3 style="margin:10px 0 6px">${ROLES_STAFF.youth.l}</h3><div class="price-grid">${grp("youth")}</div>
-    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="setsobj">Set staff targets</button></div></section>`;
+  const L = staffTargetLevels(c)[role], cur = k => S && S[role] && S[role][k] ? S[role][k].lv : 0;
+  const sel = k => { const [l, v] = L[k]; return `<label class="small"><b>${l}</b><select id="so-${role}-${k}">${LVL_NAME.map((n, i) => `<option value="${i}" ${cur(k) === i ? "selected" : ""}>${i ? `${n}: ${fmtT(k, v[i - 1])}` : n}</option>`).join("")}</select></label>`; };
+  return `<section class="card"><div class="card-h"><h2>Set targets for ${esc(who.name)}</h2><span class="small muted">${G.week === 0 ? "week 1 of pre-season" : "this summer only: any week"}</span></div>
+    <p class="small muted" style="margin-bottom:10px">Pick a level for each, or no target. Meeting a harder target is rewarded more, the hardest most of all; falling short costs more the further short you finish. Ratings and potential are shown ratings out of 20, scaled to your division; growth is rating points gained this season.</p>
+    <div class="price-grid">${role === "recruit" ? `<label class="small"><b>Position</b><select id="so-recruit-posK">${POS.map(p => `<option value="${p}" ${S && S.recruit && S.recruit.posK === p ? "selected" : ""}>${POS_NAME[p]}</option>`).join("")}</select></label>` : ""}${Object.keys(L).map(sel).join("")}</div>
+    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="setsobj" data-role="${role}">Set targets</button></div></section>`;
 }
-let STO_EDIT = false;
+let STO_EDIT = null;  // the role whose targets are being changed
