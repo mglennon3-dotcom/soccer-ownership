@@ -482,7 +482,18 @@ function pgMoves() {
   const rows = inY.filter(groups[t]);
   const spent = sum(inY.filter(m => m.kind === "in" || m.kind === "youth"), m => m.fee || 0), got = sum(inY.filter(m => m.kind === "out"), m => m.fee || 0), payoffs = sum(inY.filter(m => m.kind === "release"), m => m.fee || 0);
   const nIn = inY.filter(m => m.kind === "in" || m.kind === "youth" || m.kind === "loanin").length, nOut = inY.filter(m => ["out", "release", "expired", "loanout"].includes(m.kind)).length;
-  return `<div class="stack"><section class="card"><div class="card-h"><h2>Transfer activity</h2>
+  const ag = incoming();
+  const agreed = ag.length ? `<section class="card"><div class="card-h"><h2>Agreed: joining when the window opens</h2><span class="small muted">${ag.length}</span></div>
+    ${sortTable("agreed", [
+      { k: "name", l: "Player", left: true, v: p => p.name, f: p => `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><br><span class="small muted">${p.pos} · ${p.age} · rated ${r20(p.ovr)}</span>` },
+      { k: "club", l: "From", left: true, v: p => fromName(p), f: p => `<span class="small">${esc(fromName(p))}</span>` },
+      { k: "when", l: "Joins", left: true, v: p => toMeWhen(p) === "jan" ? 0 : 1, f: p => `<span class="small">${toMeWhen(p) === "jan" ? "January window<br><span class='muted'>this season's accounts</span>" : "Summer window<br><span class='muted'>next season's accounts</span>"}</span>` },
+      { k: "fee", l: "Fee", r: true, v: p => p.toMe.fee, f: p => p.toMe.fee ? money(p.toMe.fee) : "Free" },
+      { k: "wage", l: "Wage", r: true, v: p => p.toMe.wage, f: p => pw(p.toMe.wage) },
+      { k: "by", l: "Deal by", left: true, v: p => p.toMe.rec ? 1 : 0, f: p => `<span class="small muted">${p.toMe.rec ? "Head of recruitment (your suggestion)" : "You (club cash, outside the budgets)"}</span>` },
+    ], ag, { sort: { k: "when", d: 1 }, quiet: true })}
+    <p class="small muted" style="margin-top:6px">Nothing is paid until he joins: the fee comes out then and his wages start. Deals your head of recruitment agrees for January are held back from this season's transfer budget; summer ones come out of next season's.</p></section>` : "";
+  return `<div class="stack">${agreed}<section class="card"><div class="card-h"><h2>Transfer activity</h2>
       <select data-act="msel">${["all", ...ys].map(v => `<option value="${v}" ${String(v) === String(y) ? "selected" : ""}>${v === "all" ? "All seasons" : seasonLabel(+v)}</option>`).join("")}</select></div>
     <dl class="ledger"><dt>In / out</dt><dd>${nIn} / ${nOut}</dd><dt>Spent on fees</dt><dd>${money(spent)}</dd><dt>Received</dt><dd>${money(got)}</dd>${payoffs ? `<dt>Paid to release players</dt><dd>${money(payoffs)}</dd>` : ""}
       <dt class="tot">Net</dt><dd class="tot ${got - spent - payoffs < 0 ? "bad" : "good"}">${money(got - spent - payoffs)}</dd></dl>

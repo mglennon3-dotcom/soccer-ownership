@@ -695,6 +695,8 @@ function seasonForecast(c = my()) {
     "Transfer fees": windowAhead ? Math.max(0, c.budget.transfer - (c.spentT || 0)) : 0,
     "Academy & scouting": (c.budget.acad + c.budget.scout) / 52 * W, "Community foundation": (c.budget.comm || 0) / 52 * W,
     "Ground: rent, match-day staff, upkeep": home * (m.rent + m.ops) + upkeep(c) / 52 * W, "Utilities & insurance": (utilities(c) + bill * INSURE) / 52 * W,
+    // Deals agreed for January that you made yourself (club cash, outside the budgets): the fee, and his wages from then on.
+    "Agreed signings for January": G.phase === "season" ? sum(incoming().filter(p => toMeWhen(p) === "jan" && !p.toMe.rec), p => p.toMe.fee + p.toMe.wage / 52 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0]))) : 0,
     "Away travel": away * TRAVEL[c.tier], "Feeder funding": feederFunding() / 52 * W, "Interest": Math.max(0, -c.cash) * .1 / 52 * W + sum(G.loans || [], l => (l.rate || 0) * (l.left || 0)) / 52 * W,
   };
   const sofar = ledgerIncome(f) - ledgerCosts(f), inc = sum(Object.values(rest), v => v);

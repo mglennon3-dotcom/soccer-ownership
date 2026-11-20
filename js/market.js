@@ -423,9 +423,11 @@ function suggest(p, loan) {
 /* Agreed out of the window: a player at another club can agree to join you; the deal goes through, and the fee is paid,
    when the next window opens. Until then his club won't sell him to anyone else. If he leaves the game (or the club is
    gone) the deal falls through; if his contract runs out in the meantime he comes on a free. */
-function agreeIncoming(p, fee, wage, rec) { p.toMe = { fee, wage, y: G.year, w: G.week, rec: !!rec }; news(`${rec ? `${rec.name} agrees a deal` : "Agreed"}: ${p.name} will join from ${fromName(p)} when the transfer window opens${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true); }
+// Which window an agreed deal completes in: January (this season's books and budget) or the summer (next season's).
+const toMeWhen = p => p.toMe.when || (p.toMe.y === G.year && G.phase === "season" && p.toMe.w < JAN[0] ? "jan" : "summer");
+function agreeIncoming(p, fee, wage, rec) { p.toMe = { fee, wage, y: G.year, w: G.week, rec: !!rec, by: rec ? "recruit" : "you", when: G.phase === "season" && G.week < JAN[0] ? "jan" : "summer" }; news(`${rec ? `${rec.name} agrees a deal` : "Agreed"}: ${p.name} will join from ${fromName(p)} when the ${p.toMe.when === "jan" ? "January window opens (this season's accounts)" : "summer window opens (next season's accounts)"}${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true); }
 // What deals agreed by your head of recruitment have already promised from the budgets (all agreed players' wages count).
-const pendFees = () => sum(incoming().filter(p => p.toMe.rec), p => p.toMe.fee);
+const pendFees = () => sum(incoming().filter(p => p.toMe.rec && toMeWhen(p) === "jan"), p => p.toMe.fee);  // summer deals come out of next season's budget
 const pendWages = () => sum(incoming(), p => p.toMe.wage);
 /* Out of the window your head of recruitment only acts on your suggestions: he agrees the deal (a free agent he signs
    straight away) and the player joins when the window opens. His own targets wait for the window. */

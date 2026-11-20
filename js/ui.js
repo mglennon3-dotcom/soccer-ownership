@@ -856,6 +856,8 @@ function forecastCard(c) {
       <tr class="sec"><td colspan="2">Still to come in</td></tr>${rows(F.rest, "+")}
       <tr class="sec"><td colspan="2">Still to go out</td></tr>${rows(F.out, "−")}
       <tr class="tot"><td style="text-align:left">Projected result</td><td class="num ${F.net < 0 ? "bad" : "good"}">${sign(F.net)}</td></tr></tbody></table></div></details>
+    ${(() => { const nx = incoming().filter(p => toMeWhen(p) === "summer"), jr = incoming().filter(p => toMeWhen(p) === "jan" && p.toMe.rec);
+      return (jr.length ? `<p class="small" style="margin-top:6px">January deals agreed by your head of recruitment (${jr.map(p => esc(p.name)).join(", ")}) are inside the transfer and wage budgets above.</p>` : "") + (nx.length ? `<p class="small" style="margin-top:6px">Agreed for the summer, so in <b>next</b> season's accounts: ${nx.map(p => `${esc(p.name)} (${p.toMe.fee ? money(p.toMe.fee) : "free"}, ${pw(p.toMe.wage)})`).join(", ")}.</p>` : ""); })()}
     <p class="small muted" style="margin-top:6px">This season's books so far plus the rest at today's rates. ${F.windowAhead ? "Assumes your head of recruitment uses the wage and transfer budgets in the coming window. " : ""}League merit money for ${ordinal(F.pos)} place. Player sales count as they happen; future sales, cup runs, Europe, building work and one-off bills aren't forecast.</p></section>`;
 }
 
