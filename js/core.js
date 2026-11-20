@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.73.2";
+const VERSION = "0.73.3";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -199,6 +199,23 @@ function payOn(T, ovr) {
   return Math.max(1000, Math.round(wk * 52 / 100) * 100);
 }
 const wageFor = ovr => payOn(PAY200, ovr);
+/* Will he sign a new deal? Settled once a season for a player at an AI club in the last year of his contract (the same
+   answer all season). Better than his club's regulars, in his prime, or unsettled, and he's likelier to run his deal
+   down and leave; a squad player his club doesn't need may not be offered one; older players value the security. His
+   club knows, and sells him for less rather than lose him for nothing. */
+function renewsAI(p) {
+  if (p.club < 0 || p.yrs > 1 || p.acad) return true; const c = CL(p.club); if (!c || isMine(c) || c.gone && !c.abroad) return true;
+  if (p.renew && p.renew.y === G.year) return p.renew.ok;
+  const top = c.squad.map(id => G.players[id]).filter(q => q && !q.acad).map(q => q.ovr).sort((a, b) => b - a), ref = avg(top.slice(0, 11)) || p.ovr, rank = top.indexOf(p.ovr);
+  let ch = .75;
+  if (p.ovr > ref + 2) ch -= Math.min(.45, (p.ovr - ref - 2) * .06);  // too good for them: wants a bigger move
+  if (p.age >= 23 && p.age <= 29 && p.ovr >= ref) ch -= .1;
+  if (p.age >= 31) ch += .12;
+  if (p.unsettled > 0 || p.req) ch -= .3;
+  if (rank > 18) ch -= .25;  // not needed: may not be offered a deal
+  const h = ((p.id * 2654435761 + G.year * 40503) >>> 0) % 1000 / 1000;  // the same answer all season
+  p.renew = { y: G.year, ok: h < clamp(ch, .1, .95) }; return p.renew.ok;
+}
 function valueOf(p) {
   const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1);
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
@@ -376,7 +393,11 @@ function newWorld(o) {
   if (o) foundClub(o);
   return G;
 }
-function toFreeAgent(p) { leaveClub(p); p.club = -1; p.acad = false; p.yrs = 0; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.faY = G.year; if (!G.fa.includes(p.id)) G.fa.push(p.id); }
+// Released or out of contract: for his first three weeks on the market he weighs up offers, and AI clubs can't sign him
+// (you can). After that the clubs at his level move in.
+const absWeek = () => G.year * 100 + (G.phase === "summer" ? G.week : SUMMER_WEEKS + G.week);
+const faFresh = q => q && q.faAt != null && absWeek() - q.faAt < 3;
+function toFreeAgent(p) { if (p.club >= 0) p.faAt = absWeek(); leaveClub(p); p.club = -1; p.acad = false; p.yrs = 0; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.faY = G.year; if (!G.fa.includes(p.id)) G.fa.push(p.id); }
 function leaveClub(p) { if (p.club >= 0 && typeof favLeaves === "function") favLeaves(p); if (p.club >= 0) { const c = CL(p.club); c.squad = c.squad.filter(id => id !== p.id); } }
 /* Transfer windows: a player who joins a club in a window can't be sold on in the same window. */
 const windowId = () => (G.phase === "summer" ? "S" : "J") + G.year;

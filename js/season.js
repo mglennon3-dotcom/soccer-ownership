@@ -289,7 +289,7 @@ function yearTurnover() {
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
     // AI wages drift toward what the club pays for the player's rating: about a third of the gap a year, down as he declines, up as he improves.
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan && p.stunC !== p.club) { /* a statement signing keeps his huge wage while he stays */ const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .35) / 100) * 100; }
-    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { p.yrs--; if (p.yrs <= 0) { if (R() < (p.ovr >= CL(p.club).lvl - 3 ? .95 : .6) && p.age < 34) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
+    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { const stays = p.age < 34 && renewsAI(p); p.yrs--; if (p.yrs <= 0) { if (stays) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
     // Veterans nobody signs hang up their boots sooner.
     const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;
     if (R() < ch) { if (p.club === G.club) news(`${p.name} retires, aged ${p.age}.`); retire(p); }
@@ -317,7 +317,9 @@ function yearTurnover() {
     if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { aiTransfer(p, buyer); p.wage = aiWage(p, buyer); p.yrs = ri(2, 4); } }
   }
   // Good free agents don't stay unemployed: a club at their level takes them on.
-  for (const p of G.fa.map(P).filter(p => p && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
+  { const fresh = G.fa.map(P).filter(p => faFresh(p) && p.age < 32 && p.ovr >= TIER_LVL[Math.min(6, my().tier + 1)]).sort((a, b) => b.ovr - a.ovr);
+    if (fresh.length) news(`Out of contract and looking for clubs: ${fresh.length} player${fresh.length > 1 ? "s" : ""} under 32 who could play at your level or near it${fresh.length ? `, among them ${fresh.slice(0, 4).map(p => `${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)})`).join(", ")}` : ""}. Clubs move in after three weeks: see Market → Free agents.`, true); }
+  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
   for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, false);
   freshFreeAgents();
   foreignSummer(); aiListings();
@@ -530,7 +532,7 @@ function aiSign(c, pos) {
   // c.lvl already carries the owner's spending; a big spender also aims a little higher and buys more readily.
   const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5);
   let p = null;
-  const fas = G.fa.map(P).filter(q => q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
+  const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
   if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     // The four professional divisions also shop abroad, from clubs no bigger than they are: imports cost a fee that leaves the country.

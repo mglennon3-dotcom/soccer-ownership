@@ -459,7 +459,7 @@ const tbOf = c => isMine(c) ? Infinity : c.abroad ? (c.tb ?? (c.tb = foreignBudg
 const canAfford = (c, fee) => tbOf(c) >= fee;
 // Fees between clubs shrink down the pyramid: most non-league moves are free or a token payment.
 const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];
-const aiFee = p => p.club >= 0 ? Math.round(valueOf(p) * (CL(p.club).abroad ? 1 : FEE_TIER[CL(p.club).tier]) / 1e3) * 1e3 : 0;
+const aiFee = p => p.club >= 0 ? Math.round(valueOf(p) * (CL(p.club).abroad ? 1 : FEE_TIER[CL(p.club).tier]) * (p.yrs <= 1 && !renewsAI(p) ? .65 : 1) / 1e3) * 1e3 : 0;
 function payFee(buyer, seller, fee) {
   if (!fee) return;
   if (buyer && !buyer.abroad && !isMine(buyer)) { buyer.tb = tbOf(buyer) - fee; buyer.tnet = (buyer.tnet || 0) - fee; }

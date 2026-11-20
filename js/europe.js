@@ -91,7 +91,7 @@ function foreignLevels(snap) {
 const foreignBudget = c => Math.round(40e6 * Math.pow(1.12, c.lvl - 82) / 1e5) * 1e5;
 /* Filling a gap: a free agent who fits the club's standard first (countrymen preferred), otherwise a new player. */
 function foreignSignFA(c, pos) {
-  const fits = G.fa.map(P).filter(p => p && p.pos === pos && p.age <= 32 && p.ovr >= c.lvl - 7 && p.ovr <= c.lvl + 4);
+  const fits = G.fa.map(P).filter(p => p && !faFresh(p) && p.pos === pos && p.age <= 32 && p.ovr >= c.lvl - 7 && p.ovr <= c.lvl + 4);
   if (!fits.length) return false;
   const p = fits.sort((a, b) => (b.ovr + (b.nat === c.country ? 3 : 0)) - (a.ovr + (a.nat === c.country ? 3 : 0)))[0];
   moveTo(p, c); p.wage = aiWage(p, c); p.yrs = ri(1, 3);
