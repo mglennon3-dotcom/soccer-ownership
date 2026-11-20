@@ -154,12 +154,12 @@ const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l
   return c.tier <= 4 && !reckless(c) ? Math.min(t, SPEND_LIMIT - .05) : t; };
 function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1);
   // The spending rule: in the professional divisions only reckless owners plan to lose more than it allows.
-  if (c.cook) return Math.max(b, salaryCap(c.tier)) * 1.25;  // cooking the books: past the cap, and then some
+  if (c.cook) { const cap = salaryCap(c.tier); return Math.max(b, isFinite(cap) ? cap : b) * 1.25; }  // cooking the books: past the cap (or the budget), and then some
   return Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier)); }
-/* The salary cap: no AI club's wage bill may go past two and a half times its division's average (set again each summer
+/* The salary cap, in the Premier Division only: no AI club's wage bill there may go past two and a half times the division's average (set again each summer
    as wages move). Up to it, how much they spend is the owner's call; only an owner cooking the books goes beyond it. */
 const CAP_MULT = 2.5;
-const salaryCap = t => Math.round((tierWages(t) || 1) * CAP_MULT / 1e4) * 1e4;
+const salaryCap = t => t === 1 ? Math.round((tierWages(t) || 1) * CAP_MULT / 1e4) * 1e4 : Infinity;  // the Premier Division only: below it owners spend what they like
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageAt(p.ovr, c.tier) : 0; });
 const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, c.tier === 1 ? 1.2 : 1.45);  // Premier pay is held nearer the going rate
