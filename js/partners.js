@@ -136,6 +136,13 @@ function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !
 const feederRef = x => TV[x.tier] + 24 * wageBase(TIER_LVL[x.tier]) * .1;
 const feederAsk = x => x.feedAsk ??= Math.round(feederRef(x) * rf(.6, 1.1) / 1000) * 1000;
 function addFeeder(x) { net().feeders.push({ id: x.id, fund: feederAsk(x), rel: 55, since: G.year }); news(`${x.name} become a feeder club: ${money(feederAsk(x))} a year.`, true); }
+/* Clubs in the same division can't be linked. After the season's promotions and relegations, a partner that is no
+   longer above you, or a feeder that is no longer below you, ends (foreign partners only while they're stronger). */
+function linkCheck() {
+  if (G.club == null) return; const c = my();
+  for (const pt of partners().slice()) { const x = CL(pt.id); if (!x || (x.gone && !x.abroad) || !aboveMe(x, c)) { net().partners = partners().filter(y => y !== pt); news(`The partnership with ${x ? x.name : "a partner"} ends: ${x && !x.abroad && x.tier === c.tier ? "you're now in the same division" : "they're no longer above you"}.`, true); } }
+  for (const f of net().feeders.slice()) { const x = CL(f.id); if (!x || x.gone || x.tier <= c.tier) { net().feeders = net().feeders.filter(y => y !== f); news(`${x ? x.name : "A feeder"} ${x && x.tier === c.tier ? "are now in your division" : "are now above you"}: they're no longer a feeder club.`, true); } }
+}
 function dropFeeder(id) { net().feeders = net().feeders.filter(f => f.id !== id); news(`${CL(id).name} are no longer a feeder club.`); }
 const feederFunding = () => sum(net().feeders, f => f.fund);
 /* Funding each summer: the feeder recruits to a higher standard and improves its facilities; the relationship grows. */
