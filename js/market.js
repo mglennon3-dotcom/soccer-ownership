@@ -443,8 +443,13 @@ const toMeWhen = p => p.toMe.when || (p.toMe.y === G.year && G.phase === "season
 const preContractOK = p => p.club >= 0 && p.club !== G.club && !CL(p.club).gone && p.yrs <= 1 && !p.acad && !p.loan && !p.toMe && G.phase === "season" && G.week > JAN[JAN.length - 1];
 // A player who means to re-sign with his club wants a big offer to change his mind: about 60% more than he'd otherwise ask.
 const preAsk = p => { const w = playerAsk(p) || demandWage(p, my()); return Math.round(w * (renewsAI(p) ? 1.6 : 1) / 100) * 100; };
-function agreePre(p, wage) { agreeIncoming(p, 0, wage); p.toMe.pre = true; p.toMe.when = "summer"; G.news[0].t = `Pre-contract agreed: ${p.name} will join from ${fromName(p)} on a free when his contract ends in the summer, on ${pw(wage)}.`; }
-function agreeIncoming(p, fee, wage, rec) { p.toMe = { fee, wage, y: G.year, w: G.week, rec: !!rec, by: rec ? "recruit" : "you", when: G.phase === "season" && G.week < JAN[0] ? "jan" : "summer" }; news(`${rec ? `${rec.name} agrees a deal` : "Agreed"}: ${p.name} will join from ${fromName(p)} when the ${p.toMe.when === "jan" ? "January window opens (this season's accounts)" : "summer window opens (next season's accounts)"}${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true); }
+function agreePre(p, wage, rec) { agreeIncoming(p, 0, wage, rec, true); p.toMe.pre = true; p.toMe.when = "summer"; G.news[0].t = `Pre-contract agreed: ${p.name} will join from ${fromName(p)} on a free when his contract ends in the summer, on ${pw(wage)}.`;
+  if (rec) agreedMsg(p, rec, true); }
+// An inbox notice for deals your head of recruitment agrees: who, what it costs, and when he arrives.
+function agreedMsg(p, rec, pre) { const A = p.toMe;
+  addMsg({ type: "info", title: `${rec.name} ${pre ? "signs a pre-contract with" : "agrees a deal for"} ${p.name}`,
+    body: `${POS_NAME[p.pos]}, ${p.age}, rated ${est20(ovrEstimate(p))}, potential ${est20(potEstimate(p))}, from ${fromName(p)}. ${pre ? "No fee: his contract runs out" : A.fee ? `${money(A.fee)}, paid when he arrives` : "No fee"}. ${pw(A.wage)}. He joins ${A.when === "jan" ? "when the January window opens (this season's accounts)" : "in the summer (next season's accounts)"}. You can pull out from his player card.` }); }
+function agreeIncoming(p, fee, wage, rec, quiet) { p.toMe = { fee, wage, y: G.year, w: G.week, rec: !!rec, by: rec ? "recruit" : "you", when: G.phase === "season" && G.week < JAN[0] ? "jan" : "summer" }; news(`${rec ? `${rec.name} agrees a deal` : "Agreed"}: ${p.name} will join from ${fromName(p)} when the ${p.toMe.when === "jan" ? "January window opens (this season's accounts)" : "summer window opens (next season's accounts)"}${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true);  if (rec && !quiet) agreedMsg(p, rec, false); }
 // What deals agreed by your head of recruitment have already promised from the budgets (all agreed players' wages count).
 const pendFees = () => sum(incoming().filter(p => p.toMe.rec && toMeWhen(p) === "jan"), p => p.toMe.fee);  // summer deals come out of next season's budget
 const pendWages = () => sum(incoming(), p => p.toMe.wage);

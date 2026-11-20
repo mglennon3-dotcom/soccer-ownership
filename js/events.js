@@ -79,7 +79,7 @@ DECIDE.pressAmb = (m, i) => { if (i === 0) { bumpMedia(5); moodHit(my(), 3); inv
 // Your head of recruitment asked about a suggested player while the window was shut.
 DECIDE.recAsk = (m, i) => { const p = G.players[m.data.pid], s = staffOf("recruit"); const x = sugg().find(y => y.id === m.data.pid); if (!p || !s) return;
   if (i === 0) { if (p.club >= 0 && p.club !== G.club && !p.toMe) { agreeIncoming(p, m.data.fee, m.data.wage, s); G.sugg = sugg().filter(y => y.id !== p.id); trust("recruit", 2, null, "Your tips"); } }
-  else if (i === 1) { if (m.data.pre && preContractOK(p)) { const a = playerAppeal(p, m.data.preW); if (a.score >= a.pr.thr) { agreePre(p, m.data.preW); p.toMe.rec = false; G.sugg = sugg().filter(y => y.id !== p.id); news(`${s.name} gets the pre-contract done: ${p.name} joins on a free in the summer.`, true); } else { if (x) x.wait = true; news(`${p.name} won't sign a pre-contract with you. ${s.name} will try again when the window opens.`); } }
+  else if (i === 1) { if (m.data.pre && preContractOK(p)) { const a = playerAppeal(p, m.data.preW); if (a.score >= a.pr.thr) { agreePre(p, m.data.preW, s); p.toMe.rec = false; G.sugg = sugg().filter(y => y.id !== p.id); news(`${s.name} gets the pre-contract done: ${p.name} joins on a free in the summer.`, true); } else { if (x) x.wait = true; news(`${p.name} won't sign a pre-contract with you. ${s.name} will try again when the window opens.`); } }
     else if (x) { x.wait = true; news(`${s.name} will go after ${p.name} when the window opens.`); } }
   else G.sugg = sugg().filter(y => y.id !== p.id); };
 DECIDE.pressDrop = (m, i) => { if (i === 0) { moodHit(my(), 2); G.hype = (G.hype || 0) + 1; } if (i === 1) { moodHit(my(), 1); trust("manager", 2, null, "Your public backing"); } };
