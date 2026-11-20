@@ -298,7 +298,7 @@ const brandMult = () => (1 + brandGood() * .35) * (1 - brandWary() * .35);
 function makeOffers(slot) {
   const c = my(), w = brandWary(), base = commercialValue(c) * SLOTS[slot].share * brandMult(), out = [], n = Math.max(1, 3 - Math.round(w * 3) + (brandGood() >= .25 && w < .1 ? 1 : 0));
   // A sponsor whose deal is ending (or has just ended) offers to carry on, a little above the going rate.
-  const cur = c.deals.find(d => d.slot === slot && d.yrs <= 1), past = (G.lastBrand || {})[slot], renew = cur ? cur.brand : past && past.y >= G.year - 1 ? past.brand : null;
+  const cur = c.deals.find(d => d.slot === slot && (d.yrs <= 1 || dealGrowth(c, d) >= 1.25)), past = (G.lastBrand || {})[slot], renew = cur ? cur.brand : past && past.y >= G.year - 1 ? past.brand : null;
   if (renew && w < .5) { const yrs = ri(2, 4), amt = Math.round(base * rf(1.05, 1.15) * (1 - (yrs - 1) * .04) / 500) * 500; out.push({ slot, brand: renew, amt, yrs, bonus: Math.round(amt * rf(.15, .4) / 500) * 500, exp: 6, renew: true }); }
   for (let i = 0; i < n; i++) {
     const yrs = ri(1, 4), amt = Math.round(base * rf(.7, 1.12) * (1 - (yrs - 1) * .04) / 500) * 500;  // longer deals pay a little less a year
@@ -329,6 +329,7 @@ function acceptOffer(o) {
   if (old && fee) { spend("breaks", fee); news(`${o.brand} replace ${old.brand}. Breaking ${old.brand}'s deal costs ${money(fee)} in compensation, and other brands take note.`, true);
     const left = fee / Math.max(1, old.amt * .5);  // years of the deal walked out on
     G.wary = clamp((G.wary || 0) + .12 + left * .08, 0, 1); G.goodwill = (G.goodwill || 0) * .5; (G.broken ||= []).unshift({ y: G.year, brand: old.brand, slot: old.slot }); G.broken.length = Math.min(G.broken.length, 10); }
+  if (old && old.brand === o.brand && old.yrs > 0) G.goodwill = clamp((G.goodwill || 0) + .05, 0, 1);  // renewing early with a sponsor: a good relationship, never a broken one
   c.deals = c.deals.filter(d => d.slot !== o.slot).concat({ ...o, exp: undefined });
   c.offers = c.offers.filter(x => x.slot !== o.slot);
   if (o.slot === "stadium") c.fac.stadium.name = `The ${o.brand.split(" ")[0]} Stadium`;
