@@ -188,7 +188,7 @@ function crowdFor(c, opp, price = c.prices.ticket) {
   const turn = clamp(.5 + c.mood / 250 + terraceShare(c) * .05 + fzK(c) * .03, .35, .95) * pf;
   const draw = opp ? clamp(.85 + (opp.rep - c.rep) / 60 + (opp.half === c.half ? .05 : 0), .8, 1.6) : 1;
   const away = opp ? Math.round(Math.min(opp.fans * .06, 1500 * (8 - c.tier))) : 0;
-  const wx = G.wx ? 1 - (1 - wxAt(c).crowd) * openShare(c) : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp && isDerby(c, opp) ? 1.25 : 1;
+  const wx = G.wx ? 1 - (1 - wxAt(c).crowd) * openShare(c) : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp ? [1, 1.15, 1.3][derbyLevel(c, opp)] : 1;
   return Math.min(capacity(c), Math.round((c.fans * turn + c.fans * .35 * pf * draw + away) * wx * protest * derby));
 }
 function concessionsFor(c, crowd, price = c.prices.conc) {
@@ -242,10 +242,17 @@ const COMM_T = [0, 27e6, 1.75e6, 400e3, 175e3, 154e3, 80e3, 25e3];  // a typical
 // fired back at, and every game against one you've feuded with three times or more (a lasting rivalry).
 const feudOf = id => { const f = ((G.club != null && my().feud) || {})[id]; return f && (f.g || f.n >= 3) ? f : null; };
 const grudge = (c, o) => !!o && !!((isMine(c) && feudOf(o.id)) || (isMine(o) && feudOf(c.id)));
-// A derby: in the same division and close by (same region, or within about 80 km); or up to two divisions apart and
-// real neighbours (same region, within about 30 km). Plus grudge matches.
-const isDerby = (c, o) => !!o && !c.abroad && !o.abroad && ((c.lg === o.lg && (c.region === o.region || roadKm(c, o) <= 80))
-  || (c.lg !== o.lg && Math.abs(c.tier - o.tier) <= 2 && c.region === o.region && roadKm(c, o) <= 30) || grudge(c, o));
+/* Derbies are between genuine neighbours. In the same division: within about 40 km, fierce within about 20 km. Up to
+   two divisions apart: within about 25 km (fierce within 12). London, the biggest city, has the most: its clubs are all
+   close together. A grudge match counts as a fierce one. Level: 0 none, 1 a local derby, 2 a fierce one. */
+function derbyLevel(c, o) {
+  if (!o || !c || c === o) return 0; if (grudge(c, o)) return 2; if (c.abroad || o.abroad) return 0;
+  const km = roadKm(c, o);
+  if (c.lg === o.lg) return km <= 20 ? 2 : km <= 40 ? 1 : 0;
+  if (Math.abs(c.tier - o.tier) <= 2) return km <= 12 ? 2 : km <= 25 ? 1 : 0;
+  return 0;
+}
+const isDerby = (c, o) => derbyLevel(c, o) > 0;
 /* What brands will pay a year: your division, standing, support and mood, and, within a season, how you're doing
    (league position) and how many come through the gate. */
 function commercialValue(c) {
@@ -660,7 +667,7 @@ const fanCare = c => 1 + fanShare(c, "loyal") + fanShare(c, "hard");
 const regionLL = c => { const K = COUNTRY[c.abroad ? c.country : "ENG"], r = K && K.regions.find(x => x[0] === c.region); return r ? [r[1], r[2]] : null; };
 function roadKm(a, b) {
   const p = regionLL(a), q = regionLL(b); if (!p || !q) return 300;
-  if (a.region === b.region && !!a.abroad === !!b.abroad) return 20 + ((a.id * 31 + b.id * 17) % 40);
+  if (a.region === b.region && !!a.abroad === !!b.abroad) return a.region === "London" ? 5 + ((a.id * 31 + b.id * 17) % 31) : 15 + ((a.id * 31 + b.id * 17) % 46);  // a city is closer together than a county
   const rad = Math.PI / 180, dLat = (q[0] - p[0]) * rad, dLon = (q[1] - p[1]) * rad, h = Math.sin(dLat / 2) ** 2 + Math.cos(p[0] * rad) * Math.cos(q[0] * rad) * Math.sin(dLon / 2) ** 2;
   return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 1.25 / 5) * 5;
 }
