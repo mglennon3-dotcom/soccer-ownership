@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, wage: 0, min: 0, pmin: 0, int: "", lg: "", off: [] };
+let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, wage: 0, min: 0, pmin: 0, lshare: 0, int: "", lg: "", off: [] };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString("en-GB"));
 // Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
 const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
@@ -756,6 +756,8 @@ function pgMarket() {
   for (const x of pool) x.i = interestOf(x.p);
   // Max wage (a week): what he'd want to join you, or for a loan the half of his wages you'd pay.
   if (F.wage) pool = pool.filter(x => (F.tab === "loans" ? x.p.wage / 2 : x.i.ask ?? Infinity) / 52 <= wageCap);
+  // Cheap loans: his club wants you to pay no more than this share of his wages this window.
+  if (F.tab === "loans" && F.lshare) pool = pool.filter(x => { const T = playerLoanTerms(x.p); return !T.no && T.min * 100 <= F.lshare + 1e-9; });
   if (F.int) pool = pool.filter(x => F.int === "sign" ? x.i.k !== "no" : F.int === "open" ? x.i.k === "open" || x.i.k === "keen" : x.i.k === F.int);
   const archOpts = (F.pos ? [F.pos] : POS).map(r => `<optgroup label="${POS_NAME[r]}">${ARCHETYPES[r].map(a => `<option value="${esc(a[0])}" ${F.arch === a[0] ? "selected" : ""}>${a[0]}</option>`).join("")}</optgroup>`).join("");
   const sel = (k, opts) => `<select data-act="mf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
@@ -772,6 +774,7 @@ function pgMarket() {
       <label class="f">Min potential${sel("pmin", [[0, "Any"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"], [18, "18+"]])}</label>
       <label class="f">Interest${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign (not Not interested)"], ["no", "Not interested"]])}</label>
       <label class="f">Max wage${sel("wage", [[0, "Any"], [-1, `Fits my budget (${pw(wageLeft * 52)})`], ...[50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000].map(v => [v, "€" + v.toLocaleString("en-GB") + "/wk"])])}</label>
+      ${F.tab === "loans" ? `<label class="f">Wage share you pay${sel("lshare", [[0, "Any"], [20, "Cheap: 20% or less"], [10, "10% or less"], [0.001, "Free (they pay it all)"]])}</label>` : ""}
       ${F.tab === "loans" ? "" : `<label class="f">Max fee${sel("fee", [[0, "Any"], [-1, `Fits my budget (${money(feeLeft)})`], ...FEES.slice(1).map(v => [v, money(v)])])}</label>`}
       <label class="f">League${sel("lg", [["", "All leagues"], ...LG_KEYS.map(k => [k, LEAGUES[k].name]), ["ABROAD", "Clubs abroad"]])}</label></div>
     <label class="small" style="display:block;margin:0 0 10px"><input type="checkbox" data-act="starhunt" ${G.starHunt ? "checked" : ""}> Let ${staffOf("recruit") ? esc(staffOf("recruit").name) : "your head of recruitment"} chase stars who'd only drop down for a huge wage</label>
