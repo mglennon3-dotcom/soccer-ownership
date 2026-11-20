@@ -115,6 +115,12 @@ function afterMatch(r, k) {
   c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 + vpt("results") - c.morale) * .1, 20, 95);
   moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);
   G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
+  // The grudge match is played: the press come back for your reaction (unless it was a draw).
+  const fd = (c.feud || {})[opp.id];
+  if (fd && fd.g) { fd.g = false; const own = opp.own ? opp.own.name : "their owner", score = `${gf}–${ga}`;
+    if (res === "W") addChoice("pressGrudge", `Press: You beat ${opp.name} ${score}. Anything to say to ${own}?`, "The grudge match is done, and the reporters want a reaction.", ["Let the football do the talking", "Who's the vanity project now?"], { club: opp.id, res }, 0);
+    else if (res === "L") addChoice("pressGrudge", `Press: ${opp.name} beat you ${ga}–${gf}. Anything to say to ${own}?`, "They got one over on you, and the reporters want a reaction.", ["Fair play to them", "One game changes nothing"], { club: opp.id, res }, 0);
+    else news(`The grudge match with ${opp.name} ends ${score}: honours even.`); }
 }
 
 /* ---------- play-offs: one-off semi-finals at the higher seed, a final at a neutral ground ---------- */
