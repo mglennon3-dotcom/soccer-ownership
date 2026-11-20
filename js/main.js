@@ -33,6 +33,7 @@ function upgradeSave() {
   if (!G.fdrop1 && G.club != null) { G.fdrop1 = true; const n = (net().feeders || []).length;
     if (n) { const names = net().feeders.map(f => CL(f.id) ? CL(f.id).name : "a feeder").join(", "); net().feeders = []; news(`A fresh start: your feeder arrangements end (${names}), with no hard feelings. Players you've lent them stay on loan until the end of the season.`, true); } }
   if (G.club != null && typeof linkCheck === "function") linkCheck();  // same-division links (from before 0.75.2) end on loading
+  if (!G.fd2) { G.fd2 = true; for (const x of G.clubs) delete x.feedAsk; if (G.club != null) for (const f of net().feeders || []) { const x = CL(f.id); if (x) f.fund = feederAsk(x); } }  // 0.75.5: feeder asks re-set at the new, lower rate
   if (!G.foreign4) { G.foreign4 = true; addForeignLeagues(); }  // 0.72: fifteen more leagues abroad
   // 0.38.0: foreign clubs spread down through the levels (each country's smaller clubs well below its best); existing
   // worlds drift there over a few seasons as standards and squads move.
