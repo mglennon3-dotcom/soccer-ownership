@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.78.3";
+const VERSION = "0.78.4";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -396,6 +396,7 @@ function newWorld(o) {
   for (const c of G.clubs) genSquad(c);
   makeForeign();
   for (const c of G.clubs) if (!c.gone) c.own ||= newOwner(c);
+  buildDerbies();
   // A pool of unattached players: the trialists and journeymen a new club can sign.
   for (let i = 0; i < 160; i++) { const ovr = ri(30, 62), age = ri(19, 34); const p = makePlayer({ pos: pick(POS), ovr, age, nat: R() < .75 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); toFreeAgent(p); }
   if (o) foundClub(o);
@@ -464,7 +465,7 @@ function foundClub(o) {
     fac: { stadium: { own: false, cap: 0, amen: 1, host: 0, build: null, suites: 0, pitch: 100, ptype: "grass", relay: null }, train: { lvl: 0, build: null }, acad: { lvl: 0, build: null } },
     deals: [], offers: [], staff: { manager: null, youth: null, recruit: null }, fin: newLedger(), finLast: null, spentT: 0 };
   c.short = shortFor(o.short || o.name);
-  G.clubs.push(c); L.clubs.push(c.id); G.club = c.id;
+  G.clubs.push(c); L.clubs.push(c.id); G.club = c.id; buildDerbies();  // your club has its neighbours too
   G.owner = { name: o.owner || "The owner", wealth: WEALTH[o.wealth].amt, kind: o.wealth, invested: 0, vision: o.vision };
   invest(Math.min(G.owner.wealth, Math.round(WEALTH[o.wealth].amt * .08)), true);
   // An open trial day: the founding squad is whoever turned up.

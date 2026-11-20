@@ -245,24 +245,35 @@ const grudge = (c, o) => !!o && !!((isMine(c) && feudOf(o.id)) || (isMine(o) && 
 /* Derbies are between genuine neighbours. In the same division: within about 40 km, fierce within about 20 km. Up to
    two divisions apart: within about 25 km (fierce within 12). London, the biggest city, has the most: its clubs are all
    close together. A grudge match counts as a fierce one. Level: 0 none, 1 a local derby, 2 a fierce one. */
-// London is full of derbies, so each London club has its two most intense: the nearest of its neighbours within two
-// divisions (the same division counting as nearer). Those are fierce; its other London derbies are local ones.
-let LON_TOP = { k: null, m: {} };
-function londonTop(c) {
-  const k = G.year; if (LON_TOP.k !== k) LON_TOP = { k, m: {} };
-  return LON_TOP.m[c.id] ??= G.clubs.filter(o => o !== c && !o.gone && !o.abroad && o.region === "London" && Math.abs(o.tier - c.tier) <= 2)
-    .map(o => [o.id, roadKm(c, o) + Math.abs(o.tier - c.tier) * 10]).sort((a, b) => a[1] - b[1]).slice(0, 2).map(x => x[0]);
+/* Derbies are historical: worked out once from where the clubs are (G.derby, pair -> 1 local, 2 fierce), then kept
+   whatever divisions the clubs end up in. Hatred runs deep. Neighbours become rivals: within about 40 km of a club in
+   the same division (fierce within 20), or within 25 km of one up to two divisions away (fierce within 12). London is
+   full of derbies, so each London club's fiercest are its two nearest (same division counting as nearer). Clubs that
+   keep fighting for the title against each other grow into rivals too (see titleRivals). A grudge match is fierce. */
+const pairKey = (a, b) => a.id < b.id ? a.id + "-" + b.id : b.id + "-" + a.id;
+function geoDerby(c, o) {
+  const km = roadKm(c, o), d = Math.abs(c.tier - o.tier);
+  return d === 0 ? (km <= 20 ? 2 : km <= 40 ? 1 : 0) : d <= 2 ? (km <= 12 ? 2 : km <= 25 ? 1 : 0) : 0;
+}
+function buildDerbies() {
+  const D = G.derby = {}, cs = G.clubs.filter(x => !x.gone && !x.abroad);
+  for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) { const a = cs[i], b = cs[j]; if (a.region !== b.region && roadKm(a, b) > 40) continue; const l = geoDerby(a, b); if (l) D[pairKey(a, b)] = l; }
+  // London: a club's two nearest are fierce, the rest local (a pair stays fierce if either side counts it among its two).
+  const lon = cs.filter(x => x.region === "London"), fierce = new Set();
+  for (const c of lon) for (const o of lon.filter(o => o !== c && D[pairKey(c, o)]).sort((a, b) => (roadKm(c, a) + Math.abs(a.tier - c.tier) * 10) - (roadKm(c, b) + Math.abs(b.tier - c.tier) * 10)).slice(0, 2)) fierce.add(pairKey(c, o));
+  for (const c of lon) for (const o of lon) if (c.id < o.id && D[pairKey(c, o)]) D[pairKey(c, o)] = fierce.has(pairKey(c, o)) ? 2 : 1;
 }
 function derbyLevel(c, o) {
   if (!o || !c || c === o) return 0; if (grudge(c, o)) return 2; if (c.abroad || o.abroad) return 0;
-  if (c.region === "London" && o.region === "London") { const L = derbyLevelRaw(c, o); return L && londonTop(c).includes(o.id) ? 2 : L ? 1 : 0; }
-  return derbyLevelRaw(c, o);
+  if (!G.derby) buildDerbies(); return G.derby[pairKey(c, o)] || 0;
 }
-function derbyLevelRaw(c, o) {
-  const km = roadKm(c, o);
-  if (c.lg === o.lg) return km <= 20 ? 2 : km <= 40 ? 1 : 0;
-  if (Math.abs(c.tier - o.tier) <= 2) return km <= 12 ? 2 : km <= 25 ? 1 : 0;
-  return 0;
+/* Title rivals: two clubs finishing in the Premier Division's top three together three times within eight seasons
+   become rivals; five times, fierce ones. */
+function titleRivals(ids) {
+  const top = ids.slice(0, 3).map(CL), T = G.titleRiv ||= {};
+  for (let i = 0; i < top.length; i++) for (let j = i + 1; j < top.length; j++) { const a = top[i], b = top[j], k = pairKey(a, b);
+    T[k] = (T[k] || []).filter(y => y > G.year - 8).concat([G.year]); const n = T[k].length, was = (G.derby || {})[k] || 0, now = n >= 5 ? 2 : n >= 3 ? 1 : 0;
+    if (now > was) { (G.derby ||= {})[k] = now; if (isMine(a) || isMine(b) || now === 2) news(`${a.name} and ${b.name}: years of fighting for the title have made them ${now === 2 ? "bitter rivals" : "rivals"}.`, isMine(a) || isMine(b)); } }
 }
 const isDerby = (c, o) => derbyLevel(c, o) > 0;
 /* What brands will pay a year: your division, standing, support and mood, and, within a season, how you're doing
@@ -679,7 +690,7 @@ const fanCare = c => 1 + fanShare(c, "loyal") + fanShare(c, "hard");
 const regionLL = c => { const K = COUNTRY[c.abroad ? c.country : "ENG"], r = K && K.regions.find(x => x[0] === c.region); return r ? [r[1], r[2]] : null; };
 function roadKm(a, b) {
   const p = regionLL(a), q = regionLL(b); if (!p || !q) return 300;
-  if (a.region === b.region && !!a.abroad === !!b.abroad) return a.region === "London" ? 5 + ((a.id * 31 + b.id * 17) % 31) : 15 + ((a.id * 31 + b.id * 17) % 46);  // a city is closer together than a county
+  if (a.region === b.region && !!a.abroad === !!b.abroad) { const x = Math.min(a.id, b.id), y = Math.max(a.id, b.id), h = x * 73 + y * 37 + x * y; return a.region === "London" ? 5 + h % 31 : 15 + h % 46; }  // the same both ways; a city is closer together than a county
   const rad = Math.PI / 180, dLat = (q[0] - p[0]) * rad, dLon = (q[1] - p[1]) * rad, h = Math.sin(dLat / 2) ** 2 + Math.cos(p[0] * rad) * Math.cos(q[0] * rad) * Math.sin(dLon / 2) ** 2;
   return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 1.25 / 5) * 5;
 }

@@ -170,6 +170,7 @@ function endSeason() {
   for (const k of LG_KEYS) {
     const L = LEAGUES[k], t = table(k), ids = t.map(r => r.id);
     const champ = CL(ids[0]); champ.trophies.push([G.year, L.name]);
+    if (L.tier === 1) titleRivals(ids);
     ids.forEach((id, i) => { const x = CL(id); if (!isMine(x)) x.push = i < Math.max(2, Math.round(ids.length * .25)); });
     if (champ.id === G.club) news(`CHAMPIONS! ${mine.name} win the ${L.name}.`, true);
     if (ABOVE[k]) {
