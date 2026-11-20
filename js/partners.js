@@ -133,6 +133,9 @@ DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from);
 function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && !isFeeder(x.id) && !isPartner(x.id) && (x.half === c.half || x.tier <= 5)).sort((a, b) => a.tier - b.tier || b.rep - a.rep); }
 /* What a feeder wants from you each year: set by its division and its needs (a fixed ask; you pay it or don't have
    the arrangement). */
+// How much of your loanees' wages a feeder pays while they're there: its own policy (a tenth at a time, 30% to all of
+// it), more likely to be generous with a free-spending owner.
+const feederCover = x => x.cover ??= clamp(Math.round((.55 + normal() * .2 + (ownStyle(x).spend > 0 ? .1 : 0)) * 10) / 10, .3, 1);
 const feederRef = x => aiIncome(x) * .015;  // about one and a half per cent of the club's income (what the funding does is measured against this)
 const feederAsk = x => x.feedAsk ??= Math.round(feederRef(x) * rf(.6, 1.1) / 1000) * 1000;
 function addFeeder(x) { net().feeders.push({ id: x.id, fund: feederAsk(x), rel: 55, since: G.year }); news(`${x.name} become a feeder club: ${money(feederAsk(x))} a year.`, true); }
