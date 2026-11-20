@@ -283,7 +283,7 @@ function contDrawKO(K, round) {
 }
 /* A continental match that isn't decided on its own (group games and single legs). Logs yours, with the gate. */
 function contMatch(h, a, neutral, comp, label) {
-  const r = playMatch(h, a, neutral);
+  const r = playMatch(h, a, neutral, false, "big");
   if (h === G.club || a === G.club) {
     const c = my(), home = h === G.club, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? a : h);
     let crowd = null; if (home) { crowd = Math.min(capacity(c), Math.round(crowdFor(c, opp) * 1.2)); earn("gate", crowd * c.prices.ticket * 1.3); const con = concessionsFor(c, crowd); earn("conc", con.net); spend("rent", ground(c).rent); spend("mdops", opsCost(c, crowd)); c._home = true; } else awayTrip(c, opp);
