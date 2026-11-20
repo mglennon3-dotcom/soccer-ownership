@@ -54,6 +54,7 @@ function askingFee(p, xi) {
     if (!leaving && (starters ? starters.has(p.id) : pickXI(c).some(o => o.p === p))) f *= 1.3;
     if (leaving) f *= .65;
     if (p.list) f *= .8;
+    if (isDerby(my(), c)) f *= 1.4;  // selling to a rival: only at a premium
   }
   return Math.round(f / 1000) * 1000;
 }
@@ -201,7 +202,7 @@ function release(p, byOwner) {
 /* Clubs that can bid: every English club still going and every foreign club. */
 const bidders = () => G.clubs.filter(x => (!x.gone || x.abroad) && !isMine(x));
 // Foreign clubs like bringing their own countrymen home.
-const bidWeight = (x, p, c) => (1 + Math.max(0, c.tier - x.tier) * 1.5) * (x.abroad ? (x.country === p.nat ? .9 : .2) : 1);  // abroad: a minority of bids, more for their own countrymen
+const bidWeight = (x, p, c) => (1 + Math.max(0, c.tier - x.tier) * 1.5) * (x.abroad ? (x.country === p.nat ? .9 : .2) : 1) * (isDerby(c, x) ? .15 : 1);  // rivals rarely deal with each other  // abroad: a minority of bids, more for their own countrymen
 const clubLabel = x => x.abroad ? `${x.name} (${COUNTRY[x.country].name})` : x.name;
 /* ---------- offers for your players ----------
    Real offers only, and only in a window. Clubs bid for players you've transfer-listed (usually below their value:
