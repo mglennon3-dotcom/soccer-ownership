@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, wage: 0, min: 0, pmin: 0, lshare: 0, int: "", lg: "", off: [] };
+let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, wage: 0, min: 0, pmin: 0, lshare: 0, yrs: 0, int: "", lg: "", off: [] };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString("en-GB"));
 // Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
 const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
@@ -764,6 +764,7 @@ function pgMarket() {
   if (F.tab === "loans") base = base.filter(p => loanable(p) && lendsTo(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
   if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
   if (F.lg) base = base.filter(p => p.club >= 0 && (F.lg === "ABROAD" ? CL(p.club).abroad : CL(p.club).lg === F.lg));
+  if (F.yrs) base = base.filter(p => p.club >= 0 && p.yrs <= F.yrs && (F.yrs > 1 || !p.loan));  // contract running down
   // Cheap filters first; then each club's first team is worked out once for the asking prices.
   // "Fits my budget": what's left of the transfer budget, and the spare room in the wage budget (a week).
   const feeLeft = Math.max(0, c.budget.transfer - c.spentT), wageLeft = Math.max(0, c.budget.wages - wageBill(c)) / 52;
@@ -790,6 +791,7 @@ function pgMarket() {
       <label class="f">Type<select data-act="mf" data-k="arch"><option value="">Any</option>${archOpts}</select></label>
       <label class="f">Max age${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
       <label class="f">Min rating${sel("min", [[0, "Any"], [2, "2+"], [4, "4+"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
+      <label class="f">Contract${sel("yrs", [[0, "Any"], [1, "Final year"], [2, "Two years or less"]])}</label>
       <label class="f">Min potential${sel("pmin", [[0, "Any"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"], [18, "18+"]])}</label>
       <label class="f">Interest${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign (not Not interested)"], ["no", "Not interested"]])}</label>
       <label class="f">Max wage${sel("wage", [[0, "Any"], [-1, `Fits my budget (${pw(wageLeft * 52)})`], ...[50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000].map(v => [v, "€" + v.toLocaleString("en-GB") + "/wk"])])}</label>
