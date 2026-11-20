@@ -270,6 +270,11 @@ const ACT = {
   bidctr: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (!m) return; const t = counterBid(m, num($("#ctr" + m.id))); BID_SAY = t ? { id: m.id, t } : null; if (t) toast(t); render(); saveGame(); },
   war: el => { const w = G.inbox.find(x => x.id === +el.dataset.id); if (!w || w.done) return; const v = el.dataset.v; if (v === "sell") warSell(w, false); else if (v === "keep") warKeep(w); else { const T = warRaise(w); toast(`Best offer now: ${CL(T.id).name}, ${money(T.amt)}.`); } render(); saveGame(); },
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "2" ? 2 : el.dataset.v === "1", false); render(); saveGame(); },
+  fitbudget: async el => { const p = P(+el.dataset.id), loan = !!el.dataset.loan, f = budgetFit(p, loan), c = my(), s = staffOf("recruit"); if (!f || !s) return;
+    const on = suggested(p), also = !on || !!on.loan !== loan;
+    if (!await ask(`Raise ${budgetFitText(f)} so ${s.name} can ${loan ? "borrow" : "sign"} ${p.name}?${also ? ` You'll also suggest ${loan ? "borrowing" : "signing"} him.` : ""}`)) return;
+    c.budget.transfer += f.transfer; c.budget.wages += f.wages; news(`You raise ${budgetFitText(f)} to make room for ${p.name}.`);
+    if (also) suggest(p, loan); playerModal(p.id); render(); saveGame(); },
   suggest: el => { const p = P(+el.dataset.id); suggest(p, !!el.dataset.loan); if (document.querySelector(".modal")) playerModal(p.id); render(); saveGame(); },
   nfs: el => { const p = P(+el.dataset.id); setNotForSale(p, !p.nfs); toast(p.nfs ? `${p.name} is not for sale: no club will bid for him.` : `${p.name} is available again.`); playerModal(p.id); render(); saveGame(); },
   sugloan: el => { const p = P(+el.dataset.id); loanListToggle(p); render(); saveGame(); },

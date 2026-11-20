@@ -399,17 +399,18 @@ function suggView(p, c = my(), loan = false) {
   if (loan) {
     // He pays what the lending club has in mind, less a little if he's a good negotiator; outside a window he can only guess.
     const room = c.budget.wages - wageBill(c);
-    if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
+    if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, need: { wages: p.wage * .5 - room }, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
     const T = playerLoanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
-    if (p.wage * share > room) return { ok: false, money: true, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
+    if (p.wage * share > room) return { ok: false, money: true, need: { wages: p.wage * share - room }, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
     return { ok: true, loan: true, share, w: `${what} on loan. ${share < T.min ? `They want us to pay ${Math.round(T.min * 100)}% of his wages; I can talk them down to ${Math.round(share * 100)}%` : `They want us to pay ${Math.round(share * 100)}% of his wages`} (${pw(p.wage * share)}). I'll borrow him this week.` };
   }
   const N = negotiate(p, c);
   if (!N) return { ok: false, w: "He isn't interested in joining us." };
   const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT - pendFees(), room = c.budget.wages - wageBill(c) - pendWages();
   const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I can get him for about ${money(fee)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on ${pw(ask)} (his agent's asking ${pw(N.agent)})`;
-  if (fee > left) return { ok: false, money: true, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
-  if (ask > room) return { ok: false, money: true, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare${pendWages() ? ` once the ${incoming().length} player${incoming().length > 1 ? "s" : ""} already agreed to join (${pw(pendWages())}) are counted` : ""}.` };
+  const need = { transfer: Math.max(0, fee - left), wages: Math.max(0, ask - room) };
+  if (fee > left) return { ok: false, money: true, need, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
+  if (ask > room) return { ok: false, money: true, need, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare${pendWages() ? ` once the ${incoming().length} player${incoming().length > 1 ? "s" : ""} already agreed to join (${pw(pendWages())}) are counted` : ""}.` };
   return { ok: true, fee, ask, N, w: `${what}. ${deal}. ${windowOpen() ? "I'll go after him this week." : p.club >= 0 ? "I'll agree a deal now, and he'll join when the window opens." : "I'll sign him this week."}` };
 }
 /* His negotiation on a deal you suggested. The fee: he talks the asking price down, more the better a negotiator he is
@@ -431,6 +432,15 @@ function suggest(p, loan) {
   sugg().push({ id: p.id, y: G.year, w: G.week, loan: !!loan });
   news(`You suggest ${loan ? "borrowing" : "signing"} ${p.name} to ${s.name}: "${suggView(p, my(), loan).w}"`);
 }
+
+/* What the budgets would need to rise by for your head of recruitment to do a deal he says he can't afford:
+   transfer to the next 10,000, wages to the next 1,000 a year. */
+function budgetFit(p, loan) {
+  const v = suggView(p, my(), loan); if (!v.money || !v.need) return null;
+  const t = Math.ceil((v.need.transfer || 0) / 1e4) * 1e4, w = Math.ceil((v.need.wages || 0) / 1e3) * 1e3;
+  return t > 0 || w > 0 ? { transfer: t, wages: w } : null;
+}
+const budgetFitText = f => [f.transfer ? `the transfer budget by ${money(f.transfer)}` : "", f.wages ? `the wage budget by ${money(f.wages)} a year (${pw(f.wages)})` : ""].filter(Boolean).join(" and ");
 
 /* ---------- you, overruling your staff ---------- */
 /* Agreed out of the window: a player at another club can agree to join you; the deal goes through, and the fee is paid,
