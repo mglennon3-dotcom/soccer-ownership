@@ -133,6 +133,8 @@ function logMove(kind, p, o = {}) {
 }
 function signPlayer(p, fee, wage, byOwner, how) {
   const c = my(), seller = p.club >= 0 ? CL(p.club) : null;
+  // Signings made for you (your head of recruitment, your suggestions, first refusal...) go to the top of the Office page.
+  if (!byOwner) (G.newSign ||= []).unshift({ pid: p.id, by: how || "recruit", fee, wage, from: fromName(p), fromId: seller ? seller.id : null, ...(() => { const lr = (p.prog || []).slice(-1)[0], pre = G.phase === "summer" && lr; return { lastApp: pre ? lr[4] : (p.s || {}).app || 0, lastG: pre ? lr[5] : (p.s || {}).g || 0, lastA: pre ? lr[6] : (p.s || {}).a || 0, statL: pre ? "Last season" : "This season" }; })(), y: G.year, w: whenLabel(), rec: staffOf("recruit") ? staffOf("recruit").name : null });
   logMove("in", p, { club: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" });
   if (p.club === -2) G.abroad = G.abroad.filter(id => id !== p.id);
   p.abroad = undefined;
