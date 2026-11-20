@@ -290,6 +290,7 @@ const ACT = {
   pre: el => preModal(+el.dataset.id),
   prego: el => { const p = P(+el.dataset.id), wage = num($("#pre-wage")) * 52, a = playerAppeal(p, wage);
     if (!preContractOK(p)) return toast("It's too late for that now.");
+    if (renewsAI(p) && wage < preAsk(p) * .97) return toast(`${p.name} says he'll be signing a new deal with ${CL(p.club).name}. It would take about ${pw(preAsk(p))} to tempt him.`);
     if (a.score < a.pr.thr) return toast(`${p.name} turns you down. ${refusalReason(a, P_FACTORS)}`);
     agreePre(p, wage); closeModal(); render(); saveGame(); },
   buygo: el => {
