@@ -811,6 +811,7 @@ function pgMarket() {
       { k: "pot", l: "Potential", v: x => x.pe[0] + x.pe[1], f: x => range(x.pe) },
       { k: "int", l: "Interest", v: x => ({ keen: 3, open: 2, sign: 1, no: 0 })[x.i.k], f: x => `<span class="small ${x.i.cls}">${x.i.w}</span>` },
       { k: "club", l: "Club", left: true, v: x => fromName(x.p), f: x => `<span class="small">${esc(fromName(x.p))}</span>` },
+      { k: "yrs", l: "Contract", r: true, v: x => x.p.club >= 0 ? x.p.yrs : -1, f: x => x.p.club < 0 ? `<span class="small muted">Free</span>` : `<span class="${x.p.yrs <= 1 ? "warn" : ""}">${x.p.yrs} yr${x.p.yrs === 1 ? "" : "s"}</span>` },
       { k: "fee", l: F.tab === "loans" ? "Value" : "Fee", r: true, v: x => x.fee, f: x => F.tab === "loans" ? money(valueOf(x.p)) : x.fee ? money(x.fee) : "Free" },
       ...(F.tab === "loans" ? [] : [{ k: "wage", l: "Wage", r: true, v: x => x.p.wage, f: x => pw(x.p.wage) }]),
       // On loan: the wage his club wants you to pay this window (or that he isn't available to you).
