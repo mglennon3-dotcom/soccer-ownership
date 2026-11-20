@@ -248,11 +248,12 @@ const grudge = (c, o) => !!o && !!((isMine(c) && feudOf(o.id)) || (isMine(o) && 
 /* Derbies are historical: worked out once from where the clubs are (G.derby, pair -> 1 local, 2 fierce), then kept
    whatever divisions the clubs end up in. Hatred runs deep. Neighbours become rivals: within about 40 km of a club in
    the same division (fierce within 20), or within 25 km of one up to two divisions away (fierce within 12). London is
-   full of derbies, so each London club's fiercest are its two nearest (same division counting as nearer). Clubs that
+   full of derbies (any two London clubs within two divisions are rivals), so each London club's fiercest are its two nearest (same division counting as nearer). Clubs that
    keep fighting for the title against each other grow into rivals too (see titleRivals). A grudge match is fierce. */
 const pairKey = (a, b) => a.id < b.id ? a.id + "-" + b.id : b.id + "-" + a.id;
 function geoDerby(c, o) {
   const km = roadKm(c, o), d = Math.abs(c.tier - o.tier);
+  if (c.region === "London" && o.region === "London" && d <= 2) return d === 0 ? (km <= 20 ? 2 : 1) : km <= 12 ? 2 : 1;  // one city: every London club within two divisions is at least a local derby
   return d === 0 ? (km <= 20 ? 2 : km <= 40 ? 1 : 0) : d <= 2 ? (km <= 12 ? 2 : km <= 25 ? 1 : 0) : 0;
 }
 function buildDerbies() {
@@ -283,7 +284,7 @@ function myDerbies() {
   const c = my(), T = G.titleRiv || {};
   return G.clubs.filter(x => !x.gone && !isMine(x) && derbyLevel(c, x) > 0).map(x => {
     const lvl = derbyLevel(c, x), km = x.abroad ? null : roadKm(c, x), title = (T[pairKey(c, x)] || []).length;
-    const why = grudge(c, x) ? "Grudge" : title >= 3 && !geoDerby(c, x) ? "Title rivals" : c.region === "London" && x.region === "London" ? "London neighbours" : "Neighbours";
+    const why = grudge(c, x) ? "Grudge" : x.own && x.own.target === c.id ? "Hostile neighbour" : title >= 3 && !geoDerby(c, x) ? "Title rivals" : c.region === "London" && x.region === "London" ? "London neighbours" : "Neighbours";
     return { x, lvl, km, why, rec: (G.h2h || {})[x.id] || [0, 0, 0] };
   }).sort((a, b) => b.lvl - a.lvl || (a.km ?? 999) - (b.km ?? 999));
 }
