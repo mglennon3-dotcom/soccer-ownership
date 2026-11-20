@@ -47,6 +47,7 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
+  if (!G.raise2 && G.club != null) { G.raise2 = true; G.inbox = G.inbox.filter(m => !(m.key === "raise" && !m.done && !m.data.threat && G.players[m.data.pid] && !settledPay(G.players[m.data.pid]))); }  // 0.81.2: one-off: drop pay-rise asks from players too new to ask
   if (!G.fix2 && G.club != null) { G.fix2 = true; const sd = my().squad.map(P).find(p => p && /Simon Dalsgaard/i.test(p.name)); if (sd) sd.yrs = 4; }  // 0.80.3: one-off: his deal is four years
   if (!G.derby && G.club != null) buildDerbies();  // 0.78.4: derbies are historical, settled once
   if (!G.fd2) { G.fd2 = true; for (const x of G.clubs) delete x.feedAsk; if (G.club != null) for (const f of net().feeders || []) { const x = CL(f.id); if (x) f.fund = feederAsk(x); } }  // 0.75.5: feeder asks re-set at the new, lower rate

@@ -99,6 +99,11 @@ function unhappiness(p, c) {
    for one, up to the going rate. Give it, meet him halfway (he'll take it, a little grudgingly), or refuse (he's
    unsettled and the grievance stays). Left unanswered, your head of recruitment decides on the wage budget. */
 // A player who joined this season (summer or January) doesn't ask for a new deal until next season.
+// The season he signed, joined, or last had his pay settled (a new deal or a rise).
+const lastDealY = p => Math.max(p.dealY || 0, ...(p.payLog || []).filter(x => ["signed", "new deal", "pay rise"].includes(x.why)).map(x => x.y), ...(G.tlog || []).filter(m => m.kind === "in" && m.id === p.id).map(m => m.y));
+// He agreed his wage when he signed or re-signed, so he doesn't ask for more until the season after next: a full
+// season on the deal after the one he joined in. A breakout season can still bring a demand the season after.
+const settledPay = p => G.year - lastDealY(p) >= 2;
 const joinedThisSeason = p => (p.payLog || []).some(x => x.why === "signed" && x.y === G.year) || (G.tlog || []).some(m => m.kind === "in" && m.id === p.id && m.y === G.year);
 function payReviews() {
   const c = my(); if (G.phase === "playoffs" || G.week % 4 !== 0) return;
@@ -108,13 +113,14 @@ function payReviews() {
     if (p.acad || p.loan || p.age > 35 || p.payY === G.year || joinedThisSeason(p) || G.inbox.some(m => m.key === "raise" && !m.done && m.data.pid === p.id)) continue;
     const form = Math.max(0, seasonForm(p)), star = form >= .9 && p.s.app >= 10;
     // A breakout season: he wants paying like the player he's become, and he'll threaten to go if you won't.
-    if (star && p.dealY !== G.year && p.wage < demandWage(p, c) * (1.2 + form * .2) && R() < .5) {
+    if (star && G.year > lastDealY(p) && p.wage < demandWage(p, c) * (1.2 + form * .2) && R() < .5) {
       const ask = Math.round(demandWage(p, c) * (1.2 + form * .2) / 100) * 100, half = Math.round((p.wage + ask) / 2 / 100) * 100;
       p.payY = G.year; n++;
       addChoice("raise", `${p.name} wants a new deal after ${formWord(form) || "a great season"}`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}: ${p.s.g} goals and ${p.s.a} assists in ${p.s.app} games. He earns ${pw(p.wage)} and wants ${pw(ask)}. His agent says he'll hand in a transfer request if he doesn't get it.`,
         [`Give him ${pw(ask)}`, `Offer ${pw(half)}`, "Refuse"], { pid: p.id, worth: ask, half, threat: true }, 0);
       continue;
     }
+    if (!settledPay(p)) continue;
     const worth = Math.round(demandWage(p, c) / 100) * 100; if (p.wage >= worth * .8 || R() > .35) continue;
     p.payY = G.year; n++;
     const half = Math.round((p.wage + worth) / 2 / 100) * 100, room = c.budget.wages - wageBill(c) >= worth - p.wage;
