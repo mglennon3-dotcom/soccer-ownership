@@ -56,9 +56,13 @@ const avgPair = x => `team average <b>${teamAvg(x)}</b> <span class="muted">(${x
 const FEEDER_YOUTH = { good: "the youngsters it offers you on first refusal tend to be better", poor: "the youngsters it offers you on first refusal tend to be a little weaker" };
 const youthLine = x => { const w = pedigreeWord(x); return `Academy level <b>${x.acadLvl || 0}</b>/10 · youth scouting <b>${sr20(aiYouthScout(x))}</b>${w ? ` · <span class="${w[1]}">${w[0].toLowerCase()}</span> <span class="small muted">(${w[1] === "good" ? FEEDER_YOUTH.good : FEEDER_YOUTH.poor})</span>` : ""}`; };
 function partnerLendable(x, c = my()) { const xi = new Set(pickXI(x).map(o => o.p.id)); return x.squad.map(P).filter(q => !q.acad && !q.loan && q.age <= 23 && !xi.has(q.id) && lendsTo(q, c)).sort((a, b) => potEstimate(b)[1] - potEstimate(a)[1]); }
+// A parent club's young players you could borrow: name and position on one line with what he'd cost you, his age,
+// rating and potential (plain, so nothing wraps awkwardly on a phone) underneath.
 function partnerLoanRows(x, avail, max) {
-  return `<div class="stack" style="gap:4px;margin-top:6px">${avail.slice(0, max).map(q => { const t = playerLoanTerms(q, x);
-    return `<div class="row between small" style="gap:8px;flex-wrap:nowrap"><span><span class="pos">${q.pos}</span> <button class="lnk" data-act="player" data-id="${q.id}">${esc(q.name)}</button> <span class="muted">${q.age} · rated ${range(ovrEstimate(q))} · potential ${range(potEstimate(q))}</span></span><span class="muted" style="white-space:nowrap">${loansOpen() ? (t.no ? "not this window" : t.min <= 0 ? "they'd pay all his wages" : `you'd pay about ${Math.round(t.min * 100)}% of ${pw(q.wage)}`) : pw(q.wage)}</span></div>`; }).join("")}${avail.length > max ? `<p class="small muted">…and ${avail.length - max} more.</p>` : ""}</div>`;
+  const cost = (q, t) => !loansOpen() ? `<span class="muted">${pw(q.wage)}</span>` : t.no ? `<span class="muted">not this window</span>` : t.min <= 0 ? `<b class="good">Free</b>` : `<b>${Math.round(t.min * 100)}%</b> <span class="muted">· ${pw(q.wage * t.min)}</span>`;
+  return `<div class="loanlist">${avail.slice(0, max).map(q => { const t = playerLoanTerms(q, x);
+    return `<div class="loanrow"><div class="row between" style="gap:8px;flex-wrap:nowrap"><span style="min-width:0"><span class="pos">${q.pos}</span> <button class="lnk" data-act="player" data-id="${q.id}">${esc(q.name)}</button></span><span class="small" style="white-space:nowrap">${cost(q, t)}</span></div>
+      <div class="small muted">${q.age} · rated <b>${est20(ovrEstimate(q))}</b> · potential <b>${est20(potEstimate(q))}</b> · wage ${pw(q.wage)}</div></div>`; }).join("")}${avail.length > max ? `<p class="small muted">…and ${avail.length - max} more.</p>` : ""}</div>`;
 }
 // Sorting the clubs you could take on as feeders.
 /* Youth recruitment: who they bring in (academy level, youth scouting, their record with youngsters). Youth development:

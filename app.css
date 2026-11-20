@@ -533,3 +533,5 @@ table.depth td{padding:5px 4px;vertical-align:middle;border-bottom:1px solid var
 .depth-mv{display:inline-flex;gap:2px;margin-right:6px;vertical-align:middle} .depth-mv .btn.sm{padding:2px 6px;min-width:28px;line-height:1.2}
 /* Tables on the player card fit a phone: tighter cells, and long club names may wrap. */
 .modal details.prog table td, .modal details.prog table th{padding:4px 3px} .modal details.prog table td:first-child, .modal details.prog table td[style*="text-align:left"]{white-space:normal}
+/* Loan lists on the Network page and market: one compact block per player. */
+.loanlist{display:grid;gap:2px;margin-top:6px} .loanrow{padding:6px 0;border-bottom:1px solid var(--line)} .loanrow:last-child{border-bottom:0}
