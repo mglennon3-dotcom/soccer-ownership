@@ -26,6 +26,8 @@ function upgradeSave() {
     for (let i = 0; i < 40; i++) { const ovr = clamp(Math.round(TIER_XI[t] - 12 + R() * 15), 20, 92), age = ri(21, 31);
       const p = makePlayer({ pos: pick(mix), ovr, age, nat: R() < .6 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); toFreeAgent(p); p.faAt = absWeek(); n++; }
     news(`${n} more players are out of contract and looking for clubs, around your level and under 32: see Market → Free agents. Other clubs move in after three weeks.`, true); }
+  // 0.74.7: partner clubs always lend: clear any refusal already rolled this window for their players.
+  if (!G.lt2) { G.lt2 = true; for (const pt of (G.net && G.net.partners) || []) { const x = CL(pt.id); if (x) for (const id of x.squad) { const q = G.players[id]; if (q && q.lt) { q.lt.no = false; q.lt.min = Math.min(q.lt.min, .5); } } } }
   if (!G.foreign4) { G.foreign4 = true; addForeignLeagues(); }  // 0.72: fifteen more leagues abroad
   // 0.38.0: foreign clubs spread down through the levels (each country's smaller clubs well below its best); existing
   // worlds drift there over a few seasons as standards and squads move.

@@ -304,8 +304,10 @@ function foreignLoans() {
     const cands = [];
     for (const id of G.foreign) { const x = CL(id), xi = new Set(pickXI(x).map(o => o.p.id));
       for (const pid of x.squad) { const p = P(pid); if (!p.acad && !p.loan && p.age <= 22 && !xi.has(p.id) && p.ovr >= lv - 3 && p.ovr <= lv + 8 && canSell(p)) cands.push([p, x]); } }
-    for (const [p, x] of shuffle(cands).slice(0, 1 + (R() < .4 ? 1 : 0)))
+    for (const [p, x] of shuffle(cands).slice(0, 1 + (R() < .4 ? 1 : 0))) {
+      { const T = playerLoanTerms(p, x); T.no = false; }  // they're offering him: his card says he's available
       addChoice("fLoanIn", `${x.name} (${COUNTRY[x.country].name}) offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. Until the end of the season; you'd pay half his ${pw(p.wage)} wage.`, ["Take him", "No thanks"], { pid: p.id, from: x.id }, 1);
+    }
   }
   // Requests to borrow yours
   if (open("fLoanOut") < 1 && R() < .5) {

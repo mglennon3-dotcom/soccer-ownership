@@ -34,7 +34,8 @@ function playerLoanTerms(p, from = CL(p.club)) {
   const w = windowId(); if (p.lt && p.lt.w === w) return p.lt;
   const partner = isPartner(from.id);
   const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
-  return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, 1), tries: 0, no: R() < (partner ? .05 : .2) };
+  // A partner club always lends you its young players out of its first team, and never asks more than half his wages.
+  return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, partner ? .5 : 1), tries: 0, no: !partner && R() < .2 };
 }
 // What his club wants you to pay in wages to borrow him this window, or null if he isn't available to you.
 const loanPay = p => { if (p.club < 0 || !lendsTo(p)) return null; const T = playerLoanTerms(p); return T.no ? null : Math.round(p.wage * T.min / 100) * 100; };
@@ -116,7 +117,7 @@ function partnerWindow() {
     const xi = new Set(pickXI(x).map(o => o.p.id));
     const cands = x.squad.map(P).filter(p => !p.acad && !p.loan && p.age <= 23 && p.ovr >= myXI - 2 && lendsTo(p, c) && !xi.has(p.id)).sort((a, b) => b.pot - a.pot).slice(0, 2);
     for (const p of cands) if (!G.inbox.some(m => m.key === "pLoan" && !m.done && m.data.pid === p.id)) {
-      const share = Math.max(0, Math.min(.5, playerLoanTerms(p, x).min));
+      const T = playerLoanTerms(p, x), share = Math.max(0, Math.min(.5, T.min)); T.no = false; T.min = share;  // the offer and his card agree
       addChoice("pLoan", `${clubLabel(x)} offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. You'd pay ${Math.round(share * 100)}% of his ${pw(p.wage)} wage (${pw(p.wage * share)}).`, ["Take him", "No thanks"], { pid: p.id, from: x.id, share }, 1);
     }
   }
