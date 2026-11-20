@@ -13,7 +13,8 @@ async function saveGame() {
 }
 async function listSaves() { try { const all = await dbDo("readonly", st => st.getAll()); return (all || []).sort((a, b) => b.at - a.at); } catch { return []; } }
 function upgradeSave() {
-  G.board ||= { own: 100, inv: [], offers: [] }; G.sTrust ||= { rel: 50, members: 0, seat: false }; G.net ||= { partner: null, feeders: [] }; G.loans ||= [];
+  G.board ||= { own: 100, inv: [], offers: [] }; G.sTrust ||= { rel: 50, members: 0, seat: false };
+  if (G.sTrust && G.sTrust.freeze && G.sTrust.freeze >= G.year && G.sTrust.fp == null && G.club != null && my()) G.sTrust.fp = my().prices.ticket; G.net ||= { partner: null, feeders: [] }; G.loans ||= [];
   for (const c of G.clubs) if (!c.gone && !isMine(c) && !c.own) c.own = newOwner(c);
   if (!G.cups) startCups();
   if (!G.foreign) { makeForeign(); G.cont = {}; }
@@ -393,7 +394,7 @@ const CHANGE = {
   autoreg: el => { G.autoReg = el.checked; if (el.checked) { syncReg(); toast(windowOpen() ? "Your best 25 are registered." : "Your best 25 will be registered when the next window opens."); } render(); saveGame(); },
   starhunt: el => { G.starHunt = el.checked; toast(el.checked ? "Your head of recruitment may now chase stars on huge wages." : "Your head of recruitment will leave the stars alone."); render(); },
   price: el => { const c = my(), k = el.dataset.k, v = num(el);
-    if (k === "ticket" && G.sTrust && G.sTrust.freeze === G.year && v > c.prices.ticket) { toast("You promised the supporters' trust a price freeze this season."); render(); return; }
+    if (k === "ticket" && priceFrozen()) { c.prices.ticket = G.sTrust.fp ?? c.prices.ticket; toast(`You promised the supporters' trust a price freeze: tickets stay at ${eur(c.prices.ticket)} until the end of ${seasonLabel(G.sTrust.freeze)}.`); render(); return; }
     c.prices[k] = v; render(); },
   ffund: el => { const f = net().feeders.find(x => x.id === +el.dataset.id); if (f) f.fund = Math.round(num(el)); render(); },
   loanout: async el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (await ask(`Loan ${p.name} to ${x.name} until the end of the season?`)) { loanOut(p, x); closeModal(); render(); saveGame(); } },
