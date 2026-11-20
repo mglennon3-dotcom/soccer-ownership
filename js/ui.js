@@ -831,7 +831,7 @@ function pgMarket() {
 function preModal(id) {
   const p = G.players[id], wage = preAsk(p), stay = renewsAI(p);
   modal(`<div class="modal-h"><div><p class="eyebrow">Pre-contract</p><h2>${esc(p.name)}</h2><p class="small muted">${esc(fromName(p))} · contract ends in the summer (${contractLeft(p)} left)</p></div><button class="btn modal-x" data-act="close">✕</button></div>
-    <div class="modal-b">${theirPlayerLine(p)}${weakestStarterLine(p.id)}${stay ? `<p class="small warn">He intends to sign a new contract with ${esc(CL(p.club).name)}. It would take a big offer to change his mind: at least about ${pw(wage)}.</p>` : `<p class="small good">He isn't expected to re-sign with ${esc(CL(p.club).name)}.</p>`}<p>He'd join you on a <b>free</b> when his contract ends. He wants about <b>${pw(wage)}</b>.</p>
+    <div class="modal-b">${theirPlayerLine(p)}${weakestStarterLine(p.id)}${stay ? `<p class="small warn">He intends to sign a new contract with ${esc(CL(p.club).name)}. It would take a big offer to change his mind: at least about ${pw(wage)}.</p>` : `<p class="small good">He isn't expected to re-sign with ${esc(CL(p.club).name)}.</p>`}<p>He'd join you on a <b>free</b> when his contract ends, on a <b>four-year</b> contract. He wants about <b>${pw(wage)}</b>.</p>
     <div class="row"><label class="small">Wage €/week <input type="text" inputmode="decimal" class="num-in" id="pre-wage" value="${fmtNum(Math.round(wage / 52))}"></label></div>
     ${factorBars(playerAppeal(p, wage), P_FACTORS)}
     <p class="small muted">Nothing is paid until he arrives; his wages start then (next season's accounts).</p>
