@@ -701,6 +701,7 @@ const fanCare = c => 1 + fanShare(c, "loyal") + fanShare(c, "hard");
    the same region about 20-60 km. */
 const regionLL = c => { const K = COUNTRY[c.abroad ? c.country : "ENG"], r = K && K.regions.find(x => x[0] === c.region); return r ? [r[1], r[2]] : null; };
 function roadKm(a, b) {
+  const fx = (G.kmFix || {})[pairKey(a, b)]; if (fx != null) return fx;  // a distance set by hand
   const p = regionLL(a), q = regionLL(b); if (!p || !q) return 300;
   if (a.region === b.region && !!a.abroad === !!b.abroad) { const x = Math.min(a.id, b.id), y = Math.max(a.id, b.id), h = x * 73 + y * 37 + x * y; return a.region === "London" ? 5 + h % 31 : 15 + h % 46; }  // the same both ways; a city is closer together than a county
   const rad = Math.PI / 180, dLat = (q[0] - p[0]) * rad, dLon = (q[1] - p[1]) * rad, h = Math.sin(dLat / 2) ** 2 + Math.cos(p[0] * rad) * Math.cos(q[0] * rad) * Math.sin(dLon / 2) ** 2;

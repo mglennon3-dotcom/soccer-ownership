@@ -43,6 +43,7 @@ function upgradeSave() {
     if (p) { G.fix1 = true; delete p.toMe; G.sugg = sugg().filter(x => x.id !== p.id); signPlayer(p, 20.7e6, 62400 * 52, false, "suggestion"); } }
   if (G.club != null && G.phase === "summer" && G.week === 0 && typeof summerRelay === "function") summerRelay();
   if (G.club != null && G.phase === "summer" && G.week === 0 && typeof completeIncoming === "function") completeIncoming();  // 0.80.2: agreed summer deals go through at the start of pre-season  // 0.80.0: start of pre-season: the pitch is re-laid straight away
+  if (!G.ilk1 && G.club != null) { G.ilk1 = true; const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x && my().region === "London") { x.region = "London"; x.half = "S"; (G.kmFix ||= {})[pairKey(my(), x)] = 3; } }  // 0.80.8: one-off: Ilkby move to London, 2 miles away
   if (!G.fix2 && G.club != null) { G.fix2 = true; const sd = my().squad.map(P).find(p => p && /Simon Dalsgaard/i.test(p.name)); if (sd) sd.yrs = 4; }  // 0.80.3: one-off: his deal is four years
   if (!G.derby && G.club != null) buildDerbies();  // 0.78.4: derbies are historical, settled once
   if (!G.fd2) { G.fd2 = true; for (const x of G.clubs) delete x.feedAsk; if (G.club != null) for (const f of net().feeders || []) { const x = CL(f.id); if (x) f.fund = feederAsk(x); } }  // 0.75.5: feeder asks re-set at the new, lower rate
