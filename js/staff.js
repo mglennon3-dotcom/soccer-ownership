@@ -115,6 +115,10 @@ function dismiss(role, quiet) {
 /* Openness to a hands-on owner (shown 1-20): how much an owner stepping in bothers him. High: he shrugs off your
    interventions; low: every one stings, and he's quicker to walk. It also decides how much a hands-on owner puts him
    off joining. */
+/* Rotation (managers, shown 1-20): how readily he rests tired players and spreads the games. High: he rotates early,
+   keeping legs fresh and giving the squad minutes; low: the same eleven every week while they can stand. */
+const rotOf = s => s ? (s.rot ??= clamp(Math.round(10 + R() * 85), 5, 100)) : 50;
+const rotWord = s => { const t = s20(rotOf(s)); return t >= 15 ? "Rotates a lot" : t >= 9 ? "Some rotation" : t >= 5 ? "A settled side" : "Same eleven every week"; };
 const tolOf = s => s ? (s.tol ??= clamp(Math.round(15 + R() * 80), 5, 100)) : 50;
 const tolF = s => 1.6 - tolOf(s) / 100 * 1.2;  // 5 → ×1.5, 50 → ×1.0, 95 → ×0.5
 const tolWord = s => { const t = s20(tolOf(s)); return t >= 15 ? ["Welcomes it", "good"] : t >= 9 ? ["Fine with some", ""] : t >= 5 ? ["Wary", "warn"] : ["Wants full control", "bad"]; };

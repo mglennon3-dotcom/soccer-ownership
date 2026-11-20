@@ -43,7 +43,10 @@ function pickXI(c, noForce) {
   const depthB = (p, s) => { const L = dl[s]; if (!L) return 0; const i = L.indexOf(p.id); return i < 0 ? 0 : Math.max(20, 200 - i * 6); };
   const lent = isMine(c) ? forced : (p, s) => p.loan && p.loan.to === c.id ? (p.loan.from === G.club ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 200) : 0) : p.pos === s ? 4 : 0) : 0;
   // Tired players get rested: below 85% sharpness a player starts losing his place to a fresh deputy.
-  const tired = p => Math.max(0, 88 - (p.fit ?? 100)) * .3;
+  // How readily his manager rotates: a big rotator rests players from about 94% sharpness, a creature of habit not until
+  // about 80% (an AI club's coach is middling unless he has his own setting).
+  const rot = (isMine(c) ? rotOf(staffOf("manager")) : (c.coach && c.coach.rot) || 50) / 100;
+  const tired = p => Math.max(0, 80 + rot * 14 - (p.fit ?? 100)) * (.1 + rot * .5);
   const score = youth
     ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.id % 7) * .0001
     : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.id % 7) * .0001;
