@@ -208,6 +208,7 @@ function endSeason() {
   G.meddle = (G.meddle || 0) * .6;
   mine.fac.stadium.held = 0;  // interference is slowly forgotten
   mine.finLast = mine.fin; mine.fin = newLedger(); mine.spentT = 0;
+  summerRelay(mine);  // the pitch is re-laid the moment the season ends, so it's under way as pre-season starts
   completeAgreed(mine);  // the summer window opens: sales agreed during the season go through, before contracts run out
   addMsg({ type: "info", title: "Pre-season: arrange your friendlies", body: "Each of the eight pre-season weeks can have a friendly. Away games earn a fee from the host, home games a gate; with fewer than two, the side starts the season rusty for its first four league games, and three or more gives it a small edge.", go: "league", goL: "Arrange friendlies" });
   // Parachute payments move on a season; a club that has had them all stops getting them.
