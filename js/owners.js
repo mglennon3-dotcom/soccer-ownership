@@ -154,7 +154,7 @@ const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l
   return c.tier <= 4 && !reckless(c) ? Math.min(t, SPEND_LIMIT - .05) : t; };
 function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1);
   // The spending rule: in the professional divisions only reckless owners plan to lose more than it allows.
-  if (c.cook) { const cap = salaryCap(c.tier); return Math.max(b, isFinite(cap) ? cap : b) * 1.25; }  // cooking the books: past the cap (or the budget), and then some
+  if (c.cook) { const cap = salaryCap(c.tier); return Math.max(b, isFinite(cap) ? cap : b) * 2; }  // cooking the books: money no object (players still have to want to come)
   return Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier)); }
 /* The salary cap, in the Premier Division only: no AI club's wage bill there may go past two and a half times the division's average (set again each summer
    as wages move). Up to it, how much they spend is the owner's call; only an owner cooking the books goes beyond it. */
