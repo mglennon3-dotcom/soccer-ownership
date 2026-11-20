@@ -533,5 +533,9 @@ function marketWeek() {
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
   const last = (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
-  if (last) { clearAbroad(); autoRegister(c); news("The transfer window has closed."); }
+  if (last) { clearAbroad(); autoRegister(c); news("The transfer window has closed.", true);
+    addMsg({ type: "info", title: "The transfer window has closed", body: G.phase === "summer" ? "Until the January window, only free agents can join straight away. Players at other clubs can agree to join when it opens." : "Until the summer, only free agents can join straight away. Players at other clubs can agree to join in the summer, and anyone in the last months of his contract can sign a pre-contract with you." }); }
+  // Opening, and a week's warning before it shuts.
+  if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) addMsg({ type: "info", title: G.phase === "summer" ? "The summer transfer window is open" : "The January transfer window is open", body: `It closes at the end of ${G.phase === "summer" ? `pre-season (${SUMMER_WEEKS} weeks)` : `week ${JAN[JAN.length - 1] + 1} (${JAN.length} weeks)`}. Players at other clubs can join straight away while it's open.` });
+  if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) addMsg({ type: "info", title: "The transfer window closes next week", body: "Anything you want done before it shuts has to be agreed this week or next. After that, players at other clubs can only agree to join when the next window opens." });
 }
