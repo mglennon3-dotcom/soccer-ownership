@@ -322,7 +322,8 @@ function poachWeek() {
   const pos = table(c.lg).findIndex(r => r.id === c.id), doingWell = pos >= 0 && pos < G.leagues[c.lg].clubs.length / 4;
   if (staffAvg(s) < attraction() + 5 && !doingWell && R() > .3) return;  // ordinary staff at an ordinary club rarely draw interest
   s.poached = now;
-  const h = hostileOf(c), q = staffAvg(s), suitors = h && R() < .5 ? [h] : G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.tier < c.tier && OWNER_STYLES[x.own.style].poach > R() && Math.abs(TIER_REP[x.tier] + 15 - q) < 25);
+  // A hostile neighbour only tempts your staff if it isn't a step down for them (staff don't drop divisions to join a rival's mischief).
+  const h0 = hostileOf(c), h = h0 && h0.tier <= c.tier ? h0 : null, q = staffAvg(s), suitors = h && R() < .5 ? [h] : G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.tier < c.tier && OWNER_STYLES[x.own.style].poach > R() && Math.abs(TIER_REP[x.tier] + 15 - q) < 25);
   if (!suitors.length) return;
   // Compensation: what's left of his contract, and a premium on top that rises with how badly they want him.
   const x = pick(suitors), comp = Math.round(s.wage * Math.max(1, s.yrs) * (1.1 + OWNER_STYLES[x.own.style].poach * .5 + R() * .3) / 1000) * 1000;
