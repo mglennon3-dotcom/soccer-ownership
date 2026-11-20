@@ -767,7 +767,7 @@ function pgMarket() {
   if (F.yrs) base = base.filter(p => p.club >= 0 && p.yrs <= F.yrs && (F.yrs > 1 || !p.loan));  // contract running down
   // Cheap filters first; then each club's first team is worked out once for the asking prices.
   // "Fits my budget": what's left of the transfer budget, and the spare room in the wage budget (a week).
-  const feeLeft = Math.max(0, c.budget.transfer - c.spentT), wageLeft = Math.max(0, c.budget.wages - wageBill(c)) / 52;
+  const feeLeft = Math.max(0, c.budget.transfer - c.spentT - pendFees()), wageLeft = Math.max(0, c.budget.wages - wageBill(c) - pendWages()) / 52;  // after deals already agreed
   const feeCap = F.fee === -1 ? feeLeft : F.fee, wageCap = F.wage === -1 ? wageLeft : F.wage;
   let pool = base.filter(p => (!F.pos || p.pos === F.pos) && p.age <= F.age && (!F.arch || (archetypeOf(p) || [])[0] === F.arch))
     .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
@@ -784,7 +784,7 @@ function pgMarket() {
   const FEES = [0, 5e3, 10e3, 25e3, 50e3, 100e3, 250e3, 500e3, 1e6, 2.5e6, 5e6, 10e6, 25e6, 50e6, 100e6];
   const wageUse = c.budget.wages ? Math.round(wageBill(c) / c.budget.wages * 100) : 0;
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Search the market</h2></div>
-    <p style="margin-bottom:12px">${windowOpen() ? `<b class="good">Window open</b>` : `<b class="muted">Window closed</b>: free agents sign now; anyone else can agree to join when it opens${incoming().length ? ` (${incoming().length} agreed)` : ""}`} · Transfer budget left <b class="num ${c.budget.transfer - c.spentT <= 0 ? "bad" : ""}">${money(Math.max(0, c.budget.transfer - c.spentT))}</b> of ${money(c.budget.transfer)} · Wages left <b class="num">${pw(Math.max(0, c.budget.wages - wageBill(c)))}</b> (${wageUse}% used) · Cash <b class="num">${money(c.cash)}</b></p>
+    <p style="margin-bottom:12px">${windowOpen() ? `<b class="good">Window open</b>` : `<b class="muted">Window closed</b>: free agents sign now; anyone else can agree to join when it opens${incoming().length ? ` (${incoming().length} agreed)` : ""}`} · Transfer budget left <b class="num ${feeLeft <= 0 ? "bad" : ""}">${money(feeLeft)}</b> of ${money(c.budget.transfer)} · Wages left <b class="num">${pw(wageLeft * 52)}</b> (${wageUse}% used)${incoming().length ? ` <span class="small muted">after ${incoming().length} agreed signing${incoming().length > 1 ? "s" : ""} (${pw(pendWages())}${pendFees() ? `, ${money(pendFees())} in fees` : ""})</span>` : ""} · Cash <b class="num">${money(c.cash)}</b></p>
     <div class="chips" style="margin-bottom:12px">${TABS.map(([k, l]) => `<button data-act="mtab" data-k="${k}" aria-pressed="${F.tab === k}">${l}</button>`).join("")}</div>
     <div class="filters">
       <label class="f">Position${sel("pos", [["", "Any"], ...POS.map(r => [r, POS_NAME[r]])])}</label>
