@@ -55,7 +55,8 @@ function renderStart(saves) {
       <label>Your name<input id="f-owner" maxlength="30" placeholder="Chair"></label>
     </div>
     <h3 style="margin:16px 0 8px">Region</h3>
-    <div class="seg" id="f-half"><button data-v="N" aria-pressed="true">North — Regional League North</button><button data-v="S" aria-pressed="false">South — Regional League South</button></div>
+    <label>Where the club is<select id="f-region">${COUNTRY.ENG.regions.map(r => `<option value="${esc(r[0])}" ${r[0] === "London" ? "selected" : ""}>${esc(r[0])} (Regional League ${r[3] === "N" ? "North" : "South"})</option>`).join("")}</select></label>
+    <p class="small muted" style="margin-top:4px">Sets your local derbies, away-trip distances, and which players count as local lads.</p>
     <h3 style="margin:16px 0 8px">Colours</h3>
     <div class="swatches" id="f-color">${CLUB_COLORS.map((c, i) => `<button style="background:${c}" data-v="${c}" aria-pressed="${i === 1}" aria-label="Colour ${i + 1}"></button>`).join("")}</div>
     <h3 style="margin:16px 0 8px">Your fortune</h3>
