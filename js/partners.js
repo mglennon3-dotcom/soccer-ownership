@@ -31,8 +31,9 @@ const loansOpen = () => windowOpen() || (G.club != null && my().tier >= 5);
    partner club and for youngsters who need games, higher abroad); offer at least that and he comes. Below it they
    tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
 function playerLoanTerms(p, from = CL(p.club)) {
-  const w = windowId(); if (p.lt && p.lt.w === w) return p.lt;
-  const partner = isPartner(from.id);
+  const w = windowId(), partner = isPartner(from.id);
+  // A partner never refuses, whatever was decided before (an older save, or terms set before the partnership began).
+  if (p.lt && p.lt.w === w) { if (partner) { p.lt.no = false; p.lt.min = Math.min(p.lt.min, .5); } return p.lt; }
   const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
   // A partner club always lends you its young players out of its first team, and never asks more than half his wages.
   return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, partner ? .5 : 1), tries: 0, no: !partner && R() < .2 };
