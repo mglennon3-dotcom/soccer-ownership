@@ -94,7 +94,8 @@ function hire(s, wage, yrs) {
   const ask = staffAsk(s) || wage;
   if (s.emp != null) poachPay(s, s.compOffer);  // he was working elsewhere: his club gets compensation
   s.poached = G.year * 100 + G.week;  // nobody comes for a new appointment in his first year
-  s.wage = wage; s.yrs = yrs; s.expiring = false; s.trust = clamp(60 + Math.round((wage / ask - 1) * 40), 40, 80); s.since = G.year;
+  s.wage = wage; s.yrs = yrs; s.expiring = false; s.trust = clamp(60 + Math.round((wage / ask - 1) * 40), 40, 80); s.since = G.year; s.tlog = [];
+  { const r = wage / ask; s.tbase = { t: s.trust, y: G.year, k: `When you hired ${pr(s, "him")}: ${r >= 1.05 ? `you paid ${Math.round((r - 1) * 100)}% over ${pr(s, "his")} asking` : r <= .95 ? `you paid ${Math.round((1 - r) * 100)}% under ${pr(s, "his")} asking` : `you paid ${pr(s, "his")} asking`} (60 is the usual start)` }; }
   c.staff[s.role] = s;
   hiredExPro(s);
   (G.filled ||= {})[s.role] = true; if (G.pools && G.pools[s.role]) G.pools[s.role].list = G.pools[s.role].list.filter(x => x !== s);

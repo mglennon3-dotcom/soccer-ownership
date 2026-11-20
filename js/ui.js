@@ -337,17 +337,21 @@ const staffBadge = s => { const a = sr20(staffAvg(s)), hi = sr20(staffPotRange(s
 /* How a member of staff feels and why: the causes behind the trust figure, this season and last, and ways to put it
    right when the mood has soured. */
 function staffMoodHTML(role, s) {
-  const L = (s.tlog || []).filter(x => x.y >= G.year - 1 && Math.abs(x.d) >= .5), M = s.mend || {}, low = s.trust < 55;
-  const rows = ys => L.filter(x => x.y === ys).sort((a, b) => a.d - b.d).map(x => `<div class="row between small" style="padding:2px 0"><span>${esc(x.k)}${x.n > 1 ? ` <span class="muted">×${x.n}</span>` : ""}</span><b class="num ${x.d < 0 ? "bad" : "good"}">${x.d > 0 ? "+" : "−"}${Math.abs(Math.round(x.d))}</b></div>`).join("");
-  const now = rows(G.year), last = rows(G.year - 1);
-  const btn = (how, l, note) => M[how] === G.year ? `<span class="small muted">${l}: done this season</span>` : `<button class="btn sm" data-act="mend" data-r="${role}" data-k="${how}">${l}</button>${note ? `<span class="small muted">${note}</span>` : ""}`;
+  const L = (s.tlog || []).filter(x => Math.abs(x.d) >= .05), M = s.mend || {}, low = s.trust < 55, B = s.tbase;
+  const num = v => `<b class="num ${v < 0 ? "bad" : v > 0 ? "good" : "muted"}">${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(Math.round(v))}</b>`;
+  const ys = [...new Set(L.map(x => x.y))].sort((a, b) => b - a);
+  // From where he started to where he is now: the starting point, then every cause season by season (newest first).
+  const season = y => { const R = L.filter(x => x.y === y).sort((a, b) => a.d - b.d), tot = sum(R, x => x.d);
+    return `<div style="margin-top:6px"><div class="row between small"><span class="muted">${seasonLabel(y)}</span>${num(tot)}</div>${R.map(x => `<div class="row between small" style="padding:1px 0 1px 10px"><span>${esc(x.k)}${x.n > 1 ? ` <span class="muted">×${x.n}</span>` : ""}</span>${num(x.d)}</div>`).join("")}</div>`; };
+  const btn = (how, l) => M[how] === G.year ? `<span class="small muted">${l}: done this season</span>` : `<button class="btn sm" data-act="mend" data-r="${role}" data-k="${how}">${l}</button>`;
   const forced = role === "manager" && (my().squad.some(id => P(id).force) || (G.depth && Object.keys(G.depth).length));
   const fix = `<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">${btn("talk", "Clear the air")}${s.expiring ? "" : btn("pay", `Pay rise (to ${pw(Math.round(s.wage * 1.1 / 100) * 100)})`)}${btn("promise", "Promise not to interfere this season")}${forced ? btn("hands", "Leave team selection to " + pr(s, "him")) : ""}</div>
     <p class="small muted" style="margin-top:4px">A talk helps most once the cause has stopped. Break a promise and it costs twice as much. Grudges also fade on their own: trust drifts back up toward 60 week by week.</p>`;
-  if (!L.length && !low) return "";
-  return `<details ${low ? "open" : ""} style="margin-top:8px"><summary class="small"><b>Why ${pr(s, "he")} feels this way</b>${low ? ` <span class="${s.trust < 40 ? "bad" : "warn"}">· ${s.trust < 40 ? "at risk of resigning below 20" : "uneasy"}</span>` : ""}</summary>
-    ${now ? `<p class="small muted" style="margin-top:6px">This season</p>${now}` : `<p class="small muted" style="margin-top:6px">Nothing has changed ${pr(s, "his")} mood this season.</p>`}
-    ${last ? `<p class="small muted" style="margin-top:6px">Last season</p>${last}` : ""}
+  if (!B && !L.length) return "";
+  return `<details ${low ? "open" : ""} style="margin-top:8px"><summary class="small"><b>How ${pr(s, "he")} got to ${Math.round(s.trust)}</b>${low ? ` <span class="${s.trust < 40 ? "bad" : "warn"}">· ${s.trust < 40 ? "at risk of resigning below 20" : "uneasy"}</span>` : ""}</summary>
+    ${B ? `<div class="row between small" style="margin-top:6px"><span>${esc(B.k)}</span><b class="num">${Math.round(B.t)}</b></div>` : ""}
+    ${ys.map(season).join("")}
+    <div class="row between small" style="margin-top:6px;border-top:1px solid var(--line);padding-top:4px"><b>Now</b><b class="num">${Math.round(s.trust)}</b></div>
     ${low ? fix : `<p class="small muted" style="margin-top:6px">${pr(s, "He")}'s settled: nothing needs putting right.</p>`}</details>`;
 }
 function staffCard(role) {

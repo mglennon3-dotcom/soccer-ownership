@@ -76,7 +76,7 @@ function hiredExPro(s) {
   G.exPros = (G.exPros || []).filter(x => x.s !== s);
   if (!s.ex) return;
   const c = my();
-  if (isLegendOf(s, c.id)) { moodHit(c, 10); trustRel(10); c.morale = clamp(c.morale + 8, 20, 95); s.trust = Math.max(s.trust, 75); news(`A club legend comes home: ${s.name} takes charge as ${ROLES_STAFF[s.role].l.toLowerCase()}. The supporters are delighted.`, true); bumpMedia(4); }
+  if (isLegendOf(s, c.id)) { moodHit(c, 10); trustRel(10); c.morale = clamp(c.morale + 8, 20, 95); { const t0 = s.trust; s.trust = Math.max(s.trust, 75); if (s.tbase) s.tbase.t = s.trust; if (s.trust > t0 && s.tbase) s.tbase.k += "; a club legend coming home, so more"; } news(`A club legend comes home: ${s.name} takes charge as ${ROLES_STAFF[s.role].l.toLowerCase()}. The supporters are delighted.`, true); bumpMedia(4); }
   else if (s.ex.favOf.includes(c.id)) { moodHit(c, 4); trustRel(4); news(`Former fan favourite ${s.name} returns to the club.`); }
 }
 

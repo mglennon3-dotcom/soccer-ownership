@@ -17,6 +17,9 @@ function upgradeSave() {
   for (const c of G.clubs) if (!c.gone && !isMine(c) && !c.own) c.own = newOwner(c);
   if (!G.cups) startCups();
   if (!G.foreign) { makeForeign(); G.cont = {}; }
+  // 0.73.1: staff hired before their trust was recorded get a starting point: where they stood before the records begin.
+  for (const st of Object.values((G.club != null && my().staff) || {}).filter(Boolean)) if (!st.tbase) { const logged = sum(st.tlog || [], x => x.d);
+    st.tbase = { t: Math.round((st.trust - logged) * 10) / 10, y: (st.tlog && st.tlog.length ? Math.min(...st.tlog.map(x => x.y)) : G.year), old: true, k: `Where things stood when records began (hired ${st.since || "earlier"}; what happened before that wasn't kept)` }; }
   if (!G.foreign4) { G.foreign4 = true; addForeignLeagues(); }  // 0.72: fifteen more leagues abroad
   // 0.38.0: foreign clubs spread down through the levels (each country's smaller clubs well below its best); existing
   // worlds drift there over a few seasons as standards and squads move.
