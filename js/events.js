@@ -20,6 +20,7 @@ function mediaWeek() {
   const q = pickQuestion(c); if (q) addChoice(q.key, `Press: ${q.q}`, q.body || "", q.opts, q.data || {}, q.dflt ?? q.opts.length - 1);
 }
 function form5() { return (G.myRes || []).filter(r => r.comp === my().lg).slice(-5); }
+const teamAvg20 = c => r20(avg(pickXI(c).map(o => o.p.ovr)));
 function pickQuestion(c) {
   const f = form5(), pts = sum(f, r => r.res === "W" ? 3 : r.res === "D" ? 1 : 0), m = staffOf("manager"), qs = [];
   if (f.length === 5 && pts <= 4 && m) qs.push({ key: "pressSack", q: `Is ${m.name}'s job safe?`, body: `${pts} points from the last five games.`, opts: ["Full backing", "Results must improve", "No comment"] });
@@ -44,6 +45,26 @@ function pickQuestion(c) {
   const rival = G.clubs.find(x => !x.gone && !isMine(x) && x.own && x.lg === c.lg && OWNER_STYLES[x.own.style].media >= 3);
   if (rival) qs.push({ key: "pressRival", q: `${rival.own.name} of ${rival.name} calls your club "a vanity project"`, opts: ["Fire back", "Rise above it"], data: { club: rival.id } });
   if (G.sTrust && G.sTrust.rel < 35) qs.push({ key: "pressTrust", q: "The supporters' trust says you don't listen", opts: ["Promise to meet them", "Ignore it"] });
+  // The questions owners get at real press conferences.
+  const nf = typeof nextFixture === "function" ? nextFixture() : null, opp = nf ? CL(nf.h === c.id ? nf.a : nf.h) : null;
+  if (opp && nf.w === G.week && isDerby(c, opp)) qs.push({ key: "pressDerby", q: `It's ${opp.name} this weekend. What's your message to the fans?`, opts: ["We owe them a win", "It's three points like any other"], data: { opp: opp.id } });
+  const target = Object.values(G.players).find(p => p.club >= 0 && p.club !== c.id && !CL(p.club).gone && r20(p.ovr) >= teamAvg20(c) + 2 && p.age <= 27 && willJoin(p, c) && R() < .002);
+  if (target && (windowOpen() || G.week >= JAN[0] - 3)) qs.push({ key: "pressLink", q: `Reports link you with ${target.name} of ${CL(target.club).name}. Any truth in it?`, opts: ["We admire him, and we're ambitious", "I don't talk about other clubs' players"], data: { pid: target.id } });
+  const want = c.squad.map(P).find(p => p.req || p.unsettled >= 3);
+  if (want) qs.push({ key: "pressWant", q: `${want.name} wants to leave. Will you let him go?`, opts: ["Nobody leaves on the cheap", "If the right offer comes, yes"], data: { pid: want.id } });
+  const inj = c.squad.map(P).filter(p => p.inj && !p.acad).length;
+  if (inj >= 5) qs.push({ key: "pressInj", q: `You've got ${inj} players injured. Is the squad deep enough?`, opts: ["We'll add cover", "We have the players to cope"] });
+  const last = (G.myRes || []).slice(-1)[0];
+  if (last && last.w >= G.week - 1 && last.res === "L" && last.ga - last.gf <= 1) qs.push({ key: "pressRef", q: "Your manager was furious with the referee. Do you back him?", opts: ["The decisions cost us the game", "We move on: no excuses"] });
+  if (c.mood < 30) qs.push({ key: "pressProtest", q: "Supporters protested outside the ground. What's your response?", opts: ["I hear them, and I'll put it right", "The plan won't change"] });
+  const expiring = c.squad.map(P).filter(p => !p.acad && p.yrs <= 1 && !p.loan).sort((a, b) => b.ovr - a.ovr)[0];
+  if (expiring && r20(expiring.ovr) >= teamAvg20(c)) qs.push({ key: "pressContract", q: `${expiring.name} is into the last year of his contract. Will he sign a new one?`, opts: ["Talks are going well", "No player is bigger than the club"], data: { pid: expiring.id } });
+  if ((G.loans || []).length || c.cash < 0) qs.push({ key: "pressDebt", q: "The club's debts are rising. Should supporters be worried?", opts: ["The finances are under control", "We're investing for the future"] });
+  if (G.inbox.some(m => m.key === "poach" && !m.done)) qs.push({ key: "pressPoach", q: "Another club wants to talk to one of your staff. Will you stand in the way?", opts: ["They're going nowhere", "We won't stand in anyone's way"] });
+  const cupRun = Object.values(G.cups || {}).some(K => K.win == null && (K.alive || []).includes(c.id) && K.round >= 3);
+  if (cupRun) qs.push({ key: "pressCup", q: "Is the cup run a distraction from the league?", opts: ["We want to win it", "The league comes first"] });
+  if (R() < .3) qs.push({ key: "pressSell", q: "There are rumours you're looking to sell the club. True?", opts: ["The club is not for sale", "I'd always listen to the right offer"] });
+  if (c.fac.acad.lvl >= 4) qs.push({ key: "pressAcad", q: "What's the long-term plan for the academy?", opts: ["Our own players are the future", "The first team comes first"] });
   // Vary them: nothing asked again within about twenty weeks (the five-year question once a season).
   const seen = G.pressSeen ||= {}, now = G.year * 100 + G.week, fresh = qs.filter(q => !seen[q.key] || now - seen[q.key] >= (q.key === "pressAmb" ? 100 : 20));
   const q = fresh.length ? pick(fresh) : null; if (q) seen[q.key] = now; return q;
@@ -62,6 +83,18 @@ DECIDE.pressSign = (m, i) => { if (i === 0) { moodHit(my(), 3); G.hype = (G.hype
 DECIDE.pressKid = (m, i) => { const p = G.players[m.data.pid]; if (!p) return; if (i === 0) { bumpMedia(2); moodHit(my(), 2); p.unsettled = Math.max(p.unsettled || 0, R() < .25 ? 4 : 0); } else trust("youth", 2, null, "Protecting a youngster in public"); };
 DECIDE.pressSlump = (m, i) => { if (i === 0) { moodHit(my(), 1); trust("manager", 3, null, "Your public backing"); } if (i === 1) { moodHit(my(), 2); trust("manager", -5, "didn't like hearing that changes are coming.", "Being put under pressure in public"); } };
 DECIDE.pressMoney = (m, i) => { if (i === 0) { moodHit(my(), 4); G.hype = (G.hype || 0) + 1; } else moodHit(my(), -2); };
+DECIDE.pressDerby = (m, i) => { if (i === 0) { moodHit(my(), 2); G.hype = (G.hype || 0) + 1; } };
+DECIDE.pressLink = (m, i) => { if (i === 0) { bumpMedia(3); moodHit(my(), 2); const p = G.players[m.data.pid]; if (p && p.club >= 0) { const x = CL(p.club); if (x && !isMine(x) && R() < .3) p.unsettled = Math.max(p.unsettled || 0, 3); } } };
+DECIDE.pressWant = (m, i) => { const p = G.players[m.data.pid]; if (!p) return; if (i === 0) { p.unsettled = (p.unsettled || 0) + 1; moodHit(my(), 1); } else { p.list = true; p.unsettled = Math.max(0, (p.unsettled || 0) - 2); news(`${p.name} is transfer-listed after your comments.`); } };
+DECIDE.pressInj = (m, i) => { if (i === 0) moodHit(my(), 1); else trust("manager", 1, null, "Your public backing"); };
+DECIDE.pressRef = (m, i) => { if (i === 0) { moodHit(my(), 2); trust("manager", 3, null, "Your public backing"); if (R() < .3) { bumpMedia(3); investorMood(null, -1); news("The FA warns the club about your comments on the referee."); } } };
+DECIDE.pressProtest = (m, i) => { if (i === 0) { moodHit(my(), 5); trustRel(4); G.promise = { kind: "fans", y: G.year }; } else { moodHit(my(), -3); trustRel(-4); } };
+DECIDE.pressContract = (m, i) => { const p = G.players[m.data.pid]; if (!p) return; if (i === 0) moodHit(my(), 1); else if (R() < .4) p.unsettled = Math.max(p.unsettled || 0, 2); };
+DECIDE.pressDebt = (m, i) => { if (i === 0) investorMood(null, 1); else { moodHit(my(), 1); investorMood(null, -1); } };
+DECIDE.pressPoach = (m, i) => { if (i === 0) moodHit(my(), 1); };
+DECIDE.pressCup = (m, i) => { if (i === 0) { moodHit(my(), 2); G.hype = (G.hype || 0) + 1; } };
+DECIDE.pressSell = (m, i) => { if (i === 0) { moodHit(my(), 2); trustRel(2); } else { moodHit(my(), -3); investorMood(null, 2); } };
+DECIDE.pressAcad = (m, i) => { if (i === 0) { moodHit(my(), 1); trust("youth", 3, null, "Backing the academy in public"); } else trust("youth", -2, null, "Putting the first team ahead of the academy in public"); };
 DECIDE.pressRival = (m, i) => { if (i === 0) { bumpMedia(4); moodHit(my(), 2); (my().rivals ||= {})[m.data.club] = ((my().rivals || {})[m.data.club] || 0) + 1; } };
 DECIDE.pressTrust = (m, i) => { if (i === 0) trustRel(8, "You promise the trust a meeting."); else { trustRel(-6); moodHit(my(), -2); } };
 
