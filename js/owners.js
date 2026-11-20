@@ -168,6 +168,7 @@ const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
 function aiAccounts(c) {
   const o = c.own, fees = c.tnet || 0, inc = aiIncome(c) + Math.max(0, fees), cost0 = aiCosts(c) + Math.max(0, -fees), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
   c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net), fees: Math.round(fees) }; c.tnet = 0;
+  c.fee3 = (c.fee3 || []).concat([Math.round(fees)]).slice(-3);  // the last three seasons' net transfer money (wage controller)
   c.feeAvg = Math.round((c.feeAvg || 0) * .5 + fees * .5);  // selling clubs reinvest: recent transfer profit feeds the wage budget (aiAfford)
   if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));
   // Cooking the books: losses are hidden (false income, deals off the books), so no spending-rule trouble, no cuts, and the
@@ -216,7 +217,9 @@ function levelSample() { G.xiMid = [0]; for (let t = 1; t <= 7; t++) { const cs 
    a season in the black. */
 function wageCheck() { G.wInf ||= [1, 1, 1, 1, 1, 1, 1, 1];
   for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t && c.aiFin && c.aiFin.y === G.year - 1); if (cs.length < 6) continue;
-    const share = cs.filter(c => c.aiFin.net >= 0).length / cs.length, w0 = G.wInf[t], w = clamp(w0 + (share - .3) * .4, .6, 2.5); if (Math.abs(w - w0) < .005) continue;
+    // Judged with player sales averaged over three seasons (a one-off sale counts a third a year, steady selling counts
+    // in full); and it moves gently, at most 3% a year, within 0.7 to 1.6 times the going rate.
+    const share = cs.filter(c => c.aiFin.net - (c.aiFin.fees || 0) + avg(c.fee3 && c.fee3.length ? c.fee3 : [c.aiFin.fees || 0]) >= 0).length / cs.length, w0 = G.wInf[t], w = clamp(w0 + clamp((share - .3) * .4, -.03, .03), .7, 1.6); if (Math.abs(w - w0) < .005) continue;
     G.wInf[t] = Math.round(w * 1000) / 1000;
     for (const c of G.clubs) if (!c.gone && !c.abroad && !isMine(c) && c.tier === t) for (const id of c.squad) { const p = G.players[id]; if (p && !p.acad && !p.loan) p.wage = Math.min(500e3 * 52, Math.round(p.wage * G.wInf[t] / w0 / 100) * 100); } } }
 function ownersSummer() {
