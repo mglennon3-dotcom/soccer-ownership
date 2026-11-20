@@ -65,7 +65,7 @@ function cupWeek(w) {
 }
 /* A knockout tie (cups and play-offs). Logs your result and handles your gate. */
 function playKO(h, a, neutral, comp, label) {
-  const r = playMatch(h, a, neutral); let w = r.hg > r.ag ? h : r.ag > r.hg ? a : null; r.pens = false;
+  const r = playMatch(h, a, neutral, false, CUP_DEF[comp] && !/final/i.test(label || "") ? "cup" : "big"); let w = r.hg > r.ag ? h : r.ag > r.hg ? a : null; r.pens = false;
   if (w == null) { w = R() < .5 ? h : a; r.pens = true; }
   if (h === G.club || a === G.club) {
     const c = my(), home = h === G.club, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? a : h);

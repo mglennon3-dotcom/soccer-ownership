@@ -23,9 +23,18 @@ function depthSync(c, role) {
   }
   return (G.depth[role] = keep);
 }
-function pickXI(c, noForce) {
-  const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false;
-  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 17 && p.ovr >= TIER_LVL[c.tier] - 6) && (!isMine(c) || isReg(p, c)));
+/* Academy players: the manager picks one he thinks is ready (close to the standard in his position). He's readier to
+   do it in a domestic cup tie or against a clearly weaker side, where an academy player gets a real chance (more so
+   for a youth-minded manager); in big games (Europe, play-offs) and against equals he sticks with the seniors. */
+function easyGame(c, ctx) {
+  if (!ctx || !ctx.opp) return false; if (ctx.kind === "cup") return true; if (ctx.kind === "big") return false;
+  const xi = q => avg(q.squad.map(P).filter(p => p && !p.acad && !p.inj).sort((a, b) => b.ovr - a.ovr).slice(0, 11).map(p => p.ovr));
+  return xi(ctx.opp) <= xi(c) - 3;
+}
+function pickXI(c, noForce, ctx) {
+  const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false, easy = easyGame(c, ctx);
+  const acadMin = TIER_LVL[c.tier] - (easy ? 10 : 6) - (youth ? 2 : 0), acadB = !easy ? 0 : (ctx.kind === "cup" ? 8 : 5) + (youth ? 2 : 0);
+  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && p.ovr >= acadMin) && (!isMine(c) || isReg(p, c)));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
      one point on the 100 scale, about a tenth of a shown point at the top). */
   // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position
@@ -48,8 +57,8 @@ function pickXI(c, noForce) {
   const rot = (isMine(c) ? rotOf(staffOf("manager")) : (c.coach && c.coach.rot) || 50) / 100;
   const tired = p => Math.max(0, 80 + rot * 14 - (p.fit ?? 100)) * (.1 + rot * .5);
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
@@ -109,9 +118,9 @@ function emergencyXI(c) {
   for (const p of fa.slice(0, need)) { logMove("in", p, { club: "Free agent", fee: 0, wage: 0, by: "emergency" }); moveTo(p, c); registerNew(p, c, true); p.wage = emergencyWage(p, c, .5); p.yrs = 1; }
   news(`${c.name} couldn't field eleven players: ${Math.min(need, fa.length)} trialist${need > 1 ? "s" : ""} from the free agents sign short contracts to make up the side.`, true);
 }
-function playMatch(h, a, neutral, fr) {
+function playMatch(h, a, neutral, fr, kind) {
   for (const id of [h, a]) if (isMine(CL(id))) emergencyXI(CL(id));  // fr: a friendly, kept out of players' records
-  const H = CL(h), A = CL(a), xh = pickXI(H), xa = pickXI(A), ph = teamPower(H, xh), pa = teamPower(A, xa);
+  const H = CL(h), A = CL(a), xh = pickXI(H, false, { opp: A, kind }), xa = pickXI(A, false, { opp: H, kind }), ph = teamPower(H, xh), pa = teamPower(A, xa);
   const sh = STYLES[clubStyle(H)], sa = STYLES[clubStyle(A)], fh = styleFit(xh, clubStyle(H)), fa = styleFit(xa, clubStyle(A));
   const adv = neutral ? 0 : 2 + fanShare(H, "hard") * 2 + (isMine(H) ? terraceShare(H) * 1.2 + fzK(H) * .3 : 0), wx = G.wx ? wxAt(H) : WX.clear;
   const bh = clubBoost(CL(h)), ba = clubBoost(CL(a));
