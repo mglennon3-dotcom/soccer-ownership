@@ -244,7 +244,7 @@ function endSeason() {
   acadDropouts(mine);
   feedersSummer();
   staffSummer();
-  if (G.sTrust && G.sTrust.freeze === G.year) G.sTrust.freeze = 0;
+  if (G.sTrust && G.sTrust.freeze === G.year) { G.sTrust.freeze = 0; delete G.sTrust.fp; }
   G.cupsLast = G.cups; G.contLast = G.cont; G.friendlies = []; G.fAsked = []; G.fOpts = null; mine.prep = 0;
   G.poLast = G.po; G.year++; G.phase = "summer"; G.week = 0; G.po = null;
   startSeason();

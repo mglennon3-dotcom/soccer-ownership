@@ -82,6 +82,8 @@ const wearMult = () => 1;
 /* ---------- the supporters' trust ----------
    The organised fans. Membership grows with your support and how they feel about you. They make demands; give them a
    seat on the board and they're easier to live with; ignore them while the fans are angry and they protest. */
+/* A promised freeze locks the match ticket price from the day you agree until the end of the frozen season. */
+const priceFrozen = () => !!(G.sTrust && G.sTrust.freeze && G.sTrust.freeze >= G.year);
 function trustRel(d, msg) { const T = G.sTrust; T.rel = clamp(T.rel + d, 0, 100); if (msg) news(msg); }
 function trustWeek(c) {
   const T = G.sTrust; T.members = Math.round(c.fans * (.04 + T.rel / 500));
@@ -92,7 +94,7 @@ function trustWeek(c) {
   if (G.phase === "season" && R() < .06 && !G.inbox.some(m => m.key === "trustAsk" && !m.done)) trustDemand(c);
 }
 const TRUST_ASKS = [
-  { k: "freeze", t: "Freeze ticket prices next season", d: "Prices can't go up next summer." },
+  { k: "freeze", t: "Freeze ticket prices next season", d: "The match ticket price stays exactly as it is now until the end of next season." },
   { k: "u18", t: "Half-price tickets for under-18s", d: "A little less at the gate; more young fans for the future." },
   { k: "fanzone", t: "Build a fan zone", d: c => c.fac.stadium.own ? `About ${money(VENTURES.fanzone.cost(c))} to build at the ground, then ${money(ventUp(c, "fanzone"))} a year to keep up. Fans love it: more atmosphere, more spending, more turnout.` : `You rent your ground, so it would be a pop-up you hire each home game: about ${money(-fzGame(c, FAN_T[c.tier], .5) > 0 ? -fzGame(c, FAN_T[c.tier], .5) : 0)} a game net at a typical crowd, for half the effect of a permanent one.`, cond: c => !has(c, "fanzone") && !c.fac.stadium.popup },
   { k: "accounts", t: "Publish the club's accounts", d: "Transparency. Private equity investors dislike it." },
@@ -108,7 +110,7 @@ DECIDE.trustAsk = (m, i) => {
   const c = my(), k = m.data.k;
   if (i === 1) { trustRel(-8); moodHit(c, -2); return; }
   trustRel(10); moodHit(c, 3);
-  if (k === "freeze") G.sTrust.freeze = G.year + 1;
+  if (k === "freeze") { G.sTrust.freeze = G.year + 1; G.sTrust.fp = c.prices.ticket; news(`Match tickets are frozen at ${eur(c.prices.ticket)} until the end of ${seasonLabel(G.year + 1)}.`, true); }
   if (k === "u18") { G.sTrust.u18 = true; }
   if (k === "fanzone") { if (c.fac.stadium.own) buildVenture("fanzone"); else { c.fac.stadium.popup = true; news("A pop-up fan zone will run at home games."); } moodHit(c, 4); }
   if (k === "accounts") investorMood("pe", -6);
