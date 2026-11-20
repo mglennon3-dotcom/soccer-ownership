@@ -344,7 +344,9 @@ function wantsRenewal(p, core) {
 function buyerFor(p, belowTier, feeF = 1) {
   // The closest few clubs by standard; a player better than every club goes to one of the strongest.
   // Clubs bound by the spending rule don't take on more pay once their wage bill is well past what they can afford.
-  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF)).slice(0, 6);
+  // Rivals (derby clubs, feuding owners) rarely deal with each other.
+  const seller = p.club >= 0 ? CL(p.club) : null;
+  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier && !(seller && isDerby(seller, c) && R() < .85)).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF)).slice(0, 6);
   return cs.length && Math.abs(cs[0].lvl - p.ovr) < 5 || (cs.length && p.ovr > cs[0].lvl) ? pick(cs) : null;
 }
 

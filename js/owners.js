@@ -436,7 +436,7 @@ function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
   for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
     const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
     const ask = Math.round(aiFee(p) * rf(.5, .8) / 1e4) * 1e4;
-    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)));
+    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(isDerby(c, x) && R() < .85) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)));
     const b = fits.length ? pick(fits) : null;
     if (!b) { leaveClub(p); toFreeAgent(p); sold.push(p.name + " (released: nobody would pay for him)"); continue; }
     const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4));
