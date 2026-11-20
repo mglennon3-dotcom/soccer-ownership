@@ -242,7 +242,7 @@ const COMM_T = [0, 27e6, 1.75e6, 400e3, 175e3, 154e3, 80e3, 25e3];  // a typical
 // fired back at, and every game against one you've feuded with three times or more (a lasting rivalry).
 const feudOf = id => { const f = ((G.club != null && my().feud) || {})[id]; return f && (f.g || f.n >= 3) ? f : null; };
 const grudge = (c, o) => !!o && !!((isMine(c) && feudOf(o.id)) || (isMine(o) && feudOf(c.id)));
-const isDerby = (c, o) => o && ((c.region === o.region && c.lg === o.lg) || grudge(c, o));
+const isDerby = (c, o) => o && ((c.lg === o.lg && (c.region === o.region || (!c.abroad && !o.abroad && roadKm(c, o) <= 80))) || grudge(c, o));  // same division and close by (same region, or within about 80 km)
 /* What brands will pay a year: your division, standing, support and mood, and, within a season, how you're doing
    (league position) and how many come through the gate. */
 function commercialValue(c) {
