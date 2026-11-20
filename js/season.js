@@ -530,7 +530,8 @@ function aiSquadCheck(c, light) {
 }
 function aiSign(c, pos) {
   // c.lvl already carries the owner's spending; a big spender also aims a little higher and buys more readily.
-  const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5);
+  // At the salary cap (and not cooking the books) he can only add cheaper players.
+  const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5 - (!c.cook && !c.abroad && aiBill(c) > salaryCap(c.tier) * .95 ? 5 : 0));
   let p = null;
   const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
   if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];

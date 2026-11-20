@@ -154,7 +154,12 @@ const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l
   return c.tier <= 4 && !reckless(c) ? Math.min(t, SPEND_LIMIT - .05) : t; };
 function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1);
   // The spending rule: in the professional divisions only reckless owners plan to lose more than it allows.
-  return c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b; }
+  if (c.cook) return Math.max(b, salaryCap(c.tier)) * 1.25;  // cooking the books: past the cap, and then some
+  return Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier)); }
+/* The salary cap: no AI club's wage bill may go past two and a half times its division's average (set again each summer
+   as wages move). Up to it, how much they spend is the owner's call; only an owner cooking the books goes beyond it. */
+const CAP_MULT = 2.5;
+const salaryCap = t => Math.round((tierWages(t) || 1) * CAP_MULT / 1e4) * 1e4;
 // Pay level: the budget against what its squad would cost at the going rate. Wages drift toward it each year.
 const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? wageAt(p.ovr, c.tier) : 0; });
 const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, c.tier === 1 ? 1.2 : 1.45);  // Premier pay is held nearer the going rate
@@ -165,6 +170,9 @@ function aiAccounts(c) {
   c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net), fees: Math.round(fees) }; c.tnet = 0;
   c.feeAvg = Math.round((c.feeAvg || 0) * .5 + fees * .5);  // selling clubs reinvest: recent transfer profit feeds the wage budget (aiAfford)
   if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));
+  // Cooking the books: losses are hidden (false income, deals off the books), so no spending-rule trouble, no cuts, and the
+  // owner doesn't seem to be paying. It all goes on the hidden pile that gets him caught.
+  if (c.cook) { c.cook.hid += Math.max(0, -net) + Math.max(0, aiBill(c) - salaryCap(c.tier)); c.psr = []; return; }
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
@@ -239,6 +247,7 @@ function ownersSummer() {
     if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); } }
     c.lvl = clubStandard(c);
   }
+  cookSummer();
   hostileCheck();
   aiListings();
 }
@@ -378,6 +387,7 @@ function diversitySummer() {
     const pool = Object.values(G.players).filter(p => p.club >= 0 && p.club !== G.club && !p.acad && !p.loan && p.age <= 32 && !(p.stunY > G.year - 4) && p.ovr >= c.lvl + 6 && hugeAsk(p, c) && willJoin(p, c) && CL(p.club) && !CL(p.club).gone);
     if (!pool.length) continue;
     const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(500e3 * 52, Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages top out at €500k a week */, why = affinity(p, c);
+    if (!c.cook && aiBill(c) + wage > salaryCap(c.tier) && !startCooking(c, true)) continue;  // past the cap only by cooking the books
     aiTransfer(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; aiSquadCheck(from, true);  // the fee comes out of the budget, however far below zero
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) drops down from ${from.name} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
@@ -416,17 +426,24 @@ const inEurope = c => Object.values(G.cont || {}).some(K => (K.teams || []).incl
 // The starting XI's average age, and whether it's an ageing core.
 const xiAge = c => avg(pickXI(c).map(o => o.p.age));
 // Near the limit, a club sells its dearest players until the wage bill is close to what it can afford (three at most).
+/* Selling to cut the wage bill: the dearest players go, but only to a club that wants him and can pay. A seller who has
+   to sell takes what he can get: well under his value, down to whatever the buyer has left, and if nobody will pay
+   anything he's released (the wages are saved, nothing comes in). */
 function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
   for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
-    const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[i];
-    let b = p && buyerFor(p, 8); if (p && (!b || b === c)) { const ab = G.clubs.filter(x => x.abroad && Math.abs(x.lvl - p.ovr) < 8); b = ab.length ? pick(ab) : null; }
-    if (!b || b === c) continue; aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); sold.push(p.name + " to " + b.name + (b.abroad ? ` (${COUNTRY[b.country].name})` : "")); }
+    const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
+    const ask = Math.round(aiFee(p) * rf(.5, .8) / 1e4) * 1e4;
+    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)));
+    const b = fits.length ? pick(fits) : null;
+    if (!b) { leaveClub(p); toFreeAgent(p); sold.push(p.name + " (released: nobody would pay for him)"); continue; }
+    const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4));
+    aiTransfer(p, b, fee); p.wage = aiWage(p, b); p.yrs = ri(2, 4); sold.push(`${p.name} to ${b.name}${b.abroad ? ` (${COUNTRY[b.country].name})` : ""}${fee ? ` for ${money(fee)}` : " for nothing"}`); }
   if (sold.length && (c.lg === my().lg || c.tier === 1)) news(`${c.name} sell to stay within the spending rule: ${sold.join(", ")}.`); }
 const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBudget(c) * 1.2;
 // Owners who play by their own rules: reckless styles, and any owner who has made a statement signing. They ignore the
 // spending rule when planning, never sell to balance the books, and live with what follows: points deductions, debt,
 // administration, or running out of money and having to sell the club.
-const reckless = c => ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || !!c.splash;
+const reckless = c => !!c.cook || ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || !!c.splash;
 
 /* A player's yearly chance of a sudden breakout or slump (see diversitySummer). */
 function breakSlump(p) {
@@ -484,4 +501,45 @@ function failGate(kind) {
 function rescue(c) {
   c.cut = Math.max(c.cut || 0, 1); if (c.own) c.own.wealth = Math.max(c.own.wealth, Math.round(aiIncome(c) * .25)); if (c.debt) c.debt = Math.round(c.debt * .7);
   ruleSales(c); if (c.lg === my().lg) news(`${c.name}'s owner ${c.own ? c.own.name : ""} is in financial trouble: cuts are ordered and the best-paid players are up for sale.`);
+}
+
+/* Cooking the books. Now and then an owner keeps spending past the cap and the spending rule and hides it: false
+   income, deals off the books. It holds for a while (the bigger the hole, the sooner it's found, but there's luck in
+   it), then it comes out: the club is thrown down to the bottom division, the owner is forced to sell, and the players'
+   contracts are torn up. About once every fifteen years across the game; one club at a time. */
+function startCooking(c, splash) {
+  if (G.cook || G.year < (G.cookNext ??= G.year + ri(3, 9))) return false;
+  if (!c || c.gone || c.abroad || isMine(c) || c.tier > 4 || !c.own || c.own.style === "fanowned") return false;
+  c.cook = { since: G.year, hid: 0 }; G.cook = c.id; if (splash) c.splash = true; return true;
+}
+function cookSummer() {
+  if (!G.cook) {  // a new one? the reckless and the big spenders are the likeliest
+    if (G.year < (G.cookNext ??= G.year + ri(3, 9)) || R() > .35) return;
+    const cand = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier <= 4 && c.own && c.own.style !== "fanowned" && (reckless(c) || lossTol(c) > .3 || ownStyle(c).spend > 2));
+    if (cand.length) startCooking(pick(cand)); return;
+  }
+  const c = CL(G.cook); if (!c || c.gone || !c.cook) { G.cook = null; return; }
+  const yrs = G.year - c.cook.since, hole = c.cook.hid / Math.max(1, aiIncome(c));
+  if (R() < clamp(.04 + hole * .25 + yrs * .04, .04, .7)) caughtCooking(c);
+}
+function caughtCooking(c) {
+  const from = LEAGUES[c.lg].name, hole = c.cook.hid, old = c.own.name, dest = leagueFor(7, c.half || pick(["N", "S"]));
+  // Down to the bottom. The vacancy is filled from the division below by its biggest club, whose place is filled from
+  // the one below that, and so on down, where the disgraced club takes the last place.
+  const lgFrom = c.lg; let vac = lgFrom, swap = null; G.leagues[lgFrom].clubs = G.leagues[lgFrom].clubs.filter(x => x !== c.id);
+  for (let t = c.tier + 1; t <= 7; t++) {
+    const half = LEAGUES[vac].half || c.half || pick(["N", "S"]), src = leagueFor(t, half);
+    const up = G.leagues[src].clubs.map(CL).filter(x => !isMine(x)).sort((a, b) => b.rep - a.rep)[0]; if (!up) break;
+    G.leagues[src].clubs = G.leagues[src].clubs.filter(x => x !== up.id); up.lg = vac; up.tier = LEAGUES[vac].tier; up.half = LEAGUES[vac].half || up.half; G.leagues[vac].clubs.push(up.id);
+    if (!swap) swap = up; vac = src;
+  }
+  const dest2 = LEAGUES[vac].tier === 7 ? vac : dest;
+  c.lg = dest2; c.tier = 7; c.half = LEAGUES[dest2].half || c.half; G.leagues[dest2].clubs.push(c.id); delete c.para;
+  if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(x => x !== c.id);
+  // Contracts torn up: everyone good enough to play higher leaves for nothing; the rest stay on bottom-division terms.
+  const gone = []; for (const p of c.squad.map(P).filter(p => p && !p.acad && !p.loan)) { if (p.ovr > TIER_LVL[6] && !(p.loan)) { leaveClub(p); toFreeAgent(p); gone.push(p); } else p.wage = aiWage(p, c); }
+  c.rep = Math.max(5, Math.min(c.rep, TIER_REP[5])); c.debt = 0; c.ded = 0; delete c.splash; delete c.cook; c.chase = 0;
+  c.own = newOwner(c, pick(["local", "fanowned", "moneyball"])); aiSquadCheck(c, false); c.lvl = clubStandard(c);
+  G.cook = null; G.cookNext = G.year + ri(10, 18);
+  news(`SCANDAL: ${c.name}'s owner ${old} has been caught cooking the books, hiding about ${money(hole)} of losses. The club is thrown out of the ${from} into the ${LEAGUES[c.lg].name} and ${old} is forced to sell to ${c.own.name}. ${gone.length} players' contracts are torn up and they're free agents${swap ? `; ${swap.name} move up to take the vacant place in the ${from}, and a club from each division below moves up behind them` : ""}.`, true);
 }

@@ -2,7 +2,7 @@
 "use strict";
 
 const $ = s => document.querySelector(s);
-let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, wage: 0, min: 0, int: "", lg: "", off: [] };
+let NAV_X = 0, MAST_COMPACT = false, PAGE = "home", SUB = {}, MARKET_F = { tab: "all", pos: "", arch: "", age: 40, fee: 0, wage: 0, min: 0, pmin: 0, int: "", lg: "", off: [] };
 const eur = v => (v < 0 ? "−" : "") + "€" + (Math.abs(v) < 100 ? Math.abs(v).toFixed(2).replace(/\.00$/, "") : Math.round(Math.abs(v)).toLocaleString("en-GB"));
 // Figures in boxes read with thousands commas ("300,000"); num() reads them back however they were typed.
 const fmtNum = v => v === "" || v == null ? "" : Number(v).toLocaleString("en-GB", { maximumFractionDigits: 2 });
@@ -737,7 +737,8 @@ function pgMarket() {
   const feeCap = F.fee === -1 ? feeLeft : F.fee, wageCap = F.wage === -1 ? wageLeft : F.wage;
   let pool = base.filter(p => (!F.pos || p.pos === F.pos) && p.age <= F.age && (!F.arch || (archetypeOf(p) || [])[0] === F.arch))
     .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
-    .map(x => ({ ...x, fee: askingFee(x.p, xiCache), pe: potEstimate(x.p) })).filter(x => F.tab === "loans" || !F.fee || x.fee <= feeCap);
+    .map(x => ({ ...x, pe: potEstimate(x.p) })).filter(x => !F.pmin || r20((x.pe[0] + x.pe[1]) / 2) >= F.pmin)  // potential as your staff estimate it
+    .map(x => ({ ...x, fee: askingFee(x.p, xiCache) })).filter(x => F.tab === "loans" || !F.fee || x.fee <= feeCap);
   for (const x of pool) x.i = interestOf(x.p);
   // Max wage (a week): what he'd want to join you, or for a loan the half of his wages you'd pay.
   if (F.wage) pool = pool.filter(x => (F.tab === "loans" ? x.p.wage / 2 : x.i.ask ?? Infinity) / 52 <= wageCap);
@@ -754,6 +755,7 @@ function pgMarket() {
       <label class="f">Type<select data-act="mf" data-k="arch"><option value="">Any</option>${archOpts}</select></label>
       <label class="f">Max age${sel("age", [[40, "Any"], [30, 30], [27, 27], [24, 24], [21, 21]])}</label>
       <label class="f">Min rating${sel("min", [[0, "Any"], [2, "2+"], [4, "4+"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"]])}</label>
+      <label class="f">Min potential${sel("pmin", [[0, "Any"], [6, "6+"], [8, "8+"], [10, "10+"], [12, "12+"], [14, "14+"], [16, "16+"], [18, "18+"]])}</label>
       <label class="f">Interest${sel("int", [["", "Any"], ["keen", "Keen"], ["open", "Open or keen"], ["sign", "Would sign (not Not interested)"], ["no", "Not interested"]])}</label>
       <label class="f">Max wage${sel("wage", [[0, "Any"], [-1, `Fits my budget (${pw(wageLeft * 52)})`], ...[50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000].map(v => [v, "€" + v.toLocaleString("en-GB") + "/wk"])])}</label>
       ${F.tab === "loans" ? "" : `<label class="f">Max fee${sel("fee", [[0, "Any"], [-1, `Fits my budget (${money(feeLeft)})`], ...FEES.slice(1).map(v => [v, money(v)])])}</label>`}
