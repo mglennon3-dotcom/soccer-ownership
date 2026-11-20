@@ -295,7 +295,7 @@ function yearTurnover() {
     const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;
     if (R() < ch) { if (p.club === G.club) news(`${p.name} retires, aged ${p.age}.`); retire(p); }
     // Three summers without a club and he's out of the game for good (no newcomer replaces him: he was never missed).
-    else if (p.club === -1 && G.year - (p.faY ?? G.year) >= 3) retire(p, true);
+    else if (p.club === -1 && p.age >= 24 && G.year - (p.faY ?? G.year) >= 3) retire(p, true);  // youngsters keep trying
   }
   // A generational talent this summer? Rare: about once every seven years (five to ten), at one academy somewhere: better academies and clubs with
   // a youth record are likelier, but anyone can be lucky.
@@ -311,7 +311,8 @@ function yearTurnover() {
     youthIntake(c);
   }
   // The free-agent pool is kept to a sensible size: the least employable drift out of the game.
-  if (G.fa.length > 600) { const keep = G.fa.map(P).sort((a, b) => b.ovr - a.ovr); for (const p of keep.slice(600)) retire(p, true); }
+  // (under-24s are never dropped just to keep the pool to size: they still have a chance to make it)
+  if (G.fa.length > 600) { const old = G.fa.map(P).filter(p => p && p.age >= 24).sort((a, b) => b.ovr - a.ovr), room = Math.max(0, 600 - (G.fa.length - old.length)); for (const p of old.slice(room)) retire(p, true); }
   // Talent moves up: players far better than their club are bought by a club at their level.
   for (const p of Object.values(G.players)) {
     if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
