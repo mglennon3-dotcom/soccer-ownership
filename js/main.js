@@ -28,6 +28,10 @@ function upgradeSave() {
     news(`${n} more players are out of contract and looking for clubs, around your level and under 32: see Market → Free agents. Other clubs move in after three weeks.`, true); }
   // 0.74.7: partner clubs always lend: clear any refusal already rolled this window for their players.
   if (!G.lt2) { G.lt2 = true; for (const pt of (G.net && G.net.partners) || []) { const x = CL(pt.id); if (x) for (const id of x.squad) { const q = G.players[id]; if (q && q.lt) { q.lt.no = false; q.lt.min = Math.min(q.lt.min, .5); } } } }
+  // 0.75.3: a one-off reset you asked for: every feeder arrangement ends, with no fallout. Players you've lent to them
+  // stay on loan there until the end of the season.
+  if (!G.fdrop1 && G.club != null) { G.fdrop1 = true; const n = (net().feeders || []).length;
+    if (n) { const names = net().feeders.map(f => CL(f.id) ? CL(f.id).name : "a feeder").join(", "); net().feeders = []; news(`A fresh start: your feeder arrangements end (${names}), with no hard feelings. Players you've lent them stay on loan until the end of the season.`, true); } }
   if (G.club != null && typeof linkCheck === "function") linkCheck();  // same-division links (from before 0.75.2) end on loading
   if (!G.foreign4) { G.foreign4 = true; addForeignLeagues(); }  // 0.72: fifteen more leagues abroad
   // 0.38.0: foreign clubs spread down through the levels (each country's smaller clubs well below its best); existing
