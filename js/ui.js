@@ -272,17 +272,29 @@ function careerHTML(p) {
     </tbody></table></div>
     ${best ? `<p class="small" style="margin-top:4px"><b>Best season:</b> ${best[0] === G.year && best[4] === p.s.app ? "this season" : seasonLabel(best[0])}, ${best[5]} goal${best[5] === 1 ? "" : "s"} and ${best[6]} assist${best[6] === 1 ? "" : "s"} in ${best[4]} games${best[3] ? ` for ${esc(best[3])}` : ""}.</p>` : ""}</details>`;
 }
+/* Transfer history: each move since 0.74 with its fee (earlier moves are listed from his clubs, fees not kept). */
+function transfersHTML(p) {
+  const T = (p.tx || []).slice().reverse(), nm = id => id === -1 ? "Free agency" : id === -2 ? "Abroad" : CL(id) ? `${esc(CL(id).name)}${CL(id).abroad ? ` <span class="muted">(${esc(COUNTRY[CL(id).country].name)})</span>` : ""}` : "A former club";
+  const earlier = (p.hist || []).filter(h => !T.some(t => t[0] === h[0])).map(h => `${h[0]} ${esc(h[1])}`);
+  if (!T.length && (p.hist || []).length < 2) return "";
+  return `<details class="prog" open><summary class="small"><b>Transfer history</b></summary>
+    ${T.length ? `<div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">When</th><th style="text-align:left">From</th><th style="text-align:left">To</th><th>Fee</th></tr></thead><tbody>
+    ${T.map(t => `<tr><td style="text-align:left" class="small">${seasonLabel(t[0])}<br><span class="muted">${t[1] ? "season" : "summer"}</span></td><td style="text-align:left" class="small">${nm(t[2])}</td><td style="text-align:left" class="small">${nm(t[3])}</td><td class="small">${t[4] ? money(t[4]) : "Free"}</td></tr>`).join("")}
+    </tbody></table></div>` : ""}${earlier.length > (T.length ? 0 : 1) ? `<p class="small muted" style="margin-top:4px">Earlier clubs (fees not recorded): ${earlier.join(" · ")}</p>` : ""}</details>`;
+}
+// A season before wages were kept: at your club, read it from his pay history (the last change up to that season).
+const pastPay = (p, r) => { const L = p.payLog || []; if (!L.length || r[3] !== my().short) return 0; const e = L.find(x => x.y <= r[0]); return e ? e.to : L[L.length - 1].from || 0; };
 function progressionHTML(p, mine, exact) {
-  const now = [G.year, p.age, p.ovr, p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA", p.s.app, p.s.g, p.s.a, p.pot, true];
+  const now = [G.year, p.age, p.ovr, p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA", p.s.app, p.s.g, p.s.a, p.pot, true, p.club === -1 ? 0 : p.wage];
   const rows = [now, ...(p.prog || []).slice().reverse()];
   if (rows.length < 2 && !p.s.app) return "";
   const pts = rows.slice().reverse().map(r => to20(r[2])), w = 220, h = 46, lo = Math.max(1, Math.floor(Math.min(...pts)) - 1), hi = Math.min(20, Math.ceil(Math.max(...pts)) + 1);
   const xy = pts.map((v, i) => [pts.length === 1 ? w / 2 : 6 + i * (w - 12) / (pts.length - 1), h - 6 - (v - lo) / Math.max(1, hi - lo) * (h - 12)]);
   const spark = exact && pts.length > 1 ? `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Rating by season"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${xy.map(q => q.map(n => n.toFixed(1)).join(",")).join(" ")}"/>${xy.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="var(--accent)"/>`).join("")}<text x="2" y="10" font-size="9" fill="var(--muted)">${hi}</text><text x="2" y="${h - 2}" font-size="9" fill="var(--muted)">${lo}</text></svg>` : "";
   return `<details class="prog" ${mine ? "open" : ""}><summary class="small"><b>Progression</b></summary>${spark}
-    <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Season</th><th>Age</th><th style="text-align:left">Club</th>${exact ? "<th>Rating</th>" : ""}<th>Apps</th><th>Gls</th><th>Ast</th></tr></thead><tbody>
+    <div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Season</th><th>Age</th><th style="text-align:left">Club</th>${exact ? "<th>Rating</th>" : ""}<th>Apps</th><th>Gls</th><th>Ast</th><th>Wage</th></tr></thead><tbody>
     ${rows.map((r, i) => { const prev = rows[i + 1], d = prev ? r20(r[2]) - r20(prev[2]) : 0;
-      return `<tr><td style="text-align:left" class="small">${r[8] ? "Now" : seasonLabel(r[0])}</td><td>${r[1]}</td><td style="text-align:left" class="small">${esc(r[3])}</td>${exact ? `<td>${r20(r[2])}${d ? ` <span class="small ${d > 0 ? "good" : "bad"}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</td>` : ""}<td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td></tr>`; }).join("")}
+      return `<tr><td style="text-align:left" class="small">${r[8] ? "Now" : seasonLabel(r[0])}</td><td>${r[1]}</td><td style="text-align:left" class="small">${esc(r[3])}</td>${exact ? `<td>${r20(r[2])}${d ? ` <span class="small ${d > 0 ? "good" : "bad"}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</td>` : ""}<td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td class="small" style="white-space:nowrap">${r[9] ? pw(r[9]) : pastPay(p, r) ? pw(pastPay(p, r)) : "—"}</td></tr>`; }).join("")}
     </tbody></table></div>${exact ? "" : `<p class="small muted">Ratings aren't known for players outside your league.</p>`}</details>`;
 }
 function playerModal(id) {
@@ -320,7 +332,7 @@ function playerModal(id) {
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}${mine ? "" : ` <button class="fav-btn ${isFav(p.id) ? "on" : ""}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" title="${isFav(p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(p.id) ? "★" : "☆"}</button>`}</h2><p class="small muted">${archetypeOf(p) ? `<b class="arch">${esc(archetypeOf(p)[0])}</b> · ` : ""}${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : p.yrs ? p.yrs + " yr" : "—"}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? `<br><span class="small">+25% if promoted, −25% if relegated</span>` : ""}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
-    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${acts}
+    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${acts}
     ${archetypeOf(p) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${(() => { const pr = prefsOf(p, P_FACTORS), wm = wageMult(p, my()), h = homeOf(p), fit = systemFit(p);
       return `<p class="small"><b>What drives him:</b> ${personaOf(p).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.

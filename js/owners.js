@@ -479,6 +479,7 @@ const canAfford = (c, fee) => tbOf(c) >= fee;
 const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];
 const aiFee = p => p.club >= 0 ? Math.round(valueOf(p) * (CL(p.club).abroad ? 1 : FEE_TIER[CL(p.club).tier]) * (p.yrs <= 1 && !renewsAI(p) ? .65 : 1) / 1e3) * 1e3 : 0;
 function payFee(buyer, seller, fee) {
+  NEXT_FEE = fee || 0;  // the move that follows records it
   if (!fee) return;
   if (buyer && !buyer.abroad && !isMine(buyer)) { buyer.tb = tbOf(buyer) - fee; buyer.tnet = (buyer.tnet || 0) - fee; }
   if (seller && !seller.abroad && !isMine(seller)) { seller.tnet = (seller.tnet || 0) + fee; seller.tb = tbOf(seller) + fee * .5; }
