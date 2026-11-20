@@ -248,6 +248,7 @@ function endSeason() {
   G.cupsLast = G.cups; G.contLast = G.cont; G.friendlies = []; G.fAsked = []; G.fOpts = null; mine.prep = 0;
   G.poLast = G.po; G.year++; G.phase = "summer"; G.week = 0; G.po = null;
   startSeason();
+  completeIncoming();  // agreed deals and pre-contracts go through as the summer window opens, before pre-season week 1
   refreshOffers(mine);
   seasonReview(report, wentUp, wentDown);
 }

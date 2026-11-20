@@ -40,7 +40,8 @@ function upgradeSave() {
   // joins now, for the fee his club was asking (€20.7M) on the wage he asked you for (€62,400 a week).
   if (!G.fix1 && G.club != null) { const p = Object.values(G.players).find(p => p.club >= 0 && p.club !== G.club && CL(p.club) && /Rosborg/i.test(CL(p.club).name) && (p.toMe || sugg().some(x => x.id === p.id)));
     if (p) { G.fix1 = true; delete p.toMe; G.sugg = sugg().filter(x => x.id !== p.id); signPlayer(p, 20.7e6, 62400 * 52, false, "suggestion"); } }
-  if (G.club != null && G.phase === "summer" && G.week === 0 && typeof summerRelay === "function") summerRelay();  // 0.80.0: start of pre-season: the pitch is re-laid straight away
+  if (G.club != null && G.phase === "summer" && G.week === 0 && typeof summerRelay === "function") summerRelay();
+  if (G.club != null && G.phase === "summer" && G.week === 0 && typeof completeIncoming === "function") completeIncoming();  // 0.80.2: agreed summer deals go through at the start of pre-season  // 0.80.0: start of pre-season: the pitch is re-laid straight away
   if (!G.derby && G.club != null) buildDerbies();  // 0.78.4: derbies are historical, settled once
   if (!G.fd2) { G.fd2 = true; for (const x of G.clubs) delete x.feedAsk; if (G.club != null) for (const f of net().feeders || []) { const x = CL(f.id); if (x) f.fund = feederAsk(x); } }  // 0.75.5: feeder asks re-set at the new, lower rate
   if (!G.foreign4) { G.foreign4 = true; addForeignLeagues(); }  // 0.72: fifteen more leagues abroad
