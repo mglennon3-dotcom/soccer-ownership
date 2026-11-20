@@ -473,7 +473,8 @@ function completeIncoming() {
     if (p.club === G.club) continue;
     const seller = p.club >= 0 ? CL(p.club) : null;
     if (seller && seller.gone && !seller.abroad) { news(`${p.name}'s move falls through: ${seller.name} no longer exist.`, true); continue; }
-    if (A.rec) { G.sugg = sugg().filter(x => x.id !== p.id); signPlayer(p, p.club === -1 ? 0 : A.fee, A.wage, false, "recruit"); } else ownerBuy(p, p.club === -1 ? 0 : A.fee, A.wage); } }
+    if (A.rec) { G.sugg = sugg().filter(x => x.id !== p.id); signPlayer(p, p.club === -1 ? 0 : A.fee, A.wage, false, "recruit"); } else ownerBuy(p, p.club === -1 ? 0 : A.fee, A.wage);
+    if (A.pre && p.club === G.club) p.yrs = 4; } }  // a pre-contract is a four-year deal
 const incoming = () => Object.values(G.players).filter(p => p.toMe);
 function ownerBuy(p, fee, wage) {
   G.meddle = (G.meddle || 0) + 1;
