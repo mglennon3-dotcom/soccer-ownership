@@ -62,6 +62,10 @@ const youthDevF = x => { const e = envOf(x); return .62 + e.train * .045 + e.dev
 const youthDev20 = x => clamp(Math.round((youthDevF(x) - .7) / .65 * 19 + 1), 1, 20);
 const FEED_SORT = { div: (a, b) => a.tier - b.tier || b.rep - a.rep, cheap: (a, b) => feederAsk(a) - feederAsk(b), dear: (a, b) => feederAsk(b) - feederAsk(a), rec: (a, b) => youthRecScore(b) - youthRecScore(a), dev: (a, b) => youthDevF(b) - youthDevF(a), team: (a, b) => teamAvgN(b) - teamAvgN(a) };
 const teamAvgN = x => avg(pickXI(x).map(o => o.p.ovr));
+// Your prospects (23 or under, still growing, not in your first team) for whom a club's division is a real test: good
+// enough to get games (no more than a point below its average starter), not so easy that growth slows.
+function rightLevel(x) { const c = my(), xi = new Set(pickXI(c).map(o => o.p.id)), L = divLevel20(x);
+  return c.squad.map(P).filter(q => q && q.age <= 23 && q.pot > q.ovr && !xi.has(q.id) && !q.loan && (!q.acad || q.age >= 16) && to20(q.ovr) >= L - 1 && challengeF(q, x) >= 1).sort((a, b) => b.pot - a.pot); }
 function pgNet() {
   const c = my(), N = net(), PT = partners();
   const fsrt = FEED_SORT[SUB.fsort] ? SUB.fsort : "div", fees = sum(PT, p => CL(p.id) ? affilFee(CL(p.id)) : 0), cost = feederFunding();
@@ -91,7 +95,7 @@ function pgNet() {
         <div class="row small" style="margin-top:6px"><span>Funding <b>${money(feederAsk(x))}</b>/yr <span class="muted">(what they ask)</span></span><span class="muted">${out.length ? "On loan there: " + out.map(p => esc(p.name)).join(", ") : "None of your players there."}</span></div></div>`; }).join("")}
     ${N.feeders.length < MAX_FEEDERS ? (feederCands().length ? `<h3 style="margin:12px 0 6px">Add a feeder</h3>
       <div class="filters"><label class="f">Sort by<select data-act="fsort">${[["div", "Highest division"], ["cheap", "Cheapest for you"], ["dear", "Most expensive"], ["rec", "Best youth recruitment"], ["dev", "Best youth development"], ["team", "Strongest team"]].map(([k, l]) => `<option value="${k}" ${fsrt === k ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>
-      <div class="stack" style="gap:6px">${feederCands().sort(FEED_SORT[fsrt]).slice(0, 8).map(x => `<div class="row between offer"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name} · team average ${teamAvg(x)}<br>${youthLine(x)} · youth development <b>${youthDev20(x)}</b>/20 · asks <b>${money(feederAsk(x))}</b>/yr</span></span><button class="btn sm" data-act="addfeeder" data-id="${x.id}">Make a feeder</button></div>`).join("")}</div>` : `<p class="muted">No division below you to recruit feeders from yet.</p>`) : ""}
+      <div class="stack" style="gap:6px">${feederCands().sort(FEED_SORT[fsrt]).slice(0, 8).map(x => `<div class="row between offer"><span>${crest(x, 18)} ${clubLink(x)} <span class="small muted">${LEAGUES[x.lg].name} · team average ${teamAvg(x)}<br>${youthLine(x)} · youth development <b>${youthDev20(x)}</b>/20 · asks <b>${money(feederAsk(x))}</b>/yr${(() => { const f = rightLevel(x); return f.length ? `<br><span class="good">The right level for ${f.slice(0, 3).map(q => esc(q.name)).join(", ")}${f.length > 3 ? ` and ${f.length - 3} more` : ""}</span>` : ""; })()}</span></span><button class="btn sm" data-act="addfeeder" data-id="${x.id}">Make a feeder</button></div>`).join("")}</div>` : `<p class="muted">No division below you to recruit feeders from yet.</p>`) : ""}
     <p class="small muted" style="margin-top:8px">Loan a player out from his page in the Squad tab.</p></section>`;
   return `<div class="grid2"><div class="stack">${feeders}</div><div class="stack">${partner}</div></div>`;
 }

@@ -300,13 +300,21 @@ const GT_MULT = (t, age) => t === "flop" ? .12 : t === "wonder" ? 1.45 : t === "
 // the same at every level of potential and for every growth profile.
 let GROW_K = 1.05, GROW_M = .1, GROW_B = .32;  // tuned for the coaching most players get (AI clubs)
 const isWonderkid = p => p.age <= 21 && growthType(p) === "wonder" && to20(p.pot) >= 17;  // a slump that drops his ceiling ends it
+/* The level of challenge: young players grow best when tested. One much better than the division he plays in grows
+   more slowly: about 9% slower for every shown point beyond two above its average starter, never below 60%. At or
+   around his level there's no penalty. (Academy football doesn't count: that's youth level.) */
+const divLevel20 = c => !c ? 0 : c.abroad ? to20(c.lvl + (G.fOff ?? 1.5)) : to20(TIER_XI[c.tier]);
+function challengeF(p, c = p.club >= 0 ? CL(p.club) : null) {
+  if (!c || p.acad) return 1; const gap = to20(p.ovr) - divLevel20(c) - 2;
+  return gap > 0 ? Math.max(.6, 1 - gap * .09) : 1;
+}
 function develop(p, dt, teamGames) {
   const c = p.club >= 0 ? CL(p.club) : null, e = envOf(c), gt = growthType(p);
   if ((p.age <= 27 || (gt === "late" && p.age <= 29)) && p.pot > p.ovr) {
     let play;
     if (p.acad) play = .55 + e.acad * .03;  // academy football: better at a better academy
     else play = teamGames > 3 ? clamp(p.s.app / teamGames, 0, 1) : .5;
-    const cond = (.35 + .65 * play) * (.62 + e.train * .045 + (p.acad ? e.ydev : e.dev) * .004) * (.7 + p.gs / 167);
+    const cond = (.35 + .65 * play) * (.62 + e.train * .045 + (p.acad ? e.ydev : e.dev) * .004) * (.7 + p.gs / 167) * challengeF(p, c);
     // Growth is progress along his own journey, from where he started (p.dvb, shown 1-20 scale) to his ceiling, so a
     // youngster heading from 4 to 8 and one heading from 6 to 17 have the same chance of getting there. It aims a little
     // past the ceiling so a player who plays and is well coached can actually reach it; he never grows past it this way.
