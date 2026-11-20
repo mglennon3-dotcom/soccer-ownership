@@ -178,16 +178,16 @@ function newSignCard() {
   const L = (G.newSign || []).filter(x => G.players[x.pid]); if (!L.length) return "";
   const c = my(), xi = new Set(pickXI(c).map(o => o.p.id)), BY = { recruit: "your head of recruitment", suggestion: "your head of recruitment, on your suggestion", "first refusal": "first refusal from a feeder", partner: "a partner club deal", emergency: "an emergency signing" };
   return `<section class="card" style="margin-bottom:14px;border-left:4px solid var(--accent)"><div class="card-h"><h2>New signing${L.length > 1 ? "s" : ""}</h2><button class="btn sm" data-act="signseen">Got it</button></div><div class="stack">${L.map(x => { const p = G.players[x.pid], est = ovrEstimate(p), arch = archetypeOf(p), starts = xi.has(p.id), pos = c.squad.map(P).filter(q => q.pos === p.pos && !q.acad && q.id !== p.id).sort((a, b) => b.ovr - a.ovr)[0];
-    return `<div class="offer" style="display:block"><div class="row between"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}"><b>${esc(p.name)}</b></button>${wkChip(p)}</span><span class="small muted">${esc(x.w)}</span></div>
-      <p class="small" style="margin-top:4px">${POS_NAME[p.pos]}${arch ? ` · ${esc(arch[0])}` : ""} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p>
-      <dl class="ledger" style="margin-top:6px">
-        <dt>Rating</dt><dd>${range(est)}</dd><dt>Potential</dt><dd>${range(potEstimate(p))}</dd>
-        <dt>From</dt><dd class="t">${esc(x.from)}${x.fromId != null && CL(x.fromId) ? ` <span class="muted">(${esc(CL(x.fromId).abroad ? COUNTRY[CL(x.fromId).country].name : LEAGUES[CL(x.fromId).lg].name)})</span>` : ""}</dd>
-        <dt>Fee</dt><dd>${x.fee ? money(x.fee) : "Free transfer"}</dd><dt>Wage</dt><dd>${pw(x.wage)}</dd><dt>Contract</dt><dd>${p.yrs} year${p.yrs === 1 ? "" : "s"}</dd>
-        <dt>Value</dt><dd>${money(valueOf(p))}</dd>
-        <dt>${x.statL || "Last season"}</dt><dd class="t">${x.lastApp} games, ${x.lastG} goal${x.lastG === 1 ? "" : "s"}, ${x.lastA} assist${x.lastA === 1 ? "" : "s"}</dd>
-        <dt>Signed by</dt><dd class="t">${esc(x.rec && (x.by === "recruit" || x.by === "suggestion") ? `${x.rec} (${BY[x.by] || x.by})` : BY[x.by] || x.by)}</dd>
-        <dt>In the side?</dt><dd class="t">${starts ? `<span class="good">Straight into the first team</span>` : pos ? `Behind ${esc(pos.name)} (${r20(pos.ovr)}) for now` : "Squad player"}</dd></dl></div>`; }).join("")}</div></section>`;
+    const fromLg = x.fromId != null && CL(x.fromId) ? (CL(x.fromId).abroad ? COUNTRY[CL(x.fromId).country].name : LEAGUES[CL(x.fromId).lg].name) : "";
+    const by = x.rec && (x.by === "recruit" || x.by === "suggestion") ? `${esc(x.rec)}${x.by === "suggestion" ? ", on your suggestion" : ""}` : esc(BY[x.by] || x.by);
+    return `<div class="signcard"><div class="row between" style="align-items:baseline"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}"><b>${esc(p.name)}</b></button>${wkChip(p)}</span><span class="small muted">${esc(x.w)}</span></div>
+      <p class="small muted" style="margin:2px 0 8px">${POS_NAME[p.pos]}${arch ? ` · ${esc(arch[0])}` : ""} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p>
+      <div class="signtiles"><div><span>Rating</span>${range(est)}</div><div><span>Potential</span>${range(potEstimate(p))}</div><div><span>Value</span><b>${money(valueOf(p))}</b></div></div>
+      <p class="small" style="margin-top:8px"><b>${x.fee ? money(x.fee) : "Free transfer"}</b> from ${esc(x.from)}${fromLg ? ` <span class="muted">(${esc(fromLg)})</span>` : ""}</p>
+      <p class="small"><b>${pw(x.wage)}</b> · ${p.yrs}-year contract</p>
+      <p class="small">${x.statL || "Last season"}: ${x.lastApp} games, ${x.lastG} goal${x.lastG === 1 ? "" : "s"}, ${x.lastA} assist${x.lastA === 1 ? "" : "s"}</p>
+      <p class="small muted">Signed by ${by}</p>
+      <p class="small" style="margin-top:4px">${starts ? `<span class="good">Straight into the first team</span>` : pos ? `Behind ${esc(pos.name)} (${r20(pos.ovr)}) for now` : "Squad player"}</p></div>`; }).join("")}</div></section>`;
 }
 const fitText = f => f >= .35 ? `<span class="good">great</span>` : f >= .1 ? `<span class="good">good</span>` : f > -.1 ? "average" : f > -.35 ? `<span class="warn">poor</span>` : `<span class="bad">very poor</span>`;
 function inboxCard(urgent) {
