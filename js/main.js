@@ -229,9 +229,9 @@ const ACT = {
   mtab: el => { MARKET_F.tab = el.dataset.k; render(); },
   fav: el => { const id = +el.dataset.id; G.favs ||= []; G.favs = G.favs.includes(id) ? G.favs.filter(x => x !== id) : [...G.favs, id]; if (document.querySelector(".modal") && el.closest(".modal")) playerModal(id); render(); saveGame(); },
   loanredo: el => { const p = P(+el.dataset.id), r = redoLoan(p, +$("#rshare").value / 100); LOAN_SAY = r.ok ? null : { id: p.id, t: r.t }; toast(r.t); playerModal(p.id); render(); saveGame(); },
-  loanask: el => { const p = P(+el.dataset.id), share = +($("#lshare") ? $("#lshare").value : 50) / 100, r = askLoan(p, share);
+  loanask: async el => { const p = P(+el.dataset.id), share = +($("#lshare") ? $("#lshare").value : 50) / 100, short = wageShort(p.wage * share), r = askLoan(p, share);
     LOAN_SAY = r.ok ? null : { id: p.id, t: r.t };
-    if (r.ok) { toast(r.t); closeModal(); } else playerModal(p.id);
+    if (r.ok) { closeModal(); await offerWageRaise(p, p.wage * share, short); closeModal(); toast(r.t); } else playerModal(p.id);
     render(); saveGame(); },
   sort: el => { const [id, k] = el.dataset.v.split("|"), cur = SORTS[id]; SORTS[id] = { k, d: cur && cur.k === k ? -cur.d : SORT_UP.includes(k) ? 1 : -1 }; render(); },
   choose: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerChoice(m, +el.dataset.i); render(); saveGame(); },
@@ -270,6 +270,8 @@ const ACT = {
   bidctr: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (!m) return; const t = counterBid(m, num($("#ctr" + m.id))); BID_SAY = t ? { id: m.id, t } : null; if (t) toast(t); render(); saveGame(); },
   war: el => { const w = G.inbox.find(x => x.id === +el.dataset.id); if (!w || w.done) return; const v = el.dataset.v; if (v === "sell") warSell(w, false); else if (v === "keep") warKeep(w); else { const T = warRaise(w); toast(`Best offer now: ${CL(T.id).name}, ${money(T.amt)}.`); } render(); saveGame(); },
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "2" ? 2 : el.dataset.v === "1", false); render(); saveGame(); },
+  fitwage: el => { const p = P(+el.dataset.id), sh = $("#lshare") ? $("#lshare").value : null; raiseWages(+el.dataset.amt, p); el.dataset.re === "pre" ? preModal(p.id) : playerModal(p.id);
+    if (sh != null && $("#lshare")) { $("#lshare").value = sh; CHANGE.lshare($("#lshare")); } render(); saveGame(); },
   fitbudget: async el => { const p = P(+el.dataset.id), loan = !!el.dataset.loan, f = budgetFit(p, loan), c = my(), s = staffOf("recruit"); if (!f || !s) return;
     const on = suggested(p), also = !on || !!on.loan !== loan;
     if (!await ask(`Raise ${budgetFitText(f)} so ${s.name} can ${loan ? "borrow" : "sign"} ${p.name}?${also ? ` You'll also suggest ${loan ? "borrowing" : "signing"} him.` : ""}`)) return;
@@ -305,11 +307,11 @@ const ACT = {
   release: async el => { const p = P(+el.dataset.id); if (!await ask(`Release ${p.name}?${p.acad ? "" : ` It costs ${money(releaseCost(p))}.`}`)) return; if (p.acad) { overruleYouth("release", [p]); leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); } else ownerRelease(p); closeModal(); render(); saveGame(); },
   buy: el => buyModal(+el.dataset.id),
   pre: el => preModal(+el.dataset.id),
-  prego: el => { const p = P(+el.dataset.id), wage = num($("#pre-wage")) * 52, a = playerAppeal(p, wage);
+  prego: async el => { const p = P(+el.dataset.id), wage = num($("#pre-wage")) * 52, a = playerAppeal(p, wage);
     if (!preContractOK(p)) return toast("It's too late for that now.");
     if (renewsAI(p) && wage < preAsk(p) * .97) return toast(`${p.name} says he'll be signing a new deal with ${CL(p.club).name}. It would take about ${pw(preAsk(p))} to tempt him.`);
     if (a.score < a.pr.thr) return toast(`${p.name} turns you down. ${refusalReason(a, P_FACTORS)}`);
-    agreePre(p, wage); closeModal(); render(); saveGame(); },
+    await offerWageRaise(p, wage); agreePre(p, wage); closeModal(); render(); saveGame(); },
   buygo: el => {
     const p = P(+el.dataset.id), fee = num($("#b-fee")), wage = num($("#b-wage")) * 52, ask = askingFee(p);
     if (fee < ask * .95) return toast(`${p.club >= 0 ? CL(p.club).name : "His club"} turn the offer down. They want about ${money(ask)}.`);
@@ -411,6 +413,7 @@ const CHANGE = {
     // Staff notice their budgets being cut hard.
     const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) meddled(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`, "Budget cuts");
     render(); },
+  lshare: el => { const p = P(+el.dataset.id), box = $("#lfit"); if (p && box) box.innerHTML = wageFitLine(p, p.wage * +el.value / 100, "card"); },
   fweek: el => { SUB.fw = +el.value; },
   oname: el => { const v = el.value.trim(); if (v) { G.owner.name = v; saveGame(); render(); } },
   concerts: el => { my().fac.stadium.concerts = +el.value; render(); },

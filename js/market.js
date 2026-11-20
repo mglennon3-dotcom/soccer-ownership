@@ -442,6 +442,17 @@ function budgetFit(p, loan) {
 }
 const budgetFitText = f => [f.transfer ? `the transfer budget by ${money(f.transfer)}` : "", f.wages ? `the wage budget by ${money(f.wages)} a year (${pw(f.wages)})` : ""].filter(Boolean).join(" and ");
 
+/* Your own pre-contracts and loans aren't held to the wage budget, but the screens say whether he fits and offer to
+   raise it just enough (to the next 1,000 a year). Room counts deals already agreed. */
+const wageRoom = () => my().budget.wages - wageBill(my()) - pendWages();
+const wageShort = annual => Math.max(0, Math.ceil((annual - wageRoom()) / 1e3) * 1e3);
+function wageFitLine(p, annual, re) { const s = wageShort(annual);
+  return s ? `<div style="margin:6px 0"><p class="small warn" style="margin-bottom:4px">At ${pw(annual)} he'd take the wage budget over by ${pw(s)}: raising it by ${money(s)} a year covers him.</p><button class="btn sm" data-act="fitwage" data-id="${p.id}" data-amt="${s}" data-re="${re}">Raise the wage budget to fit him</button></div>`
+    : `<p class="small muted" style="margin:4px 0">Fits the wage budget: ${pw(Math.max(0, wageRoom()))} to spare${pendWages() ? " after the deals already agreed" : ""}.</p>`; }
+function raiseWages(amt, p) { my().budget.wages += amt; news(`You raise the wage budget by ${money(amt)} a year to make room for ${p.name}.`); }
+async function offerWageRaise(p, annual, s = wageShort(annual)) { if (!s) return;
+  if (await ask(`${p.name}'s ${pw(annual)} takes the wage budget over by ${pw(s)}. Raise it by ${money(s)} a year to fit him? The deal goes ahead either way.`, "Raise the budget")) raiseWages(s, p); }
+
 /* ---------- you, overruling your staff ---------- */
 /* Agreed out of the window: a player at another club can agree to join you; the deal goes through, and the fee is paid,
    when the next window opens. Until then his club won't sell him to anyone else. If he leaves the game (or the club is
