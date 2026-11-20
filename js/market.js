@@ -409,7 +409,7 @@ function suggView(p, c = my(), loan = false) {
   const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT - pendFees(), room = c.budget.wages - wageBill(c) - pendWages();
   const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I can get him for about ${money(fee)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on ${pw(ask)} (his agent's asking ${pw(N.agent)})`;
   if (fee > left) return { ok: false, money: true, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
-  if (ask > room) return { ok: false, money: true, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare.` };
+  if (ask > room) return { ok: false, money: true, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare${pendWages() ? ` once the ${incoming().length} player${incoming().length > 1 ? "s" : ""} already agreed to join (${pw(pendWages())}) are counted` : ""}.` };
   return { ok: true, fee, ask, N, w: `${what}. ${deal}. ${windowOpen() ? "I'll go after him this week." : p.club >= 0 ? "I'll agree a deal now, and he'll join when the window opens." : "I'll sign him this week."}` };
 }
 /* His negotiation on a deal you suggested. The fee: he talks the asking price down, more the better a negotiator he is
