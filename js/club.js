@@ -238,7 +238,11 @@ const BRANDS = ["Apex", "Northwind", "Halcyon", "Brightline", "Vantage", "Crestm
 const BRAND_KIND = ["Insurance", "Motors", "Energy", "Bank", "Telecom", "Logistics", "Brewery", "Bet", "Homes", "Foods", "Air", "Digital", "Building Society", "Tyres"];
 const KIT_BRANDS = ["Strider", "Volta", "Kinetic", "Arcus", "Tempo", "Fieldcraft", "Nova Sport", "Pulse", "Sprintline", "Ridge"];
 const COMM_T = [0, 27e6, 1.75e6, 400e3, 175e3, 154e3, 80e3, 25e3];  // a typical club's commercial value by tier, per year
-const isDerby = (c, o) => o && c.region === o.region && c.lg === o.lg;
+// A derby: same area, same division. A grudge match counts as one too: the next game against a club whose owner you've
+// fired back at, and every game against one you've feuded with three times or more (a lasting rivalry).
+const feudOf = id => { const f = ((G.club != null && my().feud) || {})[id]; return f && (f.g || f.n >= 3) ? f : null; };
+const grudge = (c, o) => !!o && !!((isMine(c) && feudOf(o.id)) || (isMine(o) && feudOf(c.id)));
+const isDerby = (c, o) => o && ((c.region === o.region && c.lg === o.lg) || grudge(c, o));
 /* What brands will pay a year: your division, standing, support and mood, and, within a season, how you're doing
    (league position) and how many come through the gate. */
 function commercialValue(c) {

@@ -95,7 +95,17 @@ DECIDE.pressPoach = (m, i) => { if (i === 0) moodHit(my(), 1); };
 DECIDE.pressCup = (m, i) => { if (i === 0) { moodHit(my(), 2); G.hype = (G.hype || 0) + 1; } };
 DECIDE.pressSell = (m, i) => { if (i === 0) { moodHit(my(), 2); trustRel(2); } else { moodHit(my(), -3); investorMood(null, 2); } };
 DECIDE.pressAcad = (m, i) => { if (i === 0) { moodHit(my(), 1); trust("youth", 3, null, "Backing the academy in public"); } else trust("youth", -2, null, "Putting the first team ahead of the academy in public"); };
-DECIDE.pressRival = (m, i) => { if (i === 0) { bumpMedia(4); moodHit(my(), 2); (my().rivals ||= {})[m.data.club] = ((my().rivals || {})[m.data.club] || 0) + 1; } };
+// Firing back starts a feud: the next game against them is a grudge match (and three feuds make a lasting rivalry).
+// It plays well with the supporters and the press, less so with investors. Rising above it is the reverse.
+DECIDE.pressRival = (m, i) => { const f = ((my().feud ||= {})[m.data.club] ||= { n: 0 });
+  if (i === 0) { bumpMedia(4); moodHit(my(), 2); investorMood(null, -1); f.n++; f.g = true; news(`Your next game against ${CL(m.data.club).name} is a grudge match.${f.n === 3 ? " It's a full-blown rivalry now: every meeting will be." : ""}`); }
+  else { investorMood(null, 1); moodHit(my(), -1); } };
+// After a grudge match, the press want your reaction.
+DECIDE.pressGrudge = (m, i) => { const f = (my().feud || {})[m.data.club]; const won = m.data.res === "W";
+  if (won && i === 1) { moodHit(my(), 3); bumpMedia(3); investorMood(null, -1); if (f) { f.n++; if (f.n === 3) news(`That's it: ${CL(m.data.club).name} are now your club's bitter rivals.`, true); } }
+  else if (won) { moodHit(my(), 1); investorMood(null, 1); }
+  else if (i === 1) { moodHit(my(), 1); bumpMedia(2); if (f) f.n++; }
+  else { investorMood(null, 1); bumpMedia(1); } };
 DECIDE.pressTrust = (m, i) => { if (i === 0) trustRel(8, "You promise the trust a meeting."); else { trustRel(-6); moodHit(my(), -2); } };
 
 // An academy player who's stopped improving wants to leave: let him go, or the youth manager tries to talk him round.
