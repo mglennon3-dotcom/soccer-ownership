@@ -74,7 +74,7 @@ function playKO(h, a, neutral, comp, label) {
     else if (!neutral) { const share = Math.round(Math.min(opp.cap, opp.fans * 1.2) * REF_TICKET[opp.tier] * .45); earn("gate", share); awayTrip(c, opp); awayRefundCheck(c, opp, gf, ga); }
     else { earn("gate", Math.round(Math.min(40000, (c.fans + opp.fans) * .8) * REF_TICKET[Math.min(c.tier, opp.tier)] * .4)); awayTrip(c, opp); }
     c.morale = clamp(c.morale + (w === G.club ? 4 : -3), 20, 95);
-    G.myRes.push({ w: G.phase === "playoffs" ? SEASON_WEEKS + G.week : G.week, comp, label, home: home && !neutral, neutral, opp: opp.id, gf, ga, res: w === G.club ? "W" : "L", pens: r.pens, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
+    h2hAdd(opp.id, gf === ga ? "D" : w === G.club ? "W" : "L"); G.myRes.push({ w: G.phase === "playoffs" ? SEASON_WEEKS + G.week : G.week, comp, label, home: home && !neutral, neutral, opp: opp.id, gf, ga, res: w === G.club ? "W" : "L", pens: r.pens, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
   }
   return { w, r };
 }

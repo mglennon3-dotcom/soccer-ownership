@@ -169,16 +169,27 @@ function compareCard(c) {
     ], rows, { sort: { k: "rep", d: -1 }, quiet: true })}
     <p class="small muted" style="margin-top:6px">Your figures are your own books (crowd: this season's average, or the forecast before your first home game). Other clubs' are estimates from their division, standing, support, ground and owner. Wages are a week; staff and commercial are a year.</p></section>`;
 }
+/* Your derbies: on the Office's Club tab (compact) and the Rivals page (full). */
+function derbiesCard(full) {
+  const L = myDerbies(), rec = r => r[0] + r[1] + r[2] ? `${r[0]}W ${r[1]}D ${r[2]}L` : "—";
+  const chip = d => `<span class="chip rival${d.lvl === 2 ? " r3" : ""}">${d.lvl === 2 ? "FIERCE" : "LOCAL"}</span>`;
+  const body = !L.length ? `<p class="muted small">No derbies yet. Neighbours, years of title fights or a grudge make one.</p>` : full
+    ? `<div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Derby</th><th style="text-align:left">Why</th><th>Distance</th><th>Division</th><th>Record</th></tr></thead><tbody>${L.map(d => `<tr class="click" data-act="club" data-id="${d.x.id}"><td style="text-align:left">${crest(d.x, 14)} ${esc(d.x.name)}</td><td style="text-align:left">${chip(d)}</td><td style="text-align:left" class="small">${d.why}</td><td class="num">${d.km != null ? d.km + " km" : "—"}</td><td class="small">${esc(LEAGUES[d.x.lg].name)}</td><td class="num">${rec(d.rec)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted" style="margin-top:8px">Derbies are for good, whichever divisions the clubs end up in. They bring bigger crowds and bigger swings in supporter mood, and rival clubs charge more to sell to each other. Records count competitive games since record-keeping began.</p>`
+    : L.map(d => `<div class="row between small" style="padding:4px 0"><span>${crest(d.x, 14)} ${clubLink(d.x)} ${chip(d)}</span><span class="muted">${d.why}${d.km != null ? " · " + d.km + " km" : ""} · ${d.rec[0] + d.rec[1] + d.rec[2] ? rec(d.rec) : "no games yet"}</span></div>`).join("");
+  return `<section class="card"><div class="card-h"><${full ? "h2" : "h3"}>Derbies</${full ? "h2" : "h3"}>${full ? "" : `<button class="lnk small" data-act="sub" data-k="riv" data-v="derby" data-p="rivals">Rivals</button>`}</div>${body}</section>`;
+}
 function pgRivals() {
   const c = my(), mine = G.leagues[c.lg].clubs.map(CL).filter(x => !isMine(x));
   const rich = G.clubs.filter(x => !x.gone && x.own && !isMine(x)).sort((a, b) => b.own.wealth - a.own.wealth).slice(0, 10);
   const row = x => `<tr class="click" data-act="club" data-id="${x.id}"><td style="text-align:left">${crest(x, 14)} ${esc(x.name)}${isDerby(c, x) ? ' <span class="chip rival">' + (derbyLevel(c, x) === 2 ? 'FIERCE DERBY' : 'DERBY') + '</span>' : ""}${x.own.target === c.id ? ' <span class="chip rival r3">HOSTILE</span>' : ""}</td><td style="text-align:left" class="small">${esc(x.own.name)}</td><td style="text-align:left"><span class="chip list">${OWNER_STYLES[x.own.style].l}</span></td><td class="num">${x.own.wealth ? money(x.own.wealth) : "—"}</td><td class="num">${x.own.since}</td><td class="small">${LEAGUES[x.lg].name}</td><td class="num">${Math.round(x.rep)} <span class="small muted">${esc(prestigeWord(x.rep))}</span></td><td class="num">${s20(handsOn(x.own))}</td></tr>`;
   const head = `<thead><tr><th style="text-align:left">Club</th><th style="text-align:left">Owner</th><th style="text-align:left">Style</th><th>Fortune</th><th>Since</th><th>Division</th><th>Prestige</th><th>Hands-on</th></tr></thead>`;
   const h = hostileOf(c), tab = SUB.riv || "cmp";
-  const TABS = [["cmp", "Compare"], ["div", "Division"], ["rich", "Richest"], ["styles", "Owner styles"]];
+  const TABS = [["cmp", "Compare"], ["derby", "Derbies"], ["div", "Division"], ["rich", "Richest"], ["styles", "Owner styles"]];
   const banner = h ? `<section class="card summary" style="margin-bottom:16px"><div class="card-h"><h2>Hostile neighbour: ${esc(h.name)}</h2></div><p>${esc(h.own.name)} bought ${esc(h.name)} in ${h.own.since} to beat you. Expect approaches for your staff and bids for your players, fewer local sponsors and a fight for supporters.</p></section>` : "";
   const body = {
     cmp: () => compareCard(c),
+    derby: () => derbiesCard(true),
     div: () => `<section class="card"><div class="card-h"><h2>Your division's owners</h2><span class="small muted">${esc(LEAGUES[c.lg].name)}</span></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${mine.slice().sort((a, b) => b.rep - a.rep).map(row).join("")}</tbody></table></div></section>`,
     rich: () => `<section class="card"><div class="card-h"><h2>The richest owners</h2></div><div class="tbl-wrap"><table class="sq">${head}<tbody>${rich.map(row).join("")}</tbody></table></div></section>`,
     styles: () => `<section class="card"><div class="card-h"><h2>Owner styles</h2></div>${Object.values(OWNER_STYLES).map(s => `<p class="small" style="margin-bottom:6px"><b>${s.l}.</b> ${s.d}</p>`).join("")}

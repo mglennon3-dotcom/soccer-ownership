@@ -164,6 +164,7 @@ function pgHome() {
       <dt>Season so far</dt><dd class="${ledgerIncome(c.fin) - ledgerCosts(c.fin) < 0 ? "bad" : "good"}">${money(ledgerIncome(c.fin) - ledgerCosts(c.fin))}</dd>
       ${c.tier <= 4 ? (() => { const f = c.fin, inc = ledgerIncome(f), r = spendRolling(c, inc - (ledgerCosts(f) - f.build - f.acad), inc); return `<dt>Spending rule</dt><dd class="${r.ratio > SPEND_LIMIT ? "bad" : r.ratio > SPEND_LIMIT - .1 ? "warn" : "good"}" title="Losses over three seasons may not pass 35% of income. Stadium, training ground and academy spending don't count.">${Math.round(r.ratio * 100)}% of income lost so far (limit 35%)</dd>`; })() : ""}</dl></section>
     ${supportersCard(c)}
+    ${derbiesCard(false)}
     ${G.obj && G.obj.y === G.year ? `<section class="card"><div class="card-h"><h3>Targets</h3><button class="lnk small" data-act="page" data-p="board">Board</button></div>${Object.keys(OBJ).filter(k => G.obj[k] && G.obj[k] !== "none").map(k => `<p class="small">${objLabel(k)}: ${objText(k, G.obj[k])}</p>`).join("") || "<p class='small muted'>None set.</p>"}</section>` : ""}
     <section class="card"><div class="card-h"><h3>Your staff</h3><button class="lnk small" data-act="page" data-p="staff">Staff</button></div>${["manager", "recruit", "youth"].map(r => { const s = staffOf(r); return `<div class="row between small" style="padding:4px 0"><span>${ROLES_STAFF[r].l}</span><span>${s ? `${esc(s.name)} · ${word(trustWord(s.trust))}` : `<span class="warn">Vacant</span>`}</span></div>`; }).join("")}</section>
   </div></div>`,

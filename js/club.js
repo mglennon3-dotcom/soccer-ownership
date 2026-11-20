@@ -276,6 +276,17 @@ function titleRivals(ids) {
     if (now > was) { (G.derby ||= {})[k] = now; if (isMine(a) || isMine(b) || now === 2) news(`${a.name} and ${b.name}: years of fighting for the title have made them ${now === 2 ? "bitter rivals" : "rivals"}.`, isMine(a) || isMine(b)); } }
 }
 const isDerby = (c, o) => derbyLevel(c, o) > 0;
+/* Every competitive result against each club, kept for good (G.h2h[id] = [won, drawn, lost]). */
+function h2hAdd(id, res) { const H = (G.h2h ||= {}), r = H[id] ||= [0, 0, 0]; r[res === "W" ? 0 : res === "D" ? 1 : 2]++; }
+/* Your derbies, fiercest and nearest first, with why each one is a derby. */
+function myDerbies() {
+  const c = my(), T = G.titleRiv || {};
+  return G.clubs.filter(x => !x.gone && !isMine(x) && derbyLevel(c, x) > 0).map(x => {
+    const lvl = derbyLevel(c, x), km = x.abroad ? null : roadKm(c, x), title = (T[pairKey(c, x)] || []).length;
+    const why = grudge(c, x) ? "Grudge" : title >= 3 && !geoDerby(c, x) ? "Title rivals" : c.region === "London" && x.region === "London" ? "London neighbours" : "Neighbours";
+    return { x, lvl, km, why, rec: (G.h2h || {})[x.id] || [0, 0, 0] };
+  }).sort((a, b) => b.lvl - a.lvl || (a.km ?? 999) - (b.km ?? 999));
+}
 /* What brands will pay a year: your division, standing, support and mood, and, within a season, how you're doing
    (league position) and how many come through the gate. */
 function commercialValue(c) {
