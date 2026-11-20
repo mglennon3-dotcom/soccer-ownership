@@ -652,13 +652,22 @@ function seasonTax(c) {
 /* Away days. Fans ask for help with coaches to long trips (the other half of the country, or abroad); after a heavy away defeat you can refund the
    supporters who travelled. Loyal and hardcore fans care most. */
 const fanCare = c => 1 + fanShare(c, "loyal") + fanShare(c, "hard");
+/* Road distance between two grounds, from their regions' positions (straight line plus a quarter for the roads); within
+   the same region about 20-60 km. */
+const regionLL = c => { const K = COUNTRY[c.abroad ? c.country : "ENG"], r = K && K.regions.find(x => x[0] === c.region); return r ? [r[1], r[2]] : null; };
+function roadKm(a, b) {
+  const p = regionLL(a), q = regionLL(b); if (!p || !q) return 300;
+  if (a.region === b.region && !!a.abroad === !!b.abroad) return 20 + ((a.id * 31 + b.id * 17) % 40);
+  const rad = Math.PI / 180, dLat = (q[0] - p[0]) * rad, dLon = (q[1] - p[1]) * rad, h = Math.sin(dLat / 2) ** 2 + Math.cos(p[0] * rad) * Math.cos(q[0] * rad) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 1.25 / 5) * 5;
+}
 function awayHelpWeek() {
   const c = my(), nf = nextFixture(); if (!nf || nf.a !== c.id || nf.w > G.week + 1 || G.awayAsk === G.year * 100 + nf.w) return;
-  // Only for long trips (the other half of the country, or abroad), now and then, and not more than once in five weeks.
-  const opp = CL(nf.h); if (tripF(c, opp) <= 1.5 || R() > .35 || (G.awayAskW != null && G.awayAskY === G.year && nf.w - G.awayAskW < 5)) return;
+  // Only for genuinely long trips (about 250 km or more by road, or abroad), now and then, and not more than once in eight weeks.
+  const opp = CL(nf.h), km = roadKm(c, opp); if ((km < 250 && !opp.abroad) || R() > .35 || (G.awayAskW != null && G.awayAskY === G.year && nf.w - G.awayAskW < 8)) return;
   G.awayAsk = G.year * 100 + nf.w; G.awayAskW = nf.w; G.awayAskY = G.year;
   const n = travellers(c, opp), cost = Math.round(n * (tripF(c, opp) > 1.5 ? 25 : 12) / 100) * 100; if (cost < 200) return;
-  addChoice("awayHelp", `Supporters ask for help getting to ${opp.name}`, `About ${n.toLocaleString("en-GB")} fans want to make the long trip${opp.abroad ? " abroad" : ""}. The supporters' trust asks the club to put on coaches: ${money(cost)} to pay for them all, or half that to share the cost.`,
+  addChoice("awayHelp", `Supporters ask for help getting to ${opp.name} (${km.toLocaleString("en-GB")} km)`, `About ${n.toLocaleString("en-GB")} fans want to make the ${km.toLocaleString("en-GB")} km trip${opp.abroad ? ` to ${COUNTRY[opp.country].name}` : ` to ${opp.region}`}. The supporters' trust asks the club to put on coaches: ${money(cost)} to pay for them all, or half that to share the cost.`,
     ["Pay for the coaches", "Pay half", "Can't help this time"], { cost }, 1);
 }
 function awayRefundCheck(c, opp, gf, ga) {
