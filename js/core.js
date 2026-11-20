@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.76.7";
+const VERSION = "0.76.8";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -298,7 +298,7 @@ function growthType(p) {
 const GT_MULT = (t, age) => t === "flop" ? .12 : t === "wonder" ? 1.45 : t === "fast" ? (age <= 20 ? 1.3 : .42) : t === "late" ? (age <= 20 ? .55 : 1.75) : 1;
 // Calibrated so about 40% reach their ceiling on average (more with regular football and good coaching, fewer without),
 // the same at every level of potential and for every growth profile.
-let GROW_K = 1.12, GROW_M = .1, GROW_B = .32;  // tuned for the coaching most players get (AI clubs)
+let GROW_K = 1.05, GROW_M = .1, GROW_B = .32;  // tuned for the coaching most players get (AI clubs)
 const isWonderkid = p => p.age <= 21 && growthType(p) === "wonder" && to20(p.pot) >= 17;  // a slump that drops his ceiling ends it
 /* The level of challenge: young players grow best when tested. One much better than the division he plays in grows
    more slowly: about 9% slower for every shown point beyond two above its average starter, never below 60%. At or
