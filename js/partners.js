@@ -130,7 +130,7 @@ function partnerWindow() {
 DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from); if (i === 0 && p && p.club === x.id) { loanIn(p, x, m.data.share ?? .5, "partner"); const pt = partners().find(y => y.id === x.id); if (pt) pt.rel += 3; } };
 
 /* ---------- feeders ---------- */
-function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && !isFeeder(x.id) && (x.half === c.half || x.tier <= 5)).sort((a, b) => a.tier - b.tier || b.rep - a.rep); }
+function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && !isFeeder(x.id) && !isPartner(x.id) && (x.half === c.half || x.tier <= 5)).sort((a, b) => a.tier - b.tier || b.rep - a.rep); }
 /* What a feeder wants from you each year: set by its division and its needs (a fixed ask; you pay it or don't have
    the arrangement). */
 const feederRef = x => TV[x.tier] + 24 * wageBase(TIER_LVL[x.tier]) * .1;
