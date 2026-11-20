@@ -165,7 +165,7 @@ function forcedWeek() {
   const own = new Set(pickXI(c, true).map(o => o.p.id)), xi = new Set(pickXI(c).map(o => o.p.id));
   for (const p of picks) {
     if (!xi.has(p.id) || own.has(p.id)) continue;  // he'd have picked him anyway, or he isn't playing
-    G.meddle = (G.meddle || 0) + .05; meddled("manager", -.7, null);
+    G.meddle = (G.meddle || 0) + .05; meddled("manager", -.7, null, "Your team picks over the manager's");
     if (!p.forceNoted) { p.forceNoted = true; news(`${m.name} isn't happy being told to start ${p.name}: ${pr(m, "he")} wouldn't pick him.`, tolOf(m) < 40); }
   }
 }

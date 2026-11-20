@@ -168,7 +168,7 @@ function ownerRecall(amt) { amt = Math.min(amt, G.owner.lent || 0, Math.max(0, m
 function myAdministration(c) {
   G.redWeeks = 0; c.admin = G.year;
   if (G.leagues[c.lg].tab && G.leagues[c.lg].tab[c.id]) G.leagues[c.lg].tab[c.id].pts -= 10;
-  for (const r of ["manager", "recruit", "youth"]) trust(r, -15, null);
+  for (const r of ["manager", "recruit", "youth"]) trust(r, -15, null, "The club going into administration");
   moodHit(c, -20); investorMood(null, -25); bumpMedia(8);
   const sell = c.squad.map(P).filter(p => !p.acad).sort((a, b) => valueOf(b) - valueOf(a)).slice(0, 2);
   for (const p of sell) sellToAI(p, false, Math.round(valueOf(p) * .7 / 1000) * 1000);
@@ -218,9 +218,9 @@ function setObjectives(o) {
   G.obj = { ...o, v, y: G.year, exp, debt0: debtOf(), tier: c.tier };
   const lgPos = o.lg ? v.lg[o.lg - 1] : null, stretch = lgPos ? exp - lgPos : 0;  // places better than the squad suggests
   if (lgPos) { moodHit(c, clamp(stretch, -3, 6)); G.hype = Math.max(0, Math.round(stretch / 3)); }
-  if (staffOf("manager") && stretch > 6) trust("manager", -6, `thinks "${objText("lg", o.lg).toLowerCase()}" is unrealistic with this squad.`);
-  else if (staffOf("manager") && lgPos && stretch <= 0) trust("manager", 2, null);
-  if ((o.youth || o.grads) && mgr().focus === "youth") trust("manager", 3, null);
+  if (staffOf("manager") && stretch > 6) trust("manager", -6, `thinks "${objText("lg", o.lg).toLowerCase()}" is unrealistic with this squad.`, "League targets seen as unrealistic");
+  else if (staffOf("manager") && lgPos && stretch <= 0) trust("manager", 2, null, "A fair league target");
+  if ((o.youth || o.grads) && mgr().focus === "youth") trust("manager", 3, null, "Youth targets that suit the manager");
   news(`You set the season's targets: ${Object.keys(OBJ).filter(k => o[k]).map(k => objText(k, o[k]).toLowerCase()).join(", ") || "none"}.`, true);
 }
 // The furthest round a club reached in a domestic cup (0 = first round ... 7 = final), or -1 if it didn't play in it.
@@ -266,7 +266,7 @@ function judgeObjectives(report) {
     if (excused) { score = Math.max(0, score); t += " (but no worse than the squad suggested)"; }
     G.objRes.push({ k, t, lv, met, reached, score, excused, dRep: score * 1.5, dFans: Math.round(c.fans * score * .04) });
     moodHit(c, Math.round(score * 6)); rep += score * 1.5; fans += score * .04;
-    if (k === "lg") trust("manager", met ? 5 : d >= 0 ? 0 : -4, null);
+    if (k === "lg") trust("manager", met ? 5 : d >= 0 ? 0 : -4, null, met ? "Meeting the league target" : "Missing the league target");
   }
   // Beating (or falling short of) what the squad suggested.
   rep += clamp(d * .4, -3, 3); fans += clamp(d * .006, -.03, .04);
@@ -342,7 +342,7 @@ function judgeStaffObjectives(d) {
   const list = staffTargets();
   staffSeasonVerdict(list, d);
   if (!list.length) return;
-  for (const t of list) if (staffOf(t.role)) trust(t.role, t.met ? 2 + t.lv : -2 - Math.min(3, t.lv - t.got), null);
+  for (const t of list) if (staffOf(t.role)) trust(t.role, t.met ? 2 + t.lv : -2 - Math.min(3, t.lv - t.got), null, t.met ? "Meeting the targets you set" : "Missing the targets you set");
   addMsg({ type: "objectives", title: `Staff targets: ${list.filter(t => t.met).length} of ${list.length} met`,
     rows: list.map(t => [`${ROLES_STAFF[t.role].l}: ${t.label} ${fmtT(t.k, t.v[t.lv - 1])}`, `${LVL_NAME[t.lv]}${t.got > t.lv ? ` · reached ${LVL_NAME[t.got].toLowerCase()}` : ""}`, String(fmtT(t.k, t.now)), t.met, staffOf(t.role) ? `${t.met ? "+" + (2 + t.lv) : "−" + (2 + Math.min(3, t.lv - t.got))} trust` : ""]),
     foot: ["manager", "recruit", "youth"].filter(r => staffOf(r) && G.sVerdict && G.sVerdict[r]).map(r => { const tr = sum(list.filter(t => t.role === r), t => t.met ? 2 + t.lv : -(2 + Math.min(3, t.lv - t.got)));

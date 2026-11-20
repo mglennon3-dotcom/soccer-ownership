@@ -35,12 +35,12 @@ function pickQuestion(c) {
   if (G.sTrust && G.sTrust.rel < 35) qs.push({ key: "pressTrust", q: "The supporters' trust says you don't listen", opts: ["Promise to meet them", "Ignore it"] });
   return qs.length ? pick(qs) : null;
 }
-DECIDE.pressSack = (m, i) => { if (i === 0) { trust("manager", 8, "appreciates your public backing."); moodHit(my(), -1); } if (i === 1) { trust("manager", -7, "didn't like being put under pressure in public."); moodHit(my(), 2); } if (i === 2) bumpMedia(-1); };
+DECIDE.pressSack = (m, i) => { if (i === 0) { trust("manager", 8, "appreciates your public backing.", "Your public backing"); moodHit(my(), -1); } if (i === 1) { trust("manager", -7, "didn't like being put under pressure in public.", "Being put under pressure in public"); moodHit(my(), 2); } if (i === 2) bumpMedia(-1); };
 DECIDE.pressUp = (m, i) => { if (i === 0) { moodHit(my(), 4); G.hype = (G.hype || 0) + 1; bumpMedia(2); } };
 DECIDE.pressPrice = (m, i) => { const c = my(); if (i === 0) { c.prices.ticket = REF_TICKET[c.tier]; moodHit(c, 5); } if (i === 1) { moodHit(c, -3); investorMood("pe", 3); } };
-DECIDE.pressStar = (m, i) => { const p = G.players[m.data.pid]; if (!p) return; if (i === 0) { p.keep = true; moodHit(my(), 2); meddled("recruit", -2, null); } else moodHit(my(), -3); };
+DECIDE.pressStar = (m, i) => { const p = G.players[m.data.pid]; if (!p) return; if (i === 0) { p.keep = true; moodHit(my(), 2); meddled("recruit", -2, null, "Taking a star off the market"); } else moodHit(my(), -3); };
 DECIDE.pressGround = (m, i) => { if (i === 0) { moodHit(my(), 2); bumpMedia(2); G.promise = { kind: "ground", y: G.year }; } else moodHit(my(), -1); };
-DECIDE.pressDocu = (m, i) => { if (i === 0) { G.docu = G.year; bumpMedia(18); trust("manager", -4, "isn't keen on the cameras."); news("A documentary crew will follow the club all season.", true); } };
+DECIDE.pressDocu = (m, i) => { if (i === 0) { G.docu = G.year; bumpMedia(18); trust("manager", -4, "isn't keen on the cameras.", "The documentary cameras"); news("A documentary crew will follow the club all season.", true); } };
 DECIDE.pressAmb = (m, i) => { if (i === 0) { bumpMedia(5); moodHit(my(), 3); investorMood(null, 2); G.hype = (G.hype || 0) + 1; } };
 DECIDE.pressRival = (m, i) => { if (i === 0) { bumpMedia(4); moodHit(my(), 2); (my().rivals ||= {})[m.data.club] = ((my().rivals || {})[m.data.club] || 0) + 1; } };
 DECIDE.pressTrust = (m, i) => { if (i === 0) trustRel(8, "You promise the trust a meeting."); else { trustRel(-6); moodHit(my(), -2); } };

@@ -131,15 +131,21 @@ function staffPotRange(s) {
 }
 const staffPot20 = s => { const [a, b] = staffPotRange(s).map(sr20); return a === b ? `${a}` : `${a}–${b}`; };
 // A trust hit caused by you stepping in, scaled by his tolerance.
-function meddled(role, d, why) { const s = staffOf(role); if (!s) return; trust(role, d < 0 ? d * tolF(s) : d, why); }
-function trust(role, d, why) {
+// A promise to leave him to it (made from his card) holds for the season: stepping in after it costs twice as much.
+function meddled(role, d, why, k) { const s = staffOf(role); if (!s) return; const broke = d < 0 && s.promise === G.year;
+  if (broke && !s.promiseBroken) { s.promiseBroken = true; news(`${s.name} reminds you that you promised to leave ${pr(s, "him")} to it.`, true); }
+  trust(role, d < 0 ? d * tolF(s) * (broke ? 2 : 1) : d, why, broke ? "Breaking your promise not to interfere" : k); }
+/* Why he feels as he does: every change to his trust is noted by cause, season by season (Staff → his tab). */
+function trustNote(s, d, k) { if (!k || !d) return; const L = (s.tlog ||= []), e = L.find(x => x.y === G.year && x.k === k);
+  if (e) { e.d += d; e.n++; } else L.push({ y: G.year, k, d, n: 1 }); if (L.length > 40) L.splice(0, L.length - 40); }
+function trust(role, d, why, k) {
   const s = staffOf(role); if (!s) return;
-  s.trust = clamp(s.trust + d, 0, 100);
+  const t0 = s.trust; s.trust = clamp(s.trust + d, 0, 100); trustNote(s, s.trust - t0, k);
   if (why && Math.abs(d) >= 5) news(`${s.name} (${ROLES_STAFF[role].l.toLowerCase()}): ${why}`, d <= -8);
   if (s.trust < 20) { news(`${s.name} has resigned as ${ROLES_STAFF[role].l.toLowerCase()}, saying the club isn't run the way ${pr(s, "he")} was promised.`, true); my().staff[role] = null; }
 }
 // Grudges fade: a staff member's trust drifts back toward 60 a little each week.
-function staffTrustWeek() { for (const s of Object.values(my().staff).filter(Boolean)) if (s.trust < 60) s.trust = Math.min(60, s.trust + .3); }
+function staffTrustWeek() { for (const s of Object.values(my().staff).filter(Boolean)) if (s.trust < 60) { const t0 = s.trust; s.trust = Math.min(60, s.trust + .3); trustNote(s, s.trust - t0, "Time: grudges fading"); } }
 const trustWord = t => t >= 75 ? ["Loyal", "good"] : t >= 55 ? ["Content", "good"] : t >= 40 ? ["Uneasy", "warn"] : ["Unhappy", "bad"];
 
 /* The caretaker: if you have no manager, the club captain picks the side. */
@@ -168,7 +174,7 @@ function staffSummer() {
     const env = role === "manager" ? c.fac.train.lvl / 10 : role === "youth" ? c.fac.acad.lvl / 10 : clamp(.5 + budgetFactor(c.budget.scout, scoutRef(c.tier)) / 6, 0, 1);
     const up = (7 - c.tier) * .04;
     if (ageStaff(s, clamp(env + up, 0, 1.2))) { c.staff[role] = null; news(`${s.name} retires as ${ROLES_STAFF[role].l.toLowerCase()} at ${s.age}. The job is vacant.`, true); continue; }
-    s.trust = clamp(s.trust + (visionMatch(s) - .5) * 12, 0, 100);
+    { const t0 = s.trust; s.trust = clamp(s.trust + (visionMatch(s) - .5) * 12, 0, 100); trustNote(s, s.trust - t0, visionMatch(s) >= .5 ? "How the club is run: a good fit" : "How the club is run: a poor fit"); }
     s.rep = clamp(Math.round(s.rep + ((G.history[0] || {}).up ? 3 : 0) + (staffAvg(s) - s.rep * .75 - 18) * .1), 1, 99);
     const moved = Object.keys(s.at).map(k => s.at[k] - s.prev[k]).reduce((a, b) => a + b, 0);
     if (Math.abs(moved) >= 4) news(`${s.name} has ${moved > 0 ? "improved" : "declined"} over the season (${ROLES_STAFF[role].l.toLowerCase()}).`);
@@ -261,4 +267,18 @@ function candidates(role) {
   for (const s of U.list) if (s.emp === undefined) s.emp = role !== "manager" && R() < .3 ? employerFor(s.rep) : null;
   if (role === "manager" && (!U.empT || now - U.empT >= 6)) { U.emp = coachCands(); U.empT = now; }
   return [...exProCands(role), ...U.list, ...(role === "manager" ? U.emp || [] : [])];  // former players moving into coaching (your own favourites first), then everyone else
+}
+
+/* Putting it right, from his card. Each can be tried once a season: a talk (helps most when the grievance has stopped),
+   a pay rise of 10% (on a contract that runs on), a promise to leave him to it for the rest of the season, and for the
+   manager, handing team selection back to him (clears your "insist he starts" picks and your depth chart order). */
+function staffMend(role, how) {
+  const s = staffOf(role); if (!s) return; s.mend ||= {}; if (s.mend[how] === G.year) return;
+  const recentBad = (s.tlog || []).filter(x => x.y === G.year && x.d < 0 && !/Time/.test(x.k)).reduce((a, x) => a + x.d, 0);
+  if (how === "talk") { const d = Math.round((s.trust < 40 ? 7 : 5) * (recentBad < -10 ? .6 : 1) + rf(-1, 2)); trust(role, d, null, "Clearing the air with you"); news(`You sit down with ${s.name}. ${d >= 5 ? `It helps: ${pr(s, "he")} feels listened to.` : `${pr(s, "He")} appreciates it, but it'll take more than words.`}`); }
+  if (how === "pay") { const old = s.wage; s.wage = Math.round(s.wage * 1.1 / 100) * 100; trust(role, 8, null, "Your pay rise"); news(`You give ${s.name} a pay rise: ${pw(old)} to ${pw(s.wage)}.`); }
+  if (how === "promise") { s.promise = G.year; s.promiseBroken = false; trust(role, 6, null, "Your promise not to interfere"); news(`You promise ${s.name} you won't interfere this season. Break it and ${pr(s, "he")}'ll take it badly.`); }
+  if (how === "hands") { const c = my(); let n = 0; for (const p of c.squad.map(P)) if (p.force) { p.force = false; n++; } if (G.depth && Object.keys(G.depth).length) { G.depth = {}; n++; }
+    trust(role, n ? 5 : 1, null, "Handing team selection back"); news(`You leave team selection to ${s.name}${n ? ": your picks and your depth chart order are cleared" : ""}.`); }
+  s.mend[how] = G.year;
 }

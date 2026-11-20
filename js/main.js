@@ -191,6 +191,7 @@ const ACT = {
   depth: el => { const role = el.dataset.role, id = +el.dataset.id, d = +el.dataset.d, L = (DEPTH_VIEW[role] || []).slice(), i = L.indexOf(id), j = i + d;
     if (i < 0 || j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; (G.depth ||= {})[role] = L; render(); saveGame(); },
   depthreset: el => { if (G.depth) delete G.depth[el.dataset.role]; render(); saveGame(); },
+  mend: el => { staffMend(el.dataset.r, el.dataset.k); render(); saveGame(); },
   mtab: el => { MARKET_F.tab = el.dataset.k; render(); },
   fav: el => { const id = +el.dataset.id; G.favs ||= []; G.favs = G.favs.includes(id) ? G.favs.filter(x => x !== id) : [...G.favs, id]; if (document.querySelector(".modal") && el.closest(".modal")) playerModal(id); render(); saveGame(); },
   loanredo: el => { const p = P(+el.dataset.id), r = redoLoan(p, +$("#rshare").value / 100); LOAN_SAY = r.ok ? null : { id: p.id, t: r.t }; toast(r.t); playerModal(p.id); render(); saveGame(); },
@@ -363,7 +364,7 @@ const CHANGE = {
   loanout: async el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (await ask(`Loan ${p.name} to ${x.name} until the end of the season?`)) { loanOut(p, x); closeModal(); render(); saveGame(); } },
   budget: el => { const c = my(), k = el.dataset.k, v = Math.round(num(el)), old = c.budget[k]; c.budget[k] = v;
     // Staff notice their budgets being cut hard.
-    const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) meddled(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`);
+    const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) meddled(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`, "Budget cuts");
     render(); },
   fweek: el => { SUB.fw = +el.value; },
   oname: el => { const v = el.value.trim(); if (v) { G.owner.name = v; saveGame(); render(); } },

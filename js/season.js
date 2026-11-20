@@ -254,7 +254,7 @@ function seasonReview(r, up, down) {
   addMsg({ type: "review", title: `${seasonLabel(r.y)} in review`, body: `${ord(r.pos)} of ${r.size} in the ${LEAGUES[r.lg].name}, ${r.pts} points${up ? " — promoted" : down ? " — relegated" : ""}. Average crowd ${h.att.toLocaleString("en-GB")}. Income ${money(h.inc)}, costs ${money(h.cost)}.` });
   // Staff react to the season against what the club could expect.
   const exp = Math.round(r.size * .5), diff = exp - r.pos;
-  if (staffOf("manager")) trust("manager", clamp(Math.round(diff / 2), -6, 8) + (up ? 8 : 0), null);
+  if (staffOf("manager")) trust("manager", clamp(Math.round(diff / 2), -6, 8) + (up ? 8 : 0), null, "How the season went");
 }
 
 /* Each summer: everyone a year older, retirements, contracts, youth intakes, squads rebuilt. */
@@ -468,7 +468,7 @@ function overruleYouth(kind, ps) {
   G.meddle = (G.meddle || 0) + .15 * bad.length;
   const why = kind === "release" ? `rated ${names} and didn't want ${one ? "him" : "them"} released.` : kind === "promote" ? `doesn't think ${names} ${one ? "is" : "are"} ready for the first team.` : kind === "keep" ? `would have let ${names} go.` : `wanted to sign ${names}.`;
   if (d * tolF(y) < 5) news(`${y.name} (youth manager): ${why}`);  // smaller hits get a word in the news too
-  meddled("youth", -d, kind === "release" ? `rated ${names} and didn't want ${one ? "him" : "them"} released.` : kind === "promote" ? `doesn't think ${names} ${one ? "is" : "are"} ready for the first team.` : kind === "keep" ? `would have let ${names} go.` : `wanted to sign ${names}.`);
+  meddled("youth", -d, kind === "release" ? `rated ${names} and didn't want ${one ? "him" : "them"} released.` : kind === "promote" ? `doesn't think ${names} ${one ? "is" : "are"} ready for the first team.` : kind === "keep" ? `would have let ${names} go.` : `wanted to sign ${names}.`, "Academy decisions overruled");
 }
 DECIDE.ySign = (m, i) => {
   const p = G.players[m.data.pid]; if (!p || p.club !== -3) return;

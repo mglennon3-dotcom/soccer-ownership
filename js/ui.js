@@ -334,6 +334,22 @@ function playerModal(id) {
 /* ---------- Staff ---------- */
 // A staff member's rating (his average, 1-20) beside his name, with his potential when he still has room to grow.
 const staffBadge = s => { const a = sr20(staffAvg(s)), hi = sr20(staffPotRange(s)[1]), pt = staffPot20(s); return `<span class="srate" title="Rating ${a}${hi > a ? `, potential ${pt}` : ""}">${a}${hi > a ? `<small> → ${pt}</small>` : ""}</span>`; };
+/* How a member of staff feels and why: the causes behind the trust figure, this season and last, and ways to put it
+   right when the mood has soured. */
+function staffMoodHTML(role, s) {
+  const L = (s.tlog || []).filter(x => x.y >= G.year - 1 && Math.abs(x.d) >= .5), M = s.mend || {}, low = s.trust < 55;
+  const rows = ys => L.filter(x => x.y === ys).sort((a, b) => a.d - b.d).map(x => `<div class="row between small" style="padding:2px 0"><span>${esc(x.k)}${x.n > 1 ? ` <span class="muted">×${x.n}</span>` : ""}</span><b class="num ${x.d < 0 ? "bad" : "good"}">${x.d > 0 ? "+" : "−"}${Math.abs(Math.round(x.d))}</b></div>`).join("");
+  const now = rows(G.year), last = rows(G.year - 1);
+  const btn = (how, l, note) => M[how] === G.year ? `<span class="small muted">${l}: done this season</span>` : `<button class="btn sm" data-act="mend" data-r="${role}" data-k="${how}">${l}</button>${note ? `<span class="small muted">${note}</span>` : ""}`;
+  const forced = role === "manager" && (my().squad.some(id => P(id).force) || (G.depth && Object.keys(G.depth).length));
+  const fix = `<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">${btn("talk", "Clear the air")}${s.expiring ? "" : btn("pay", `Pay rise (to ${pw(Math.round(s.wage * 1.1 / 100) * 100)})`)}${btn("promise", "Promise not to interfere this season")}${forced ? btn("hands", "Leave team selection to " + pr(s, "him")) : ""}</div>
+    <p class="small muted" style="margin-top:4px">A talk helps most once the cause has stopped. Break a promise and it costs twice as much. Grudges also fade on their own: trust drifts back up toward 60 week by week.</p>`;
+  if (!L.length && !low) return "";
+  return `<details ${low ? "open" : ""} style="margin-top:8px"><summary class="small"><b>Why ${pr(s, "he")} feels this way</b>${low ? ` <span class="${s.trust < 40 ? "bad" : "warn"}">· ${s.trust < 40 ? "at risk of resigning below 20" : "uneasy"}</span>` : ""}</summary>
+    ${now ? `<p class="small muted" style="margin-top:6px">This season</p>${now}` : `<p class="small muted" style="margin-top:6px">Nothing has changed ${pr(s, "his")} mood this season.</p>`}
+    ${last ? `<p class="small muted" style="margin-top:6px">Last season</p>${last}` : ""}
+    ${low ? fix : `<p class="small muted" style="margin-top:6px">${pr(s, "He")}'s settled: nothing needs putting right.</p>`}</details>`;
+}
 function staffCard(role) {
   const s = staffOf(role), R0 = ROLES_STAFF[role];
   if (!s) return `<section class="card"><div class="card-h"><h2>${R0.l}</h2><span class="warn">Vacant</span></div><p class="muted" style="margin-bottom:10px">${role === "manager" ? "Picks the team, sets the tactics, develops the players. Without one, the club captain does it badly." : role === "recruit" ? "Signs and sells players within your budgets, renews contracts, and advises you on bids." : "Runs the academy: the size and quality of each year's intake, and how the youngsters develop."}</p><button class="btn primary" data-act="cands" data-r="${role}">Find candidates</button></section>`;
@@ -344,6 +360,7 @@ function staffCard(role) {
     <div class="attr-grid" style="margin:10px 0">${Object.entries(R0.attrs).map(([k, l]) => { const d = s.prev ? sr20(s.at[k]) - sr20(s.prev[k]) : 0; return `<div class="attr-r"><span>${l}${d ? ` <span class="${d > 0 ? "good" : "bad"} small">${d > 0 ? "▲" : "▼"}${Math.abs(d)}</span>` : ""}</span>${staffR20(s.at[k])}</div>`; }).join("")}<div class="attr-r"><span>Hands-on owner – <span class="small ${tolWord(s)[1]}">${tolWord(s)[0]}</span></span>${staff20(tolOf(s))}</div><div class="attr-r"><span>Potential <span class="small muted">(average ${pr(s, "he")} could reach, est.)</span></span>${bar(staffEq(staffPotRange(s)[1]))}<b class="num">${staffPot20(s)}</b></div></div>
     ${role === "manager" ? `<p class="small">${pr(s, "His")} style with this squad: ${fitText(styleFit(pickXI(my()), s.phil))}.</p>` : ""}
     <p class="small muted">${pw(s.wage)} · ${s.expiring ? `<span class="warn">contract expired</span>` : `${s.yrs} year${s.yrs > 1 ? "s" : ""} left`} · releasing ${pr(s, "him")} costs ${money(payoff(s))}</p>
+    ${staffMoodHTML(role, s)}
     <div class="row" style="margin-top:10px">${s.expiring ? `<button class="btn primary" data-act="renewstaff" data-r="${role}">Renew 3 years${staffAsk(s) != null ? ` (${pw(Math.max(s.wage, staffAsk(s)))})` : ""}</button>` : ""}<button class="btn" data-act="cands" data-r="${role}">Look for a replacement</button><button class="btn danger" data-act="dismiss" data-r="${role}">Dismiss</button></div></section>`;
 }
 function pgStaff() {

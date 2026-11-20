@@ -320,11 +320,11 @@ DECIDE.poach = (m, i) => {
   const s = staffOf(m.data.role), x = CL(m.data.club); if (!s) return;
   if (i === 1) {  // you ask for half as much again: they pay it if it's within what they'd go to, otherwise they walk away
     const ask = Math.round(m.data.comp * 1.5 / 1000) * 1000;
-    if (ask <= m.data.max) { m.data.comp = ask; i = 0; } else { news(`${x.name} won't pay ${money(ask)} for ${s.name} and pull out. ${s.name} stays, a little disappointed.`); trust(m.data.role, -2, null); return; }
+    if (ask <= m.data.max) { m.data.comp = ask; i = 0; } else { news(`${x.name} won't pay ${money(ask)} for ${s.name} and pull out. ${s.name} stays, a little disappointed.`); trust(m.data.role, -2, null, "A move elsewhere falling through"); return; }
   }
   if (i === 2) i = 1;
   if (i === 0) { my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
-  else trust(m.data.role, x.tier < my().tier ? -6 : -2, x.tier < my().tier ? `is unhappy you blocked ${pr(s, "his")} move to ${x.name}.` : null);
+  else trust(m.data.role, x.tier < my().tier ? -6 : -2, x.tier < my().tier ? `is unhappy you blocked ${pr(s, "his")} move to ${x.name}.` : null, "You blocking a move elsewhere");
 };
 
 /* AI clubs transfer-list players they can do without: well below the club's standard and out of the side, ageing

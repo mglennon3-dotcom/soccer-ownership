@@ -153,7 +153,7 @@ function headWeek(c) {
     if (x.loan) loanIn(p, CL(p.club), v.share, "suggestion");
     else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false, "suggestion"); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, ${pr(s, "he")} paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, ${pr(s, "he")} agreed ${pw(v.ask)}.`); }
     G.sugg = sugg().filter(y => y !== x);
-    news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null);
+    news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null, "Your tips");
   }
   for (const need of squadNeeds(c)) {
     if (signed >= lim) break;
@@ -268,7 +268,7 @@ function answerBid(m, accept, auto) {
     // keep, or turning down well over the odds). Small disagreements barely register.
     const big = accept ? pickXI(my()).some(o => o.p === p) : m.amt >= valueOf(p) * 1.5;
     G.meddle = (G.meddle || 0) + (big ? .3 : .1);
-    meddled("recruit", big ? -3 : -1, big ? (accept ? `would rather have kept ${p.name}.` : `thinks ${money(m.amt)} for ${p.name} was worth taking.`) : null);
+    meddled("recruit", big ? -3 : -1, big ? (accept ? `would rather have kept ${p.name}.` : `thinks ${money(m.amt)} for ${p.name} was worth taking.`) : null, "Your calls on offers for players");
   }
   if (accept && m.pre) {
     // Agreed out of the window: he joins them when the next one opens.
@@ -282,7 +282,7 @@ function answerBid(m, accept, auto) {
   } else if (auto) news(`A ${money(m.amt)} bid from ${buyer.name} for ${p.name} is turned down.`);
 }
 function completeSale(p, buyer, amt, auto) {
-  if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`);
+  if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`, "Selling first-choice players");
   logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto ? "recruit" : "you" });
   leaveClub(p); payFee(buyer, null, amt); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", amt);
   news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
@@ -437,7 +437,7 @@ function headOffWindow(c) {
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
     if (p.toMe) continue; const v = suggView(p, c, false); if (!v.ok) continue;
     if (p.club === -1) signPlayer(p, 0, v.ask, false, "suggestion"); else agreeIncoming(p, v.fee, v.ask, s);
-    G.sugg = sugg().filter(y => y !== x); news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null); }
+    G.sugg = sugg().filter(y => y !== x); news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null, "Your tips"); }
 }
 function completeIncoming() {
   for (const p of Object.values(G.players)) { if (!p.toMe) continue; const A = p.toMe; delete p.toMe;
@@ -450,8 +450,8 @@ function ownerBuy(p, fee, wage) {
   G.meddle = (G.meddle || 0) + 1;
   const c = my(), onList = shortlist(c, { pos: p.pos, kind: "depth", weakest: 0 }, 8).some(x => x.p === p);
   signPlayer(p, fee, wage, true); G.sugg = sugg().filter(x => x.id !== p.id);
-  if (staffOf("recruit")) meddled("recruit", onList ? -3 : -10, onList ? `would rather have done the deal ${pr(staffOf("recruit"), "himself")}.` : `wasn't consulted about ${p.name} and isn't happy.`);
-  const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null); else meddled("manager", -3, null);
+  if (staffOf("recruit")) meddled("recruit", onList ? -3 : -10, onList ? `would rather have done the deal ${pr(staffOf("recruit"), "himself")}.` : `wasn't consulted about ${p.name} and isn't happy.`, "Signings made without consulting");
+  const xi = pickXI(c); if (xi.some(o => o.p === p)) trust("manager", 3, null, "Your signings who make the team"); else meddled("manager", -3, null, "Signings the manager didn't want");
 }
 /* You put a player on the transfer list (or take him off). Offers then come in through the inbox. */
 /* A star for the division: rating at the top of the division's range (shown about: Regional League and National
@@ -476,15 +476,15 @@ function ownerList(p) {
   if (!p.list) return news(`${p.name} is taken off the transfer list.`);
   G.meddle = (G.meddle || 0) + .5;
   const starter = pickXI(my()).some(o => o.p === p);
-  if (staffOf("recruit")) meddled("recruit", -3, null);
-  if (starter) meddled("manager", -6, `is unhappy you've transfer-listed ${p.name}, one of ${pr(staffOf("manager"), "his")} first-choice players.`);
+  if (staffOf("recruit")) meddled("recruit", -3, null, "Transfer-listing players yourself");
+  if (starter) meddled("manager", -6, `is unhappy you've transfer-listed ${p.name}, one of ${pr(staffOf("manager"), "his")} first-choice players.`, "Transfer-listing first-choice players");
   news(`You put ${p.name} on the transfer list. Offers will come in while the window is open.`);
 }
 function ownerRelease(p) {
   G.meddle = (G.meddle || 0) + .5;
   const starter = pickXI(my()).some(o => o.p === p);
   release(p, true);
-  if (starter) meddled("manager", -8, `is angry you released ${p.name}.`);
+  if (starter) meddled("manager", -8, `is angry you released ${p.name}.`, "Releasing first-choice players");
 }
 
 /* ---------- each week of a window ---------- */
