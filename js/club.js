@@ -315,7 +315,7 @@ function weeklyAccounts(c) {
   spend("util", utilities(c) / 52); insureWeek(c); if (G.phase === "season" && fzK(c)) moodHit(c, fzK(c) * .04); if (c.budget.comm) { spend("comm", c.budget.comm / 52); moodHit(c, commK(c) * .05); }
   earn("spons", sponsorTotal(c) / 52);
   earn("merch", merchFor(c));
-  earn("events", ventureWeek(c)); concertWeek(c);
+  ventureBuildWeek(c); earn("events", ventureWeek(c)); concertWeek(c);
   if (G.phase === "season") earn("suites", suitesLet(c) * c.prices.suite / SEASON_WEEKS);
   corpWeek(c);
   if (G.phase === "season") { earn("tv", TV[c.tier] / 46); if (paraOf(c)) earn("para", paraOf(c) / 46); }
@@ -410,18 +410,26 @@ const fzGame = (c, crowd, k) => Math.round(k * crowd * .35 * REF_CONC[c.tier] * 
    what's already there; suites and corporate seats sit inside the stands. */
 const VENT_SPACE = { shop: () => 150, mega: () => 600, park: cap => 300 + cap * .15, conf: () => 800, tours: () => 0, hotel: () => 2500, fanzone: cap => 300 + cap * .03, tenant: () => 0 };
 const ventSpace = (k, cap) => Math.round((VENT_SPACE[k] || (() => 0))(cap) / 50) * 50;
-const usedSpace = S => sum(Object.keys(S.vent || {}), k => ventSpace(k, S.cap));
-const ventureOK = (c, k) => c.fac.stadium.own && (!VENTURES[k].need || VENTURES[k].need(c)) && (has(c, k) || ventSpace(k, c.fac.stadium.cap) <= siteRoom(c.fac.stadium));
+const usedSpace = S => sum([...Object.keys(S.vent || {}), ...Object.keys(S.ventB || {})], k => ventSpace(k, S.cap));
+const ventureOK = (c, k) => c.fac.stadium.own && !(c.fac.stadium.ventB || {})[k] && (!VENTURES[k].need || VENTURES[k].need(c)) && (has(c, k) || ventSpace(k, c.fac.stadium.cap) <= siteRoom(c.fac.stadium));
 // Extras chosen for a ground being designed: priced at 85% (built with the ground), and they need room on the plot.
 const designShell = (d, cap) => ({ fac: { stadium: { cap, amen: 3, suites: 0, own: true, vent: Object.fromEntries((d.vent || []).map(k => [k, {}])) } }, fans: my().fans, tier: my().tier, rep: my().rep, trophies: my().trophies, media: my().media });
 const designVentCost = (d, cap) => { const sh = designShell(d, cap); return sum(d.vent || [], k => VENTURES[k].cost(sh) * .85); };
 const designSpace = (d, cap) => sum(d.vent || [], k => ventSpace(k, cap));
 const designVentOK = (d, cap, k) => !VENTURES[k].need || VENTURES[k].need(designShell(d, cap));
+/* Ventures take time to build: a tenant team's deal is done in a fortnight, a hotel takes a year. Paid for up front; no
+   income (and no upkeep) until it opens. Built with a new ground, they open with it. */
+const VENT_WEEKS = { tenant: 2, park: 6, shop: 8, fanzone: 8, tours: 12, conf: 20, mega: 26, hotel: 52 };
+const ventBuilding = S => S.ventB || {};
 function buildVenture(k) {
-  const c = my(), V = VENTURES[k], cost = Math.round(V.cost(c) / 1e4) * 1e4;
-  spend("build", cost); (c.fac.stadium.vent ||= {})[k] = { y: G.year }; if (k === "fanzone") c.fac.stadium.popup = false;
-  news(`${V.l} opens at the ground (${money(cost)}).`, true);
+  const c = my(), V = VENTURES[k], cost = Math.round(V.cost(c) / 1e4) * 1e4, wk = VENT_WEEKS[k] || 8;
+  spend("build", cost); (c.fac.stadium.ventB ||= {})[k] = { left: wk, cost };
+  news(`Work starts on the ${V.l.toLowerCase()} (${money(cost)}): it should open in about ${wk} week${wk > 1 ? "s" : ""}.`, true);
 }
+// Each week: building work moves on, and anything finished opens.
+function ventureBuildWeek(c) { const B = c.fac.stadium.ventB; if (!B) return;
+  for (const [k, b] of Object.entries(B)) { if (--b.left > 0) continue; delete B[k];
+    (c.fac.stadium.vent ||= {})[k] = { y: G.year }; if (k === "fanzone") c.fac.stadium.popup = false; news(`The ${VENTURES[k].l.toLowerCase()} opens at the ground.`, true); } }
 function closeVenture(k) { const c = my(); delete c.fac.stadium.vent[k]; news(`${VENTURES[k].l} closes.`); if (k === "fanzone") { moodHit(c, -3); trustRel(-5); } }
 const ventUp = (c, k) => typeof VENTURES[k].upkeep === "function" ? VENTURES[k].upkeep(c) : VENTURES[k].upkeep;
 const ventureUpkeep = c => sum(Object.keys(c.fac.stadium.vent || {}), k => ventUp(c, k));

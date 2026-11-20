@@ -92,7 +92,7 @@ function aiMoveIn(c) {
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];
 // What an AI club recruits to: its division and standing, plus what its owner will spend.
-function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0) + clamp((c.feeAvg || 0) / Math.max(1, aiIncome(c)) * 10, 0, 2); }  // transfer profit is reinvested in the squad
+function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.max(1, c.own.wealth) / 1e6) / 3, 0, 1.3); return TIER_LVL[c.tier] + ((G.lvlAdj || [])[c.tier] || 0) + (c.rep - TIER_REP[c.tier]) * (c.tier === 1 ? .45 : .7) + S.spend * (S.spend > 0 ? rich : 1) - (c.ded ? 2 : 0) - (c.cut ? 2.5 : 0) + (c.push && lossTol(c) > .3 ? 1 : 0) - (1 - squeeze(c)) * 8 + (c.chase ? 2 : 0) + clamp((c.feeAvg || 0) / Math.max(1, aiIncome(c)) * 10, 0, 2) - (c.abroad || !c.own ? 0 : clamp((aiBill(c) / Math.max(1, aiBudget(c)) - 1.05) * 12, 0, 6)); }  // a wage bill beyond the budget: he aims lower until it's back in line  // transfer profit is reinvested in the squad
 
 /* Each summer: owners build, spend, sometimes go bust, sometimes sell up. */
 // A former player's managers are his old teammates: picked for loyalty, not ability.
@@ -140,7 +140,8 @@ const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.ro
    The owner then bends it: a profit-seeker budgets for a surplus, a spender for a loss (his tolerance), more again while
    chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
    as income, so they show up here. */
-const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.max(0, c.feeAvg || 0) * 1.6 - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
+// Transfer profit helps, but only so far: wages are a commitment for years, and a big sale isn't repeated every season.
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.min(Math.max(0, c.feeAvg || 0), aiIncome(c) * .12) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
 /* What he aims for. Like real football, most clubs spend beyond their means and the owner covers the gap: the planned
    loss (a share of income) is deepest in the First Division, where everyone gambles on promotion, and smallest at the
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
@@ -165,7 +166,7 @@ function aiAccounts(c) {
   c.feeAvg = Math.round((c.feeAvg || 0) * .5 + fees * .5);  // selling clubs reinvest: recent transfer profit feeds the wage budget (aiAfford)
   if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
-    else if (r.ratio > SPEND_LIMIT - .15 && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // the principal comes down a little each year
+    else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
   if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { if (failGate("adm")) { administration(c); c.debt = Math.round(c.debt * .4); return; } rescue(c); }
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));

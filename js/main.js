@@ -20,6 +20,12 @@ function upgradeSave() {
   // 0.73.1: staff hired before their trust was recorded get a starting point: where they stood before the records begin.
   for (const st of Object.values((G.club != null && my().staff) || {}).filter(Boolean)) if (!st.tbase) { const logged = sum(st.tlog || [], x => x.d);
     st.tbase = { t: Math.round((st.trust - logged) * 10) / 10, y: (st.tlog && st.tlog.length ? Math.min(...st.tlog.map(x => x.y)) : G.year), old: true, k: `Where things stood when records began (hired ${st.since || "earlier"}; what happened before that wasn't kept)` }; }
+  // 0.73.4: a one-off top-up of the free agents, for careers whose summer passed before the out-of-contract players
+  // reached the market (they were all snapped up the moment their deals ended): players under 32 around your level.
+  if (!G.fa4 && G.club != null) { G.fa4 = true; const t = my().tier, mix = Object.entries(SQUAD_MIX).flatMap(([pos, n]) => Array(n).fill(pos)); let n = 0;
+    for (let i = 0; i < 40; i++) { const ovr = clamp(Math.round(TIER_XI[t] - 12 + R() * 15), 20, 92), age = ri(21, 31);
+      const p = makePlayer({ pos: pick(mix), ovr, age, nat: R() < .6 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); toFreeAgent(p); p.faAt = absWeek(); n++; }
+    news(`${n} more players are out of contract and looking for clubs, around your level and under 32: see Market → Free agents. Other clubs move in after three weeks.`, true); }
   if (!G.foreign4) { G.foreign4 = true; addForeignLeagues(); }  // 0.72: fifteen more leagues abroad
   // 0.38.0: foreign clubs spread down through the levels (each country's smaller clubs well below its best); existing
   // worlds drift there over a few seasons as standards and squads move.
@@ -334,7 +340,7 @@ const ACT = {
   amen: () => { const q = amenQuote(my()); built(startBuild("stadium", { type: "amen", ...q, label: `stadium facilities to level ${q.lvl}` })); render(); saveGame(); },
   suites: () => { const q = suiteQuote(my()); built(startBuild("stadium", { type: "suites", ...q, label: `${q.add} executive suites` })); render(); saveGame(); },
   relay: async el => { const k = el.dataset.k; if (!await ask(`Re-lay the pitch with ${PITCH[k].l.toLowerCase()} for ${money(PITCH[k].cost(my()))}?`)) return; relayPitch(k); render(); saveGame(); },
-  vent: async el => { const k = el.dataset.k; if (!await ask(`Build the ${VENTURES[k].l.toLowerCase()} for ${money(VENTURES[k].cost(my()))}?`)) return; buildVenture(k); render(); saveGame(); },
+  vent: async el => { const k = el.dataset.k; if (!await ask(`Build the ${VENTURES[k].l.toLowerCase()} for ${money(VENTURES[k].cost(my()))}? It takes about ${VENT_WEEKS[k] || 8} weeks to build and earns nothing until it opens.`)) return; buildVenture(k); render(); saveGame(); },
   popupoff: async () => { if (await ask("End the pop-up fan zone? Supporters will be disappointed.")) { my().fac.stadium.popup = false; moodHit(my(), -2); trustRel(-3); news("The pop-up fan zone is wound up."); render(); } },
   unvent: async el => { if (await ask(`Close the ${VENTURES[el.dataset.k].l.toLowerCase()}?`)) { closeVenture(el.dataset.k); render(); } },
   upfac: el => { const k = el.dataset.k, lvl = my().fac[k].lvl + 1; built(startBuild(k, { lvl, cost: facCost(k, lvl), weeks: facWeeks(lvl), label: `${FAC_NAME[k].toLowerCase()} to level ${lvl}` })); render(); saveGame(); },

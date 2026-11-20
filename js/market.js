@@ -4,10 +4,18 @@
 "use strict";
 
 /* What a player wants to join you: his rating's going rate, more to drop down divisions. */
+/* Still without a club once the season has started: he lowers his sights. About 30% less than his going rate from the
+   opening week, 40% less from January (a player released during the season gets there after a month on the market). */
+function faDiscount(p) {
+  if (p.club !== -1 || (G.phase !== "season" && G.phase !== "playoffs")) return 1;
+  const start = G.year * 100 + SUMMER_WEEKS, since = p.faAt == null || p.faAt < start ? 0 : absWeek() - p.faAt;
+  if (p.faAt != null && p.faAt >= start && since < 4) return 1;
+  return G.phase === "playoffs" || G.week >= JAN[0] ? .6 : .7;
+}
 function demandWage(p, c) {
   const from = p.club >= 0 ? CL(p.club).tier : p.club === -2 ? Math.max(1, Math.min(7, Math.round((90 - p.ovr) / 6))) : 7;
   // Dropping divisions is weighed as prestige in appeal.js; this is just his going rate.
-  return Math.round((c ? wageAt(p.ovr, c.tier) : wageFor(p.ovr)) * (p.club === -2 ? 1.15 : 1) * (c ? wageMult(p, c) : 1) / 100) * 100;  // his values: greed, home
+  return Math.round((c ? wageAt(p.ovr, c.tier) : wageFor(p.ovr)) * (p.club === -2 ? 1.15 : 1) * (c ? wageMult(p, c) : 1) * faDiscount(p) / 100) * 100;  // his values: greed, home; a free agent still unsigned takes less
 }
 // Will he come at all? Players rarely drop more than two divisions.
 /* Would he even consider a club in this division? Every player has a natural level: the division whose typical starter
@@ -35,7 +43,7 @@ const hugeAsk = (p, c = my()) => c.tier - naturalTier(p) > joinRoom(p);
 const willJoin = (p, c) => { if (c.abroad) return true; const d = c.tier - naturalTier(p), r = joinRoom(p); return d <= r || (d <= r + 2 && tempted(p, c)); };
 // What it takes: his own level's rate, 15% more per division dropped and, past his room, at least double again.
 function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier - nt), beyond = drop - joinRoom(p), over = Math.max(0, p.ovr - TIER_XI[nt]);
-  return wageAt(p.ovr, nt) * wageMult(p, c) * (1 + .15 * drop) * (beyond > 0 ? 2 + (beyond - 1) * .5 + over * .1 : 1); }
+  return wageAt(p.ovr, nt) * wageMult(p, c) * faDiscount(p) * (1 + .15 * drop) * (beyond > 0 ? 2 + (beyond - 1) * .5 + over * .1 : 1); }
 // xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once.
 function askingFee(p, xi) {
   if (p.club === -1) return 0;
