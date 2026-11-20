@@ -535,3 +535,4 @@ table.depth td{padding:5px 4px;vertical-align:middle;border-bottom:1px solid var
 .modal details.prog table td, .modal details.prog table th{padding:4px 3px} .modal details.prog table td:first-child, .modal details.prog table td[style*="text-align:left"]{white-space:normal}
 /* Loan lists on the Network page and market: one compact block per player. */
 .loanlist{display:grid;gap:2px;margin-top:6px} .loanrow{padding:6px 0;border-bottom:1px solid var(--line)} .loanrow:last-child{border-bottom:0}
+.ledger dd.t{font-family:inherit;font-size:14px}
