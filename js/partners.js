@@ -136,6 +136,10 @@ function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !
 // How much of your loanees' wages a feeder pays while they're there: its own policy (a tenth at a time, 30% to all of
 // it), more likely to be generous with a free-spending owner.
 const feederCover = x => x.cover ??= clamp(Math.round((.55 + normal() * .2 + (ownStyle(x).spend > 0 ? .1 : 0)) * 10) / 10, .3, 1);
+// What a feeder actually offers for one player this window: usually its policy, but it varies (a tenth or two either
+// way, more often down), so a feeder that usually pays 80% might offer 60% for a player it doesn't need as much.
+function feederOffer(p, x) { const w = windowId(); if (p.fco && p.fco.w === w && p.fco.x === x.id) return p.fco.s;
+  const d = R() < .55 ? 0 : R() < .7 ? -.1 * ri(1, 2) : .1; p.fco = { w, x: x.id, s: clamp(Math.round((feederCover(x) + d) * 10) / 10, .2, 1) }; return p.fco.s; }
 const feederRef = x => aiIncome(x) * .015;  // about one and a half per cent of the club's income (what the funding does is measured against this)
 const feederAsk = x => x.feedAsk ??= Math.round(feederRef(x) * rf(.6, 1.1) / 1000) * 1000;
 function addFeeder(x) { net().feeders.push({ id: x.id, fund: feederAsk(x), rel: 55, since: G.year }); news(`${x.name} become a feeder club: ${money(feederAsk(x))} a year.`, true); }
