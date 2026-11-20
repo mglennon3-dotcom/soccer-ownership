@@ -380,7 +380,7 @@ const CHANGE = {
     if (k === "ticket" && G.sTrust && G.sTrust.freeze === G.year && v > c.prices.ticket) { toast("You promised the supporters' trust a price freeze this season."); render(); return; }
     c.prices[k] = v; render(); },
   ffund: el => { const f = net().feeders.find(x => x.id === +el.dataset.id); if (f) f.fund = Math.round(num(el)); render(); },
-  loanout: async el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (await ask(`Loan ${p.name} to ${x.name} until the end of the season? For him they'll pay ${Math.round(feederOffer(p, x) * 100)}% of his wages (they usually pay about ${Math.round(feederCover(x) * 100)}%).`)) { loanOut(p, x, feederOffer(p, x)); closeModal(); render(); saveGame(); } },
+  loanout: async el => { if (!el.value) return; const p = P(+el.dataset.id), x = CL(+el.value); if (await ask(`Loan ${p.name} to ${x.name} until the end of the season?`)) { loanOut(p, x); closeModal(); render(); saveGame(); } },
   budget: el => { const c = my(), k = el.dataset.k, v = Math.round(num(el)), old = c.budget[k]; c.budget[k] = v;
     // Staff notice their budgets being cut hard.
     const role = { wages: "manager", transfer: "recruit", scout: "recruit", acad: "youth" }[k]; if (v < old * .7 && staffOf(role)) meddled(role, -4, `isn't happy about the ${k === "acad" ? "academy" : k} budget being cut.`, "Budget cuts");
@@ -414,7 +414,7 @@ const CHANGE = {
   plg: el => { SUB.plg = el.value; render(); },
   psort: el => { SUB.psort = el.value; render(); },
   fsort: el => { SUB.fsort = el.value; render(); },
-  fcover: el => { SUB.fcover = +el.value || 0; render(); },
+  pcover: el => { SUB.pcover = +el.value || 0; render(); },
   plshare: el => { SUB.plshare = +el.value || 0; render(); },
   hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis", "st"].includes(k) ? el.value : +el.value || 0; render(); },
   mf: el => { const k = el.dataset.k; MARKET_F[k] = ["pos", "arch", "int", "lg"].includes(k) ? el.value : +el.value || 0;

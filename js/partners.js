@@ -30,13 +30,17 @@ const loansOpen = () => windowOpen() || (G.club != null && my().tier >= 5);
 /* Borrowing: you name the share of his wages you'll pay. Each club has a figure in mind for this window (lower for your
    partner club and for youngsters who need games, higher abroad); offer at least that and he comes. Below it they
    tell you what they want, and after three tries they stop listening. Some won't lend him at all. */
+/* A parent club's loan policy: how much of a borrowed player's wages it usually covers (40% to all of it; generous
+   owners more). Not a promise: for a given player in a given window it may cover a tenth or two less, now and then more. */
+const partnerCover = x => x.pcov ??= clamp(Math.round((.68 + normal() * .15 + (ownStyle(x).spend > 0 ? .08 : 0)) * 10) / 10, .4, 1);
 function playerLoanTerms(p, from = CL(p.club)) {
   const w = windowId(), partner = isPartner(from.id);
   // A partner never refuses, whatever was decided before (an older save, or terms set before the partnership began).
-  if (p.lt && p.lt.w === w) { if (partner) { p.lt.no = false; p.lt.min = Math.min(p.lt.min, .5); } return p.lt; }
-  const v = .55 + normal() * .15 - (partner ? .25 : 0) + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
-  // A partner club always lends you its young players out of its first team, and never asks more than half his wages.
-  return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, partner ? .5 : 1), tries: 0, no: !partner && R() < .2 };
+  if (p.lt && p.lt.w === w) { if (partner) { p.lt.no = false; if (!p.lt.pc) { p.lt.pc = true; p.lt.min = clamp(Math.round((1 - partnerCover(from)) * 10) / 10, 0, .6); } } return p.lt; }
+  if (partner) { const d = R() < .55 ? 0 : R() < .7 ? -.1 * ri(1, 2) : .1;  // a partner always lends, covering about its usual share
+    return p.lt = { w, min: clamp(Math.round((1 - partnerCover(from) - d) * 10) / 10, 0, .6), tries: 0, no: false }; }
+  const v = .55 + normal() * .15 + (from.abroad ? .05 : 0) - (p.age <= 20 ? .1 : 0);
+  return p.lt = { w, min: clamp(Math.round(v * 10) / 10, 0, 1), tries: 0, no: R() < .2 };
 }
 // What his club wants you to pay in wages to borrow him this window, or null if he isn't available to you.
 const loanPay = p => { if (p.club < 0 || !lendsTo(p)) return null; const T = playerLoanTerms(p); return T.no ? null : Math.round(p.wage * T.min / 100) * 100; };
@@ -122,7 +126,7 @@ function partnerWindow() {
     const xi = new Set(pickXI(x).map(o => o.p.id));
     const cands = x.squad.map(P).filter(p => !p.acad && !p.loan && p.age <= 23 && p.ovr >= myXI - 2 && lendsTo(p, c) && !xi.has(p.id)).sort((a, b) => b.pot - a.pot).slice(0, 2);
     for (const p of cands) if (!G.inbox.some(m => m.key === "pLoan" && !m.done && m.data.pid === p.id)) {
-      const T = playerLoanTerms(p, x), share = Math.max(0, Math.min(.5, T.min)); T.no = false; T.min = share;  // the offer and his card agree
+      const T = playerLoanTerms(p, x), share = T.min; T.no = false;  // the offer and his card agree
       addChoice("pLoan", `${clubLabel(x)} offer ${p.name} on loan`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. You'd pay ${Math.round(share * 100)}% of his ${pw(p.wage)} wage (${pw(p.wage * share)}).`, ["Take him", "No thanks"], { pid: p.id, from: x.id, share }, 1);
     }
   }
@@ -133,13 +137,6 @@ DECIDE.pLoan = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.from);
 function feederCands() { const c = my(); return G.clubs.filter(x => !x.gone && !isMine(x) && x.tier > c.tier && !isFeeder(x.id) && !isPartner(x.id) && (x.half === c.half || x.tier <= 5)).sort((a, b) => a.tier - b.tier || b.rep - a.rep); }
 /* What a feeder wants from you each year: set by its division and its needs (a fixed ask; you pay it or don't have
    the arrangement). */
-// How much of your loanees' wages a feeder pays while they're there: its own policy (a tenth at a time, 30% to all of
-// it), more likely to be generous with a free-spending owner.
-const feederCover = x => x.cover ??= clamp(Math.round((.55 + normal() * .2 + (ownStyle(x).spend > 0 ? .1 : 0)) * 10) / 10, .3, 1);
-// What a feeder actually offers for one player this window: usually its policy, but it varies (a tenth or two either
-// way, more often down), so a feeder that usually pays 80% might offer 60% for a player it doesn't need as much.
-function feederOffer(p, x) { const w = windowId(); if (p.fco && p.fco.w === w && p.fco.x === x.id) return p.fco.s;
-  const d = R() < .55 ? 0 : R() < .7 ? -.1 * ri(1, 2) : .1; p.fco = { w, x: x.id, s: clamp(Math.round((feederCover(x) + d) * 10) / 10, .2, 1) }; return p.fco.s; }
 const feederRef = x => aiIncome(x) * .015;  // about one and a half per cent of the club's income (what the funding does is measured against this)
 const feederAsk = x => x.feedAsk ??= Math.round(feederRef(x) * rf(.6, 1.1) / 1000) * 1000;
 function addFeeder(x) { net().feeders.push({ id: x.id, fund: feederAsk(x), rel: 55, since: G.year }); news(`${x.name} become a feeder club: ${money(feederAsk(x))} a year.`, true); }
