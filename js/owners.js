@@ -322,12 +322,12 @@ function poachWeek() {
   const pos = table(c.lg).findIndex(r => r.id === c.id), doingWell = pos >= 0 && pos < G.leagues[c.lg].clubs.length / 4;
   if (staffAvg(s) < attraction() + 5 && !doingWell && R() > .3) return;  // ordinary staff at an ordinary club rarely draw interest
   s.poached = now;
-  // A hostile neighbour only tempts your staff if it isn't a step down for them (staff don't drop divisions to join a rival's mischief).
-  const h0 = hostileOf(c), h = h0 && h0.tier <= c.tier ? h0 : null, q = staffAvg(s), suitors = h && R() < .5 ? [h] : G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.tier < c.tier && OWNER_STYLES[x.own.style].poach > R() && Math.abs(TIER_REP[x.tier] + 15 - q) < 25);
+  // A hostile neighbour can tempt your staff from your division or one below; from below, only with a much bigger wage.
+  const h0 = hostileOf(c), h = h0 && h0.tier <= c.tier + 1 ? h0 : null, q = staffAvg(s), suitors = h && R() < .5 ? [h] : G.clubs.filter(x => !x.gone && !isMine(x) && x.own && x.tier < c.tier && OWNER_STYLES[x.own.style].poach > R() && Math.abs(TIER_REP[x.tier] + 15 - q) < 25);
   if (!suitors.length) return;
   // Compensation: what's left of his contract, and a premium on top that rises with how badly they want him.
-  const x = pick(suitors), comp = Math.round(s.wage * Math.max(1, s.yrs) * (1.1 + OWNER_STYLES[x.own.style].poach * .5 + R() * .3) / 1000) * 1000;
-  addChoice("poach", `${x.name} want to talk to ${s.name}`, `${x.own.name} (${OWNER_STYLES[x.own.style].l.toLowerCase()}) want your ${ROLES_STAFF[role].l.toLowerCase()} and offer ${money(comp)} in compensation (${pr(s, "his")} contract has ${Math.max(1, s.yrs)} year${Math.max(1, s.yrs) > 1 ? "s" : ""} left at ${money(s.wage)}). ${x.name} play in the ${LEAGUES[x.lg].name}. He'd like to go; refuse and he'll resent it.`,
+  const x = pick(suitors), down = x.tier > c.tier, offer = Math.round(s.wage * rf(1.4, 1.8) / 1000) * 1000, comp = Math.round(s.wage * Math.max(1, s.yrs) * (1.1 + OWNER_STYLES[x.own.style].poach * .5 + R() * .3) / 1000) * 1000;
+  addChoice("poach", `${x.name} want to talk to ${s.name}`, `${x.own.name} (${OWNER_STYLES[x.own.style].l.toLowerCase()}) want your ${ROLES_STAFF[role].l.toLowerCase()} and offer ${money(comp)} in compensation (${pr(s, "his")} contract has ${Math.max(1, s.yrs)} year${Math.max(1, s.yrs) > 1 ? "s" : ""} left at ${money(s.wage)}). ${x.name} play in the ${LEAGUES[x.lg].name}. ${down ? `It's a step down, so they're offering ${pr(s, "him")} ${money(offer)} a year, ${Math.round((offer / s.wage - 1) * 100)}% more than you pay: for that ${pr(s, "he")}'d go. Refuse and ${pr(s, "he")}'ll be a little put out.` : `${pr(s, "He")}'d like to go; refuse and ${pr(s, "he")}'ll resent it.`}`,
     [`Let ${pr(s, "him")} go for ${money(comp)}`, `Ask for ${money(Math.round(comp * 1.5 / 1000) * 1000)}`, "Refuse"], { role, club: x.id, comp, max: Math.round(comp * rf(1.1, 1.7) / 1000) * 1000 }, 2);
 }
 DECIDE.poach = (m, i) => {
