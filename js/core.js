@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.73.1";
+const VERSION = "0.73.2";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -203,7 +203,10 @@ function valueOf(p) {
   const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1);
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
   if (p.age > 28) v *= Math.max(.12, 1 - (p.age - 28) * .13);
-  if (p.yrs <= 1) v *= .75;
+  // Contract length: a player whose deal is running down is worth less, as his club can lose him for nothing. Two years
+  // left knocks off a tenth; in his final year he's worth about two-thirds in the summer, falling to about a third by
+  // the end of the season. (Free agents and academy players don't have fees.)
+  if (p.club >= 0 && !p.acad) { if (p.yrs === 2) v *= .9; else if (p.yrs <= 1) v *= .65 - .3 * (G.phase === "season" ? clamp(G.week / SEASON_WEEKS, 0, 1) : G.phase === "playoffs" ? 1 : 0); }
   return Math.max(0, Math.round(v / 1000) * 1000);
 }
 
