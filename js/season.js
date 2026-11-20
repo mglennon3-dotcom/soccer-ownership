@@ -114,7 +114,7 @@ function afterMatch(r, k) {
   const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = [1, 1.5, 2][derbyLevel(c, opp)];
   c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 + vpt("results") - c.morale) * .1, 20, 95);
   moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);
-  G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
+  h2hAdd(opp.id, res); G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
   // The grudge match is played: the press come back for your reaction (unless it was a draw).
   const fd = (c.feud || {})[opp.id];
   if (fd && fd.g) { fd.g = false; const own = opp.own ? opp.own.name : "their owner", score = `${gf}–${ga}`;

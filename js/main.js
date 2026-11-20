@@ -253,7 +253,7 @@ const ACT = {
   olend: () => { ownerLend(num($("#ol-amt"))); render(); }, orecall: () => { ownerRecall(num($("#ol-amt"))); render(); },
   heat: async () => { const q = heatQuote(my()); if (await ask(`Install undersoil heating for ${money(q.cost)}?`)) { built(startBuild("stadium", { type: "heat", ...q, label: "undersoil heating" })); render(); saveGame(); } },
   page: el => { PAGE = el.dataset.p; if (PAGE === "league" && G.phase === "summer") SUB.comp = "pre"; /* pre-season: open on the friendlies */ MAST_COMPACT = false; closeModal(); render(); scrollTo(0, 0); lastY = 0; },
-  sub: el => { SUB[el.dataset.k] = el.dataset.v; render(); },
+  sub: el => { SUB[el.dataset.k] = el.dataset.v; if (el.dataset.p) { PAGE = el.dataset.p; scrollTo(0, 0); } render(); },
   adv: el => advanceN(+el.dataset.n || 1),
   advmenu: () => modal(`<div class="modal-h"><h2>Continue</h2><button class="btn modal-x" data-act="close">✕</button></div><div class="modal-b"><div class="stack">
     <button class="btn" data-act="adv" data-n="1">One week</button><button class="btn" data-act="adv" data-n="4">Four weeks</button>
