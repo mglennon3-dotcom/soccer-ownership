@@ -245,8 +245,20 @@ const grudge = (c, o) => !!o && !!((isMine(c) && feudOf(o.id)) || (isMine(o) && 
 /* Derbies are between genuine neighbours. In the same division: within about 40 km, fierce within about 20 km. Up to
    two divisions apart: within about 25 km (fierce within 12). London, the biggest city, has the most: its clubs are all
    close together. A grudge match counts as a fierce one. Level: 0 none, 1 a local derby, 2 a fierce one. */
+// London is full of derbies, so each London club has its two most intense: the nearest of its neighbours within two
+// divisions (the same division counting as nearer). Those are fierce; its other London derbies are local ones.
+let LON_TOP = { k: null, m: {} };
+function londonTop(c) {
+  const k = G.year; if (LON_TOP.k !== k) LON_TOP = { k, m: {} };
+  return LON_TOP.m[c.id] ??= G.clubs.filter(o => o !== c && !o.gone && !o.abroad && o.region === "London" && Math.abs(o.tier - c.tier) <= 2)
+    .map(o => [o.id, roadKm(c, o) + Math.abs(o.tier - c.tier) * 10]).sort((a, b) => a[1] - b[1]).slice(0, 2).map(x => x[0]);
+}
 function derbyLevel(c, o) {
   if (!o || !c || c === o) return 0; if (grudge(c, o)) return 2; if (c.abroad || o.abroad) return 0;
+  if (c.region === "London" && o.region === "London") { const L = derbyLevelRaw(c, o); return L && londonTop(c).includes(o.id) ? 2 : L ? 1 : 0; }
+  return derbyLevelRaw(c, o);
+}
+function derbyLevelRaw(c, o) {
   const km = roadKm(c, o);
   if (c.lg === o.lg) return km <= 20 ? 2 : km <= 40 ? 1 : 0;
   if (Math.abs(c.tier - o.tier) <= 2) return km <= 12 ? 2 : km <= 25 ? 1 : 0;
