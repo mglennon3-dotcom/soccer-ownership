@@ -69,9 +69,10 @@ function renderStart(saves) {
 /* ---------- masthead ---------- */
 const PAGES = [["home", "Office"], ["owner", "Owner"], ["squad", "Squad"], ["tactics", "Tactics"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["moves", "Activity"], ["rivals", "Rivals"], ["hist", "History"]];
 function phaseText() {
-  if (G.phase === "summer") return `${seasonLabel(G.year)} pre-season · week ${G.week + 1} of ${SUMMER_WEEKS} · transfer window open`;
+  if (G.phase === "summer") return `${seasonLabel(G.year)} pre-season · week ${G.week + 1} of ${SUMMER_WEEKS} · transfer window open${SUMMER_WEEKS - G.week <= 2 ? ` (closes ${SUMMER_WEEKS - G.week === 1 ? "this week" : "next week"})` : ""}`;
   if (G.phase === "playoffs") return `${seasonLabel(G.year)} · play-offs`;
-  return `${seasonLabel(G.year)} · week ${G.week + 1} of ${SEASON_WEEKS}${windowOpen() ? " · January window open" : ""}`;
+  const jl = JAN[JAN.length - 1] - G.week;
+  return `${seasonLabel(G.year)} · week ${G.week + 1} of ${SEASON_WEEKS}${windowOpen() ? ` · January window open (${jl === 0 ? "closes this week" : jl === 1 ? "closes next week" : `${jl + 1} weeks left`})` : G.week < JAN[0] && JAN[0] - G.week <= 2 ? ` · January window opens ${JAN[0] - G.week === 1 ? "next week" : "in 2 weeks"}` : ""}`;
 }
 function mast() {
   const c = my(), pos = G.phase === "summer" ? null : posOf(c.lg, c.id), dec = openDecisions().length;
