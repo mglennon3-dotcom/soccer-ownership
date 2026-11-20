@@ -111,7 +111,7 @@ function afterMatch(r, k) {
   const c = my(); if (r.h !== c.id && r.a !== c.id) return;
   const home = r.h === c.id, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? r.a : r.h);
   let crowd = null; if (home) { crowd = homeGameMoney(c, opp, true); c._home = true; } else { awayTrip(c, opp); awayRefundCheck(c, opp, gf, ga); }
-  const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = isDerby(c, opp) ? 2 : 1;
+  const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = [1, 1.5, 2][derbyLevel(c, opp)];
   c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 + vpt("results") - c.morale) * .1, 20, 95);
   moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);
   G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
@@ -346,7 +346,7 @@ function buyerFor(p, belowTier, feeF = 1) {
   // Clubs bound by the spending rule don't take on more pay once their wage bill is well past what they can afford.
   // Rivals (derby clubs, feuding owners) rarely deal with each other.
   const seller = p.club >= 0 ? CL(p.club) : null;
-  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier && !(seller && isDerby(seller, c) && R() < .85)).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF)).slice(0, 6);
+  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier && !(seller && R() < [0, .7, .9][derbyLevel(seller, c)])).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF)).slice(0, 6);
   return cs.length && Math.abs(cs[0].lvl - p.ovr) < 5 || (cs.length && p.ovr > cs[0].lvl) ? pick(cs) : null;
 }
 
