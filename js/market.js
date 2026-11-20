@@ -160,7 +160,7 @@ function headWeek(c) {
   const lim = G.phase === "summer" ? (c.squad.filter(id => !P(id).acad).length < 18 ? 4 : 2) : 1;
   // Your suggestions come first, and don't count against his own list (he'll still only take ones he agrees with).
   for (const x of sugg().slice()) {
-    const p = G.players[x.id];
+    const p = G.players[x.id]; x.wait = false;  // the window's open: no more waiting
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
     const v = suggView(p, c, x.loan); if (!v.ok) continue;
     if (x.loan) loanIn(p, CL(p.club), v.share, "suggestion");
@@ -455,8 +455,13 @@ function headOffWindow(c) {
   for (const x of sugg().slice()) { if (x.loan) continue; const p = G.players[x.id];
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
     if (p.toMe) continue; const v = suggView(p, c, false); if (!v.ok) continue;
-    if (p.club === -1) signPlayer(p, 0, v.ask, false, "suggestion"); else agreeIncoming(p, v.fee, v.ask, s);
-    G.sugg = sugg().filter(y => y !== x); news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null, "Your tips"); }
+    if (p.club === -1) { signPlayer(p, 0, v.ask, false, "suggestion"); G.sugg = sugg().filter(y => y !== x); news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null, "Your tips"); continue; }
+    // A player at another club: she asks you first. Agree the deal now (he joins when the window opens), or wait.
+    if (x.wait || G.inbox.some(m => m.key === "recAsk" && !m.done && m.data.pid === p.id)) continue;
+    const pre = preContractOK(p), preW = pre ? preAsk(p) : 0, next = G.week < JAN[0] ? "the January window" : "the summer";
+    addChoice("recAsk", `${s.name}: shall I agree a deal for ${p.name}?`,
+      `The window is shut, so he can't join until ${next}. I can agree it now: ${v.fee ? `${money(v.fee)} to ${fromName(p)}` : "no fee"}, on ${pw(v.ask)} for ${p.age >= 31 ? "1–2" : "2–4"} years, and he joins then (the fee is paid then). ${pre ? `Or I offer him a pre-contract now instead: no fee, as his contract runs out in the summer, and he'd join then, though he'd want about ${pw(preW)}${renewsAI(p) ? ", as he means to re-sign with them and it'd take a big offer" : ""}.` : `Or we wait and I'll go after him when the window opens; his club and his demands may have changed by then.`}`,
+      ["Agree the transfer now", pre ? `Pre-contract instead (free, ~${pw(preW)})` : "Wait for the window", "Forget him"], { pid: p.id, fee: v.fee, wage: v.ask, pre, preW }, 1); }
 }
 function completeIncoming() {
   for (const p of Object.values(G.players)) { if (!p.toMe) continue; const A = p.toMe; delete p.toMe;
