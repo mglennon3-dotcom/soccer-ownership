@@ -35,6 +35,7 @@ function upgradeSave() {
   if (G.club != null && typeof linkCheck === "function") linkCheck();  // same-division links (from before 0.75.2) end on loading
   // 0.76.1: a one-off: every parent club you've approached this year can be approached again.
   if (!G.ask2 && G.club != null) { G.ask2 = true; const n = Object.values(net().askedIds || {}).filter(y => y === G.year).length; net().askedIds = {}; if (n) news(`You can approach again the ${n} club${n > 1 ? "s" : ""} you asked to be a partner this year.`); }
+  if (!G.reg1 && G.club != null) { G.reg1 = true; if (/kensington/i.test(my().name) && my().region !== "London") { my().region = "London"; my().half = "S"; } }  // 0.77.8: South Kensington is in London
   if (!G.fd2) { G.fd2 = true; for (const x of G.clubs) delete x.feedAsk; if (G.club != null) for (const f of net().feeders || []) { const x = CL(f.id); if (x) f.fund = feederAsk(x); } }  // 0.75.5: feeder asks re-set at the new, lower rate
   if (!G.foreign4) { G.foreign4 = true; addForeignLeagues(); }  // 0.72: fifteen more leagues abroad
   // 0.38.0: foreign clubs spread down through the levels (each country's smaller clubs well below its best); existing
@@ -367,7 +368,7 @@ const ACT = {
     const name = $("#f-name").value.trim(); if (!name) return toast("Give your club a name.");
     const sel = id => ($(`#${id} [aria-pressed="true"]`) || {}).dataset?.v;
     $("#busy").hidden = false; await new Promise(r => setTimeout(r, 30));
-    newWorld({ name, town: $("#f-town").value.trim() || name.split(" ")[0], short: ($("#f-short").value.trim() || name).toUpperCase(), owner: $("#f-owner").value.trim(), vision: JSON.parse(JSON.stringify(START_V)), half: sel("f-half") || "N", color: sel("f-color"), wealth: sel("f-wealth") || "wealthy" });
+    newWorld({ name, town: $("#f-town").value.trim() || name.split(" ")[0], short: ($("#f-short").value.trim() || name).toUpperCase(), owner: $("#f-owner").value.trim(), vision: JSON.parse(JSON.stringify(START_V)), half: (COUNTRY.ENG.regions.find(r => r[0] === $("#f-region").value) || [0, 0, 0, "S"])[3], region: $("#f-region").value, color: sel("f-color"), wealth: sel("f-wealth") || "wealthy" });
     startSeason(); refreshOffers(my());
     $("#busy").hidden = true; PAGE = "home"; render(); saveGame();
   },
