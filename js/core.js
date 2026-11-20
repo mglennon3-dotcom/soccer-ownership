@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.78.6";
+const VERSION = "0.78.7";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -203,7 +203,10 @@ const wageFor = ovr => payOn(PAY200, ovr);
    answer all season). Better than his club's regulars, in his prime, or unsettled, and he's likelier to run his deal
    down and leave; a squad player his club doesn't need may not be offered one; older players value the security. His
    club knows, and sells him for less rather than lose him for nothing. */
+// In the last months of a contract (from the January window's close) it's counted in months, not years.
+const contractLeft = p => p.club >= 0 && p.yrs <= 1 && !p.acad && G.phase === "season" && G.week > JAN[JAN.length - 1] ? `${Math.max(1, Math.round((SEASON_WEEKS - G.week) / 4.3))} months` : p.yrs ? `${p.yrs} yr${p.yrs === 1 ? "" : "s"}` : "—";
 function renewsAI(p) {
+  if (p.toMe && p.toMe.pre) return false;  // he's signed a pre-contract with you
   if (p.club < 0 || p.yrs > 1 || p.acad) return true; const c = CL(p.club); if (!c || isMine(c) || c.gone && !c.abroad) return true;
   if (p.renew && p.renew.y === G.year) return p.renew.ok;
   const top = c.squad.map(id => G.players[id]).filter(q => q && !q.acad).map(q => q.ovr).sort((a, b) => b - a), ref = avg(top.slice(0, 11)) || p.ovr, rank = top.indexOf(p.ovr);
@@ -437,6 +440,7 @@ function newcomerFor(p) {
   toFreeAgent(makePlayer({ pos: pick(POS), ovr, age, nat: c && c.abroad ? c.country : R() < .8 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }));
 }
 function retire(p, cull) {
+  if (p.toMe && p.age < 40) return;  // he's agreed to join you: he isn't hanging up his boots yet
   if (!cull) newcomerFor(p);
   p._retiring = true; onRetire(p);
   if (p.peak >= 80 || p.tot[0] >= 400) G.hof.push({ name: p.name, pos: p.pos, nat: p.nat, peak: p.peak, apps: p.tot[0], goals: p.tot[1], y: G.year, clubs: [...new Set(p.hist.map(h => h[1]))].slice(-5) });

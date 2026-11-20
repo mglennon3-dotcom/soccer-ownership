@@ -438,6 +438,10 @@ function suggest(p, loan) {
    gone) the deal falls through; if his contract runs out in the meantime he comes on a free. */
 // Which window an agreed deal completes in: January (this season's books and budget) or the summer (next season's).
 const toMeWhen = p => p.toMe.when || (p.toMe.y === G.year && G.phase === "season" && p.toMe.w < JAN[0] ? "jan" : "summer");
+/* Pre-contracts: once the January window has closed, a player at another club in the last months of his contract can
+   agree to join you on a free in the summer. No fee and no say for his club; he only has to want to come. */
+const preContractOK = p => p.club >= 0 && p.club !== G.club && !CL(p.club).gone && p.yrs <= 1 && !p.acad && !p.loan && !p.toMe && G.phase === "season" && G.week > JAN[JAN.length - 1];
+function agreePre(p, wage) { agreeIncoming(p, 0, wage); p.toMe.pre = true; p.toMe.when = "summer"; G.news[0].t = `Pre-contract agreed: ${p.name} will join from ${fromName(p)} on a free when his contract ends in the summer, on ${pw(wage)}.`; }
 function agreeIncoming(p, fee, wage, rec) { p.toMe = { fee, wage, y: G.year, w: G.week, rec: !!rec, by: rec ? "recruit" : "you", when: G.phase === "season" && G.week < JAN[0] ? "jan" : "summer" }; news(`${rec ? `${rec.name} agrees a deal` : "Agreed"}: ${p.name} will join from ${fromName(p)} when the ${p.toMe.when === "jan" ? "January window opens (this season's accounts)" : "summer window opens (next season's accounts)"}${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true); }
 // What deals agreed by your head of recruitment have already promised from the budgets (all agreed players' wages count).
 const pendFees = () => sum(incoming().filter(p => p.toMe.rec && toMeWhen(p) === "jan"), p => p.toMe.fee);  // summer deals come out of next season's budget
