@@ -107,7 +107,11 @@ function approachPartner(x) {
 /* Being a feeder pays: each partner pays you a yearly affiliation fee, set by your division (more from a club abroad
    or in the Premier Division, less from a club just above you), paid weekly. */
 const AFFIL_FEE = [0, 1.5e6, 750e3, 350e3, 150e3, 60e3, 30e3, 15e3];
-const affilFee = (x, c = my()) => Math.round(AFFIL_FEE[c.tier] * (x.abroad || x.tier === 1 ? 1.5 : x.tier <= c.tier - 3 ? 1 : .6) / 1000) * 1000;
+// The yearly fee a partner pays: by your division and how far above you they are, then by the club itself: a bigger,
+// better-known club pays more, a multi-club group or big-spending owner more again, a careful one less.
+const AFFIL_STYLE = { multiclub: 1.25, sugar: 1.2, celebrity: 1.15, crypto: 1.1, gambler: 1.05, moneyball: .85, fanowned: .8, academy: .9 };
+const affilFee = (x, c = my()) => Math.round(AFFIL_FEE[c.tier] * (x.abroad || x.tier === 1 ? 1.5 : x.tier <= c.tier - 3 ? 1 : .6)
+  * clamp(.7 + ((x.rep || 50) - 60) / 80, .6, 1.4) * (AFFIL_STYLE[(x.own || {}).style] || 1) / 1000) * 1000;
 function partnersWeek() { const c = my(), t = sum(partners(), p => CL(p.id) ? affilFee(CL(p.id), c) : 0); if (t) earn("network", t / 52); }
 function endPartner(id) { net().partners = partners().filter(x => x.id !== id); news(`The partnership with ${CL(id).name} ends.`); }
 function partnerWindow() {

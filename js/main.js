@@ -404,6 +404,7 @@ const CHANGE = {
   asel: el => { const id = +el.dataset.id; if (el.checked) ASEL.add(id); else ASEL.delete(id); render(); },
   pcty: el => { SUB.pcty = el.value; SUB.plg = ""; render(); },
   plg: el => { SUB.plg = el.value; render(); },
+  psort: el => { SUB.psort = el.value; render(); },
   hf: el => { const k = el.dataset.k; HIRE_F[k] = ["phil", "focus", "form", "vis", "st"].includes(k) ? el.value : +el.value || 0; render(); },
   mf: el => { const k = el.dataset.k; MARKET_F[k] = ["pos", "arch", "int", "lg"].includes(k) ? el.value : +el.value || 0;
     if (k === "pos" && MARKET_F.arch && !(ARCHETYPES[el.value] || []).some(a => a[0] === MARKET_F.arch)) MARKET_F.arch = "";
