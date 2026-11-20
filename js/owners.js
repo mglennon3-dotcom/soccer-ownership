@@ -216,7 +216,9 @@ function levelSample() { G.xiMid = [0]; for (let t = 1; t <= 7; t++) { const cs 
    a season in the black. */
 function wageCheck() { G.wInf ||= [1, 1, 1, 1, 1, 1, 1, 1];
   for (let t = 1; t <= 7; t++) { const cs = G.clubs.filter(c => !c.gone && !c.abroad && !isMine(c) && c.tier === t && c.aiFin && c.aiFin.y === G.year - 1); if (cs.length < 6) continue;
-    const share = cs.filter(c => c.aiFin.net >= 0).length / cs.length, w0 = G.wInf[t], w = clamp(w0 + (share - .3) * .4, .6, 2.5); if (Math.abs(w - w0) < .005) continue;
+    // Judged on what clubs make from football itself (TV, crowds, sponsors...), not on player sales, which come and go;
+    // and it moves gently, at most 3% a year, within 0.7 to 1.6 times the going rate.
+    const share = cs.filter(c => c.aiFin.net - (c.aiFin.fees || 0) >= 0).length / cs.length, w0 = G.wInf[t], w = clamp(w0 + clamp((share - .3) * .4, -.03, .03), .7, 1.6); if (Math.abs(w - w0) < .005) continue;
     G.wInf[t] = Math.round(w * 1000) / 1000;
     for (const c of G.clubs) if (!c.gone && !c.abroad && !isMine(c) && c.tier === t) for (const id of c.squad) { const p = G.players[id]; if (p && !p.acad && !p.loan) p.wage = Math.min(500e3 * 52, Math.round(p.wage * G.wInf[t] / w0 / 100) * 100); } } }
 function ownersSummer() {

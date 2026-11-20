@@ -131,7 +131,8 @@ function foreignUpgrade(c) {
 }
 function foreignSign(c, pos) {
   const target = Math.round(c.lvl + normal() * 4);
-  const sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : !x.gone && x.tier <= 4 && (x.rep || 0) <= c.rep + 3));
+  // Mostly they shop at home and elsewhere abroad: English clubs are in the frame only about one time in four.
+  const eng = R() < .25, sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : eng && !x.gone && x.tier <= 4 && (x.rep || 0) <= c.rep + 3));
   const pool = []; for (const x of sellers) for (const id of x.squad) { const q = P(id); if (q && q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30 && canAfford(c, aiFee(q))) pool.push(q); }
   if (!pool.length) return false;
   const p = pick(pool), from = CL(p.club); aiTransfer(p, c); p.wage = aiWage(p, c); p.yrs = ri(2, 4);
