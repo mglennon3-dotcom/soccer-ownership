@@ -493,6 +493,19 @@ function positionCard(c) {
     <p class="small" style="margin-bottom:8px">${lines.join(" · ")}</p>${miniTable(c.lg)}
     <div class="row" style="margin-top:6px"><button class="lnk small" data-act="page" data-p="league">Full table</button></div></section>`;
 }
+/* Your record this season in every competition (friendlies left out): played, won, drawn, lost, goals for and against.
+   A tie settled on penalties counts as a draw here (the shootout decides who goes through). */
+function recordCard() {
+  const R = (G.myRes || []).filter(r => r.comp && r.comp !== "F"); if (!R.length) return "";
+  const name = k => LEAGUES[k] ? LEAGUES[k].name : k === "PO" ? "Play-offs" : CUP_DEF[k] ? CUP_DEF[k].name : CONT[k] ? CONT[k].name : k;
+  const order = [...new Set(R.map(r => r.comp))].sort((a, b) => (LEAGUES[a] ? 0 : a === "PO" ? 1 : CUP_DEF[a] ? 2 : 3) - (LEAGUES[b] ? 0 : b === "PO" ? 1 : CUP_DEF[b] ? 2 : 3));
+  const rec = rs => { const o = { p: rs.length, w: 0, d: 0, l: 0, f: 0, a: 0 }; for (const r of rs) { o.f += r.gf; o.a += r.ga; r.gf > r.ga ? o.w++ : r.gf < r.ga ? o.l++ : o.d++; } return o; };
+  const row = (l, o, b) => `<tr${b ? ' class="tot"' : ""}><td style="text-align:left" class="small">${b ? `<b>${l}</b>` : l}</td>${[o.p, o.w, o.d, o.l, o.f, o.a].map(v => `<td class="num">${v}</td>`).join("")}<td class="num ${o.f - o.a > 0 ? "good" : o.f - o.a < 0 ? "bad" : ""}">${o.f - o.a > 0 ? "+" : ""}${o.f - o.a}</td></tr>`;
+  const all = rec(R), wp = all.p ? Math.round(all.w / all.p * 100) : 0;
+  return `<section class="card"><div class="card-h"><h2>Season record</h2><span class="small muted">all competitions · ${wp}% won</span></div><div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Competition</th><th>P</th><th>W</th><th>D</th><th>L</th><th>F</th><th>A</th><th>GD</th></tr></thead><tbody>
+    ${order.map(k => row(esc(name(k)), rec(R.filter(r => r.comp === k)))).join("")}${order.length > 1 ? row("All competitions", all, true) : ""}</tbody></table></div>
+    <p class="small muted" style="margin-top:6px">Friendlies aren't counted. A cup tie decided on penalties counts as a draw.</p></section>`;
+}
 function performersCard(c) {
   const ps = c.squad.map(P).filter(p => !p.acad || myS(p).app), any = ps.some(p => myS(p).app);  // for your club only
   const top = (f, k, unit) => { const l = ps.filter(p => f(p) > 0).sort((a, b) => f(b) - f(a) || b.ovr - a.ovr).slice(0, 3);

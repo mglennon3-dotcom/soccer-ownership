@@ -162,6 +162,7 @@ function pgHome() {
     ${G.phase === "summer" && !(G.obj && G.obj.y === G.year) ? objectivesCard() : ""}
   </div></div>`,
     team: () => `<div class="grid2"><div class="stack">
+    ${recordCard()}
     ${performersCard(c)}
     <section class="card"><div class="card-h"><h2>Results</h2><button class="lnk small" data-act="page" data-p="league">All results</button></div>${last.length ? resultsList(last) : `<p class="muted">No games yet.</p>`}</section>
   </div><div class="stack">
