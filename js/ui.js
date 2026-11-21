@@ -890,8 +890,29 @@ function pgHist() {
     <div class="stack"><section class="card"><div class="card-h"><h3>Club legends</h3></div>${(() => { const now = c.squad.map(P).filter(p => favLevel(p, c.id) === 2), past = c.legends || [];
       return now.length || past.length ? now.map(p => `<p class="small"><b>${esc(p.name)}</b> (${p.pos}) · still playing · ${Math.round(loveOf(p, c.id))} affection</p>`).join("") + past.slice().reverse().map(l => `<p class="small"><b>${esc(l.name)}</b> (${l.pos}) · ${l.from}–${l.to} · ${l.apps} games, ${l.goals} goals</p>`).join("")
         : "<p class='small muted'>Players become fan favourites, then legends, through games, goals and loyalty. Legends who retire are remembered here.</p>"; })()}</section>
-    <section class="card"><div class="card-h"><h3>Hall of fame</h3></div>${G.hof.length ? G.hof.slice(-15).reverse().map(h => `<p class="small">${esc(h.name)} (${h.pos}) · peak ${h.peak} · ${h.apps} apps, ${h.goals} goals · retired ${h.y}</p>`).join("") : "<p class='muted small'>Great players who retire are remembered here.</p>"}</section>
+    ${hofCard()}
     <section class="card"><div class="card-h"><h3>Save</h3></div><div class="row"><button class="btn sm" data-act="export">Export save file</button><label class="btn sm">Import<input type="file" id="imp" accept=".json" hidden></label><button class="btn sm" data-act="quit">Back to start</button></div></section></div></div>`;
+}
+
+/* The hall of fame: great players who've retired (a peak of about 16 or more, or 400 games), with every club they played
+   for and what they did there. Yours (and your legends) stand out; sort by most recent, the best, or just your own. */
+let HOF_SORT = "recent";
+function hofCard() {
+  const H = G.hof || [], me = my();
+  const clubsOf = h => h.cs ? h.cs.map(([n, a, g, id]) => `<span class="${id === G.club ? "good" : ""}">${esc(n)}</span> <span class="muted">${a}${a ? ` · ${g} gl` : ""}</span>`)
+    : (h.clubs || []).map(s => { const x = G.clubs.find(x => x.short === s && !x.abroad) || G.clubs.find(x => x.short === s); return `<span class="${x && x.id === G.club ? "good" : ""}">${esc(x ? x.name : s)}</span>`; });
+  const mineOf = h => h.mine ?? (h.clubs || []).includes(me.short);
+  const L = H.map((h, i) => ({ h, i })).filter(({ h }) => HOF_SORT !== "ours" || mineOf(h)).sort((a, b) => HOF_SORT === "best" ? b.h.peak - a.h.peak || b.h.apps - a.h.apps : b.i - a.i).map(x => x.h);
+  const tabs = [["recent", "Most recent"], ["best", "Best"], ["ours", `Played for ${esc(me.short)}`]].map(([k, l]) => `<button data-act="hofsort" data-v="${k}" aria-pressed="${HOF_SORT === k}">${l}</button>`).join("");
+  const row = h => `<div class="hof${mineOf(h) ? " ours" : ""}"><div class="row between" style="gap:10px;align-items:flex-start">
+      <div style="min-width:0"><b>${esc(h.name)}</b> <span class="pos">${h.pos}</span>${h.leg ? ' <span class="chip rival r3">LEGEND</span>' : mineOf(h) ? ' <span class="chip acad">ONE OF OURS</span>' : ""}
+        <div class="small muted">${esc(NAT_NAME[h.nat] || h.nat || "")} · retired ${seasonLabel(h.y)}${h.age ? ` at ${h.age}` : ""}</div></div>
+      <div style="text-align:right;flex:none">${rating(h.peak)}<div class="small muted">peak</div></div></div>
+    <div class="hof-stats small"><span><b>${h.apps}</b> games</span><span><b>${h.goals}</b> goals</span>${h.ast != null ? `<span><b>${h.ast}</b> assists</span>` : ""}</div>
+    <div class="small hof-clubs">${clubsOf(h).join('<span class="muted"> → </span>')}</div></div>`;
+  return `<section class="card"><div class="card-h"><h3>Hall of fame</h3><span class="small muted">${H.length} player${H.length === 1 ? "" : "s"}</span></div>
+    ${H.length ? `<div class="chips" style="margin-bottom:10px">${tabs}</div>${L.length ? L.slice(0, 25).map(row).join("") + (L.length > 25 ? `<details><summary class="small">${Math.min(75, L.length - 25)} more${L.length > 100 ? ` (of ${L.length - 25})` : ""}</summary>${L.slice(25, 100).map(row).join("")}</details>` : "") : `<p class="muted small">None of them played for you.</p>`}`
+      : "<p class='muted small'>Great players who retire are remembered here.</p>"}</section>`;
 }
 
 /* ---------- modal ---------- */
