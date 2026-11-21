@@ -81,12 +81,13 @@ const prepBonus = c => !isMine(c) || G.phase !== "season" || G.week > 5 ? 0 : (c
    Players get unhappy: good enough to start but on the bench, far too good for your division, paid well below their
    worth, or kept from a move they wanted. Every four weeks an unhappy player may hand in a transfer request. */
 function unhappiness(p, c) {
-  if (p.acad || p.loan || p.age > 33 || p.req || p.dealY === G.year || p.inW === windowId() || p.keep) return null;
+  if (p.acad || p.loan || p.age > 33 || p.req || lastDealY(p) === G.year || p.inW === windowId() || p.keep) return null;  // not in the season he signed or re-signed
   const why = [], xi = pickXI(c).map(o => o.p), med = avg(xi.map(q => q.ovr)), games = ((G.leagues[c.lg].tab || {})[c.id] || {}).p || 0;
   let s = 0;
   if (games >= 10 && !xi.includes(p) && p.ovr >= med && p.s.app < games * .3) { s += 2; why.push("playing time"); }
   if (p.ovr - TIER_LVL[c.tier] >= 10) { s += 1 + (p.ovr - TIER_LVL[c.tier] - 10) / 6; why.push("ambition"); }
-  if (p.wage < wageAt(p.ovr, my().tier) * .6 || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
+  // He agreed his wage: no complaint about it until he's played a season on it.
+  if ((p.wage < wageAt(p.ovr, my().tier) * .6 && settledPay(p)) || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
   if (p.blocked) { s += p.blocked * 1.2; why.push("a blocked move"); }
   if (p.nfs && nfsGrudge(p, c)) { s += 1; why.push("being made not for sale"); }
   // The manager's system: no place for his position, or a style that doesn't suit him, matters to those who care.
