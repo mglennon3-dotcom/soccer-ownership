@@ -280,9 +280,12 @@ function yearTurnover() {
     p.yrs--;
     if (p.yrs > 0) continue;
     // He has his say too: the least he'd re-sign for, or he won't (no place in the system, no football, a bigger club calls).
-    const want = p.keep || wantsRenewal(p, core.has(p.id)), un = want ? unhappiness(p, mine) : null;
-    const ask = want ? (un && R() < clamp(un.s * .22, 0, .75) ? null : playerAsk(p, mine)) : undefined;  // an unhappy player may simply say no
-    if (ask === null) { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); gone.push(`${p.name} (turned down a new deal${un ? `: ${un.why[0]}` : ""})`); continue; }
+    // His answer weighs everything he cares about, his loyalty and the fans, as when you offer him a deal yourself.
+    const want = p.keep || wantsRenewal(p, core.has(p.id)), T = want ? renewTerms(p) : null, un = T && T.no ? unhappiness(p, mine) : null;
+    // She won't pay more than half as much again as his going rate to keep him: above that, he goes.
+    const greedy = T && !T.no && T.min > Math.max(p.wage, demandWage(p, mine) * 1.5);
+    const ask = want ? (T.no || greedy ? null : T.min) : undefined;
+    if (ask === null) { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); const why = greedy ? `wanted ${pw(T.min)}, more than he's worth to us` : `turned down a new deal${un ? `: ${un.why[0]}` : loyaltyOf(p) <= .25 ? ": a mercenary, off to the highest bidder" : ""}`; gone.push(`${p.name} (${why})`); continue; }
     if (ask !== undefined) { const was = p.wage; p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(ask / 100) * 100); logPay(p, was, "contract renewal"); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
     else { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); gone.push(p.name); }
   }

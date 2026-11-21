@@ -146,7 +146,9 @@ function requestsCheck() {
   payReviews();
   const c = my(); if (G.phase === "playoffs" || G.week % 4 !== 2) return;
   for (const p of c.squad.map(P)) {
-    const u = unhappiness(p, c); if (!u || R() > clamp(u.s * .07, 0, .35)) continue;
+    // Loyal players (and fan favourites) put up with more before asking to leave; mercenaries ask sooner.
+    const u = unhappiness(p, c), stay = (1.6 - 1.2 * loyaltyOf(p)) * (1 - Math.min(1, loveOf(p, c.id) / LEGEND) * .4);
+    if (!u || R() > clamp(u.s * .07 * stay, 0, .35 * Math.max(1, stay))) continue;
     p.req = G.year;
     addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's unhappy about ${u.why.join(" and ")}.`,
       ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: u.why }, 0);
