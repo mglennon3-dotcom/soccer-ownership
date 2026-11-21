@@ -92,7 +92,8 @@ function loanWageAdj(c) {
    You can be a feeder to up to three bigger clubs: English clubs in any division above you, or clubs abroad. A club
    agrees if you're worth having in its network (your standing against theirs, your training ground, and multi-club
    owners are keener). Each window a partner offers a young player or two on loan, at a wage share it's happy with;
-   in return they expect first look at your best youngsters. A partnership lapses if they're no longer above you. */
+   in return they can approach your best academy prospects (see parentPoachWeek). A partnership lapses if they're no
+   longer above you. */
 const MAX_PARTNERS = 3;
 const partners = () => { const N = net(); if (!N.partners) { N.partners = N.partner ? [N.partner] : []; delete N.partner; } return N.partners; };
 const isPartner = id => partners().some(x => x.id === id);
