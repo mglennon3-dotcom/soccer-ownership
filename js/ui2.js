@@ -632,7 +632,7 @@ function pgMoves() {
       { k: "fee", l: "Fee", r: true, v: p => p.toMe.fee, f: p => p.toMe.fee ? money(p.toMe.fee) : "Free" },
       { k: "wage", l: "Wage", r: true, v: p => p.toMe.wage, f: p => pw(p.toMe.wage) },
       { k: "by", l: "Deal by", left: true, v: p => p.toMe.rec ? 1 : 0, f: p => `<span class="small muted">${p.toMe.rec ? "Head of recruitment (your suggestion)" : "You (club cash, outside the budgets)"}</span>` },
-    ], ag, { sort: { k: "when", d: 1 }, quiet: true })}
+    ], ag, { sort: { k: "when", d: 1 }, freeze: ["name"], quiet: true })}
     <p class="small muted" style="margin-top:6px">Nothing is paid until he joins: the fee comes out then and his wages start. Deals your head of recruitment agrees for January are held back from this season's transfer budget; summer ones come out of next season's.</p></section>` : "";
   return `<div class="stack">${agreed}<section class="card"><div class="card-h"><h2>Transfer activity</h2>
       <select data-act="msel">${["all", ...ys].map(v => `<option value="${v}" ${String(v) === String(y) ? "selected" : ""}>${v === "all" ? "All seasons" : seasonLabel(+v)}</option>`).join("")}</select></div>
@@ -647,7 +647,7 @@ function pgMoves() {
       { k: "fee", l: "Fee", r: true, v: m => m.fee || 0, f: m => m.fee ? `<span class="${m.kind === "out" ? "good" : ""}">${m.kind === "release" ? "−" : ""}${money(m.fee)}</span>` : m.kind === "in" ? "Free" : "—" },
       { k: "wage", l: "Wage", r: true, v: m => m.wage || 0, f: m => m.wage ? pw(m.wage) : "—" },
       { k: "by", l: "Deal by", left: true, v: m => m.by || "", f: m => `<span class="small muted">${esc(MOVE_BY[m.by] || "")}</span>` },
-    ], rows, { sort: { k: "when", d: -1 }, quiet: true }) : `<p class="muted">${L.length ? "No moves of this kind." : "Your club's signings, sales, loans and releases will be listed here from now on."}</p>`}</section></div>`;
+    ], rows, { sort: { k: "when", d: -1 }, freeze: ["name"], quiet: true }) : `<p class="muted">${L.length ? "No moves of this kind." : "Your club's signings, sales, loans and releases will be listed here from now on."}</p>`}</section></div>`;
 }
 
 /* ---------- club prestige ----------

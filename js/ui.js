@@ -69,7 +69,7 @@ function renderStart(saves) {
 }
 
 /* ---------- masthead ---------- */
-const PAGES = [["home", "Office"], ["owner", "Owner"], ["squad", "Squad"], ["stats", "Stats"], ["tactics", "Tactics"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["moves", "Activity"], ["rivals", "Rivals"], ["hist", "History"]];
+const PAGES = [["home", "Office"], ["owner", "Owner"], ["squad", "Squad"], ["tactics", "Tactics"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["moves", "Activity"], ["rivals", "Rivals"], ["hist", "History"]];
 function phaseText() {
   if (G.phase === "summer") return `${seasonLabel(G.year)} pre-season · week ${G.week + 1} of ${SUMMER_WEEKS} · transfer window open${SUMMER_WEEKS - G.week <= 2 ? ` (closes ${SUMMER_WEEKS - G.week === 1 ? "this week" : "next week"})` : ""}`;
   if (G.phase === "playoffs") return `${seasonLabel(G.year)} · play-offs`;
@@ -91,7 +91,7 @@ function mast() {
 function render() {
   if (!G) return;
   if (G.club == null) { $("#app").innerHTML = buyScreen(); return; }
-  const body = { home: pgHome, squad: pgSquad, stats: pgStats, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals, tactics: pgTactics, owner: pgOwner, hire: pgHire, moves: pgMoves }[PAGE]();
+  const body = { home: pgHome, squad: pgSquadPage, stats: pgSquadPage, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals, tactics: pgTactics, owner: pgOwner, hire: pgHire, moves: pgMoves }[PAGE]();
   if (G.ended) { $("#app").innerHTML = endScreen(); return; }
   // The section tabs keep their sideways scroll across redraws, so tapping a tab doesn't snap the bar back to the start.
   // (Only a visible bar records it: iOS reports 0 while the compact masthead hides it.)
@@ -250,6 +250,12 @@ function tableHTML(k, rows, off = 0, compact) {
 function pgStats() {  // the squad's season (your club's games only): its own page in the top bar
   const c = my(), xi = new Set(pickXI(c).map(o => o.p.id)), ps = c.squad.map(P).filter(p => p && (!p.acad || myS(p).app > 0));
   return `<section class="card"><div class="card-h"><h2>Season stats</h2><span class="small muted">${esc(c.name)} games only</span></div>${ps.length ? squadStats(c, ps, xi) : `<p class="muted">No games yet.</p>`}</section>`;
+}
+// The Squad page: two views, like the Office's tabs: the players (with their lists) and the season's stats.
+function pgSquadPage() {
+  if (PAGE === "stats") { PAGE = "squad"; SUB.sqview = "stats"; }
+  const v = SUB.sqview || "players", T = [["players", "Players"], ["stats", "Stats"]];
+  return `<div class="chips" style="margin-bottom:14px">${T.map(([k, l]) => `<button data-act="sub" data-k="sqview" data-v="${k}" aria-pressed="${v === k}">${l}</button>`).join("")}</div>${v === "stats" ? pgStats() : pgSquad()}`;
 }
 function pgSquad() {
   const c = my(), tab = SUB.squad && SUB.squad !== "stats" ? SUB.squad : "first", xi = new Set(pickXI(c).map(o => o.p.id));
