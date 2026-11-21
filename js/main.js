@@ -47,6 +47,11 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
+  if (!G.sc1) { G.sc1 = true;  // 0.90.5: one-off: players who moved this season get their season split by club (from their career record)
+    for (const p of Object.values(G.players)) { if (p.club < 0 || (p.sc && p.sc.y === G.year)) continue;
+      const t = (p.tx || []).filter(x => x[0] === G.year && x[3] === p.club).pop(); if (!t || t[2] == null || t[2] < 0) continue;
+      const here = ((p.cs || {})[p.club] || [0, 0, 0]).map((v, i) => Math.min(v, [p.s.app, p.s.g, p.s.a][i])), s = [p.s.app, p.s.g, p.s.a];
+      p.sc = { y: G.year, by: { [t[2]]: s.map((v, i) => Math.max(0, v - here[i])), [p.club]: here } }; } }
   if (!G.back1 && G.club != null) { G.back1 = true; const c = my();  // 0.89.2: one-off: Adam Brannigan and Zach Palmer come back from the parent clubs on pro deals; compensation repaid
     for (const name of ["Adam Brannigan", "Zach Palmer"]) {
       const p = Object.values(G.players).find(p => p.name === name && p.club >= 0 && p.club !== c.id && partners().some(pt => pt.id === p.club)); if (!p) continue;

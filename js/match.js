@@ -194,7 +194,10 @@ const lsOf = p => p.ls && p.ls.y === G.year ? p.ls : (p.ls = { y: G.year, g: 0, 
    (p.ss) and career since they've been kept (p.ct): [apps, goals, assists]. MATCH_CT is set by whoever plays the game. */
 let MATCH_CT = "L";
 const ssOf = p => p.ss && p.ss.y === G.year ? p.ss : (p.ss = { y: G.year, L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] });
-function addStat(p, k) { const t = MATCH_CT; ssOf(p)[t][k]++; ((p.ct ||= { L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] })[t])[k]++; p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||= {})[p.club] ||= [0, 0, 0])[k]++; }
+// This season, club by club (p.sc.by[club] = [apps, goals, assists]): a player who moves mid-season keeps each club's share.
+const scOf = p => p.sc && p.sc.y === G.year ? p.sc : (p.sc = { y: G.year, by: {} });
+const seasonAt = (p, cid) => { const S = p.sc && p.sc.y === G.year && p.sc.by[cid]; return S || (p.sc && p.sc.y === G.year ? [0, 0, 0] : p.club === cid ? [p.s.app, p.s.g, p.s.a] : [0, 0, 0]); };
+function addStat(p, k) { if (p.club >= 0) (scOf(p).by[p.club] ||= [0, 0, 0])[k]++; const t = MATCH_CT; ssOf(p)[t][k]++; ((p.ct ||= { L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] })[t])[k]++; p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||= {})[p.club] ||= [0, 0, 0])[k]++; }
 function injuryCheck(p, pq) {
   const c = CL(p.club), tl = isMine(c) ? c.fac.train.lvl : c.train, surf = pq != null && pq < 60 ? 1 + (60 - pq) / 50 : 1;
   if (R() < .011 * (1.3 - tl * .05) * surf * (G.phase === "season" && inEurope(c) ? 1.25 : 1)) {
