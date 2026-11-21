@@ -47,6 +47,11 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
+  if (!G.am1 && G.club != null) { G.am1 = true; const c = my(), YT = YEAR_TICKS(), now = yearTick();  // 0.83.0: one-off: fees already paid go on the books at what's left of them
+    for (const p of c.squad.map(P).concat((G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id))) {
+      const t = (p.tx || []).filter(x => x[3] === c.id && x[4] > 0).pop(); if (!t || p.am) continue;
+      const done = (G.year - t[0]) * YT + now - (t[1] ? SUMMER_WEEKS + JAN[0] : 0), left = Math.max(0, (p.yrs || 0) * YT - now);
+      const bk = Math.round(t[4] * left / Math.max(1, done + left)); if (bk > 0) p.am = { book: bk, fee: t[4], y: t[0] }; } }
   if (!G.rtd1 && G.club != null) { G.rtd1 = true; const ids = new Set(my().squad.filter(id => G.players[id] && G.players[id].retrained)); for (const role in G.depth || {}) G.depth[role] = G.depth[role].filter(id => !ids.has(id)); }  // 0.82.3: one-off: retrained players re-slotted in the depth charts
   if (!G.treq2 && G.club != null) { G.treq2 = true; for (const m of G.inbox) { const p = m.key === "treq" && !m.done && G.players[m.data.pid]; if (p && lastDealY(p) === G.year) { m.done = true; m.drop = true; p.req = 0; } } G.inbox = G.inbox.filter(m => !m.drop); }  // 0.81.3: one-off: drop transfer requests from players who only just signed
   if (!G.raise2 && G.club != null) { G.raise2 = true; G.inbox = G.inbox.filter(m => !(m.key === "raise" && !m.done && !m.data.threat && G.players[m.data.pid] && !settledPay(G.players[m.data.pid]))); }  // 0.81.2: one-off: drop pay-rise asks from players too new to ask

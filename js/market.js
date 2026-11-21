@@ -141,7 +141,7 @@ function signPlayer(p, fee, wage, byOwner, how) {
   p.abroad = undefined;
   NEXT_FEE = fee; moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4); registerNew(p, c); logPay(p, 0, "signed");
   signingBoost(p, c);
-  spend("buys", fee); if (!byOwner) c.spentT += fee;
+  c.cash -= fee; book("buys", fee); if (fee) p.am = { book: fee, fee, y: G.year }; if (!byOwner) c.spentT += fee;  // cash now; the accounts spread it over his contract
   if (seller && !seller.gone) aiSquadCheck(seller, true);
   news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${pw(wage)}.`, true);
 }
