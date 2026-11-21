@@ -442,6 +442,35 @@ function budgetFit(p, loan) {
 }
 const budgetFitText = f => [f.transfer ? `the transfer budget by ${money(f.transfer)}` : "", f.wages ? `the wage budget by ${money(f.wages)} a year (${pw(f.wages)})` : ""].filter(Boolean).join(" and ");
 
+/* A new contract for one of your players, offered by you at any time from his card. The least he'll sign for is
+   his asking wage (more if he's unhappy, and never below what he earns now, unless he's in his last year and paid over
+   his worth); his agent opens a quarter above it. Your head of recruitment estimates it: the better a negotiator, the
+   closer. Three refusals a season and the agent ends talks until next season. Older players want shorter deals. */
+function renewTerms(p) {
+  const c = my(), k = "R" + G.year; if (!p.rn || p.rn.k !== k) p.rn = { k, tries: 0, n: normal(), off: false };
+  const s = staffOf("recruit"), ask = playerAsk(p, c), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5;
+  if (ask == null) return { no: true, s, un: unhappiness(p, c), maxY };
+  const un = unhappiness(p, c), u = un ? Math.min(.5, un.s * .1) : 0;
+  const min = Math.ceil(Math.max(ask * (1 + u), p.yrs <= 1 ? p.wage * .9 : p.wage) / 100) * 100;
+  const agent = Math.round(min * 1.25 / 100) * 100;
+  const floor = Math.ceil((p.yrs <= 1 ? p.wage * .9 : p.wage) / 100) * 100;  // he knows he won't take a cut mid-contract
+  const advice = s ? Math.max(floor, Math.round(min * (1.02 + clamp(p.rn.n, -2, 2) * (100 - s.at.neg) / 400) / 100) * 100) : null;
+  return { min, agent, advice, s, un, maxY, tries: p.rn.tries, off: p.rn.off };
+}
+function offerRenewal(p, wage, yrs) {
+  const T = renewTerms(p); wage = Math.round(wage / 100) * 100;
+  if (T.no) return { ok: false, t: `${p.name} doesn't want a new contract here${T.un ? `: he's unhappy about ${T.un.why.join(" and ")}` : ""}.` };
+  if (T.off) return { ok: false, t: `${p.name}'s agent has ended talks until next season.` };
+  if (wage >= T.min) {
+    const was = p.wage; p.wage = wage; p.yrs = clamp(Math.round(yrs), 1, T.maxY); logPay(p, was, "new deal");
+    p.dealY = G.year; p.unsettled = 0; p.payGrudge = 0; p.expiring = false; delete p.rn;
+    news(`${p.name} signs a new ${p.yrs}-year contract: ${pw(wage)}${was !== wage ? ` (was ${pw(was)})` : ""}.`, true);
+    return { ok: true, t: `${p.name} signs: ${pw(wage)} for ${p.yrs} year${p.yrs > 1 ? "s" : ""}.` };
+  }
+  if (++p.rn.tries >= 3) { p.rn.off = true; return { ok: false, t: `${p.name}'s agent turns it down and ends talks until next season.` }; }
+  return { ok: false, t: `${p.name}'s agent turns ${pw(wage)} down: he wants more. ${3 - p.rn.tries} more ${3 - p.rn.tries === 1 ? "try" : "tries"} this season.` };
+}
+
 /* Your own pre-contracts and loans aren't held to the wage budget, but the screens say whether he fits and offer to
    raise it just enough (to the next 1,000 a year). Room counts deals already agreed. */
 const wageRoom = () => my().budget.wages - wageBill(my()) - pendWages();
