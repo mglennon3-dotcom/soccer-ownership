@@ -143,3 +143,7 @@ table.sq.tight .ovr{font-size:11.5px}
 table.sq.tight label.small{font-size:11px;gap:4px}
 table.sq.tight td:has(> .lnk[data-act="player"]){min-width:5.5em;max-width:7em}
 table.sq.tight label.small{white-space:nowrap}
+/* Compact tables: the player cell keeps to his name and tags (no nationality or playing style), in smaller type. */
+table.sq.tight .small{font-size:11px}
+table.sq.tight .chip{font-size:9.5px;padding:0 4px}
+table.sq.tight td:has(> .lnk[data-act="player"]) > .muted.small,table.sq.tight td:has(> .lnk[data-act="player"]) > br,table.sq.tight td:has(> .lnk[data-act="player"]) > br + .small{display:none}
