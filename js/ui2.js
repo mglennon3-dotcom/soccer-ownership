@@ -436,6 +436,19 @@ function tacticsShape() {
 }
 
 /* ---------- Office: league position, top performers, areas of need ---------- */
+/* Office: each domestic cup you're still in: the next tie (or a bye), and your run so far. Winners get a trophy card. */
+function cupsOfficeCard() {
+  const cell = id => { const x = CL(id); return `${crest(x, 14)} <button class="lnk" data-act="club" data-id="${id}">${esc(x.name)}</button> <span class="muted small">${esc(TIER_NAME[x.tier] || "")}</span>`; };
+  return Object.entries(G.cups || {}).filter(([, K]) => K.win === G.club || (K.alive || []).includes(G.club)).map(([k, K]) => {
+    const D = CUP_DEF[k], link = `<button class="lnk small" data-act="sub" data-k="comp" data-v="${k}" data-p="league">Full draw</button>`;
+    const run = (G.myRes || []).filter(r => r.comp === k).map(r => `<div class="row between small" style="padding:2px 0"><span class="muted">${esc(r.label || "")}</span><span>${r.neutral ? "" : r.home ? "home to " : "away to "}${esc(CL(r.opp).name)}</span><b class="${r.res === "W" ? "good" : "bad"}">${r.gf}–${r.ga}${r.pens ? " p" : ""}</b></div>`).join("");
+    if (K.win === G.club) return `<section class="card summary"><h3>🏆 ${esc(D.name)} winners</h3>${run}</section>`;
+    const t = (K.ties || []).find(t => t.h === G.club || t.a === G.club), wk = D.weeks[K.round];
+    const next = t ? `<p style="margin:2px 0">${K.name === "Final" ? "v" : t.h === G.club ? "Home to" : "Away to"} ${cell(t.h === G.club ? t.a : t.h)}</p><p class="small muted">${K.name === "Final" ? "At a neutral ground · " : ""}Week ${wk + 1}</p>`
+      : `<p class="small">A bye in the ${esc((K.name || "").toLowerCase())}: you're through to the next round.</p>`;
+    return `<section class="card"><div class="card-h"><h3>${esc(D.name)} · ${esc(K.name || "")}</h3>${link}</div>${next}${run ? `<div style="margin-top:6px;border-top:1px solid var(--line);padding-top:6px">${run}</div>` : ""}</section>`;
+  }).join("");
+}
 /* Office: your European group while you're in it (or your knockout tie while you're still alive). */
 function euroOfficeCard() {
   return Object.values(G.cont || {}).filter(K => K.teams && K.teams.includes(G.club)).map(K => {
