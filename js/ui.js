@@ -1142,6 +1142,9 @@ function bestFeederFor(p) {
 function loanSuggestTable(c, ps, LS) {
   return `<p class="small" style="margin-bottom:8px">Young players with the potential to start at this level who aren't starting or first backup: a season of games on loan will do them more good. Put them on the loan list and clubs at their level will make offers${c.tier >= 5 ? " (non-league loans run all season)" : " while a window is open"}.</p>
   ${sortTable("squad-sugloan", [
+    { k: "ll", l: "Loan list", v: p => p.loanList ? 1 : 0, f: p => `<input type="checkbox" data-act="sugll" data-id="${p.id}" ${p.loanList ? "checked" : ""} aria-label="Loan list: ${esc(p.name)}">` },
+    { k: "fd", l: "Feeder", left: true, f: p => { const x = bestFeederFor(p); if (!x) return `<span class="small muted">no feeders</span>`; const g = challengeF(p, x);
+      return `<label class="small" style="display:flex;gap:6px;align-items:center" title="${esc(x.name)}, ${esc(TIER_NAME[x.tier] || "")}"><input type="checkbox" data-act="sugfd" data-id="${p.id}" data-to="${x.id}" aria-label="Loan ${esc(p.name)} to ${esc(x.name)}"><span>${esc(x.short)}<br><span class="${g < 1 ? "warn" : "good"}">${g < 1 ? `−${Math.round((1 - g) * 100)}%` : "good test"}</span></span></label>`; } },
     { k: "name", l: "Player", left: true, v: p => p.name, f: p => `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${wkChip(p)}${p.loanList ? ' <span class="chip acad">LOAN LIST</span>' : ""}` },
     { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos), f: p => `<span class="pos">${p.pos}</span>` },
     { k: "age", l: "Age", r: true, v: p => p.age, f: p => p.age },
@@ -1149,8 +1152,5 @@ function loanSuggestTable(c, ps, LS) {
     { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
     { k: "depth", l: "Place in the side", left: true, v: p => LS.get(p.id).order ?? 99, f: p => `<span class="small">${esc(LS.get(p.id).why)}</span>` },
     { k: "app", l: "Apps", r: true, v: p => p.s.app || 0, f: p => p.s.app || 0 },
-    { k: "ll", l: "Loan list", v: p => p.loanList ? 1 : 0, f: p => `<input type="checkbox" data-act="sugll" data-id="${p.id}" ${p.loanList ? "checked" : ""} aria-label="Loan list: ${esc(p.name)}">` },
-    { k: "fd", l: "To a feeder", left: true, f: p => { const x = bestFeederFor(p); if (!x) return `<span class="small muted">no feeders</span>`; const g = challengeF(p, x);
-      return `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="sugfd" data-id="${p.id}" data-to="${x.id}" aria-label="Loan ${esc(p.name)} to ${esc(x.name)}"><span>${esc(x.name)}<br><span class="muted">${esc(TIER_NAME[x.tier] || "")}${g < 1 ? ` · grows ${Math.round((1 - g) * 100)}% slower` : " · a good test"}</span></span></label>`; } },
-  ], ps, { sort: { k: "pot", d: -1 }, freeze: ["name", "pos"] })}`;
+  ], ps, { sort: { k: "pot", d: -1 }, freeze: ["ll", "fd", "name", "pos"] })}`;
 }
