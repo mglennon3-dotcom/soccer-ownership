@@ -753,6 +753,21 @@ const paraPlan = c => c.para ? PARA[c.para.from].slice(c.para.i, c.para.n).map(f
    budgets. Assumes your head of recruitment uses the wage and transfer budgets while a window is still to come, a
    typical crowd at the remaining home games and merit money for your current league position. Cup runs, Europe,
    player sales and building work aren't forecast. */
+function euroForecast(c) {
+  const R = { n: 0, home: 0, inc: 0, travel: 0, name: "" };
+  for (const K of Object.values(G.cont || {})) {
+    if (!K.teams || !K.teams.includes(c.id) || K.md >= 6) continue;
+    const D = CONT[K.key], g = K.groups.findIndex(x => x.includes(c.id)), i = K.groups[g].indexOf(c.id); R.name = D.name;
+    for (let md = K.md; md < 6; md++) {
+      const pr = GROUP_MD[md].find(p => p.includes(i)); if (!pr) continue; const opp = CL(K.groups[g][pr[0] === i ? pr[1] : pr[0]]); R.n++;
+      R.inc += (D.win + D.draw) / 3;  // an even record: a third of the games won, a third drawn
+      if (pr[0] === i) { const crowd = Math.min(capacity(c), Math.round(crowdFor(c, opp) * 1.2)); R.home++;
+        R.inc += crowd * c.prices.ticket * 1.3 + concessionsFor(c, crowd).net - ground(c).rent - opsCost(c, crowd); }
+      else R.travel += Math.round(TRAVEL[c.tier] * tripF(c, opp));
+    }
+  }
+  return R;
+}
 function seasonForecast(c = my()) {
   const f = c.fin, summer = G.phase === "summer", sw = summer ? Math.max(0, SUMMER_WEEKS - G.week) : 0;
   const se = summer ? SEASON_WEEKS : G.phase === "season" ? Math.max(0, SEASON_WEEKS - G.week) : 0, W = sw + se;
@@ -785,6 +800,9 @@ function seasonForecast(c = my()) {
     "Agreed signings for January": G.phase === "season" ? sum(incoming().filter(p => toMeWhen(p) === "jan" && !p.toMe.rec), p => p.toMe.fee / 3 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0])) / YEAR_TICKS() + p.toMe.wage / 52 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0]))) : 0,
     "Away travel": away * TRAVEL[c.tier], "Feeder funding": feederFunding() / 52 * W, "Interest": Math.max(0, -c.cash) * .1 / 52 * W + sum(G.loans || [], l => (l.rate || 0) * (l.left || 0)) / 52 * W,
   };
+  // Europe: the group games still to play (home gates, an even share of the results money, away travel). Knockout
+  // rounds aren't forecast: they count once you're through, as they happen.
+  { const E = euroForecast(c); if (E.n) { rest[`${E.name} group games (${E.home} at home)`] = E.inc; out["Away travel"] += E.travel; } }
   const sofar = ledgerIncome(f) - ledgerCosts(f), inc = sum(Object.values(rest), v => v);
   // Corporation tax on a profit, after losses carried forward (see seasonTax).
   { const pre = sofar + inc - sum(Object.values(out), v => v); out["Corporation tax"] = pre > 0 ? Math.max(0, pre - (G.taxLoss || 0)) * TAX : 0; }
