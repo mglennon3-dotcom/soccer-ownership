@@ -47,6 +47,18 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
+  if (!G.csfix1 && G.club != null) { G.csfix1 = true;  // 0.91.10: one-off: the Shield final you lost on penalties is yours instead
+    for (const K of [...Object.values(G.cont || {}), ...Object.values(G.contLast || {})]) {
+      const RD = (K.ko || []).find(R => R.n === "Final"), t = RD && RD.ties[0]; if (!t || !t.pens || t.w == null || t.w === G.club || (t.h !== G.club && t.a !== G.club)) continue;
+      const D = CONT[K.key], y = K === G.cont[K.key] ? G.year : G.year - 1, lbl = seasonLabel(y), them = CL(t.w), c = my();
+      t.w = G.club; K.win = G.club;
+      them.trophies = (them.trophies || []).filter(x => !(x[0] === y && x[1] === D.name)); them.rep = Math.max(1, them.rep - 4);
+      c.trophies.push([y, D.name]); c.rep = Math.min(99, c.rep + 4); earn("prize", D.champ); moodHit(c, 25); bumpMedia(25);
+      for (const p of Object.values(G.players)) if (p.acc) p.acc = p.acc.filter(a => !(a[1] === "euro" && a[2] === `${D.name} winner ${lbl}`));
+      for (const p of c.squad.map(P)) if (p && !p.acad && seasonAt(p, c.id)[0] >= 5) (p.acc ||= []).push([y, "euro", `${D.name} winner ${lbl}`]);
+      const r = (G.myRes || []).find(r => r.comp === K.key && / final$/i.test(r.label || "")); if (r) r.res = "W";
+      G.news = G.news.filter(n => !n.t.startsWith(`${them.name} win the ${D.name}`) && !n.t.startsWith(`${them.name} (`));
+      news(`EUROPEAN CHAMPIONS! ${c.name} win the ${D.name} on penalties against ${them.name}!`, true); } }
   if (!G.sc2) { G.sc2 = true;  // 0.91.6: one-off: the season's games from before the split by club began go back in (to his earlier club if he moved, else this one)
     for (const p of Object.values(G.players)) { if (!p.sc || p.sc.y !== G.year || p.club < 0) continue;
       const by = p.sc.by, keys = Object.keys(by), tot = [0, 1, 2].map(i => keys.reduce((s, k) => s + (by[k][i] || 0), 0)), miss = [p.s.app - tot[0], p.s.g - tot[1], p.s.a - tot[2]];
