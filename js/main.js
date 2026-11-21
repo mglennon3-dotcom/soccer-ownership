@@ -272,6 +272,8 @@ const ACT = {
   bidctr: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (!m) return; const t = counterBid(m, num($("#ctr" + m.id))); BID_SAY = t ? { id: m.id, t } : null; if (t) toast(t); render(); saveGame(); },
   war: el => { const w = G.inbox.find(x => x.id === +el.dataset.id); if (!w || w.done) return; const v = el.dataset.v; if (v === "sell") warSell(w, false); else if (v === "keep") warKeep(w); else { const T = warRaise(w); toast(`Best offer now: ${CL(T.id).name}, ${money(T.amt)}.`); } render(); saveGame(); },
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "2" ? 2 : el.dataset.v === "1", false); render(); saveGame(); },
+  renewgo: el => { const p = P(+el.dataset.id), r = offerRenewal(p, num($("#rn-wage")) * 52, +$("#rn-yrs").value);
+    RENEW_SAY = r.ok ? null : { id: p.id, t: r.t }; if (r.ok) toast(r.t); playerModal(p.id); render(); saveGame(); },
   fitwage: el => { const p = P(+el.dataset.id), sh = $("#lshare") ? $("#lshare").value : null; raiseWages(+el.dataset.amt, p); el.dataset.re === "pre" ? preModal(p.id) : playerModal(p.id);
     if (sh != null && $("#lshare")) { $("#lshare").value = sh; CHANGE.lshare($("#lshare")); } render(); saveGame(); },
   fitbudget: async el => { const p = P(+el.dataset.id), loan = !!el.dataset.loan, f = budgetFit(p, loan), c = my(), s = staffOf("recruit"); if (!f || !s) return;

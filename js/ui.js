@@ -352,7 +352,7 @@ function playerModal(id) {
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}${mine ? "" : ` <button class="fav-btn ${isFav(p.id) ? "on" : ""}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" title="${isFav(p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(p.id) ? "★" : "☆"}</button>`}</h2><p class="small muted">${archetypeOf(p) ? `<b class="arch">${esc(archetypeOf(p)[0])}</b> · ` : ""}${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : contractLeft(p)}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? `<br><span class="small">+25% if promoted, −25% if relegated</span>` : ""}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
-    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${acts}
+    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${acts}
     ${archetypeOf(p) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${(() => { const pr = prefsOf(p, P_FACTORS), wm = wageMult(p, my()), h = homeOf(p), fit = systemFit(p);
       return `<p class="small"><b>What drives him:</b> ${personaOf(p).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.
@@ -832,6 +832,23 @@ function pgMarket() {
 }
 // Under a "can't afford him" verdict: an offer to raise the budgets just enough.
 function fitBtn(p, loan) { const f = budgetFit(p, loan); return f ? `<div class="row" style="margin:4px 0 6px"><button class="btn sm" style="white-space:nowrap" data-act="fitbudget" data-id="${p.id}"${loan ? ' data-loan="1"' : ""}>Raise the budget to fit him</button><span class="small muted">${budgetFitText(f).replace(/^t/, "T")}</span></div>` : ""; }
+// On your own player's card: offer him a new contract, with your head of recruitment's advice on the wage.
+let RENEW_SAY = null;
+function renewBox(p) {
+  const T = renewTerms(p), say = RENEW_SAY && RENEW_SAY.id === p.id ? RENEW_SAY.t : "";
+  const head = `<b class="small">Offer a new contract</b><p class="small muted">Now: ${pw(p.wage)}, ${p.yrs} year${p.yrs === 1 ? "" : "s"} left.</p>`;
+  if (T.no) return `<div class="sugg">${head}<p class="small warn">He doesn't want a new contract here${T.un ? `: he's unhappy about ${esc(T.un.why.join(" and "))}` : ""}.</p></div>`;
+  if (T.off) return `<div class="sugg">${head}<p class="small warn">His agent has ended talks until next season.</p></div>`;
+  const pick = T.advice || T.agent, yDef = Math.min(T.maxY, p.age < 27 ? 4 : 3), extra = Math.max(0, pick - p.wage), short = extra ? wageShort(extra) : 0;
+  const adv = T.s ? `<p class="small"><b>${esc(T.s.name)}:</b> "His agent will open at ${pw(T.agent)}. ${T.advice <= p.wage ? `I think he'd sign for what he's on now, <b>${pw(T.advice)}</b>: no rise needed.` : `I think he'd sign for about <b>${pw(T.advice)}</b>, so I'd offer that.`}${T.maxY < 5 ? ` At ${p.age} he'll want ${T.maxY} years at most.` : ""}${T.un ? ` He's unhappy about ${esc(T.un.why.join(" and "))}, which will cost us.` : ""}"</p>`
+    : `<p class="small muted">His agent will open at ${pw(T.agent)}. Hire a head of recruitment for advice on what he'd really take.</p>`;
+  return `<div class="sugg">${head}${adv}
+    <div class="row" style="margin-top:6px;gap:8px"><label class="small">Wage €/week <input type="text" inputmode="decimal" class="num-in" id="rn-wage" value="${fmtNum(Math.ceil(pick / 52 / 50) * 50)}"></label>
+    <label class="small">Years <select id="rn-yrs">${Array.from({ length: T.maxY }, (_, i) => i + 1).map(y => `<option value="${y}" ${y === yDef ? "selected" : ""}>${y}</option>`).join("")}</select></label>
+    <button class="btn sm" data-act="renewgo" data-id="${p.id}">Offer</button></div>
+    ${short ? `<div style="margin:6px 0"><p class="small warn" style="margin-bottom:4px">At ${pw(pick)} the rise (${pw(extra)}) takes the wage budget over by ${pw(short)}.</p><button class="btn sm" data-act="fitwage" data-id="${p.id}" data-amt="${short}" data-re="card">Raise the wage budget to fit him</button></div>` : ""}
+    ${say ? `<p class="small warn">${esc(say)}</p>` : T.tries ? `<p class="small muted">He's turned down ${T.tries} offer${T.tries > 1 ? "s" : ""} this season: ${3 - T.tries} left.</p>` : ""}</div>`;
+}
 function preModal(id) {
   const p = G.players[id], wage = preAsk(p), stay = renewsAI(p);
   modal(`<div class="modal-h"><div><p class="eyebrow">Pre-contract</p><h2>${esc(p.name)}</h2><p class="small muted">${esc(fromName(p))} · contract ends in the summer (${contractLeft(p)} left)</p></div><button class="btn modal-x" data-act="close">✕</button></div>
