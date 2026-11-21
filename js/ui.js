@@ -352,7 +352,7 @@ function playerModal(id) {
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}${mine ? "" : ` <button class="fav-btn ${isFav(p.id) ? "on" : ""}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" title="${isFav(p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(p.id) ? "★" : "☆"}</button>`}</h2><p class="small muted">${archetypeOf(p) ? `<b class="arch">${esc(archetypeOf(p)[0])}</b> · ` : ""}${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : contractLeft(p)}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? `<br><span class="small">+25% if promoted, −25% if relegated</span>` : ""}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
-    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${acts}
+    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${mine ? retrainBox(p) : ""}${acts}
     ${archetypeOf(p) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${(() => { const pr = prefsOf(p, P_FACTORS), wm = wageMult(p, my()), h = homeOf(p), fit = systemFit(p);
       return `<p class="small"><b>What drives him:</b> ${[...personaOf(p), loyalWord(p)].filter(Boolean).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.
@@ -832,6 +832,17 @@ function pgMarket() {
 }
 // Under a "can't afford him" verdict: an offer to raise the budgets just enough.
 function fitBtn(p, loan) { const f = budgetFit(p, loan); return f ? `<div class="row" style="margin:4px 0 6px"><button class="btn sm" style="white-space:nowrap" data-act="fitbudget" data-id="${p.id}"${loan ? ' data-loan="1"' : ""}>Raise the budget to fit him</button><span class="small muted">${budgetFitText(f).replace(/^t/, "T")}</span></div>` : ""; }
+// On your own player's card: retrain him to a neighbouring position, once, with the manager's estimate.
+function retrainBox(p) {
+  if (p.retrained) return `<p class="small muted">Retrained from ${esc(POS_NAME[p.retrained.from].toLowerCase())} in ${seasonLabel(p.retrained.y)}: he can't retrain again.</p>`;
+  if (!retrainOK(p)) return "";
+  const m = mgr(), cls = { good: "good", bad: "bad", neutral: "" }, word = { good: "Good move", bad: "Bad move", neutral: "Neutral" };
+  const rng = ([a, b]) => a === b ? `${a}` : `${a}–${b}`;
+  return `<details class="sugg"><summary class="small"><b>Retrain to a new position</b> <span class="muted">(once only)</span></summary>
+    <p class="small muted" style="margin:6px 0">Now: ${esc(POS_NAME[p.pos])}, rated ${r20(p.ovr)}, potential ${range(potEstimate(p))}. ${m && m.name ? `${esc(m.name)}'s estimate (player development ${s20(m.at.dev)}: ${retrainView(p, RETRAIN[p.pos][0]).sure}):` : "The caretaker's guess:"}</p>
+    ${RETRAIN[p.pos].map(to => { const V = retrainView(p, to); return `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(POS_NAME[to])}</b> · <span class="${cls[V.verdict]}">${word[V.verdict]}</span><br><span class="muted">About ${rng(V.ovr)} now, potential ${rng(V.pot)}</span></span><button class="btn sm" data-act="retrain" data-id="${p.id}" data-to="${to}">Retrain</button></div>`; }).join("")}
+    <p class="small muted">It takes effect now. How well he takes to it can surprise anyone.</p></details>`;
+}
 // On your own player's card: offer him a new contract, with your head of recruitment's advice on the wage.
 let RENEW_SAY = null;
 function renewBox(p) {
