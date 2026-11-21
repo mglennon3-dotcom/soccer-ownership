@@ -190,7 +190,11 @@ function recoverWeek() {
    card can show his career club by club. */
 /* League goals, assists and clean sheets this season (p.ls), for the Golden Boot, most assists and Golden Glove. */
 const lsOf = p => p.ls && p.ls.y === G.year ? p.ls : (p.ls = { y: G.year, g: 0, a: 0, cs: 0 });
-function addStat(p, k) { p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||= {})[p.club] ||= [0, 0, 0])[k]++; }
+/* Stats by type of game: league (play-offs included; foreign clubs' leagues too), domestic cups, Europe. This season
+   (p.ss) and career since they've been kept (p.ct): [apps, goals, assists]. MATCH_CT is set by whoever plays the game. */
+let MATCH_CT = "L";
+const ssOf = p => p.ss && p.ss.y === G.year ? p.ss : (p.ss = { y: G.year, L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] });
+function addStat(p, k) { const t = MATCH_CT; ssOf(p)[t][k]++; ((p.ct ||= { L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] })[t])[k]++; p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||= {})[p.club] ||= [0, 0, 0])[k]++; }
 function injuryCheck(p, pq) {
   const c = CL(p.club), tl = isMine(c) ? c.fac.train.lvl : c.train, surf = pq != null && pq < 60 ? 1 + (60 - pq) / 50 : 1;
   if (R() < .011 * (1.3 - tl * .05) * surf * (G.phase === "season" && inEurope(c) ? 1.25 : 1)) {
