@@ -123,3 +123,12 @@ table.sq td:has(> .lnk[data-act="player"]) .chip{display:inline-block;margin:1px
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle}
 .srate{display:inline-block;font-family:var(--f-mono);font-weight:700;font-size:15px;padding:1px 8px;border-radius:6px;background:var(--accent);color:var(--on-accent);vertical-align:middle;line-height:1.5}
 .srate small{font-size:11px;font-weight:600;opacity:.8}
+
+/* Table zones: European places at the top of the Premier Division, and a key under every league table. */
+table.lg tr.z-cc td:first-child{box-shadow:inset 3px 0 0 var(--zone-cc)}
+table.lg tr.z-cs td:first-child{box-shadow:inset 3px 0 0 var(--zone-cs)}
+.zone-key{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;color:var(--muted)}
+.zone-key span{display:inline-flex;align-items:center;gap:6px}
+.zone-key i{display:inline-block;width:4px;height:12px;border-radius:2px}
+.zone-key .zk-cc,.zone-key .zk-up{background:var(--zone-cc)} .zone-key .zk-cs{background:var(--zone-cs)}
+.zone-key .zk-po{background:var(--zone-po)} .zone-key .zk-down{background:var(--zone-down)}
