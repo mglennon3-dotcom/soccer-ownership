@@ -539,7 +539,7 @@ function pgFin() {
         ? `On sale until the season starts. Forecast: ${stDemand(c).toLocaleString("en-GB")} sold (${Math.round(stDemand(c) / capacity(c) * 100)}% of the ground), ${money(stDemand(c) * c.prices.st)} up front. Holders don't pay on the day.`
         : `${stHolders(c) ? `${stHolders(c).toLocaleString("en-GB")} sold this season at ${money(c.st.price)}: ${money(c.st.n * c.st.price)}.` : "None sold this season."} A new price applies from next pre-season (forecast ${stDemand(c).toLocaleString("en-GB")}).`)}
       ${priceIn("conc", "Food & drink (average item)", REF_CONC[T], .5, `About ${money(f.conc)} profit a game${atHome(c) ? "" : " after your landlord's half"}.`)}
-      ${priceIn("shirt", "Replica shirt", REF_SHIRT[T], 1, `About ${money(merchFor(c) * 52)} profit a year.`)}
+      ${priceIn("shirt", "Replica shirt", REF_SHIRT[T], 1, `About ${money(merchFor(c) * YEAR_TICKS())} profit a year.`)}
       ${c.fac.stadium.own && c.fac.stadium.suites ? priceIn("suite", "Executive suite (per season)", REF_SUITE[T], 500, `${suitesLet(c)} of ${c.fac.stadium.suites} suites let: ${money(suitesLet(c) * c.prices.suite)} a season.`) : ""}
     </div><p class="small muted" style="margin-top:8px">Supporters notice prices well above the going rate and their mood suffers; cheap tickets win a little goodwill.</p></section>`,
     budgets: () => `${forecastCard(c)}<section class="card"><div class="card-h"><h2>Budgets</h2></div><div class="settings">
@@ -903,9 +903,9 @@ function closeModal() { $("#modal").innerHTML = ""; }
 function perGameHTML(c) {
   const f = matchdayForecast(c), vg = ventureGame(c, f.crowd) + (fzK(c) === .5 ? fzGame(c, f.crowd, .5) : 0), H = c.hgs || { n: 0 }, n = H.n, inSeason = G.phase !== "summer";
   const ventWeek = atHome(c) ? sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].week ? VENTURES[k].week(c) : 0) : 0;
-  const weekIn = [["Sponsors", sponsorTotal(c) / 52], ["Merchandise", merchFor(c)], ["Central (TV) money", TV[c.tier] / 46], ["Executive suites", suitesLet(c) * c.prices.suite / 46], ["Stadium ventures", ventWeek]].filter(x => x[1] > 0);
-  const weekOut = [["Player wages", wageBill(c) / 52], ["Staff wages", staffBill(c) / 52], ["Facility upkeep", upkeep(c) / 52],
-    ["Academy", c.budget.acad / 52], ["Scouting", c.budget.scout / 52], ["Utilities", utilities(c) / 52], ["Insurance", wageBill(c) * INSURE / 52], ["Community foundation", (c.budget.comm || 0) / 52], ["Feeder funding", feederFunding() / 52], ["Loan repayments", sum(G.loans || [], l => l.weekly)], ["Overdraft interest", c.cash < 0 ? -c.cash * .1 / 52 : 0]].filter(x => x[1] > 0);
+  const weekIn = [["Sponsors", sponsorTotal(c) / YEAR_TICKS()], ["Merchandise", merchFor(c)], ["Central (TV) money", TV[c.tier] / 46], ["Executive suites", suitesLet(c) * c.prices.suite / 46], ["Stadium ventures", ventWeek]].filter(x => x[1] > 0);
+  const weekOut = [["Player wages", wageBill(c) / YEAR_TICKS()], ["Staff wages", staffBill(c) / YEAR_TICKS()], ["Facility upkeep", upkeep(c) / YEAR_TICKS()],
+    ["Academy", c.budget.acad / YEAR_TICKS()], ["Scouting", c.budget.scout / YEAR_TICKS()], ["Utilities", utilities(c) / YEAR_TICKS()], ["Insurance", wageBill(c) * INSURE / YEAR_TICKS()], ["Community foundation", (c.budget.comm || 0) / YEAR_TICKS()], ["Feeder funding", feederFunding() / YEAR_TICKS()], ["Loan repayments", sum(G.loans || [], l => l.weekly)], ["Overdraft interest", c.cash < 0 ? -c.cash * .1 / YEAR_TICKS() : 0]].filter(x => x[1] > 0);
   const stPer = f.hold ? (stHolders(c) || stDemand(c)) * stPrice(c) / homeGames(c) : 0;
   const tin = sum(weekIn, x => x[1]), tout = sum(weekOut, x => x[1]), match = f.gate + stPer + f.conc + vg - f.rent - f.ops, eur0 = v => money(v).replace(/^€0$/, "—");
   const rows = (list, sign) => list.map(([l, v]) => `<tr><td style="text-align:left">${l}</td><td class="num">${sign}${money(v)}</td></tr>`).join("");

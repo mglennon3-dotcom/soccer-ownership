@@ -116,7 +116,7 @@ const AFFIL_FEE = [0, 1.5e6, 750e3, 350e3, 150e3, 60e3, 30e3, 15e3];
 const AFFIL_STYLE = { multiclub: 1.25, sugar: 1.2, celebrity: 1.15, crypto: 1.1, gambler: 1.05, moneyball: .85, fanowned: .8, academy: .9 };
 const affilFee = (x, c = my()) => Math.round(AFFIL_FEE[c.tier] * (x.abroad || x.tier === 1 ? 1.5 : x.tier <= c.tier - 3 ? 1 : .6)
   * clamp(.7 + ((x.rep || 50) - 60) / 80, .6, 1.4) * (AFFIL_STYLE[(x.own || {}).style] || 1) / 1000) * 1000;
-function partnersWeek() { const c = my(), t = sum(partners(), p => CL(p.id) ? affilFee(CL(p.id), c) : 0); if (t) earn("network", t / 52); }
+function partnersWeek() { const c = my(), t = sum(partners(), p => CL(p.id) ? affilFee(CL(p.id), c) : 0); if (t) earn("network", t / YEAR_TICKS()); }
 function endPartner(id) { net().partners = partners().filter(x => x.id !== id); news(`The partnership with ${CL(id).name} ends.`); }
 function partnerWindow() {
   const c = my(), myXI = avg(pickXI(c).map(o => o.p.ovr));
@@ -165,7 +165,7 @@ function feedersSummer() {
 }
 DECIDE.fFirst = (m, i) => { const p = G.players[m.data.pid]; if (i !== 0 || !p || p.club !== m.data.from) return; signPlayer(p, m.data.fee, Math.max(p.wage, demandWage(p, my())), false, "first refusal"); };
 // What's spent on feeders each week.
-function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / 52); partnersWeek(); }
+function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / YEAR_TICKS()); partnersWeek(); }
 
 /* ---------- your loan list ----------
    Make a player available for loan and clubs at his level come in during a window: a club where he'd play (its
