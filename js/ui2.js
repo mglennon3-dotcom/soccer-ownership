@@ -493,18 +493,40 @@ function positionCard(c) {
     <p class="small" style="margin-bottom:8px">${lines.join(" · ")}</p>${miniTable(c.lg)}
     <div class="row" style="margin-top:6px"><button class="lnk small" data-act="page" data-p="league">Full table</button></div></section>`;
 }
-/* Your record this season in every competition (friendlies left out): played, won, drawn, lost, goals for and against.
-   A tie settled on penalties counts as a draw here (the shootout decides who goes through). */
-function recordCard() {
-  const R = (G.myRes || []).filter(r => r.comp && r.comp !== "F"); if (!R.length) return "";
-  const name = k => LEAGUES[k] ? LEAGUES[k].name : k === "PO" ? "Play-offs" : CUP_DEF[k] ? CUP_DEF[k].name : CONT[k] ? CONT[k].name : k;
-  const order = [...new Set(R.map(r => r.comp))].sort((a, b) => (LEAGUES[a] ? 0 : a === "PO" ? 1 : CUP_DEF[a] ? 2 : 3) - (LEAGUES[b] ? 0 : b === "PO" ? 1 : CUP_DEF[b] ? 2 : 3));
-  const rec = rs => { const o = { p: rs.length, w: 0, d: 0, l: 0, f: 0, a: 0 }; for (const r of rs) { o.f += r.gf; o.a += r.ga; r.gf > r.ga ? o.w++ : r.gf < r.ga ? o.l++ : o.d++; } return o; };
-  const row = (l, o, b) => `<tr${b ? ' class="tot"' : ""}><td style="text-align:left" class="small">${b ? `<b>${l}</b>` : l}</td>${[o.p, o.w, o.d, o.l, o.f, o.a].map(v => `<td class="num">${v}</td>`).join("")}<td class="num ${o.f - o.a > 0 ? "good" : o.f - o.a < 0 ? "bad" : ""}">${o.f - o.a > 0 ? "+" : ""}${o.f - o.a}</td></tr>`;
-  const all = rec(R), wp = all.p ? Math.round(all.w / all.p * 100) : 0;
-  return `<section class="card"><div class="card-h"><h2>Season record</h2><span class="small muted">all competitions · ${wp}% won</span></div><div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left">Competition</th><th>P</th><th>W</th><th>D</th><th>L</th><th>F</th><th>A</th><th>GD</th></tr></thead><tbody>
-    ${order.map(k => row(esc(name(k)), rec(R.filter(r => r.comp === k)))).join("")}${order.length > 1 ? row("All competitions", all, true) : ""}</tbody></table></div>
-    <p class="small muted" style="margin-top:6px">Friendlies aren't counted. A cup tie decided on penalties counts as a draw.</p></section>`;
+/* The Office's Team tab: a card for each competition you're in this season (friendlies left out). The league: the
+   full table. Europe: your group table, then every result by stage, two-legged ties with the aggregate. Each cup: your
+   results round by round, and whether you're still in, out, or the winners. Each card carries your record in it. */
+const recOf = rs => { const o = { p: rs.length, w: 0, d: 0, l: 0, f: 0, a: 0 }; for (const r of rs) { o.f += r.gf; o.a += r.ga; r.gf > r.ga ? o.w++ : r.gf < r.ga ? o.l++ : o.d++; } return o; };
+const recLine = o => o.p ? `P${o.p} · ${o.w}W ${o.d}D ${o.l}L · ${o.f}–${o.a}` : "No games yet";
+const resRow = r => `<div class="row between small" style="padding:3px 0;gap:8px"><span class="muted" style="flex:0 0 auto">${esc(r.label || "")}</span><span style="text-align:right;flex:1">${r.neutral ? "v" : r.home ? "home to" : "away to"} ${clubLink(CL(r.opp))}</span><b class="num ${r.gf > r.ga ? "good" : r.gf < r.ga ? "bad" : ""}" style="flex:0 0 auto">${r.gf}–${r.ga}${r.pens ? " p" : ""}</b></div>`;
+function compCards(c) {
+  const R = (G.myRes || []).filter(r => r.comp && r.comp !== "F"), out = [];
+  // The league (and the play-offs, if you're in them)
+  const L = LEAGUES[c.lg], lr = R.filter(r => r.comp === c.lg), po = R.filter(r => r.comp === "PO");
+  out.push(`<section class="card"><div class="card-h"><h2>${esc(L.name)}</h2><span class="small muted">${recLine(recOf(lr))}</span></div>${G.phase === "summer" ? `<p class="small muted">The season starts soon.</p>` : tableHTML(c.lg, table(c.lg), 0, true)}
+    ${po.length ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px"><b class="small">Play-offs</b>${po.map(resRow).join("")}</div>` : ""}</section>`);
+  // Europe
+  for (const K of Object.values(G.cont || {}).filter(K => K.teams && K.teams.includes(c.id))) {
+    const D = CONT[K.key], gi = K.groups.findIndex(g => g.includes(c.id)), rs = R.filter(r => r.comp === K.key), t = groupTable(K, gi);
+    const grp = `<div class="tbl-wrap"><table class="lg"><thead><tr><th style="text-align:left">Group ${"ABCDEFGH"[gi]}</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead><tbody>${t.map((r, i) => `<tr class="${i < 2 && K.md === 6 ? "z-up" : ""} ${r.id === c.id ? "me" : ""}"><td style="text-align:left">${crest(CL(r.id), 14)} ${clubLink(CL(r.id))}</td><td class="num">${r.p}</td><td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf - r.ga}</td><td class="num"><b>${r.pts}</b></td></tr>`).join("")}</tbody></table></div>`;
+    const ko = K.ko.map(RD => { const tie = RD.ties.find(t => t.h === c.id || t.a === c.id); if (!tie) return ""; const lbl = r => (r.label || "").toLowerCase(), games = rs.filter(r => RD.n === "Final" ? / final$/.test(lbl(r)) : lbl(r).includes(RD.n.toLowerCase() + ","));
+      const agg = tie.g1 ? (() => { const me = tie.h === c.id; const f = (me ? tie.g1[0] : tie.g1[1]) + (tie.g2 ? (me ? tie.g2[0] : tie.g2[1]) : 0), a = (me ? tie.g1[1] : tie.g1[0]) + (tie.g2 ? (me ? tie.g2[1] : tie.g2[0]) : 0); /* g2 is kept from the first leg's home side's view */ return `${f}–${a}`; })() : "";
+      const st = tie.w == null ? `<span class="muted">in progress</span>` : tie.w === c.id ? `<span class="good">through${RD.n === "Final" ? ": winners" : ""}</span>` : `<span class="bad">out</span>`;
+      return `<div style="margin-top:6px"><div class="row between small"><b>${RD.n}</b><span>${agg && RD.n !== "Final" ? `${agg} on aggregate · ` : ""}${st}</span></div>${games.map(resRow).join("")}</div>`; }).join("");
+    const lastKO = K.ko.map(RD => [RD, RD.ties.find(t => t.h === c.id || t.a === c.id)]).filter(x => x[1]).pop();
+    const status = K.win === c.id ? `🏆 Winners` : K.md < 6 ? `Group stage · matchday ${K.md + 1} of 6` : t.findIndex(r => r.id === c.id) >= 2 ? `<span class="bad">Out in the group stage</span>`
+      : !lastKO ? `<span class="good">Through to the knockouts</span>` : lastKO[1].w == null ? `In the ${lastKO[0].n.toLowerCase()}` : lastKO[1].w === c.id ? `<span class="good">Through to the next round</span>` : `<span class="bad">Out in the ${lastKO[0].n.toLowerCase()}</span>`;
+    out.push(`<section class="card"><div class="card-h"><h2>${esc(D.name)}</h2><span class="small muted">${recLine(recOf(rs))}</span></div>${status ? `<p class="small" style="margin-bottom:6px">${status}</p>` : ""}${grp}
+      <div style="margin-top:8px">${rs.filter(r => /group/i.test(r.label || "") || !K.ko.length).map(resRow).join("") || ""}</div>${ko}</section>`);
+  }
+  // Domestic cups you've entered this season
+  for (const [k, K] of Object.entries(G.cups || {})) {
+    const D = CUP_DEF[k], rs = R.filter(r => r.comp === k), alive = (K.alive || []).includes(c.id); if (!rs.length && !alive && K.win !== c.id) continue;
+    const t = (K.ties || []).find(t => t.h === c.id || t.a === c.id), last = rs[rs.length - 1];
+    const status = K.win === c.id ? `🏆 Winners` : alive ? (t ? `Still in · ${esc(K.name || "")}: ${t.h === c.id ? "home to" : "away to"} ${clubLink(CL(t.h === c.id ? t.a : t.h))}, week ${D.weeks[K.round] + 1}` : `Still in · a bye in the ${esc((K.name || "").toLowerCase())}`) : last ? `<span class="bad">Out in the ${esc((last.label || "").toLowerCase())}</span> to ${clubLink(CL(last.opp))}` : "";
+    out.push(`<section class="card"><div class="card-h"><h2>${esc(D.name)}</h2><span class="small muted">${recLine(recOf(rs))}</span></div><p class="small" style="margin-bottom:6px">${status}</p>${rs.map(resRow).join("")}</section>`);
+  }
+  return out.join("");
 }
 function performersCard(c) {
   const ps = c.squad.map(P).filter(p => !p.acad || myS(p).app), any = ps.some(p => myS(p).app);  // for your club only
