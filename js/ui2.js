@@ -499,11 +499,11 @@ function positionCard(c) {
 const recOf = rs => { const o = { p: rs.length, w: 0, d: 0, l: 0, f: 0, a: 0 }; for (const r of rs) { o.f += r.gf; o.a += r.ga; r.gf > r.ga ? o.w++ : r.gf < r.ga ? o.l++ : o.d++; } return o; };
 const recLine = o => o.p ? `P${o.p} · ${o.w}W ${o.d}D ${o.l}L · ${o.f}–${o.a}` : "No games yet";
 const resRow = r => `<div class="row between small" style="padding:3px 0;gap:8px"><span class="muted" style="flex:0 0 auto">${esc(r.label || "")}</span><span style="text-align:right;flex:1">${r.neutral ? "v" : r.home ? "home to" : "away to"} ${clubLink(CL(r.opp))}</span><b class="num ${r.gf > r.ga ? "good" : r.gf < r.ga ? "bad" : ""}" style="flex:0 0 auto">${r.gf}–${r.ga}${r.pens ? " p" : ""}</b></div>`;
-function compCards(c, live) {  // live: only the cups and European competitions you're still in (the Today tab)
+function compCards(c, today) {  // today: every cup and European competition this season, without the league card (Today has the table)
   const R = (G.myRes || []).filter(r => r.comp && r.comp !== "F"), out = [];
   // The league (and the play-offs, if you're in them)
   const L = LEAGUES[c.lg], lr = R.filter(r => r.comp === c.lg), po = R.filter(r => r.comp === "PO");
-  if (!live) out.push(`<section class="card"><div class="card-h"><h2>${esc(L.name)}</h2><span class="small muted">${recLine(recOf(lr))}</span></div>${G.phase === "summer" ? `<p class="small muted">The season starts soon.</p>` : tableHTML(c.lg, table(c.lg), 0, true)}
+  if (!today) out.push(`<section class="card"><div class="card-h"><h2>${esc(L.name)}</h2><span class="small muted">${recLine(recOf(lr))}</span></div>${G.phase === "summer" ? `<p class="small muted">The season starts soon.</p>` : tableHTML(c.lg, table(c.lg), 0, true)}
     ${po.length ? `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px"><b class="small">Play-offs</b>${po.map(resRow).join("")}</div>` : ""}</section>`);
   // Europe
   for (const K of Object.values(G.cont || {}).filter(K => K.teams && K.teams.includes(c.id))) {
@@ -516,7 +516,6 @@ function compCards(c, live) {  // live: only the cups and European competitions 
       const opp = CL(tie.h === c.id ? tie.a : tie.h), vs = `<div class="small" style="padding:2px 0">v ${crest(opp, 14)} ${clubLink(opp)}${opp.abroad ? ` <span class="muted">${esc(COUNTRY[opp.country].name)}</span>` : ""}${opp.lvl ? ` <span class="muted">· team rated about ${Math.round(to20(opp.lvl))}</span>` : ""}</div>`;
       return `<div style="margin-top:6px"><div class="row between small"><b>${RD.n}</b><span>${agg && RD.n !== "Final" && tie.w != null ? `${agg} on aggregate · ` : ""}${st}</span></div>${tie.w == null ? vs : ""}${games.map(resRow).join("")}</div>`; }).join("");
     const lastKO = K.ko.map(RD => [RD, RD.ties.find(t => t.h === c.id || t.a === c.id)]).filter(x => x[1]).pop();
-    if (live && (K.win != null || (K.md >= 6 && t.findIndex(r => r.id === c.id) >= 2) || (lastKO && lastKO[1].w != null && lastKO[1].w !== c.id))) continue;  // out (or it's over)
     const status = K.win === c.id ? `🏆 Winners` : K.md < 6 ? `Group stage · matchday ${K.md + 1} of 6` : t.findIndex(r => r.id === c.id) >= 2 ? `<span class="bad">Out in the group stage</span>`
       : !lastKO ? `<span class="good">Through to the knockouts</span>` : lastKO[1].w == null ? `In the ${lastKO[0].n.toLowerCase()}` : lastKO[1].w === c.id ? `<span class="good">Through to the next round</span>` : `<span class="bad">Out in the ${lastKO[0].n.toLowerCase()}</span>`;
     out.push(`<section class="card"><div class="card-h"><h2>${esc(D.name)}</h2><span class="small muted">${recLine(recOf(rs))}</span></div>${status ? `<p class="small" style="margin-bottom:6px">${status}</p>` : ""}${grp}
@@ -524,7 +523,7 @@ function compCards(c, live) {  // live: only the cups and European competitions 
   }
   // Domestic cups you've entered this season
   for (const [k, K] of Object.entries(G.cups || {})) {
-    const D = CUP_DEF[k], rs = R.filter(r => r.comp === k), alive = (K.alive || []).includes(c.id) && K.win == null; if (!rs.length && !alive && K.win !== c.id) continue; if (live && !alive) continue;
+    const D = CUP_DEF[k], rs = R.filter(r => r.comp === k), alive = (K.alive || []).includes(c.id) && K.win == null; if (!rs.length && !alive && K.win !== c.id) continue;
     const t = (K.ties || []).find(t => t.h === c.id || t.a === c.id), last = rs[rs.length - 1];
     const status = K.win === c.id ? `🏆 Winners` : alive ? (t ? `Still in · ${esc(K.name || "")}: ${t.h === c.id ? "home to" : "away to"} ${clubLink(CL(t.h === c.id ? t.a : t.h))}, week ${D.weeks[K.round] + 1}` : `Still in · a bye in the ${esc((K.name || "").toLowerCase())}`) : last ? `<span class="bad">Out in the ${esc((last.label || "").toLowerCase())}</span> to ${clubLink(CL(last.opp))}` : "";
     out.push(`<section class="card"><div class="card-h"><h2>${esc(D.name)}</h2><span class="small muted">${recLine(recOf(rs))}</span></div><p class="small" style="margin-bottom:6px">${status}</p>${rs.map(resRow).join("")}</section>`);
