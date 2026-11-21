@@ -442,24 +442,53 @@ function budgetFit(p, loan) {
 }
 const budgetFitText = f => [f.transfer ? `the transfer budget by ${money(f.transfer)}` : "", f.wages ? `the wage budget by ${money(f.wages)} a year (${pw(f.wages)})` : ""].filter(Boolean).join(" and ");
 
-/* A new contract for one of your players, offered by you at any time from his card. The least he'll sign for is
-   his asking wage (more if he's unhappy, and never below what he earns now, unless he's in his last year and paid over
-   his worth); his agent opens a quarter above it. Your head of recruitment estimates it: the better a negotiator, the
-   closer. Three refusals a season and the agent ends talks until next season. Older players want shorter deals. */
+/* A new contract for one of your players, offered by you at any time from his card. Whether he signs is everything he
+   weighs up, not just the money: is he actually playing, does the formation and style suit him, is he near home, is
+   the club big enough for him, the facilities, the project, and how loyal he is (a mercenary goes where the money is;
+   a loyal player, more so a fan favourite, wants to stay). Grievances other than pay count against you. Each season he
+   has a mood you can't see (so the same offer can go either way between seasons). Your head of recruitment reads him:
+   the better a negotiator, the closer her advice. Three refusals a season and his agent ends talks until next season.
+   He won't take a pay cut mid-contract (in his last year an overpaid player takes up to 10% less); older players want
+   shorter deals. */
+const loyaltyOf = p => p.loy ??= Math.round(clamp(.5 + normal() * .22 - (prefsOf(p, P_FACTORS).pri.money - .14) * 1.5, 0, 1) * 100) / 100;
+const loyalWord = p => { const l = loyaltyOf(p); return l >= .75 ? "Highly loyal" : l >= .6 ? "Loyal" : l <= .25 ? "A mercenary" : l <= .4 ? "Follows the money" : null; };
+// Everything but the money, worked out once: s0 is his appeal without wages; the money adds pri.money * moneyF(wage).
+function stayScore(p) {
+  const c = my(), a = playerAppeal(p, p.wage, c), games = ((G.leagues[c.lg].tab || {})[c.id] || {}).p || 0;
+  const real = games >= 5 ? clamp(p.s.app / games / .8, 0, 1) : null;  // is he actually playing?
+  const f = { ...a.f, time: real == null ? a.f.time : (a.f.time + real) / 2 };
+  const L = loyaltyOf(p), love = Math.min(1, loveOf(p, c.id) / LEGEND), un = unhappiness(p, c), gr = un ? un.why.filter(w => w !== "wages") : [];
+  const s0 = sum(Object.entries(a.pr.pri).filter(([k]) => k !== "money"), ([k, w]) => w * f[k]) + (L - .5) * .12 + love * .08 * (.5 + L) - (gr.length ? Math.min(.15, un.s * .03) : 0);
+  return { s0, thr: a.pr.thr, f, pr: a.pr, L, love, real, gr, dem: demandWage(p, c) };
+}
+// The least he'd sign for, given a reading of his mood (m): null if no money would keep him.
+function stayMin(S, floor, m) {
+  const ok = w => S.s0 + S.pr.pri.money * moneyF(w / S.dem) + m >= S.thr, top = S.dem * 3;
+  if (ok(floor)) return floor; if (!ok(top)) return null;
+  let lo = floor, hi = top; for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
+  return Math.ceil(hi / 100) * 100;
+}
 function renewTerms(p) {
-  const c = my(), k = "R" + G.year; if (!p.rn || p.rn.k !== k) p.rn = { k, tries: 0, n: normal(), off: false };
-  const s = staffOf("recruit"), ask = playerAsk(p, c), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5;
-  if (ask == null) return { no: true, s, un: unhappiness(p, c), maxY };
-  const un = unhappiness(p, c), u = un ? Math.min(.5, un.s * .1) : 0;
-  const min = Math.ceil(Math.max(ask * (1 + u), p.yrs <= 1 ? p.wage * .9 : p.wage) / 100) * 100;
-  const agent = Math.round(min * 1.25 / 100) * 100;
-  const floor = Math.ceil((p.yrs <= 1 ? p.wage * .9 : p.wage) / 100) * 100;  // he knows he won't take a cut mid-contract
-  const advice = s ? Math.max(floor, Math.round(min * (1.02 + clamp(p.rn.n, -2, 2) * (100 - s.at.neg) / 400) / 100) * 100) : null;
-  return { min, agent, advice, s, un, maxY, tries: p.rn.tries, off: p.rn.off };
+  const c = my(), k = "R" + G.year; if (!p.rn || p.rn.k !== k || p.rn.m == null) p.rn = { k, tries: 0, n: normal(), m: clamp(normal(), -2, 2) * .03, off: false };
+  const s = staffOf("recruit"), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5, S = stayScore(p);
+  const floor = Math.ceil((p.yrs <= 1 ? p.wage * .9 : p.wage) / 100) * 100;  // no pay cut mid-contract
+  const min = stayMin(S, floor, p.rn.m), read = s ? clamp(s.at.neg / 100, 0, 1) : 0;
+  // Her read of his mood: a good negotiator sees most of it, a poor one guesses.
+  const guess = p.rn.m * read + clamp(p.rn.n, -2, 2) * .03 * (1 - read), advice = s ? stayMin(S, floor, guess) : null;
+  const notes = [], pri = S.pr.pri, top = S.pr.top, cares = k => top.includes(k) || pri[k] >= .2;
+  if (S.real != null) notes.push(S.real >= .7 ? ["good", "he's playing every week"] : S.real < .35 ? ["bad", "he isn't playing enough"] : ["", "he's in and out of the side"]);
+  if (S.f.form >= .75) notes.push(["good", "the system suits him"]); else if (S.f.form < .45) notes.push(["bad", "the formation and style don't suit him"]);
+  if (cares("home")) notes.push(S.f.home >= 1 ? ["good", "he's at home here"] : ["bad", `he'd like to be closer to home${homeOf(p) ? ` (${homeOf(p)})` : ""}`]);
+  if (cares("prest") && S.f.prest < .45) notes.push(["bad", "he thinks he's outgrowing the club"]);
+  if (cares("money")) notes.push(["", "it's mostly about the money for him"]);
+  if (S.love >= FAV / LEGEND) notes.push(["good", `the fans ${S.love >= 1 ? "worship" : "love"} him`]);
+  notes.push(S.L >= .75 ? ["good", "he's loyal to the club"] : S.L <= .25 ? ["bad", "he's a mercenary: he'll go wherever pays most"] : S.L <= .4 ? ["", "he isn't the loyal type"] : null);
+  for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
+  return { no: min == null, min, advice, guessNo: s && advice == null, s, maxY, tries: p.rn.tries, off: p.rn.off, notes: notes.filter(Boolean), S };
 }
 function offerRenewal(p, wage, yrs) {
   const T = renewTerms(p); wage = Math.round(wage / 100) * 100;
-  if (T.no) return { ok: false, t: `${p.name} doesn't want a new contract here${T.un ? `: he's unhappy about ${T.un.why.join(" and ")}` : ""}.` };
+  if (T.no) { if (++p.rn.tries >= 3) p.rn.off = true; return { ok: false, t: `${p.name} doesn't want to stay, whatever the money.` }; }
   if (T.off) return { ok: false, t: `${p.name}'s agent has ended talks until next season.` };
   if (wage >= T.min) {
     const was = p.wage; p.wage = wage; p.yrs = clamp(Math.round(yrs), 1, T.maxY); logPay(p, was, "new deal");

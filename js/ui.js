@@ -355,7 +355,7 @@ function playerModal(id) {
     <div class="attr-grid">${attrs}</div>${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${acts}
     ${archetypeOf(p) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${(() => { const pr = prefsOf(p, P_FACTORS), wm = wageMult(p, my()), h = homeOf(p), fit = systemFit(p);
-      return `<p class="small"><b>What drives him:</b> ${personaOf(p).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.
+      return `<p class="small"><b>What drives him:</b> ${[...personaOf(p), loyalWord(p)].filter(Boolean).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.
         ${wm > 1.05 ? ` <span class="warn">He wants about ${Math.round((wm - 1) * 100)}% over the going rate${mine && (pr.top.includes("money") || wm > 1.1) ? ", and won't take a relegation pay cut quietly" : ""}.</span>` : wm < .95 ? ` <span class="good">He'd take about ${Math.round((1 - wm) * 100)}% less to play near home.</span>` : ""}
         ${mine && !p.acad ? (fit.slots === 0 ? ` <span class="bad">The manager's ${esc(mgr().form || "")} has no place for a ${POS_NAME[p.pos].toLowerCase()}.</span>` : fit.style < -.4 ? ` <span class="warn">The ${esc(STYLES[mgr().phil].l.toLowerCase())} style doesn't suit his game.</span>` : fit.style > .4 ? ` <span class="good">The ${esc(STYLES[mgr().phil].l.toLowerCase())} style suits him.</span>` : "") : ""}</p>`; })()}
     ${p.club >= 0 && p.age <= 27 && p.pot > p.ovr && challengeF(p) < 1 ? `<p class="small warn">Playing below his level (${CL(p.club).abroad ? `${esc(COUNTRY[CL(p.club).country].name)}'s league` : `the ${esc(LEAGUES[CL(p.club).lg].name)}`}, where the average starter is about ${Math.round(divLevel20(CL(p.club)))}): he's growing about ${Math.round((1 - challengeF(p)) * 100)}% slower than he would somewhere that tests him.</p>` : ""}
@@ -837,12 +837,13 @@ let RENEW_SAY = null;
 function renewBox(p) {
   const T = renewTerms(p), say = RENEW_SAY && RENEW_SAY.id === p.id ? RENEW_SAY.t : "";
   const head = `<b class="small">Offer a new contract</b><p class="small muted">Now: ${pw(p.wage)}, ${p.yrs} year${p.yrs === 1 ? "" : "s"} left.</p>`;
-  if (T.no) return `<div class="sugg">${head}<p class="small warn">He doesn't want a new contract here${T.un ? `: he's unhappy about ${esc(T.un.why.join(" and "))}` : ""}.</p></div>`;
   if (T.off) return `<div class="sugg">${head}<p class="small warn">His agent has ended talks until next season.</p></div>`;
-  const pick = T.advice || T.agent, yDef = Math.min(T.maxY, p.age < 27 ? 4 : 3), extra = Math.max(0, pick - p.wage), short = extra ? wageShort(extra) : 0;
-  const adv = T.s ? `<p class="small"><b>${esc(T.s.name)}:</b> "His agent will open at ${pw(T.agent)}. ${T.advice <= p.wage ? `I think he'd sign for what he's on now, <b>${pw(T.advice)}</b>: no rise needed.` : `I think he'd sign for about <b>${pw(T.advice)}</b>, so I'd offer that.`}${T.maxY < 5 ? ` At ${p.age} he'll want ${T.maxY} years at most.` : ""}${T.un ? ` He's unhappy about ${esc(T.un.why.join(" and "))}, which will cost us.` : ""}"</p>`
-    : `<p class="small muted">His agent will open at ${pw(T.agent)}. Hire a head of recruitment for advice on what he'd really take.</p>`;
-  return `<div class="sugg">${head}${adv}
+  const read = T.notes.length ? `<p class="small">${T.notes.map(([k, t]) => `<span class="${k}">${esc(t[0].toUpperCase() + t.slice(1))}</span>`).join(". ")}.</p>` : "";
+  const pick = T.advice || Math.round(Math.max(p.wage, demandWage(p, my())) * 1.1 / 100) * 100;
+  const yDef = Math.min(T.maxY, p.age < 27 ? 4 : 3), extra = Math.max(0, pick - p.wage), short = extra ? wageShort(extra) : 0;
+  const adv = T.s ? `<p class="small"><b>${esc(T.s.name)}:</b> "${T.guessNo ? "I don't think he wants to stay, whatever we offer." : T.advice <= p.wage ? `I think he'd sign for what he's on now, <b>${pw(T.advice)}</b>: no rise needed.` : `I think it would take about <b>${pw(T.advice)}</b> to keep him.`}${T.maxY < 5 ? ` At ${p.age} he'll want ${T.maxY} years at most.` : ""}"</p>`
+    : `<p class="small muted">Hire a head of recruitment for advice on what it would take to keep him.</p>`;
+  return `<div class="sugg">${head}${read}${adv}
     <div class="row" style="margin-top:6px;gap:8px"><label class="small">Wage €/week <input type="text" inputmode="decimal" class="num-in" id="rn-wage" value="${fmtNum(Math.ceil(pick / 52 / 50) * 50)}"></label>
     <label class="small">Years <select id="rn-yrs">${Array.from({ length: T.maxY }, (_, i) => i + 1).map(y => `<option value="${y}" ${y === yDef ? "selected" : ""}>${y}</option>`).join("")}</select></label>
     <button class="btn sm" data-act="renewgo" data-id="${p.id}">Offer</button></div>
