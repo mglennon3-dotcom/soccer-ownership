@@ -561,7 +561,7 @@ async function offerWageRaise(p, annual, s = wageShort(annual)) { if (!s) return
 const toMeWhen = p => p.toMe.when || (p.toMe.y === G.year && G.phase === "season" && p.toMe.w < JAN[0] ? "jan" : "summer");
 /* Pre-contracts: once the January window has closed, a player at another club in the last months of his contract can
    agree to join you on a free in the summer. No fee and no say for his club; he only has to want to come. */
-const preContractOK = p => p.club >= 0 && p.club !== G.club && !CL(p.club).gone && p.yrs <= 1 && !p.acad && !p.loan && !p.toMe && G.phase === "season" && G.week > JAN[JAN.length - 1];
+const preContractOK = p => p.club >= 0 && p.club !== G.club && (!CL(p.club).gone || CL(p.club).abroad) && p.yrs <= 1 && !p.acad && !p.loan && !p.toMe && G.phase === "season" && G.week > JAN[JAN.length - 1];
 // A player who means to re-sign with his club wants a big offer to change his mind: about 60% more than he'd otherwise ask.
 const preAsk = p => { const w = playerAsk(p) || demandWage(p, my()); return Math.round(w * (renewsAI(p) ? 1.6 : 1) / 100) * 100; };
 function agreePre(p, wage, rec) { agreeIncoming(p, 0, wage, rec, true); p.toMe.pre = true; p.toMe.when = "summer"; G.news[0].t = `Pre-contract agreed: ${p.name} will join from ${fromName(p)} on a free when his contract ends in the summer, on ${pw(wage)}.`;
