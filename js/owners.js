@@ -385,15 +385,18 @@ function diversitySummer() {
   if (dyn.length) { const t = table("L1"); t.slice(0, 10).forEach(r => { const x = CL(r.id); if (isMine(x) || dyn.includes(x) || ownStyle(x).spend < 0) return; if (R() < .5) { x.chase = 2; if (x.lg === my().lg) news(`${x.name}'s owner promises to spend whatever it takes to end ${dyn[0].name}'s run.`); } }); }
   for (const c of G.clubs) if (c.chase) c.chase--;
   // Rich owners' statement signings: now and then a billionaire, celebrity or big-spending owner below the Premier lures
-  // a star down on a huge wage. Only money-motivated players, or ones with an affinity for the club, are tempted.
+  // a star down (or over from a club abroad) on a huge wage. Only money-motivated players, or ones with an affinity for
+  // the club, are tempted.
   for (const c of G.clubs) {
     if (c.gone || c.abroad || isMine(c) || c.tier < 2 || !c.own || !["sugar", "celebrity", "crypto", "gambler"].includes(c.own.style) || c.own.wealth < 100e6 * (c.tier <= 3 ? 1 : .3) || R() > .12) continue;
-    const pool = Object.values(G.players).filter(p => p.club >= 0 && p.club !== G.club && !p.acad && !p.loan && p.age <= 32 && !(p.stunY > G.year - 4) && p.ovr >= c.lvl + 6 && hugeAsk(p, c) && willJoin(p, c) && CL(p.club) && !CL(p.club).gone);
+    let pool = Object.values(G.players).filter(p => p.club >= 0 && p.club !== G.club && !p.acad && !p.loan && p.age <= 32 && !(p.stunY > G.year - 4) && p.ovr >= c.lvl + 6 && hugeAsk(p, c) && willJoin(p, c) && CL(p.club) && (!CL(p.club).gone || CL(p.club).abroad));  // stars abroad can be lured too
     if (!pool.length) continue;
+    // There are far more stars abroad than at home: draw from England 60% of the time when both have one.
+    { const home = pool.filter(p => !CL(p.club).abroad), away = pool.filter(p => CL(p.club).abroad); if (home.length && away.length) pool = R() < .6 ? home : away; }
     const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(500e3 * 52, Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages top out at €500k a week */, why = affinity(p, c);
     if (!c.cook && aiBill(c) + wage > salaryCap(c.tier) && !startCooking(c, true)) continue;  // past the cap only by cooking the books
-    aiTransfer(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; aiSquadCheck(from, true);  // the fee comes out of the budget, however far below zero
-    if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) drops down from ${from.name} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
+    aiTransfer(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; if (from.abroad) foreignSquad(from, true); else aiSquadCheck(from, true);  // the fee comes out of the budget, however far below zero
+    if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) ${from.abroad ? `joins from ${from.name} (${COUNTRY[from.country].name})` : `drops down from ${from.name}`} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
   // Going home.
   for (const c of G.clubs) {
