@@ -69,7 +69,7 @@ function renderStart(saves) {
 }
 
 /* ---------- masthead ---------- */
-const PAGES = [["home", "Office"], ["owner", "Owner"], ["squad", "Squad"], ["tactics", "Tactics"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["moves", "Activity"], ["rivals", "Rivals"], ["hist", "History"]];
+const PAGES = [["home", "Office"], ["owner", "Owner"], ["squad", "Squad"], ["stats", "Stats"], ["tactics", "Tactics"], ["staff", "Staff"], ["fin", "Finances"], ["comm", "Commercial"], ["fac", "Facilities"], ["board", "Board"], ["net", "Network"], ["league", "Competitions"], ["market", "Market"], ["moves", "Activity"], ["rivals", "Rivals"], ["hist", "History"]];
 function phaseText() {
   if (G.phase === "summer") return `${seasonLabel(G.year)} pre-season · week ${G.week + 1} of ${SUMMER_WEEKS} · transfer window open${SUMMER_WEEKS - G.week <= 2 ? ` (closes ${SUMMER_WEEKS - G.week === 1 ? "this week" : "next week"})` : ""}`;
   if (G.phase === "playoffs") return `${seasonLabel(G.year)} · play-offs`;
@@ -91,7 +91,7 @@ function mast() {
 function render() {
   if (!G) return;
   if (G.club == null) { $("#app").innerHTML = buyScreen(); return; }
-  const body = { home: pgHome, squad: pgSquad, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals, tactics: pgTactics, owner: pgOwner, hire: pgHire, moves: pgMoves }[PAGE]();
+  const body = { home: pgHome, squad: pgSquad, stats: pgStats, staff: pgStaff, fin: pgFin, comm: pgComm, fac: pgFac, league: pgComps, market: pgMarket, hist: pgHist, board: pgBoard, net: pgNet, rivals: pgRivals, tactics: pgTactics, owner: pgOwner, hire: pgHire, moves: pgMoves }[PAGE]();
   if (G.ended) { $("#app").innerHTML = endScreen(); return; }
   // The section tabs keep their sideways scroll across redraws, so tapping a tab doesn't snap the bar back to the start.
   // (Only a visible bar records it: iOS reports 0 while the compact masthead hides it.)
@@ -247,14 +247,17 @@ function tableHTML(k, rows, off = 0, compact) {
 }
 
 /* ---------- Squad ---------- */
+function pgStats() {  // the squad's season (your club's games only): its own page in the top bar
+  const c = my(), xi = new Set(pickXI(c).map(o => o.p.id)), ps = c.squad.map(P).filter(p => p && (!p.acad || myS(p).app > 0));
+  return `<section class="card"><div class="card-h"><h2>Season stats</h2><span class="small muted">${esc(c.name)} games only</span></div>${ps.length ? squadStats(c, ps, xi) : `<p class="muted">No games yet.</p>`}</section>`;
+}
 function pgSquad() {
-  const c = my(), tab = SUB.squad || "first", xi = new Set(pickXI(c).map(o => o.p.id));
+  const c = my(), tab = SUB.squad && SUB.squad !== "stats" ? SUB.squad : "first", xi = new Set(pickXI(c).map(o => o.p.id));
   // Tabs: the first team, the academy, and three lists: protected (kept or not for sale), transfer-listed, loan-listed.
   const SQT = { first: ["First team", p => !p.acad], acad: ["Academy", p => p.acad], prot: ["Protected", p => p.keep || p.nfs], tl: ["Transfer listed", p => p.list], ll: ["Loan listed", p => p.loanList], exp: ["Final year", p => !p.acad && !(p.loan && p.loan.to === c.id) && p.yrs <= 1] };
   // Players you've lent out live at their loan clubs: listed separately.
   const outList = (G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id);
   SQT.out = ["Loaned out", () => false];
-  SQT.stats = ["Stats", p => !p.acad || (p.s.app || 0) > 0];
   const LS = loanSuggestions(c); SQT.sugloan = ["Suggested loans", p => LS.has(p.id)];
   const all = c.squad.map(P), ps = (tab === "out" ? outList : all.filter((SQT[tab] || SQT.first)[1])).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
@@ -875,7 +878,7 @@ function pgMarket() {
       // On loan: the wage his club wants you to pay this window (or that he isn't available to you).
       F.tab === "loans" ? { k: "ask", l: "You'd pay", r: true, v: x => loanPay(x.p) ?? 1e12, f: x => loanPay(x.p) != null ? pw(loanPay(x.p)) : `<span class="small muted">Not available</span>` }
         : { k: "ask", l: "Wants", r: true, v: x => x.i.ask ?? 1e12, f: x => x.i.ask != null ? pw(x.i.ask) : "—" },
-    ], pool, { sort: { k: "ovr", d: -1 }, limit: 200, quiet: true, empty: F.tab === "sugg" ? (suggPlayers().length ? "None of your suggestions match these filters." : "No suggestions yet: open a player's card and tap Suggest signing or Suggest a loan.") : F.tab === "favs" ? (favPlayers().length ? "None of your favourites match these filters." : "No favourites yet: tap the ☆ next to a player, here or on his card, to keep an eye on him.") : "Nobody matches these filters." })}</section></div>
+    ], pool, { sort: { k: "ovr", d: -1 }, freeze: ["name", "pos"], limit: 200, quiet: true, empty: F.tab === "sugg" ? (suggPlayers().length ? "None of your suggestions match these filters." : "No suggestions yet: open a player's card and tap Suggest signing or Suggest a loan.") : F.tab === "favs" ? (favPlayers().length ? "None of your favourites match these filters." : "No favourites yet: tap the ☆ next to a player, here or on his card, to keep an eye on him.") : "Nobody matches these filters." })}</section></div>
     <div class="stack"><section class="card"><div class="card-h"><h3>Recruitment priorities</h3></div>${s ? `<p class="small muted" style="margin-bottom:8px">${esc(s.name)} · ${ROLES_STAFF.recruit.phil[s.phil].l} · ${ROLES_STAFF.recruit.focus[s.focus]}</p>` : `<p class="warn small">No head of recruitment: nobody is signing players.</p>`}
       ${needs.length ? needs.map(n => `<div class="row between small"><span><span class="pos">${n.pos}</span> ${n.kind === "depth" ? `needs ${n.short} more` : "needs an upgrade"}</span><span class="muted">best now ${n.weakest ? r20(n.weakest) : "—"}</span></div>`).join("") : "<p class='small'>The squad is covered.</p>"}
       <p class="small muted" style="margin-top:8px">Budget left: ${money(c.budget.transfer - c.spentT)} in fees, ${money(Math.max(0, c.budget.wages - wageBill(c)))} a year in wages.</p></section>
@@ -1079,7 +1082,7 @@ function squadStats(c, ps, xi) {
     { k: "club", l: "For us", r: true, v: p => atClub(p)[0], f: p => `<span class="small">${atClub(p)[0]} · ${atClub(p)[1]}g · ${atClub(p)[2]}a</span>` },
     { k: "car", l: "Career", r: true, v: p => (p.tot || [0])[0] + (p.s.app || 0), f: p => `<span class="small">${(p.tot || [0, 0])[0] + (p.s.app || 0)} · ${(p.tot || [0, 0])[1] + (p.s.g || 0)}g</span>` },  // past seasons plus this one
   ], ps, { freeze: ["name", "pos"], sort: { k: "min", d: -1 } })}
-  <p class="small muted" style="margin-top:8px">All competitions this season. Minutes: 90 a start, about 25 off the bench. G+A /90 needs three games' worth of minutes; form needs ten games (judged on goal threat for his position, and on playing every week for keepers and centre-backs). "For us": games, goals and assists for the club in all seasons; "Career": games and goals everywhere.</p>`;
+  <p class="small muted" style="margin-top:8px">All competitions this season, games for your club only (a player who joined mid-season counts what he has done for you). Minutes: 90 a start, about 25 off the bench. G+A /90 needs three games' worth of minutes; form needs ten games (judged on goal threat for his position, and on playing every week for keepers and centre-backs). "For us": games, goals and assists for the club in all seasons; "Career": games and goals everywhere.</p>`;
 }
 
 // A report laid out as a table (targets): each row [what, level, result, met?], then a summary line.
