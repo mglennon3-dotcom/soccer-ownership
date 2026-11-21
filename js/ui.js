@@ -281,13 +281,13 @@ function pgSquad() {
 // His honours, most recent first, grouped with a count when he's won the same thing more than once.
 const ACC_ICON = { boot: "👟", assist: "🎯", glove: "🧤", title: "🏆", promo: "⬆️", cup: "🏆", euro: "🌍" };
 // His games by type: this season and his career (since they've been kept), with league clean sheets for a keeper.
-function compStatsHTML(p) {
-  const S = p.ss && p.ss.y === G.year ? p.ss : null, C = p.ct; if (!S && !C) return "";
+function compStatsHTML(p, only) {  // only: "season" (the Ratings tab) or "career" (the Stats tab)
+  const S = only === "career" ? null : p.ss && p.ss.y === G.year ? p.ss : null, C = only === "season" ? null : p.ct; if (!S && !C) return only === "season" ? `<p class="small muted" style="margin-bottom:10px">No games yet this season.</p>` : "";
   const rows = [["L", "League"], ["C", "Cups"], ["E", "Europe"]], tot = X => [0, 1, 2].map(i => rows.reduce((s, [k]) => s + ((X && X[k]) || [0, 0, 0])[i], 0));
   const cells = (v, b) => v.map(x => `<td class="num">${b ? `<b>${x}</b>` : x}</td>`).join("");
-  const block = (X, title) => X ? `<tr class="sec"><td colspan="4">${title}</td></tr>${rows.filter(([k]) => X[k] && X[k][0]).map(([k, l]) => `<tr><td style="text-align:left" class="small">${l}</td>${cells(X[k])}</tr>`).join("")}<tr class="tot"><td style="text-align:left" class="small"><b>All games</b></td>${cells(tot(X), 1)}</tr>` : "";
+  const block = (X, title) => X ? `${only ? "" : `<tr class="sec"><td colspan="4">${title}</td></tr>`}${rows.filter(([k]) => X[k] && X[k][0]).map(([k, l]) => `<tr><td style="text-align:left" class="small">${l}</td>${cells(X[k])}</tr>`).join("")}<tr class="tot"><td style="text-align:left" class="small"><b>All games</b></td>${cells(tot(X), 1)}</tr>` : "";
   const cs = p.pos === "GK" && p.ls && p.ls.y === G.year ? `<p class="small muted" style="margin-top:4px">${p.ls.cs} league clean sheet${p.ls.cs === 1 ? "" : "s"} this season.</p>` : "";
-  return `<details class="prog" open><summary class="small"><b>By competition</b></summary><div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left"></th><th>Apps</th><th>Gls</th><th>Ast</th></tr></thead><tbody>
+  return `<details class="prog" open><summary class="small"><b>${only === "season" ? "This season" : only === "career" ? "Career by competition" : "By competition"}</b></summary><div class="tbl-wrap"><table class="sq"><thead><tr><th style="text-align:left"></th><th>Apps</th><th>Gls</th><th>Ast</th></tr></thead><tbody>
     ${block(S, "This season")}${block(C, "Career (since records by competition began)")}</tbody></table></div>${cs}</details>`;
 }
 function honoursHTML(p) {
@@ -377,7 +377,7 @@ function playerModal(id) {
   const deal = mine || lentOut ? "contract" : "transfer", tab = PCARD.tab === "contract" || PCARD.tab === "transfer" ? deal : PCARD.tab;
   const PT = [["ratings", "Ratings"], [deal, deal === "contract" ? "Contract" : "Transfer"], ["stats", "Stats"], ["honours", "Honours"]];
   const PT_BAR = `<div class="chips ptabs" style="margin:12px 0">${PT.map(([k, l]) => `<button data-act="ptab" data-id="${p.id}" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>`;
-  const RATINGS = `<div class="attr-grid">${attrs}</div>
+  const RATINGS = `${compStatsHTML(p, "season")}<div class="attr-grid">${attrs}</div>
     ${archetypeOf(p) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${(() => { const pr = prefsOf(p, P_FACTORS), wm = wageMult(p, my()), h = homeOf(p), fit = systemFit(p);
       return `<p class="small"><b>What drives him:</b> ${[...personaOf(p), loyalWord(p)].filter(Boolean).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.
@@ -389,7 +389,7 @@ function playerModal(id) {
   const HONOURS = (honoursHTML(p) || `<p class="small muted">No honours yet.</p>`) + `
     ${(() => { const L = Object.entries(p.love || {}).filter(([, l]) => l >= FAV).map(([cid, l]) => `${l >= LEGEND ? "a legend" : "a fan favourite"} at ${esc(G.clubs[+cid] ? G.clubs[+cid].name : "a former club")}`); return L.length ? `<p class="small"><b>Supporters' view:</b> ${L.join("; ")}.</p>` : ""; })()}
   `;
-  const STATS = `${compStatsHTML(p)}${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}
+  const STATS = `${compStatsHTML(p, "career")}${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}
     ${p.hist.length ? `<p class="small muted">Clubs: ${p.hist.map(h => `${h[0]} ${esc(h[1])}`).join(" · ")}</p>` : ""}`;
   const PT_BODY = { ratings: RATINGS, contract: `${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${acts}`, transfer: acts, stats: STATS, honours: HONOURS }[tab] || RATINGS;
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}${mine ? "" : ` <button class="fav-btn ${isFav(p.id) ? "on" : ""}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" title="${isFav(p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(p.id) ? "★" : "☆"}</button>`}</h2><p class="small muted">${archetypeOf(p) ? `<b class="arch">${esc(archetypeOf(p)[0])}</b> · ` : ""}${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
