@@ -536,6 +536,8 @@ function retrain(p, to) {
   const from = p.pos, was = p.ovr, wasPot = p.pot, apt = aptOf(p, to), O = retrainOutcome(p, to, apt);
   p.pos = to; const lift = O.ovr - rawRole(p, to); for (const k of Object.keys(POS_W[to])) p.at[k] = clamp(rh(p.at[k] + lift), 1, 100);  // the new role's skills, learned well or badly
   setOvr(p); p.pot = Math.max(p.ovr, O.pot + (p.ovr - O.ovr)); delete p.dvb; p.retrained = { from, y: G.year };
+  // Your depth charts re-slot him by his new ratings (he'd otherwise keep the place he had in his old position).
+  for (const role in G.depth || {}) G.depth[role] = G.depth[role].filter(id => id !== p.id);
   news(`${p.name} retrains from ${POS_NAME[from].toLowerCase()} to ${POS_NAME[to].toLowerCase()}: now rated ${r20(p.ovr)} (was ${r20(was)}).`, true);
   return { was, wasPot };
 }
