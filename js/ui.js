@@ -235,9 +235,15 @@ function miniTable(k) {
 }
 function tableHTML(k, rows, off = 0, compact) {
   const L = LEAGUES[k], n = G.leagues[k].clubs.length;
-  const zone = i => i < L.auto ? "z-up" : L.po && i + 1 >= L.po[0] && i + 1 <= L.po[1] ? "z-po" : i >= n - L.down ? "z-down" : "";
+  // Zones: promotion, play-offs and relegation; in the Premier Division the European places instead of promotion (top
+  // four the Champions Cup, 5th and 6th the Continental Shield, 7th too unless the National Cup winners are outside the top six).
+  const top = L.tier === 1 && G.foreign && G.foreign.length, nc = G.cups && G.cups.NC && G.cups.NC.win, t6 = top ? table(k).slice(0, 6).map(r => r.id) : [];
+  const cs7 = top && !(nc != null && !t6.includes(nc));
+  const zone = i => top && i < 4 ? "z-cc" : top && (i < 6 || (i === 6 && cs7)) ? "z-cs" : i < L.auto ? "z-up" : L.po && i + 1 >= L.po[0] && i + 1 <= L.po[1] ? "z-po" : i >= n - L.down ? "z-down" : "";
+  const key = [top ? ["cc", "Champions Cup"] : null, top ? ["cs", cs7 ? "Continental Shield (7th unless the National Cup winners finish outside the top six)" : "Continental Shield"] : null, L.auto ? ["up", "Promoted"] : null, L.po ? ["po", "Play-offs"] : null, L.down ? ["down", L.tier === 7 ? "Drop out of the pyramid" : "Relegated"] : null].filter(Boolean);
+  const legend = `<div class="zone-key small">${key.map(([z, l]) => `<span><i class="zk-${z}"></i>${l}</span>`).join("")}</div>`;
   return `<div class="tbl-wrap"><table class="lg"><thead><tr><th>#</th><th style="text-align:left">Club</th><th>P</th>${compact ? "" : "<th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th>"}<th>GD</th><th>Pts</th>${compact ? "" : "<th>Form</th>"}</tr></thead><tbody>
-    ${rows.map((r, j) => { const i = j + off, c = CL(r.id); return `<tr class="${zone(i)} ${r.id === G.club ? "me" : ""}"><td class="num">${i + 1}</td><td style="text-align:left">${crest(c, 14)} ${clubLink(c)}</td><td class="num">${r.p}</td>${compact ? "" : `<td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf}</td><td class="num">${r.ga}</td>`}<td class="num">${r.gf - r.ga}</td><td class="num"><b>${r.pts}</b>${c.ded && G.phase === "season" ? `<span class="bad" title="Points deducted" style="font-size:.75em"> −${c.ded}</span>` : ""}</td>${compact ? "" : `<td>${r.form.map(f => `<span class="res ${f}">${f}</span>`).join("")}</td>`}</tr>`; }).join("")}</tbody></table></div>`;
+    ${rows.map((r, j) => { const i = j + off, c = CL(r.id); return `<tr class="${zone(i)} ${r.id === G.club ? "me" : ""}"><td class="num">${i + 1}</td><td style="text-align:left">${crest(c, 14)} ${clubLink(c)}</td><td class="num">${r.p}</td>${compact ? "" : `<td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf}</td><td class="num">${r.ga}</td>`}<td class="num">${r.gf - r.ga}</td><td class="num"><b>${r.pts}</b>${c.ded && G.phase === "season" ? `<span class="bad" title="Points deducted" style="font-size:.75em"> −${c.ded}</span>` : ""}</td>${compact ? "" : `<td>${r.form.map(f => `<span class="res ${f}">${f}</span>`).join("")}</td>`}</tr>`; }).join("")}</tbody></table></div>${legend}`;
 }
 
 /* ---------- Squad ---------- */
