@@ -154,16 +154,15 @@ function pgHome() {
       ${weatherLine()}
       <p class="small muted" style="margin-top:6px">Squad suits the manager's style: ${fitText(fit)} · Team rating ${r20(avg(xi.map(o => roleRating(o.p, o.slot))))} (division typical ${r20(TIER_LVL[c.tier])}) · Morale ${Math.round(c.morale)}</p></section>
     ${positionCard(c)}
-    ${euroOfficeCard()}
-    ${cupsOfficeCard()}
+    ${compCards(c, true)}
   </div><div class="stack">
     ${todo.length ? `<section class="card"><div class="card-h"><h2>Needs your attention</h2></div><ul class="todo">${todo.map(([t, p]) => `<li><button class="lnk" data-act="page" data-p="${p}">${esc(t)}</button></li>`).join("")}</ul></section>` : ""}
     ${act ? "" : inboxCard()}
     ${G.phase === "summer" && !(G.obj && G.obj.y === G.year) ? objectivesCard() : ""}
   </div></div>`,
     team: () => `<div class="grid2"><div class="stack">
-    ${compCards(c)}
     ${performersCard(c)}
+    ${compCards(c)}
     <section class="card"><div class="card-h"><h2>Results</h2><button class="lnk small" data-act="page" data-p="league">All results</button></div>${last.length ? resultsList(last) : `<p class="muted">No games yet.</p>`}</section>
   </div><div class="stack">
     ${needsCard(c)}
