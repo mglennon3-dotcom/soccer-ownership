@@ -894,7 +894,7 @@ function pgHist() {
     <section class="card"><div class="card-h"><h3>Save</h3></div><div class="row"><button class="btn sm" data-act="export">Export save file</button><label class="btn sm">Import<input type="file" id="imp" accept=".json" hidden></label><button class="btn sm" data-act="quit">Back to start</button></div></section></div></div>`;
 }
 
-/* The hall of fame: great players who've retired (a peak of about 16 or more, or 400 games), with every club they played
+/* The hall of fame: great players who've retired (see hofWorthy), with every club they played
    for and what they did there. Yours (and your legends) stand out; sort by most recent, the best, or just your own. */
 let HOF_SORT = "recent";
 function hofCard() {
@@ -911,6 +911,7 @@ function hofCard() {
     <div class="hof-stats small"><span><b>${h.apps}</b> games</span><span><b>${h.goals}</b> goals</span>${h.ast != null ? `<span><b>${h.ast}</b> assists</span>` : ""}</div>
     <div class="small hof-clubs">${clubsOf(h).join('<span class="muted"> → </span>')}</div></div>`;
   return `<section class="card"><div class="card-h"><h3>Hall of fame</h3><span class="small muted">${H.length} player${H.length === 1 ? "" : "s"}</span></div>
+    <p class="small muted" style="margin-bottom:8px">Retired greats: a peak of 17 or more, 500+ games with a peak of 13 or more, or one of your club's legends.</p>
     ${H.length ? `<div class="chips" style="margin-bottom:10px">${tabs}</div>${L.length ? L.slice(0, 25).map(row).join("") + (L.length > 25 ? `<details><summary class="small">${Math.min(75, L.length - 25)} more${L.length > 100 ? ` (of ${L.length - 25})` : ""}</summary>${L.slice(25, 100).map(row).join("")}</details>` : "") : `<p class="muted small">None of them played for you.</p>`}`
       : "<p class='muted small'>Great players who retire are remembered here.</p>"}</section>`;
 }
