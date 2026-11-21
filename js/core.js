@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.82.3";
+const VERSION = "0.83.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -393,7 +393,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { rtd1: true, treq2: true, raise2: true, lon2: true, ilk1: true, reg1: true, fix1: true, fix2: true, ask2: true, fd2: true, fdrop1: true, fa4: true, foreign4: true, stunCap: true, sgrace1: true, brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { am1: true, rtd1: true, treq2: true, raise2: true, lon2: true, ilk1: true, reg1: true, fix1: true, fix2: true, ask2: true, fd2: true, fdrop1: true, fa4: true, foreign4: true, stunCap: true, sgrace1: true, brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
@@ -410,7 +410,7 @@ function newWorld(o) {
 const absWeek = () => G.year * 100 + (G.phase === "summer" ? G.week : SUMMER_WEEKS + G.week);
 const faFresh = q => q && q.faAt != null && absWeek() - q.faAt < 3;
 function toFreeAgent(p) { if (p.club >= 0) p.faAt = absWeek(); leaveClub(p); p.club = -1; p.acad = false; p.yrs = 0; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.faY = G.year; if (!G.fa.includes(p.id)) G.fa.push(p.id); }
-function leaveClub(p) { if (p.club >= 0 && typeof favLeaves === "function") favLeaves(p); if (p.club >= 0) { const c = CL(p.club); c.squad = c.squad.filter(id => id !== p.id); } }
+function leaveClub(p) { if (p.club >= 0 && p.club === G.club && p.am && typeof amortLeave === "function") amortLeave(p); if (p.club >= 0 && typeof favLeaves === "function") favLeaves(p); if (p.club >= 0) { const c = CL(p.club); c.squad = c.squad.filter(id => id !== p.id); } }
 /* Transfer windows: a player who joins a club in a window can't be sold on in the same window. */
 const windowId = () => (G.phase === "summer" ? "S" : "J") + G.year;
 const canSell = p => !(p.inW && p.inW === windowId() && windowOpen());
@@ -482,7 +482,7 @@ function foundClub(o) {
   news(`${c.name} are founded. ${c.squad.length} players from an open trial day make up the first squad, and the club will play at ${HOSTS[0].name} while it has no ground of its own.`, true);
   return c;
 }
-function newLedger() { return { para: 0, equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, network: 0, breaks: 0, stix: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, mdops: 0, travel: 0, refunds: 0, medical: 0, insure: 0, insclaim: 0, oldground: 0, util: 0, grading: 0, comm: 0, tax: 0, acad: 0, scout: 0, buys: 0, build: 0, interest: 0, invest: 0 }; }
+function newLedger() { return { para: 0, equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, network: 0, breaks: 0, stix: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, mdops: 0, travel: 0, refunds: 0, medical: 0, insure: 0, insclaim: 0, oldground: 0, util: 0, grading: 0, comm: 0, tax: 0, acad: 0, scout: 0, buys: 0, amort: 0, writeoff: 0, build: 0, interest: 0, invest: 0 }; }
 
 /* ---------- archetypes ----------
    What kind of player he is in his position, read from which attributes stand out against his own overall (allowing

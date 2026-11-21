@@ -356,7 +356,22 @@ const sponsorTotal = c => sum(c.deals, d => d.amt);
 const wageBill = c => sum(c.squad, id => P(id).wage) + loanWageAdj(c);
 const staffBill = c => sum(Object.values(c.staff).filter(Boolean), s => s.wage);
 const upkeep = c => c.fac.stadium.soldOld ? facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl) : upkeepMult() * (stadiumUpkeep(c) + (c.fac.stadium.heat ? heatQuote(c).upkeep : 0)) + ventureUpkeep(c) + facUpkeep("train", c.fac.train.lvl) + facUpkeep("acad", c.fac.acad.lvl);
+/* Transfer fees are amortised, as real clubs account for them: the cash goes when you pay, but the accounts (and the
+   spending rule) charge the fee in equal parts over his contract, week by week. A new contract spreads what's left over
+   the new length. If he's sold, released or leaves, whatever hasn't been charged yet is written off then, so a sale
+   shows as the profit or loss against his book value. */
+const YEAR_TICKS = () => SUMMER_WEEKS + SEASON_WEEKS;
+const yearTick = () => G.phase === "summer" ? G.week : SUMMER_WEEKS + Math.min(G.week, SEASON_WEEKS - 1);
+const bookValue = p => (p.am && p.am.book) || 0;
+const amortPer = p => bookValue(p) / Math.max(1, (p.yrs || 0) * YEAR_TICKS() - yearTick());
+function amortWeek(c) {
+  for (const p of c.squad.map(P).concat((G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id))) {
+    if (!bookValue(p)) continue; const x = Math.min(p.am.book, amortPer(p)); p.am.book -= x; book("amort", x); if (p.am.book < 1) delete p.am; }
+}
+// He leaves your books (sold, released, retired, gone at the end of his contract): write off what's left.
+function amortLeave(p) { if (bookValue(p) && G.club != null) book("writeoff", p.am.book); delete p.am; }
 function weeklyAccounts(c) {
+  amortWeek(c);
   spend("wages", wageBill(c) / 52);
   spend("staff", staffBill(c) / 52);
   spend("fac", upkeep(c) / 52);
@@ -387,7 +402,7 @@ function homeGameMoney(c, opp, league) {
   return crowd;
 }
 const ledgerIncome = f => (f.para || 0) + (f.insclaim || 0) + (f.oldground || 0) + f.gate + (f.stix || 0) + f.conc + (f.suites || 0) + (f.events || 0) + f.merch + f.spons + f.tv + f.prize + f.sales + (f.network || 0);
-const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + (f.mdops || 0) + (f.travel || 0) + (f.refunds || 0) + (f.medical || 0) + (f.insure || 0) + (f.util || 0) + (f.grading || 0) + (f.comm || 0) + (f.tax || 0) + f.acad + f.scout + f.buys + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
+const ledgerCosts = f => f.wages + f.staff + f.fac + f.rent + (f.mdops || 0) + (f.travel || 0) + (f.refunds || 0) + (f.medical || 0) + (f.insure || 0) + (f.util || 0) + (f.grading || 0) + (f.comm || 0) + (f.tax || 0) + f.acad + f.scout + (f.amort || 0) + (f.writeoff || 0) + f.build + f.interest + (f.dividend || 0) + (f.feeders || 0) + (f.directors || 0) + (f.breaks || 0);
 
 /* What a sensible academy and scouting budget looks like at each academy level / tier: below it, intakes and
    reports suffer; well above it, they improve a little. */
@@ -760,11 +775,14 @@ function seasonForecast(c = my()) {
   };
   const out = {
     "Player wages": bill / 52 * W, "Staff wages": staffBill(c) / 52 * W,
-    "Transfer fees": windowAhead ? Math.max(0, c.budget.transfer - (c.spentT || 0)) : 0,
+    // Amortised: this season's share of the fees already on the books, and of the transfer budget still to spend
+    // (spread over a typical three-year deal). The cash itself goes when the deals are done.
+    "Transfer fees (spread over contracts)": sum(c.squad.map(P).concat((G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id)), p => Math.min(bookValue(p), amortPer(p) * W))
+      + (windowAhead ? Math.max(0, c.budget.transfer - (c.spentT || 0) - pendFees()) / 3 * W / YEAR_TICKS() : 0),
     "Academy & scouting": (c.budget.acad + c.budget.scout) / 52 * W, "Community foundation": (c.budget.comm || 0) / 52 * W,
     "Ground: rent, match-day staff, upkeep": home * (m.rent + m.ops) + upkeep(c) / 52 * W, "Utilities & insurance": (utilities(c) + bill * INSURE) / 52 * W,
     // Deals agreed for January that you made yourself (club cash, outside the budgets): the fee, and his wages from then on.
-    "Agreed signings for January": G.phase === "season" ? sum(incoming().filter(p => toMeWhen(p) === "jan" && !p.toMe.rec), p => p.toMe.fee + p.toMe.wage / 52 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0]))) : 0,
+    "Agreed signings for January": G.phase === "season" ? sum(incoming().filter(p => toMeWhen(p) === "jan" && !p.toMe.rec), p => p.toMe.fee / 3 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0])) / YEAR_TICKS() + p.toMe.wage / 52 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0]))) : 0,
     "Away travel": away * TRAVEL[c.tier], "Feeder funding": feederFunding() / 52 * W, "Interest": Math.max(0, -c.cash) * .1 / 52 * W + sum(G.loans || [], l => (l.rate || 0) * (l.left || 0)) / 52 * W,
   };
   const sofar = ledgerIncome(f) - ledgerCosts(f), inc = sum(Object.values(rest), v => v);
