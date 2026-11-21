@@ -471,9 +471,10 @@ function stayMin(S, floor, m) {
 function renewTerms(p) {
   const c = my(), k = "R" + G.year; if (!p.rn || p.rn.k !== k || p.rn.m == null) p.rn = { k, tries: 0, n: normal(), m: clamp(normal(), -2, 2) * .03, off: false };
   const s = staffOf("recruit"), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5, S = stayScore(p);
-  // No pay cut mid-contract; and a new deal is paid near his worth: a loyal player who loves the club takes some way
-  // under his going rate (down to about 60%), a mercenary wants nearly all of it.
-  const worthF = clamp(.85 + (.5 - S.L) * .3 - S.love * .1, .6, .95);
+  // No pay cut mid-contract; and a new deal is paid by his loyalty: a mercenary wants up to a quarter over his going
+  // rate, an average player about the going rate (95-105%), a loyal one takes as little as 75% (a little less again
+  // if the fans love him, but never under 75%).
+  const worthF = clamp(1.25 - S.L * .5 - S.love * .05, .75, 1.25);
   const floor = Math.ceil(Math.max(p.yrs <= 1 ? p.wage * .9 : p.wage, S.dem * worthF) / 100) * 100;
   const min = stayMin(S, floor, p.rn.m), read = s ? clamp(s.at.neg / 100, 0, 1) : 0;
   // Her read of his mood: a good negotiator sees most of it, a poor one guesses.
