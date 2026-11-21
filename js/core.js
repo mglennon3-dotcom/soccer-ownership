@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.85.1";
+const VERSION = "0.85.2";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -393,7 +393,7 @@ function genSquad(c) {
 
 /* ---------- the world ---------- */
 function newWorld(o) {
-  G = { hof2: true, am1: true, rtd1: true, treq2: true, raise2: true, lon2: true, ilk1: true, reg1: true, fix1: true, fix2: true, ask2: true, fd2: true, fdrop1: true, fa4: true, foreign4: true, stunCap: true, sgrace1: true, brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
+  G = { hof3: true, hof2: true, am1: true, rtd1: true, treq2: true, raise2: true, lon2: true, ilk1: true, reg1: true, fix1: true, fix2: true, ask2: true, fd2: true, fdrop1: true, fa4: true, foreign4: true, stunCap: true, sgrace1: true, brk1: true, list2: true, pay13: true, foreign2: true, intake2: true, fa2: true, pay2: true, pay3: true, pay4: true, pay5: true, pay6: true, pay7: true, fans2: true, foreign3: true, pay8: true, retro40: true, site2: true, reroll1: true, pay9: true, pay10: true, low1: true, pay11: true, pay12: true, spay2: true, spay3: true, aistaff2: true, emerg1: true, v: 1, year: 2026, phase: "summer", week: 0, club: null, nextPid: 1, players: {}, clubs: [], towns: {}, leagues: {}, fa: [],
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
@@ -439,9 +439,9 @@ function newcomerFor(p) {
   const age = ri(17, 20), ovr = clamp(Math.round(base - rf(4, 12) - (20 - age) * 1.5 + normal() * 3), 22, 80);
   toFreeAgent(makePlayer({ pos: pick(POS), ovr, age, nat: c && c.abroad ? c.country : R() < .8 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }));
 }
-/* The hall of fame is an honour: a peak of 17 or more, or 500+ games with a peak of 13 or more (a long top-flight
-   career), or a legend at your club whatever his rating. About ten a season. */
-const hofWorthy = (peak, apps, leg) => leg || r20(peak) >= 17 || (apps >= 500 && r20(peak) >= 13);
+/* The hall of fame is an honour: a peak of 17 or more, or 500+ games with a peak of 15 or more (a long
+   career at a high level: 15 or more), or a legend at your club whatever his rating. */
+const hofWorthy = (peak, apps, leg) => leg || r20(peak) >= 17 || (apps >= 500 && r20(peak) >= 15);
 function retire(p, cull) {
   if (p.toMe && p.age < 40) return;  // he's agreed to join you: he isn't hanging up his boots yet
   if (!cull) newcomerFor(p);
