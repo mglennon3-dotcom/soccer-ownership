@@ -436,6 +436,26 @@ function tacticsShape() {
 }
 
 /* ---------- Office: league position, top performers, areas of need ---------- */
+/* Office: your European group while you're in it (or your knockout tie while you're still alive). */
+function euroOfficeCard() {
+  return Object.values(G.cont || {}).filter(K => K.teams && K.teams.includes(G.club)).map(K => {
+    const D = CONT[K.key], gi = K.groups.findIndex(g => g.includes(G.club)), link = `<button class="lnk small" data-act="sub" data-k="comp" data-v="${K.key}" data-p="league">All groups</button>`;
+    const cell = id => { const x = CL(id); return `${crest(x, 14)} <button class="lnk" data-act="club" data-id="${id}">${esc(x.name)}</button>${x.abroad ? ` <span class="muted small">${esc(COUNTRY[x.country].name)}</span>` : ""}`; };
+    if (K.md < 6) {
+      const t = groupTable(K, gi), nx = CONT_GROUP_WEEKS[K.md];
+      return `<section class="card"><div class="card-h"><h3>${esc(D.name)} · Group ${"ABCDEFGH"[gi]}</h3>${link}</div><div class="tbl-wrap"><table class="lg"><thead><tr><th style="text-align:left">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead><tbody>
+        ${t.map((r, i) => `<tr class="${i < 2 ? "z-up" : ""} ${r.id === G.club ? "me" : ""}"><td style="text-align:left">${cell(r.id)}</td><td class="num">${r.p}</td><td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf - r.ga}</td><td class="num"><b>${r.pts}</b></td></tr>`).join("")}</tbody></table></div>
+        <p class="small muted" style="margin-top:6px">Matchday ${K.md + 1} of 6${nx != null ? ` in week ${nx + 1}` : ""}. The top two go through to the round of 16.</p></section>`;
+    }
+    // Knockouts: your tie in the current round, if you're still in it (or the trophy, if you've won it).
+    if (K.win === G.club) return `<section class="card summary"><h3>🏆 ${esc(D.name)} winners</h3></section>`;
+    const R = K.ko[K.ko.length - 1], t = R && R.ties.find(t => t.h === G.club || t.a === G.club);
+    if (!t || t.w != null) return "";
+    const score = t.g1 ? `${t.g1[0]}–${t.g1[1]}${t.g2 ? `, ${t.g2[0]}–${t.g2[1]}` : ""}` : "v";
+    return `<section class="card"><div class="card-h"><h3>${esc(D.name)} · ${R.n}</h3>${link}</div><div class="row between small" style="padding:3px 0"><span>${cell(t.h)}</span><b class="num">${score}</b><span style="text-align:right">${cell(t.a)}</span></div>
+      <p class="small muted" style="margin-top:6px">Week${R.n === "Final" ? "" : "s"} ${CONT_KO.find(x => x.n === R.n).w.map(w => w + 1).join(" & ")}.</p></section>`;
+  }).join("");
+}
 function positionCard(c) {
   const L = LEAGUES[c.lg], t = table(c.lg), i = t.findIndex(r => r.id === c.id), me = t[i], n = t.length;
   if (G.phase === "summer" || !me || !me.p) return `<section class="card"><div class="card-h"><h2>${L.name}</h2></div><p>${L.auto} promoted automatically${L.po ? `, ${ord(L.po[0])}–${ord(L.po[1])} to the play-offs` : ""}, bottom ${L.down} ${L.tier === 7 ? "drop out of the pyramid" : "relegated"}.</p>${G.phase === "summer" ? "" : miniTable(c.lg)}</section>`;
