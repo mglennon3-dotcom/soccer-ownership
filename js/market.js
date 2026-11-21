@@ -503,6 +503,42 @@ function offerRenewal(p, wage, yrs) {
   return { ok: false, t: `${p.name}'s agent turns ${pw(wage)} down: he wants more. ${3 - p.rn.tries} more ${3 - p.rn.tries === 1 ? "try" : "tries"} this season.` };
 }
 
+/* Retraining: once in his career, one of your outfield players can learn a neighbouring position (AM to CM, CM to
+   DM, DM to CB, and so on). His rating there starts from his attributes as they are (a passer may suit DM better than
+   AM); he learns the role, closing about half the gap to his rating now; then how well he takes to it, an aptitude
+   nobody can see for sure, moves the new position's key attributes up or down. His potential moves with his rating; a young player's aptitude counts again as he grows into
+   the role. The manager estimates the outcome, the better his player development the closer. */
+const RETRAIN = { CB: ["FB", "DM"], FB: ["CB", "W", "DM"], DM: ["CB", "CM", "FB"], CM: ["DM", "AM"], AM: ["CM", "W", "ST"], W: ["FB", "AM", "ST"], ST: ["W", "AM"], GK: [] };
+const retrainOK = p => p.club === G.club && p.pos !== "GK" && !p.retrained && !(p.loan && p.loan.to === G.club);
+const aptOf = (p, to) => ((p.apt ||= {})[to] ??= Math.round(clamp(normal(), -2.5, 2.5) * 4 * 10) / 10);
+// What retraining would do: his new rating and potential (raw), from his attributes and his aptitude.
+function retrainOutcome(p, to, apt = aptOf(p, to)) {
+  // He learns the role: about half the gap between his attributes there and his rating now closes, then his aptitude.
+  const raw = rawRole({ ...p, pos: to }, to), now = p.ovr + (raw - p.ovr) * .5 + apt, ovr = clamp(Math.round(now), 1, 100), d = ovr - p.ovr;
+  const pot = Math.max(ovr, Math.round(p.pot + d + (p.age <= 21 ? apt * .5 : 0)));
+  return { ovr, pot };
+}
+// The manager's estimate: his read of the aptitude is better the better his player development (dev 0-100).
+function retrainView(p, to) {
+  const m = mgr(), dev = m && m.at ? m.at.dev : 20, acc = clamp(dev / 100, .1, .95);
+  const guess = aptOf(p, to) * acc + clamp(((p.rtn ||= {})[to] ??= normal()), -2, 2) * 3 * (1 - acc);
+  const E = retrainOutcome(p, to, guess), spread = (1 - acc) * 4;
+  const d = to20(E.ovr) - to20(p.ovr), dp = to20(E.pot) - to20(p.pot), score = d + dp * (p.age <= 25 ? .7 : .2);
+  const verdict = score >= .6 ? "good" : score <= -.6 ? "bad" : "neutral";
+  const r = v => [Math.max(1, Math.round(to20(v - spread))), Math.min(20, Math.round(to20(v + spread)))];
+  // Potential is shown as your scouts' range for him, moved by the change he expects.
+  const [pa, pb] = potEstimate(p), dP = E.pot - p.pot, pot = [Math.max(1, Math.round(to20(pa + dP - spread))), Math.min(20, Math.round(to20(pb + dP + spread)))];
+  return { verdict, ovr: r(E.ovr), pot, sure: acc >= .7 ? "confident" : acc >= .45 ? "fairly sure" : "guessing" };
+}
+function retrain(p, to) {
+  if (!retrainOK(p) || !RETRAIN[p.pos].includes(to)) return;
+  const from = p.pos, was = p.ovr, wasPot = p.pot, apt = aptOf(p, to), O = retrainOutcome(p, to, apt);
+  p.pos = to; const lift = O.ovr - rawRole(p, to); for (const k of Object.keys(POS_W[to])) p.at[k] = clamp(rh(p.at[k] + lift), 1, 100);  // the new role's skills, learned well or badly
+  setOvr(p); p.pot = Math.max(p.ovr, O.pot + (p.ovr - O.ovr)); delete p.dvb; p.retrained = { from, y: G.year };
+  news(`${p.name} retrains from ${POS_NAME[from].toLowerCase()} to ${POS_NAME[to].toLowerCase()}: now rated ${r20(p.ovr)} (was ${r20(was)}).`, true);
+  return { was, wasPot };
+}
+
 /* Your own pre-contracts and loans aren't held to the wage budget, but the screens say whether he fits and offer to
    raise it just enough (to the next 1,000 a year). Room counts deals already agreed. */
 const wageRoom = () => my().budget.wages - wageBill(my()) - pendWages();
