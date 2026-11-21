@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.87.0";
+const VERSION = "0.87.1";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -305,10 +305,11 @@ let GROW_K = .97, GROW_M = .1, GROW_B = .32;  // tuned for the coaching most pla
 const isWonderkid = p => p.age <= 21 && growthType(p) === "wonder" && to20(p.pot) >= 17;  // a slump that drops his ceiling ends it
 /* The level of challenge: young players grow best when tested. One much better than the division he plays in grows
    more slowly: about 9% slower for every shown point beyond two above its average starter, never below 60%. At or
-   around his level there's no penalty. (Academy football doesn't count: that's youth level.) */
+   around his level there's no penalty. (Academy football doesn't count: that's youth level.) Nor does the top level:
+   the Premier Division, or a league abroad as strong, is as tested as a player can be. */
 const divLevel20 = c => !c ? 0 : c.abroad ? to20(c.lvl + (G.fOff ?? 1.5)) : to20(TIER_XI[c.tier]);
 function challengeF(p, c = p.club >= 0 ? CL(p.club) : null) {
-  if (!c || p.acad) return 1; const gap = to20(p.ovr) - divLevel20(c) - 2;
+  if (!c || p.acad || (!c.abroad && c.tier === 1) || (c.abroad && divLevel20(c) >= to20(TIER_XI[1]) - .5)) return 1; const gap = to20(p.ovr) - divLevel20(c) - 2;
   return gap > 0 ? Math.max(.6, 1 - gap * .09) : 1;
 }
 function develop(p, dt, teamGames) {
