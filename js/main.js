@@ -307,6 +307,7 @@ const ACT = {
     retrain(p, to); playerModal(p.id); render(); saveGame(); },
   renewgo: el => { const p = P(+el.dataset.id), r = offerRenewal(p, num($("#rn-wage")) * 52, +$("#rn-yrs").value);
     RENEW_SAY = r.ok ? null : { id: p.id, t: r.t }; if (r.ok) toast(r.t); playerModal(p.id); render(); saveGame(); },
+  ptab: el => { PCARD = { id: +el.dataset.id, tab: el.dataset.v }; playerModal(+el.dataset.id); },
   hofsort: el => { HOF_SORT = el.dataset.v; render(); },
   fitwage: el => { const p = P(+el.dataset.id), sh = $("#lshare") ? $("#lshare").value : null; raiseWages(+el.dataset.amt, p); el.dataset.re === "pre" ? preModal(p.id) : playerModal(p.id);
     if (sh != null && $("#lshare")) { $("#lshare").value = sh; CHANGE.lshare($("#lshare")); } render(); saveGame(); },
