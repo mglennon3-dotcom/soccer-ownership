@@ -282,7 +282,7 @@ function h2hAdd(id, res) { const H = (G.h2h ||= {}), r = H[id] ||= [0, 0, 0]; r[
 /* Your derbies, fiercest and nearest first, with why each one is a derby. */
 function myDerbies() {
   const c = my(), T = G.titleRiv || {};
-  return G.clubs.filter(x => !x.gone && !isMine(x) && derbyLevel(c, x) > 0).map(x => {
+  return G.clubs.filter(x => (!x.gone || x.abroad) && !isMine(x) && derbyLevel(c, x) > 0).map(x => {  // a grudge abroad counts too
     const lvl = derbyLevel(c, x), km = x.abroad ? null : roadKm(c, x), title = (T[pairKey(c, x)] || []).length;
     const why = grudge(c, x) ? "Grudge" : x.own && x.own.target === c.id ? "Hostile neighbour" : title >= 3 && !geoDerby(c, x) ? "Title rivals" : c.region === "London" && x.region === "London" ? "London neighbours" : "Neighbours";
     return { x, lvl, km, why, rec: (G.h2h || {})[x.id] || [0, 0, 0] };
