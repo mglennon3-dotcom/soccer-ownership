@@ -160,7 +160,7 @@ function playMatch(h, a, neutral, fr, kind) {
   for (const [c, xi] of [[H, xh], [A, xa]]) {
     const { off, on: subs } = subsFor(c, xi);
     for (const { p } of xi) { tire(p, off.has(p.id) ? .7 : 1, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); injuryCheck(p, pq); }
-    for (const p of subs) { tire(p, .35, fr); if (fr) continue; if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.sub = (p.s.sub || 0) + 1; if (R() < .4) injuryCheck(p, pq); }
+    for (const p of subs) { tire(p, .35, fr); if (fr) continue; if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.sub = (p.s.sub || 0) + 1; if (p.club >= 0) { const b = scOf(p).by[p.club]; b[3] = (b[3] || 0) + 1; } if (R() < .4) injuryCheck(p, pq); }
   }
   if (!fr && !kind) for (const [xi, conceded] of [[xh, ag], [xa, hg]]) { const gk = xi.find(o => o.slot === "GK"); if (gk && !conceded) lsOf(gk.p).cs++; }  // a league clean sheet for the keeper
   ev.sort((x, y) => x.m - y.m);
@@ -197,6 +197,9 @@ const ssOf = p => p.ss && p.ss.y === G.year ? p.ss : (p.ss = { y: G.year, L: [0,
 // This season, club by club (p.sc.by[club] = [apps, goals, assists]): a player who moves mid-season keeps each club's share.
 const scOf = p => p.sc && p.sc.y === G.year ? p.sc : (p.sc = { y: G.year, by: {} });
 const seasonAt = (p, cid) => { const S = p.sc && p.sc.y === G.year && p.sc.by[cid]; return S || (p.sc && p.sc.y === G.year ? [0, 0, 0] : p.club === cid ? [p.s.app, p.s.g, p.s.a] : [0, 0, 0]); };
+// His season for his current club only (apps, goals, assists, sub appearances): what your squad screens count.
+const myS = p => { const v = p.club >= 0 ? seasonAt(p, p.club) : [p.s.app, p.s.g, p.s.a], split = p.sc && p.sc.y === G.year && p.sc.by[p.club];
+  return { app: v[0], g: v[1], a: v[2], sub: split ? split[3] || 0 : p.s.sub || 0 }; };
 function addStat(p, k) { if (p.club >= 0) (scOf(p).by[p.club] ||= [0, 0, 0])[k]++; const t = MATCH_CT; ssOf(p)[t][k]++; ((p.ct ||= { L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] })[t])[k]++; p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||= {})[p.club] ||= [0, 0, 0])[k]++; }
 function injuryCheck(p, pq) {
   const c = CL(p.club), tl = isMine(c) ? c.fac.train.lvl : c.train, surf = pq != null && pq < 60 ? 1 + (60 - pq) / 50 : 1;

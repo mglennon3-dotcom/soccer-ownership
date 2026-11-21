@@ -494,14 +494,14 @@ function positionCard(c) {
     <div class="row" style="margin-top:6px"><button class="lnk small" data-act="page" data-p="league">Full table</button></div></section>`;
 }
 function performersCard(c) {
-  const ps = c.squad.map(P).filter(p => !p.acad || p.s.app), any = ps.some(p => p.s.app);
+  const ps = c.squad.map(P).filter(p => !p.acad || myS(p).app), any = ps.some(p => myS(p).app);  // for your club only
   const top = (f, k, unit) => { const l = ps.filter(p => f(p) > 0).sort((a, b) => f(b) - f(a) || b.ovr - a.ovr).slice(0, 3);
     return l.length ? l.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span><b class="num">${f(p)}${unit ? " " + unit : ""}</b></div>`).join("") : `<p class="small muted">None yet.</p>`; };
   const best = ps.slice().sort((a, b) => b.ovr - a.ovr).slice(0, 3);
   return `<section class="card"><div class="card-h"><h2>Top performers</h2><span class="small muted">this season</span></div>
     <div class="perf">
-      <div><h3>Goals</h3>${any ? top(p => p.s.g, "g") : `<p class="small muted">No games yet.</p>`}</div>
-      <div><h3>Assists</h3>${any ? top(p => p.s.a, "a") : `<p class="small muted">No games yet.</p>`}</div>
+      <div><h3>Goals</h3>${any ? top(p => myS(p).g, "g") : `<p class="small muted">No games yet.</p>`}</div>
+      <div><h3>Assists</h3>${any ? top(p => myS(p).a, "a") : `<p class="small muted">No games yet.</p>`}</div>
       <div><h3>Best players</h3>${best.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span>${rating(p.ovr)}</div>`).join("")}</div>
     </div></section>`;
 }
