@@ -476,6 +476,9 @@ const CHANGE = {
     render(); },
   lshare: el => { const p = P(+el.dataset.id), box = $("#lfit"); if (p && box) box.innerHTML = wageFitLine(p, p.wage * +el.value / 100, "card"); },
   apw: el => { const m = G.inbox.find(x => x.id === +el.dataset.id), out = $("#ap-p-" + el.dataset.id); if (m && out) out.innerHTML = apChanceText(m, num(el)); },
+  sugll: el => { const p = P(+el.dataset.id); if (!!p.loanList !== el.checked) loanListToggle(p); render(); saveGame(); },
+  sugfd: async el => { const p = P(+el.dataset.id), x = CL(+el.dataset.to); if (!el.checked) return;
+    if (await ask(`Loan ${p.name} to ${x.name} (${TIER_NAME[x.tier]}) until the end of the season?`, "Loan him")) { if (p.loanList) loanListToggle(p); loanOut(p, x); } render(); saveGame(); },
   fweek: el => { SUB.fw = +el.value; },
   oname: el => { const v = el.value.trim(); if (v) { G.owner.name = v; saveGame(); render(); } },
   concerts: el => { my().fac.stadium.concerts = +el.value; render(); },

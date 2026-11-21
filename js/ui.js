@@ -1078,7 +1078,7 @@ function squadStats(c, ps, xi) {
     { k: "form", l: "Form", left: true, v: p => p.s.app >= 10 ? seasonForm(p) : -9, f: p => { if ((p.s.app || 0) < 10) return `<span class="small muted">too few games</span>`; const f = seasonForm(p), w = f >= 1.2 ? "exceptional" : f >= .5 ? "very good" : f >= .15 ? "good" : f <= -.5 ? "poor" : f <= -.15 ? "below par" : "steady"; return `<span class="small ${f >= .15 ? "good" : f <= -.15 ? "bad" : "muted"}">${w}</span>`; } },
     { k: "club", l: "For us", r: true, v: p => atClub(p)[0], f: p => `<span class="small">${atClub(p)[0]} · ${atClub(p)[1]}g · ${atClub(p)[2]}a</span>` },
     { k: "car", l: "Career", r: true, v: p => (p.tot || [0])[0] + (p.s.app || 0), f: p => `<span class="small">${(p.tot || [0, 0])[0] + (p.s.app || 0)} · ${(p.tot || [0, 0])[1] + (p.s.g || 0)}g</span>` },  // past seasons plus this one
-  ], ps, { sort: { k: "min", d: -1 } })}
+  ], ps, { freeze: ["name", "pos"], sort: { k: "min", d: -1 } })}
   <p class="small muted" style="margin-top:8px">All competitions this season. Minutes: 90 a start, about 25 off the bench. G+A /90 needs three games' worth of minutes; form needs ten games (judged on goal threat for his position, and on playing every week for keepers and centre-backs). "For us": games, goals and assists for the club in all seasons; "Career": games and goals everywhere.</p>`;
 }
 
@@ -1123,6 +1123,13 @@ function loanSuggestions(c) {
   }
   return out;
 }
+/* The feeder that suits a young player best: one where he's tested (no slower growth) at the highest standard, so he
+   plays and grows; failing that, the one that slows him least. */
+function bestFeederFor(p) {
+  const F = net().feeders.map(f => CL(f.id)).filter(Boolean); if (!F.length) return null;
+  const ok = F.filter(x => challengeF(p, x) >= .99).sort((a, b) => (b.lvl || 0) - (a.lvl || 0));
+  return ok[0] || F.sort((a, b) => challengeF(p, b) - challengeF(p, a))[0];
+}
 function loanSuggestTable(c, ps, LS) {
   return `<p class="small" style="margin-bottom:8px">Young players with the potential to start at this level who aren't starting or first backup: a season of games on loan will do them more good. Put them on the loan list and clubs at their level will make offers${c.tier >= 5 ? " (non-league loans run all season)" : " while a window is open"}.</p>
   ${sortTable("squad-sugloan", [
@@ -1133,6 +1140,8 @@ function loanSuggestTable(c, ps, LS) {
     { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
     { k: "depth", l: "Place in the side", left: true, v: p => LS.get(p.id).order ?? 99, f: p => `<span class="small">${esc(LS.get(p.id).why)}</span>` },
     { k: "app", l: "Apps", r: true, v: p => p.s.app || 0, f: p => p.s.app || 0 },
-    { k: "act", l: "", f: p => `<button class="btn sm ${p.loanList ? "" : "primary"}" data-act="sugloan" data-id="${p.id}">${p.loanList ? "Take off loan list" : "Put on loan list"}</button>` },
-  ], ps, { sort: { k: "pot", d: -1 } })}`;
+    { k: "ll", l: "Loan list", v: p => p.loanList ? 1 : 0, f: p => `<input type="checkbox" data-act="sugll" data-id="${p.id}" ${p.loanList ? "checked" : ""} aria-label="Loan list: ${esc(p.name)}">` },
+    { k: "fd", l: "To a feeder", left: true, f: p => { const x = bestFeederFor(p); if (!x) return `<span class="small muted">no feeders</span>`; const g = challengeF(p, x);
+      return `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="sugfd" data-id="${p.id}" data-to="${x.id}" aria-label="Loan ${esc(p.name)} to ${esc(x.name)}"><span>${esc(x.name)}<br><span class="muted">${esc(TIER_NAME[x.tier] || "")}${g < 1 ? ` · grows ${Math.round((1 - g) * 100)}% slower` : " · a good test"}</span></span></label>`; } },
+  ], ps, { sort: { k: "pot", d: -1 }, freeze: ["name", "pos"] })}`;
 }
