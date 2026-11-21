@@ -246,7 +246,7 @@ function contWeek(w) {
     const leg = CONT_KO[K.round].w.indexOf(w); if (leg < 0) continue;
     if (CONT_KO[K.round].n === "Final") {
       const t = RD.ties[0], { w: win, r } = playKO(t.h, t.a, true, K.key, `${D.short} final`); t.g1 = [r.hg, r.ag]; t.w = win; t.pens = r.pens;
-      K.win = win; const c = CL(win); c.trophies.push([G.year, D.name]); c.rep = Math.min(99, c.rep + 4);
+      K.win = win; const c = CL(win); c.trophies.push([G.year, D.name]); c.rep = Math.min(99, c.rep + 4); for (const p of accSquad(c, 5)) accAdd(p, "euro", `${D.name} winner ${seasonLabel(G.year)}`);
       if (isMine(c)) { earn("prize", D.champ); moodHit(c, 25); bumpMedia(25); news(`EUROPEAN CHAMPIONS! ${c.name} win the ${D.name}!`, true); }
       else news(`${c.name} (${countryOf(c)}) win the ${D.name}.`, t.h === G.club || t.a === G.club);
       continue;

@@ -276,6 +276,15 @@ function pgSquad() {
    rating. Potential is shown only for your own players, as your staff estimate it now. */
 /* Career by club: games, goals and assists for each club he's played for since records began (earlier career, before
    this was kept, shows as one line), career totals, and his best season from the progression rows. */
+// His honours, most recent first, grouped with a count when he's won the same thing more than once.
+const ACC_ICON = { boot: "👟", assist: "🎯", glove: "🧤", title: "🏆", promo: "⬆️", cup: "🏆", euro: "🌍" };
+function honoursHTML(p) {
+  const A = (p.acc || []).slice().reverse(); if (!A.length) return "";
+  const n = k => A.filter(x => x[1] === k).length, sum = [["title", "league title", "league titles"], ["promo", "promotion", "promotions"], ["cup", "cup", "cups"], ["euro", "European trophy", "European trophies"], ["boot", "Golden Boot", "Golden Boots"], ["assist", "assists award", "assists awards"], ["glove", "Golden Glove", "Golden Gloves"]]
+    .filter(([k]) => n(k)).map(([k, one, many]) => `${ACC_ICON[k]} ${n(k)} ${n(k) > 1 ? many : one}`);
+  return `<details class="prog" open><summary class="small"><b>Honours</b> <span class="muted">${sum.join(" · ")}</span></summary>
+    <div class="stack" style="gap:4px;margin-top:6px">${A.map(([, k, t]) => `<div class="small">${ACC_ICON[k] || "★"} ${esc(t)}</div>`).join("")}</div></details>`;
+}
 function careerHTML(p) {
   const cs = p.cs || {}, ids = Object.keys(cs).map(Number).sort((a, b) => cs[b][0] - cs[a][0]);
   const tracked = ids.reduce((t, id) => [t[0] + cs[id][0], t[1] + cs[id][1], t[2] + cs[id][2]], [0, 0, 0]);
@@ -352,7 +361,7 @@ function playerModal(id) {
   }
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}${mine ? "" : ` <button class="fav-btn ${isFav(p.id) ? "on" : ""}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" title="${isFav(p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(p.id) ? "★" : "☆"}</button>`}</h2><p class="small muted">${archetypeOf(p) ? `<b class="arch">${esc(archetypeOf(p)[0])}</b> · ` : ""}${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : contractLeft(p)}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? `<br><span class="small">+25% if promoted, −25% if relegated</span>` : ""}</dd></div><div><dt>Season</dt><dd>${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
-    <div class="attr-grid">${attrs}</div>${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${mine ? retrainBox(p) : ""}${acts}
+    <div class="attr-grid">${attrs}</div>${honoursHTML(p)}${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${mine ? retrainBox(p) : ""}${acts}
     ${archetypeOf(p) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
     ${(() => { const pr = prefsOf(p, P_FACTORS), wm = wageMult(p, my()), h = homeOf(p), fit = systemFit(p);
       return `<p class="small"><b>What drives him:</b> ${[...personaOf(p), loyalWord(p)].filter(Boolean).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.

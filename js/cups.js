@@ -57,7 +57,7 @@ function cupWeek(w) {
     }
     K.alive = K.alive.filter(id => !out.has(id)); K.round++;
     if (K.alive.length === 1) {
-      K.win = K.alive[0]; K.ties = null; const c = CL(K.win); c.trophies.push([G.year, D.name]);
+      K.win = K.alive[0]; K.ties = null; const c = CL(K.win); c.trophies.push([G.year, D.name]); for (const p of accSquad(c, 5)) accAdd(p, "cup", `${D.name} winner ${seasonLabel(G.year)}`);
       if (isMine(c)) { earn("prize", D.win); moodHit(c, 15); bumpMedia(15); news(`CUP WINNERS! ${c.name} win the ${D.name} and ${money(D.win)}.`, true); }
       else news(`${c.name} win the ${D.name}.`);
     } else drawCup(k);
