@@ -132,3 +132,14 @@ table.lg tr.z-cs td:first-child{box-shadow:inset 3px 0 0 var(--zone-cs)}
 .zone-key i{display:inline-block;width:4px;height:12px;border-radius:2px}
 .zone-key .zk-cc,.zone-key .zk-up{background:var(--zone-cc)} .zone-key .zk-cs{background:var(--zone-cs)}
 .zone-key .zk-po{background:var(--zone-po)} .zone-key .zk-down{background:var(--zone-down)}
+
+/* A compact table (suggested loans): smaller type and tighter cells, so the frozen columns leave room to scroll. */
+table.sq.tight{font-size:12px}
+table.sq.tight td,table.sq.tight th{padding:4px 4px}
+table.sq.tight th{font-size:10.5px}
+table.sq.tight td:has(> .lnk[data-act="player"]){min-width:6.5em;max-width:8em;line-height:1.35}
+table.sq.tight .pos{font-size:10.5px;padding:1px 4px}
+table.sq.tight .ovr{font-size:11.5px}
+table.sq.tight label.small{font-size:11px;gap:4px}
+table.sq.tight td:has(> .lnk[data-act="player"]){min-width:5.5em;max-width:7em}
+table.sq.tight label.small{white-space:nowrap}
