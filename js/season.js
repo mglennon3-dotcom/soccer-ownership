@@ -166,7 +166,7 @@ function devTick(dt) {
    assists, the Golden Glove (most league clean sheets, goalkeepers), and the team's titles, promotions and cups for
    those who played their part (10+ games that season for the league, 5+ for a cup). */
 function accAdd(p, kind, text) { if (p) (p.acc ||= []).push([G.year, kind, text]); }
-const accSquad = (c, min) => c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.from === c.id) && p.s.app >= min);
+const accSquad = (c, min) => c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.from === c.id) && seasonAt(p, c.id)[0] >= min);
 function seasonAwards(k) {
   const L = LEAGUES[k], ps = G.leagues[k].clubs.flatMap(id => CL(id).squad.map(P)).filter(p => p && p.ls && p.ls.y === G.year), lbl = seasonLabel(G.year);
   const best = (f, ok = () => true) => { const q = ps.filter(ok), top = Math.max(0, ...q.map(f)); return top > 0 ? q.filter(p => f(p) === top) : []; };
@@ -313,7 +313,10 @@ function yearTurnover() {
   for (const p of Object.values(G.players)) {
     // Progression: one compact row a season [season, age, rating, club, apps, goals, assists, potential], last ten kept.
     const club = p.loanedAt && p.loanedAt.y === G.year ? `${p.loanedAt.short} (loan)` : p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA";
-    (p.prog ||= []).push([G.year, p.age, p.ovr, club, p.s.app, p.s.g, p.s.a, p.pot, 0, p.wage]);  // [8] spare, [9] his wage that season if (p.prog.length > 10) p.prog.shift();
+    const by = p.sc && p.sc.y === G.year ? Object.entries(p.sc.by).filter(([cid]) => +cid !== p.club) : [];  // moved mid-season: a row for each club
+    for (const [cid, v] of by) (p.prog ||= []).push([G.year, p.age, p.ovr, CL(+cid) ? CL(+cid).short : "—", v[0], v[1], v[2], p.pot, 0, null]);
+    const here = by.length && p.club >= 0 ? seasonAt(p, p.club) : [p.s.app, p.s.g, p.s.a];
+    (p.prog ||= []).push([G.year, p.age, p.ovr, club, here[0], here[1], here[2], p.pot, 0, p.wage]);  // [8] spare, [9] his wage that season if (p.prog.length > 10) p.prog.shift();
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
     // AI wages drift toward what the club pays for the player's rating: about a third of the gap a year, down as he declines, up as he improves.
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan && p.stunC !== p.club) { /* a statement signing keeps his huge wage while he stays */ const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .35) / 100) * 100; }
