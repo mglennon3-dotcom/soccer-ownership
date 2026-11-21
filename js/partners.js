@@ -174,6 +174,13 @@ function feedersWeek() { if (net().feeders.length) spend("feeders", feederFundin
    than theirs), pay him a loyalty bonus to stay in the academy, or let him go for compensation. He may still choose
    them: the more loyal he is, the likelier he stays. */
 const poachComp = (p, c = my()) => Math.round(YOUTH_COMP[c.tier] * (1 + Math.max(0, to20(p.pot) - 8) * 1.5) / 1000) * 1000;
+/* The chance he stays on a professional contract at a given wage (a year), against the parent's offer: matching it,
+   a mercenary stays about 45% of the time, a loyal player about 90%; every 10% more than their offer adds about 3-6
+   points (more for a player driven by money); less than their offer costs twice as fast. */
+function poachChance(p, wage, theirs) {
+  const L = loyaltyOf(p), money = prefsOf(p, P_FACTORS).pri.money, k = .3 + money * .8, r = wage / Math.max(1, theirs);
+  return clamp(.45 + L * .45 + (r >= 1 ? (r - 1) * k : (r - 1) * k * 2), .03, .98);
+}
 function parentPoachWeek() {
   const c = my(); if (G.phase === "playoffs" || G.week % 6 !== 3 || G.inbox.some(m => m.key === "acadPoach" && !m.done)) return;
   for (const pt of partners()) {
@@ -189,9 +196,9 @@ function parentPoachWeek() {
 }
 DECIDE.acadPoach = (m, i) => {
   const p = G.players[m.data.pid], x = CL(m.data.from), c = my(); if (!p || !p.acad || p.club !== c.id || !x || (x.gone && !x.abroad)) return;
-  const L = loyaltyOf(p), stay = i === 0 ? clamp(.55 + L * .4, .5, .95) : i === 1 ? clamp(.35 + L * .45, .3, .85) : 0;
+  const L = loyaltyOf(p), wage = m.data.offer ?? m.data.ours, stay = i === 0 ? poachChance(p, wage, m.data.theirs) : i === 1 ? clamp(.35 + L * .45, .3, .85) : 0;
   if (i < 2 && R() < stay) {
-    if (i === 0) { const was = p.wage; p.acad = false; p.yrs = 3; p.wage = Math.max(p.wage, m.data.ours); logPay(p, was, "first professional contract"); p.dealY = G.year; news(`${p.name} turns down ${x.name}: he signs his first professional contract with you, ${pw(p.wage)} for 3 years.`, true); }
+    if (i === 0) { const was = p.wage; p.acad = false; p.yrs = 3; p.wage = Math.max(p.wage, wage); logPay(p, was, "first professional contract"); p.dealY = G.year; news(`${p.name} turns down ${x.name}: he signs his first professional contract with you, ${pw(p.wage)} for 3 years.`, true); }
     else { spend("acad", m.data.bonus); news(`${p.name} takes the ${money(m.data.bonus)} loyalty bonus and stays in the academy, turning down ${x.name}.`, true); }
     return;
   }

@@ -240,8 +240,18 @@ function weakestStarterLine(pid) {
   const [a, b] = potEstimate(w.p).map(r20), pot = a === b ? `${a}` : `${a}–${b}`;
   return `<p class="small">${uses}</p><p class="small ${d > 0 ? "good" : d < 0 ? "muted" : ""}">Your weakest starter there: <button class="lnk" data-act="player" data-id="${w.p.id}">${esc(w.p.name)}</button>${out}, ${w.p.age}, rated ${there} there, potential ${pot}${d > 0 ? ` (this player is ${d} better now)` : d < 0 ? ` (${-d} better than this player now)` : " (the same as this player now)"}.</p>`;
 }
+// A parent club's approach: you set the wage of your professional contract and see the chance he stays at it.
+function apChanceText(x, weekly) { const p = G.players[x.data.pid]; if (!p) return ""; const c = Math.round(poachChance(p, weekly * 52, x.data.theirs) * 100); return `<b class="${c >= 75 ? "good" : c >= 50 ? "" : "warn"}">${c}% chance he stays</b> at ${pw(weekly * 52)} (their offer: ${pw(x.data.theirs)})`; }
+function apOfferHTML(x) {
+  const p = G.players[x.data.pid]; if (!p || x.done) return "";
+  const w0 = Math.round(x.data.ours / 52 / 50) * 50, steps = [1, 1.25, 1.5, 2].map(f => Math.round(x.data.theirs * f / 52 / 50) * 50);
+  return `<div class="sugg" style="margin-top:6px"><b class="small">Offer him a professional contract (3 years)</b>
+    <div class="row" style="margin-top:6px;gap:8px"><label class="small">Wage €/week <input type="text" inputmode="decimal" class="num-in" id="ap-w-${x.id}" data-act="apw" data-id="${x.id}" value="${fmtNum(w0)}"></label><button class="btn sm" data-act="apoffer" data-id="${x.id}">Offer it</button></div>
+    <p class="small" id="ap-p-${x.id}" style="margin-top:4px">${apChanceText(x, w0)}</p>
+    <p class="small muted">${steps.map((w, i) => `${["Matching", "25% more", "50% more", "Double"][i]} (${pw(w * 52)}): ${Math.round(poachChance(p, w * 52, x.data.theirs) * 100)}%`).join(" · ")}</p></div>`;
+}
 function choiceHTML(x) {
-  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.key === "raise" && x.data && G.players[x.data.pid] ? (q => `<p class="small">Contract: <b>${q.yrs} year${q.yrs === 1 ? "" : "s"} left</b> on ${pw(q.wage)}. ${x.done ? "" : "A rise in full gives him a new deal to 4 years (3 if you meet him halfway)."}</p>`)(G.players[x.data.pid]) + payHistoryLine(G.players[x.data.pid]) : ""}${x.data && x.data.pid != null && G.players[x.data.pid] ? (G.players[x.data.pid].club === G.club ? myPlayerLine(G.players[x.data.pid]) : x.key !== "ySign" ? weakestStarterLine(x.data.pid) : "") : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
+  return `<div class="decision"><b>${esc(x.title)}</b>${x.body ? `<p class="small">${esc(x.body)}</p>` : ""}${x.key === "raise" && x.data && G.players[x.data.pid] ? (q => `<p class="small">Contract: <b>${q.yrs} year${q.yrs === 1 ? "" : "s"} left</b> on ${pw(q.wage)}. ${x.done ? "" : "A rise in full gives him a new deal to 4 years (3 if you meet him halfway)."}</p>`)(G.players[x.data.pid]) + payHistoryLine(G.players[x.data.pid]) : ""}${x.data && x.data.pid != null && G.players[x.data.pid] ? (G.players[x.data.pid].club === G.club ? myPlayerLine(G.players[x.data.pid]) : x.key !== "ySign" ? weakestStarterLine(x.data.pid) : "") : ""}${x.key === "acadPoach" ? apOfferHTML(x) : ""}<div class="row" style="margin-top:6px">${x.opts.map((o, i) => x.key === "acadPoach" && i === 0 && !x.done ? "" : `<button class="btn sm ${i === x.dflt ? "" : ""}" data-act="choose" data-id="${x.id}" data-i="${i}">${esc(o)}</button>`).join("")}<span class="small muted">If you don't answer: “${esc(x.opts[x.dflt])}”</span></div></div>`;
 }
 function loansCard() {
   const c = my(), t = loanTerms(100000, 5);
