@@ -47,7 +47,11 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
-  if (!G.hof3) { G.hof2 = G.hof3 = true; const legs = new Set(G.club != null ? (my().legends || []).map(l => l.name) : []); G.hof = (G.hof || []).filter(h => hofWorthy(h.peak, h.apps, h.leg || legs.has(h.name))); for (const h of G.hof) if (legs.has(h.name)) { h.leg = true; h.mine = true; } }  // 0.85.1/0.85.2: one-off: the hall of fame keeps only those who'd get in now
+  if (!G.chof1 && G.club != null) { G.chof1 = true; const c = my();  // 0.86.0: one-off: older legends get their games for you, peak and nationality where he's still in the game
+    for (const l of c.legends || []) { if (l.here) continue; const p = Object.values(G.players).find(p => p.name === l.name && p.pos === l.pos);
+      if (p) { const h = (p.cs || {})[c.id]; if (h) l.here = [h[0], h[1], h[2] || 0]; l.peak = p.peak; l.nat = p.nat; l.how = "left"; }
+      else { const H = (G.hof || []).find(h => h.name === l.name); if (H) { l.peak = H.peak; l.nat = H.nat; } l.how = "retired"; } } }
+  if (!G.hof4) { G.hof2 = G.hof3 = G.hof4 = true; const legs = new Set(G.club != null ? (my().legends || []).map(l => l.name) : []); G.hof = (G.hof || []).filter(h => hofWorthy(h.peak, h.apps)); for (const h of G.hof) if (legs.has(h.name)) { h.leg = true; h.mine = true; } }  // 0.85.1/0.85.2: one-off: the hall of fame keeps only those who'd get in now
   if (!G.am1 && G.club != null) { G.am1 = true; const c = my(), YT = YEAR_TICKS(), now = yearTick();  // 0.83.0: one-off: fees already paid go on the books at what's left of them
     for (const p of c.squad.map(P).concat((G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id))) {
       const t = (p.tx || []).filter(x => x[3] === c.id && x[4] > 0).pop(); if (!t || p.am) continue;

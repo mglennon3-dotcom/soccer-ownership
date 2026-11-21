@@ -37,7 +37,10 @@ function favLeaves(p) {
 function recordLegend(p, c) {
   if (favLevel(p, c.id) < 2) return;
   const L = (c.legends ||= []);
-  if (!L.some(x => x.name === p.name)) L.push({ name: p.name, pos: p.pos, apps: p.tot[0] + p.s.app, goals: p.tot[1] + p.s.g, from: (p.hist.find(h => h[1] === c.short) || [G.year])[0], to: G.year });
+  const here = (p.cs || {})[c.id];  // his games for this club (the season in progress included when it's yours)
+  if (!L.some(x => x.name === p.name)) L.push({ name: p.name, pos: p.pos, nat: p.nat, peak: p.peak, apps: p.tot[0] + p.s.app, goals: p.tot[1] + p.s.g,
+    here: here ? [here[0] + (p.club === c.id ? p.s.app : 0), here[1] + (p.club === c.id ? p.s.g : 0), (here[2] || 0) + (p.club === c.id ? p.s.a : 0)] : null,
+    from: (p.hist.find(h => h[1] === c.short) || [G.year])[0], to: G.year, how: p._retiring ? "retired" : "left" });
 }
 /* Retirement: legends are honoured, and some players stay in football as staff. */
 function onRetire(p) {
