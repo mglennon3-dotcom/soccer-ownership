@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.84.1";
+const VERSION = "0.85.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -443,7 +443,11 @@ function retire(p, cull) {
   if (p.toMe && p.age < 40) return;  // he's agreed to join you: he isn't hanging up his boots yet
   if (!cull) newcomerFor(p);
   p._retiring = true; onRetire(p);
-  if (p.peak >= 80 || p.tot[0] >= 400) G.hof.push({ name: p.name, pos: p.pos, nat: p.nat, peak: p.peak, apps: p.tot[0], goals: p.tot[1], y: G.year, clubs: [...new Set(p.hist.map(h => h[1]))].slice(-5) });
+  if (p.peak >= 80 || p.tot[0] >= 400) { const cs = p.cs || {};
+    G.hof.push({ name: p.name, pos: p.pos, nat: p.nat, peak: p.peak, age: p.age, apps: p.tot[0], goals: p.tot[1], ast: sum(Object.values(cs), v => v[2] || 0), y: G.year,
+      clubs: [...new Set(p.hist.map(h => h[1]))],
+      cs: Object.keys(cs).map(Number).filter(id => G.clubs[id]).sort((a, b) => cs[b][0] - cs[a][0]).map(id => [G.clubs[id].name, cs[id][0], cs[id][1], id]),
+      mine: !!cs[G.club] || (G.club != null && p.hist.some(h => h[1] === my().short)), leg: G.club != null && typeof favLevel === "function" && favLevel(p, G.club) === 2 }); }
   leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); delete G.players[p.id];
 }
 

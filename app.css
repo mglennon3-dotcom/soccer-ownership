@@ -538,3 +538,10 @@ table.depth td{padding:5px 4px;vertical-align:middle;border-bottom:1px solid var
 .ledger dd.t{font-family:inherit;font-size:14px}
 /* New signing card: compact tiles and short lines that read well on a phone. */
 .signcard{padding:10px 0;border-bottom:1px solid var(--line)} .signcard:last-child{border-bottom:0} .signtiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .signtiles>div{background:var(--bg,rgba(127,127,127,.08));border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:4px;align-items:flex-start} .signtiles>div>span:first-child{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)} .signcard p{margin:2px 0}
+
+/* Hall of fame */
+.hof { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.hof:last-child { border-bottom: 0; }
+.hof.ours { border-left: 3px solid var(--accent); padding-left: 10px; margin-left: -13px; }
+.hof-stats { display: flex; gap: 14px; margin: 6px 0 4px; }
+.hof-clubs { line-height: 1.6; }
