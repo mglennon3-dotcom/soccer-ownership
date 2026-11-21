@@ -176,7 +176,7 @@ function upgradeSave() {
 }
 function retroCosts(c) {
   const f = c.fin, res = (G.myRes || []).filter(r => !r.neutral || r.comp), wk = G.phase === "summer" ? G.week : G.phase === "season" ? SUMMER_WEEKS + G.week : SUMMER_WEEKS + SEASON_WEEKS + G.week;
-  const due = { mdops: 0, travel: 0, util: utilities(c) / 52 * wk, insure: wageBill(c) * INSURE / 52 * wk, medical: 0, grading: 0 };
+  const due = { mdops: 0, travel: 0, util: utilities(c) / YEAR_TICKS() * wk, insure: wageBill(c) * INSURE / YEAR_TICKS() * wk, medical: 0, grading: 0 };
   for (const r of res) { const opp = CL(r.opp); if (!opp) continue; if (r.home && r.crowd) due.mdops += opsCost(c, r.crowd); else if (!r.home) due.travel += TRAVEL[c.tier] * tripF(c, opp); }
   for (const id of c.squad) { const p = P(id); if (p && p.inj >= 5 && p.injT == null) { due.medical += medBill(c, p.inj); p.injT = p.inj; } }
   const h = G.history[0]; if (h && h.up && h.y === G.year - 1 && !f.grading) due.grading = gradingCost(c, c.tier);

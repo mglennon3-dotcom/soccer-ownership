@@ -372,19 +372,19 @@ function amortWeek(c) {
 function amortLeave(p) { if (bookValue(p) && G.club != null) book("writeoff", p.am.book); delete p.am; }
 function weeklyAccounts(c) {
   amortWeek(c);
-  spend("wages", wageBill(c) / 52);
-  spend("staff", staffBill(c) / 52);
-  spend("fac", upkeep(c) / 52);
-  spend("acad", c.budget.acad / 52);
-  spend("scout", c.budget.scout / 52);
-  spend("util", utilities(c) / 52); insureWeek(c); if (G.phase === "season" && fzK(c)) moodHit(c, fzK(c) * .04); if (c.budget.comm) { spend("comm", c.budget.comm / 52); moodHit(c, commK(c) * .05); }
-  earn("spons", sponsorTotal(c) / 52);
+  spend("wages", wageBill(c) / YEAR_TICKS());
+  spend("staff", staffBill(c) / YEAR_TICKS());
+  spend("fac", upkeep(c) / YEAR_TICKS());
+  spend("acad", c.budget.acad / YEAR_TICKS());
+  spend("scout", c.budget.scout / YEAR_TICKS());
+  spend("util", utilities(c) / YEAR_TICKS()); insureWeek(c); if (G.phase === "season" && fzK(c)) moodHit(c, fzK(c) * .04); if (c.budget.comm) { spend("comm", c.budget.comm / YEAR_TICKS()); moodHit(c, commK(c) * .05); }
+  earn("spons", sponsorTotal(c) / YEAR_TICKS());
   earn("merch", merchFor(c));
   ventureBuildWeek(c); earn("events", ventureWeek(c)); concertWeek(c);
   if (G.phase === "season") earn("suites", suitesLet(c) * c.prices.suite / SEASON_WEEKS);
   corpWeek(c);
   if (G.phase === "season") { earn("tv", TV[c.tier] / 46); if (paraOf(c)) earn("para", paraOf(c) / 46); }
-  if (c.cash < 0) spend("interest", -c.cash * .1 / 52);  // an overdraft at 10% a year
+  if (c.cash < 0) spend("interest", -c.cash * .1 / YEAR_TICKS());  // an overdraft at 10% a year
   feedersWeek(); loansWeek(c);
 }
 function homeGameMoney(c, opp, league) {
@@ -695,8 +695,8 @@ const travellers = (c, opp) => Math.round(Math.min(c.fans * .06 * (tripF(c, opp)
 const MED = [0, 250000, 60000, 25000, 12000, 5000, 2000, 800];  // a serious injury's treatment, per five weeks out
 const medBill = (c, wks) => Math.round(MED[c.tier] * wks / 5 / 100) * 100;
 const INSURE = .03;  // premium: 3% of the wage bill a year; long injuries (6+ weeks) pay 70% of wages after the fourth week
-const insureWeek = c => { spend("insure", wageBill(c) * INSURE / 52); let back = 0;
-  for (const id of c.squad) { const p = P(id); if (p && p.inj > 0 && (p.injT || 0) >= 6 && p.injT - p.inj >= 4) back += p.wage / 52 * .7; } if (back) earn("insclaim", back); };
+const insureWeek = c => { spend("insure", wageBill(c) * INSURE / YEAR_TICKS()); let back = 0;
+  for (const id of c.squad) { const p = P(id); if (p && p.inj > 0 && (p.injT || 0) >= 6 && p.injT - p.inj >= 4) back += p.wage / YEAR_TICKS() * .7; } if (back) earn("insclaim", back); };
 const utilities = c => (atHome(c) && !c.fac.stadium.soldOld ? 6000 + groundCap(c) * 6 : 2500) + (c.fac.train.lvl ? 4000 * c.fac.train.lvl : 1500);
 const GRADE = [0, 4e6, 1.5e6, 600e3, 250e3, 90e3, 30e3, 0];  // works the league demands on arriving in a division
 const gradingCost = (c, t) => Math.round(GRADE[t] * (isMine(c) ? (c.fac.stadium.own ? 1 : .3) : .7));
@@ -782,23 +782,23 @@ function seasonForecast(c = my()) {
   const ventWeek = atHome(c) ? sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].week ? VENTURES[k].week(c) : 0) : 0;
   const rest = {
     "Gate, food & drink": home * perGame,
-    "Partner club fees": sum(partners(), p => CL(p.id) ? affilFee(CL(p.id), c) : 0) / 52 * W,
+    "Partner club fees": sum(partners(), p => CL(p.id) ? affilFee(CL(p.id), c) : 0) / YEAR_TICKS() * W,
     "Season tickets": summer && !(c.st && c.st.y === G.year) ? stDemand(c) * stPrice(c) : 0,
-    "Sponsorship": sponsorTotal(c) / 52 * W, "Merchandise": merchFor(c) * W, "TV money": (TV[c.tier] + paraOf(c)) / 46 * se,
+    "Sponsorship": sponsorTotal(c) / YEAR_TICKS() * W, "Merchandise": merchFor(c) * W, "TV money": (TV[c.tier] + paraOf(c)) / 46 * se,
     "Suites & ventures": suitesLet(c) * c.prices.suite / SEASON_WEEKS * se + ventWeek * W,
     "League merit money": G.phase === "playoffs" ? 0 : PRIZE_TOP[c.tier] * (1 - (pos - 1) / Math.max(1, ids.length)),
   };
   const out = {
-    "Player wages": bill / 52 * W, "Staff wages": staffBill(c) / 52 * W,
+    "Player wages": bill / YEAR_TICKS() * W, "Staff wages": staffBill(c) / YEAR_TICKS() * W,
     // Amortised: this season's share of the fees already on the books, and of the transfer budget still to spend
     // (spread over a typical three-year deal). The cash itself goes when the deals are done.
     "Transfer fees (spread over contracts)": sum(c.squad.map(P).concat((G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id)), p => Math.min(bookValue(p), amortPer(p) * W))
       + (windowAhead ? Math.max(0, c.budget.transfer - (c.spentT || 0) - pendFees()) / 3 * W / YEAR_TICKS() : 0),
-    "Academy & scouting": (c.budget.acad + c.budget.scout) / 52 * W, "Community foundation": (c.budget.comm || 0) / 52 * W,
-    "Ground: rent, match-day staff, upkeep": home * (m.rent + m.ops) + upkeep(c) / 52 * W, "Utilities & insurance": (utilities(c) + bill * INSURE) / 52 * W,
+    "Academy & scouting": (c.budget.acad + c.budget.scout) / YEAR_TICKS() * W, "Community foundation": (c.budget.comm || 0) / YEAR_TICKS() * W,
+    "Ground: rent, match-day staff, upkeep": home * (m.rent + m.ops) + upkeep(c) / YEAR_TICKS() * W, "Utilities & insurance": (utilities(c) + bill * INSURE) / YEAR_TICKS() * W,
     // Deals agreed for January that you made yourself (club cash, outside the budgets): the fee, and his wages from then on.
-    "Agreed signings for January": G.phase === "season" ? sum(incoming().filter(p => toMeWhen(p) === "jan" && !p.toMe.rec), p => p.toMe.fee / 3 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0])) / YEAR_TICKS() + p.toMe.wage / 52 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0]))) : 0,
-    "Away travel": away * TRAVEL[c.tier], "Feeder funding": feederFunding() / 52 * W, "Interest": Math.max(0, -c.cash) * .1 / 52 * W + sum(G.loans || [], l => (l.rate || 0) * (l.left || 0)) / 52 * W,
+    "Agreed signings for January": G.phase === "season" ? sum(incoming().filter(p => toMeWhen(p) === "jan" && !p.toMe.rec), p => p.toMe.fee / 3 * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0])) / YEAR_TICKS() + p.toMe.wage / YEAR_TICKS() * Math.max(0, SEASON_WEEKS - Math.max(G.week, JAN[0]))) : 0,
+    "Away travel": away * TRAVEL[c.tier], "Feeder funding": feederFunding() / YEAR_TICKS() * W, "Interest": Math.max(0, -c.cash) * .1 / YEAR_TICKS() * W + sum(G.loans || [], l => (l.rate || 0) * (l.left || 0)) / YEAR_TICKS() * W,
   };
   // Europe: the group games still to play (home gates, an even share of the results money, away travel). Knockout
   // rounds aren't forecast: they count once you're through, as they happen.
@@ -807,7 +807,7 @@ function seasonForecast(c = my()) {
   // Corporation tax on a profit, after losses carried forward (see seasonTax).
   { const pre = sofar + inc - sum(Object.values(out), v => v); out["Corporation tax"] = pre > 0 ? Math.max(0, pre - (G.taxLoss || 0)) * TAX : 0; }
   const cost = sum(Object.values(out), v => v), net = sofar + inc - cost;
-  const ratio = c.tier <= 4 ? spendRolling(c, ledgerIncome(f) + inc - (ledgerCosts(f) - f.build - f.acad + cost - (c.budget.acad / 52 * W)), ledgerIncome(f) + inc).ratio : 0;
+  const ratio = c.tier <= 4 ? spendRolling(c, ledgerIncome(f) + inc - (ledgerCosts(f) - f.build - f.acad + cost - (c.budget.acad / YEAR_TICKS() * W)), ledgerIncome(f) + inc).ratio : 0;
   return { sofar, rest, out, inc, cost, net, W, home, pos, windowAhead, ratio };
 }
 
