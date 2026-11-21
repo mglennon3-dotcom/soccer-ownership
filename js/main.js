@@ -47,6 +47,15 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
+  if (!G.acc1) { G.acc1 = true;  // 0.87.0: one-off: past titles, cups and your promotions, for those who played their part (from season records)
+    const LN = new Set(Object.values(LEAGUES).map(L => L.name)), byShort = {}; for (const c of G.clubs) if (!c.abroad) (byShort[c.short] ||= []).push(c);
+    const rowAt = (p, y, short) => (p.prog || []).find(r => r[0] === y && typeof r[3] === "string" && r[3].split(" ")[0] === short);
+    const ps = Object.values(G.players).filter(p => p.prog && p.prog.length);
+    for (const c of G.clubs) if (!c.abroad) for (const [y, name] of c.trophies || []) {
+      const lg = LN.has(name), min = lg ? 10 : 5;
+      for (const p of ps) { const r = rowAt(p, y, c.short); if (r && r[4] >= min) (p.acc ||= []).push([y, lg ? "title" : /Champions Cup|Continental Shield/.test(name) ? "euro" : "cup", lg ? `${name} champions ${seasonLabel(y)}` : `${name} winner ${seasonLabel(y)}`]); } }
+    if (G.club != null) for (const h of G.history || []) if (h.up && (!h.club || h.club === my().name)) for (const p of ps) { const r = rowAt(p, h.y, my().short); if (r && r[4] >= 10) (p.acc ||= []).push([h.y, "promo", `Promoted from the ${LEAGUES[h.lg].name} ${seasonLabel(h.y)}`]); }
+    for (const p of ps) if (p.acc) p.acc.sort((a, b) => a[0] - b[0]); }
   if (!G.chof1 && G.club != null) { G.chof1 = true; const c = my();  // 0.86.0: one-off: older legends get their games for you, peak and nationality where he's still in the game
     for (const l of c.legends || []) { if (l.here) continue; const p = Object.values(G.players).find(p => p.name === l.name && p.pos === l.pos);
       if (p) { const h = (p.cs || {})[c.id]; if (h) l.here = [h[0], h[1], h[2] || 0]; l.peak = p.peak; l.nat = p.nat; l.how = "left"; }

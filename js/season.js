@@ -161,6 +161,20 @@ function devTick(dt) {
   for (const p of Object.values(G.players)) if (p.club !== -2) develop(p, dt, p.club >= 0 ? games[p.club] || 0 : 0);
 }
 
+/* ---------- accomplishments ----------
+   Each player's honours (p.acc: [season, kind, text]): the Golden Boot (most league goals in his division), most league
+   assists, the Golden Glove (most league clean sheets, goalkeepers), and the team's titles, promotions and cups for
+   those who played their part (10+ games that season for the league, 5+ for a cup). */
+function accAdd(p, kind, text) { if (p) (p.acc ||= []).push([G.year, kind, text]); }
+const accSquad = (c, min) => c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.from === c.id) && p.s.app >= min);
+function seasonAwards(k) {
+  const L = LEAGUES[k], ps = G.leagues[k].clubs.flatMap(id => CL(id).squad.map(P)).filter(p => p && p.ls && p.ls.y === G.year), lbl = seasonLabel(G.year);
+  const best = (f, ok = () => true) => { const q = ps.filter(ok), top = Math.max(0, ...q.map(f)); return top > 0 ? q.filter(p => f(p) === top) : []; };
+  for (const p of best(p => p.ls.g)) accAdd(p, "boot", `Golden Boot, ${L.name} ${lbl} (${p.ls.g} goals)`);
+  for (const p of best(p => p.ls.a)) accAdd(p, "assist", `Most assists, ${L.name} ${lbl} (${p.ls.a})`);
+  for (const p of best(p => p.ls.cs, p => p.pos === "GK")) accAdd(p, "glove", `Golden Glove, ${L.name} ${lbl} (${p.ls.cs} clean sheets)`);
+}
+
 /* ---------- the end of the season ---------- */
 function endSeason() {
   // Each player's shown rating as the season ends: the squad page's arrows show movement since then.
@@ -169,7 +183,8 @@ function endSeason() {
   const moves = [], mine = my(), report = { y: G.year };
   for (const k of LG_KEYS) {
     const L = LEAGUES[k], t = table(k), ids = t.map(r => r.id);
-    const champ = CL(ids[0]); champ.trophies.push([G.year, L.name]);
+    const champ = CL(ids[0]); champ.trophies.push([G.year, L.name]); seasonAwards(k);
+    for (const p of accSquad(champ, 10)) accAdd(p, "title", `${L.name} champions ${seasonLabel(G.year)}`);
     if (L.tier === 1) titleRivals(ids);
     ids.forEach((id, i) => { const x = CL(id); if (!isMine(x)) x.push = i < Math.max(2, Math.round(ids.length * .25)); });
     if (champ.id === G.club) news(`CHAMPIONS! ${mine.name} win the ${L.name}.`, true);
@@ -178,7 +193,7 @@ function endSeason() {
       // Promoted clubs go up whatever their ground holds. AI clubs grow their grounds as they rise.
       const final = up;
       for (const id of up) { const c = CL(id); if (!isMine(c)) c.cap = Math.max(c.cap, Math.min(aiSite(c), Math.round(STADIUM_T[LEAGUES[ABOVE[k]].tier] * rf(.5, .8) / 100) * 100)); }
-      for (const id of final) moves.push([id, ABOVE[k]]);
+      for (const id of final) { moves.push([id, ABOVE[k]]); for (const p of accSquad(CL(id), 10)) accAdd(p, "promo", `Promoted from the ${L.name} ${seasonLabel(G.year)}${ids[0] === id ? "" : G.po[k] && G.po[k].win === id ? " (play-offs)" : ""}`); }
     }
     if (L.down && L.tier < 7) for (const id of ids.slice(-L.down)) moves.push([id, null]);
     if (L.tier === 7) { const drop = ids.filter(id => id !== G.club).slice(-L.down); for (const id of drop) moves.push([id, "OUT"]); }

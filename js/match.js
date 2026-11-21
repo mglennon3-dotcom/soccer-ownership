@@ -135,8 +135,8 @@ function playMatch(h, a, neutral, fr, kind) {
   const hg = poisson(clamp(lh, .1, 6)), ag = poisson(clamp(la, .1, 6));
   const ev = [];
   for (const [xi, n, side] of [[xh, hg, 0], [xa, ag, 1]]) for (let i = 0; i < n; i++) {
-    const g = scorer(xi, "g"); if (!g) continue; if (!fr) addStat(g, 1); let as = null;
-    if (R() < .7) { as = scorer(xi.filter(o => o.p !== g), "a"); if (as && !fr) addStat(as, 2); }
+    const g = scorer(xi, "g"); if (!g) continue; if (!fr) addStat(g, 1); if (!fr && !kind) lsOf(g).g++; let as = null;
+    if (R() < .7) { as = scorer(xi.filter(o => o.p !== g), "a"); if (as && !fr) { addStat(as, 2); if (!kind) lsOf(as).a++; } }
     ev.push({ m: ri(1, 90), side, g: g.name, a: as ? as.name : null });
   }
   /* Substitutions: up to three (five in a friendly). The most tired outfield starters come off, each replaced by a
@@ -162,6 +162,7 @@ function playMatch(h, a, neutral, fr, kind) {
     for (const { p } of xi) { tire(p, off.has(p.id) ? .7 : 1, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); injuryCheck(p, pq); }
     for (const p of subs) { tire(p, .35, fr); if (fr) continue; if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.sub = (p.s.sub || 0) + 1; if (R() < .4) injuryCheck(p, pq); }
   }
+  if (!fr && !kind) for (const [xi, conceded] of [[xh, ag], [xa, hg]]) { const gk = xi.find(o => o.slot === "GK"); if (gk && !conceded) lsOf(gk.p).cs++; }  // a league clean sheet for the keeper
   ev.sort((x, y) => x.m - y.m);
   return { h, a, hg, ag, ev, fit: [fh, fa], xg: [r1(lh), r1(la)] };
 }
@@ -187,6 +188,8 @@ function recoverWeek() {
 }
 /* A game, goal or assist counts for the season and for the club he's playing for (a loan club included), so the
    card can show his career club by club. */
+/* League goals, assists and clean sheets this season (p.ls), for the Golden Boot, most assists and Golden Glove. */
+const lsOf = p => p.ls && p.ls.y === G.year ? p.ls : (p.ls = { y: G.year, g: 0, a: 0, cs: 0 });
 function addStat(p, k) { p.s[["app", "g", "a"][k]]++; if (p.club >= 0) ((p.cs ||= {})[p.club] ||= [0, 0, 0])[k]++; }
 function injuryCheck(p, pq) {
   const c = CL(p.club), tl = isMine(c) ? c.fac.train.lvl : c.train, surf = pq != null && pq < 60 ? 1 + (60 - pq) / 50 : 1;
