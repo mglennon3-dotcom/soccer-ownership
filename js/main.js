@@ -47,6 +47,15 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
+  if (!G.back1 && G.club != null) { G.back1 = true; const c = my();  // 0.89.2: one-off: Adam Brannigan and Zach Palmer come back from the parent clubs on pro deals; compensation repaid
+    for (const name of ["Adam Brannigan", "Zach Palmer"]) {
+      const p = Object.values(G.players).find(p => p.name === name && p.club >= 0 && p.club !== c.id && partners().some(pt => pt.id === p.club)); if (!p) continue;
+      const from = CL(p.club), t = (G.tlog || []).find(m => m.kind === "out" && m.id === p.id && m.y === G.year), comp = t ? t.fee || 0 : 0;
+      if (comp) { c.cash -= comp; c.fin.sales -= comp; } G.tlog = (G.tlog || []).filter(m => m !== t);
+      leaveClub(p); NEXT_FEE = 0; moveTo(p, c); p.tx = (p.tx || []).filter(x => !(x[0] === G.year && (x[3] === from.id || x[2] === from.id)));
+      p.acad = false; p.yrs = 3; p.wage = Math.max(p.wage, Math.round(Math.max(p.wage * 1.15, demandWage(p, c)) / 100) * 100); p.dealY = G.year; p.loy = Math.max(loyaltyOf(p), .6);
+      if (typeof registerNew === "function") registerNew(p, c);
+      news(`${p.name} is back from ${from.name} on a professional contract: ${pw(p.wage)} for 3 years${comp ? `. The ${money(comp)} compensation goes back to them` : ""}.`, true); } }
   if (!G.acc1) { G.acc1 = true;  // 0.87.0: one-off: past titles, cups and your promotions, for those who played their part (from season records)
     const LN = new Set(Object.values(LEAGUES).map(L => L.name)), byShort = {}; for (const c of G.clubs) if (!c.abroad) (byShort[c.short] ||= []).push(c);
     const rowAt = (p, y, short) => (p.prog || []).find(r => r[0] === y && typeof r[3] === "string" && r[3].split(" ")[0] === short);
