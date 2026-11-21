@@ -165,7 +165,40 @@ function feedersSummer() {
 }
 DECIDE.fFirst = (m, i) => { const p = G.players[m.data.pid]; if (i !== 0 || !p || p.club !== m.data.from) return; signPlayer(p, m.data.fee, Math.max(p.wage, demandWage(p, my())), false, "first refusal"); };
 // What's spent on feeders each week.
-function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / YEAR_TICKS()); partnersWeek(); }
+function feedersWeek() { if (net().feeders.length) spend("feeders", feederFunding() / YEAR_TICKS()); partnersWeek(); parentPoachWeek(); }
+
+/* ---------- a parent club after one of your academy players ----------
+   Every six weeks or so a parent club may come for your best academy prospect (16-18, good enough for their plans),
+   offering him a professional contract. You hear first: offer him a professional contract of your own (a little more
+   than theirs), pay him a loyalty bonus to stay in the academy, or let him go for compensation. He may still choose
+   them: the more loyal he is, the likelier he stays. */
+const poachComp = (p, c = my()) => Math.round(YOUTH_COMP[c.tier] * (1 + Math.max(0, to20(p.pot) - 8) * 1.5) / 1000) * 1000;
+function parentPoachWeek() {
+  const c = my(); if (G.phase === "playoffs" || G.week % 6 !== 3 || G.inbox.some(m => m.key === "acadPoach" && !m.done)) return;
+  for (const pt of partners()) {
+    const x = CL(pt.id); if (!x || (x.gone && !x.abroad)) continue;  // clubs abroad carry a gone flag but are very much there
+    const p = c.squad.map(P).filter(p => p && p.acad && p.age >= 16 && p.age <= 18 && p.poachY !== G.year && p.pot >= (x.lvl || TIER_LVL[x.tier]) - 4).sort((a, b) => b.pot - a.pot)[0];
+    if (!p || R() > .15) continue;
+    p.poachY = G.year;
+    const theirs = Math.max(26000, Math.round(aiWage(p, x) / 100) * 100), ours = Math.round(Math.max(theirs * 1.15, demandWage(p, c)) / 100) * 100, bonus = Math.round(theirs / 1000) * 1000, comp = poachComp(p, c), y = staffOf("youth");
+    addChoice("acadPoach", `${x.name} want your academy player ${p.name}`, `${x.name}, one of your parent clubs, have approached ${p.name} (${POS_NAME[p.pos].toLowerCase()}, ${p.age}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}) with a professional contract worth ${pw(theirs)}. ${y ? `${y.name} ${youthRates(p) ? "rates him highly and wants to keep him" : "thinks he's one of the better ones, but not a must-keep"}. ` : ""}${loyaltyOf(p) >= .6 ? "He's loyal to the club." : loyaltyOf(p) <= .35 ? "He isn't the loyal type: he's tempted." : "He's weighing it up."}`,
+      [`Offer him a professional contract (${pw(ours)})`, `Pay him a ${money(bonus)} loyalty bonus to stay in the academy`, `Let him go (${money(comp)} compensation)`], { pid: p.id, from: x.id, theirs, ours, bonus, comp }, 0);
+    return;
+  }
+}
+DECIDE.acadPoach = (m, i) => {
+  const p = G.players[m.data.pid], x = CL(m.data.from), c = my(); if (!p || !p.acad || p.club !== c.id || !x || (x.gone && !x.abroad)) return;
+  const L = loyaltyOf(p), stay = i === 0 ? clamp(.55 + L * .4, .5, .95) : i === 1 ? clamp(.35 + L * .45, .3, .85) : 0;
+  if (i < 2 && R() < stay) {
+    if (i === 0) { const was = p.wage; p.acad = false; p.yrs = 3; p.wage = Math.max(p.wage, m.data.ours); logPay(p, was, "first professional contract"); p.dealY = G.year; news(`${p.name} turns down ${x.name}: he signs his first professional contract with you, ${pw(p.wage)} for 3 years.`, true); }
+    else { spend("acad", m.data.bonus); news(`${p.name} takes the ${money(m.data.bonus)} loyalty bonus and stays in the academy, turning down ${x.name}.`, true); }
+    return;
+  }
+  // He goes: compensation for the club that developed him.
+  leaveClub(p); NEXT_FEE = m.data.comp; moveTo(p, x); p.acad = false; p.yrs = 3; p.wage = m.data.theirs; earn("sales", m.data.comp);
+  logMove("out", p, { club: x.name, fee: m.data.comp, wage: p.wage, by: i === 2 ? "you" : "academy" });
+  news(i === 2 ? `${p.name} leaves the academy for ${x.name}: ${money(m.data.comp)} compensation.` : `${p.name} turns down your ${i === 0 ? "offer" : "bonus"} and joins ${x.name}. You receive ${money(m.data.comp)} compensation.`, true);
+};
 
 /* ---------- your loan list ----------
    Make a player available for loan and clubs at his level come in during a window: a club where he'd play (its
