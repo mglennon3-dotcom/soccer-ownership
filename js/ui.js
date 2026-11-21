@@ -30,9 +30,11 @@ function sortTable(id, cols, rows, opt = {}) {
   const st = SORTS[id] || opt.sort || null;
   if (st) { const col = cols.find(c => c.k === st.k); if (col && col.v) rows = rows.map(r => [col.v(r), r]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0) * st.d).map(x => x[1]); }
   const total = rows.length; if (opt.limit) rows = rows.slice(0, opt.limit);
-  return `<div class="tbl-wrap"><table class="sq"><thead><tr>${cols.map(c => `<th${c.left ? ' style="text-align:left"' : ""} ${st && st.k === c.k ? `aria-sort="${st.d > 0 ? "ascending" : "descending"}"` : ""}>${c.v ? `<button data-act="sort" data-v="${id}|${c.k}">${c.l}${st && st.k === c.k ? (st.d > 0 ? " ▲" : " ▼") : ""}</button>` : c.l}</th>`).join("")}</tr></thead><tbody>
-    ${rows.map(r => `<tr${opt.row ? " " + opt.row(r) : ""}>${cols.map(c => `<td class="${c.r ? "num" : ""}"${c.left ? ' style="text-align:left"' : ""}>${c.f(r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted">${opt.empty || "Nothing to show."}</td></tr>`}</tbody></table></div>${opt.limit && total > opt.limit && !opt.quiet ? `<p class="small muted" style="margin-top:6px">Showing ${opt.limit} of ${total.toLocaleString("en-GB")}. Narrow the filters or sort to see others.</p>` : ""}`;
+  const fz = c => opt.freeze && opt.freeze.includes(c.k) ? ' class="frz"' : "";
+  return `<div class="tbl-wrap"><table class="sq"><thead><tr>${cols.map(c => `<th${fz(c)}${c.left ? ' style="text-align:left"' : ""} ${st && st.k === c.k ? `aria-sort="${st.d > 0 ? "ascending" : "descending"}"` : ""}>${c.v ? `<button data-act="sort" data-v="${id}|${c.k}">${c.l}${st && st.k === c.k ? (st.d > 0 ? " ▲" : " ▼") : ""}</button>` : c.l}</th>`).join("")}</tr></thead><tbody>
+    ${rows.map(r => `<tr${opt.row ? " " + opt.row(r) : ""}>${cols.map(c => `<td class="${c.r ? "num" : ""}${opt.freeze && opt.freeze.includes(c.k) ? " frz" : ""}"${c.left ? ' style="text-align:left"' : ""}>${c.f(r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted">${opt.empty || "Nothing to show."}</td></tr>`}</tbody></table></div>${opt.limit && total > opt.limit && !opt.quiet ? `<p class="small muted" style="margin-top:6px">Showing ${opt.limit} of ${total.toLocaleString("en-GB")}. Narrow the filters or sort to see others.</p>` : ""}`;
 }
+addEventListener("resize", () => { if (typeof freezeCols === "function") freezeCols(); });
 const SORT_UP = ["name", "pos", "club", "nat", "ask"];  // columns that start A-Z (or by position)
 const archChip = p => { const a = archetypeOf(p); return a ? `<span class="chip hg" title="${esc(a[0] + ": " + a[2])}">${a[3]}</span>` : ""; };
 const staff20 = v => `${bar(v)}<b class="num">${s20(v)}</b>`;  // directors and preferences: straight 1-20
@@ -96,7 +98,16 @@ function render() {
   const y = scrollY, nav = document.querySelector("nav.tabs"); if (nav && nav.offsetParent) NAV_X = nav.scrollLeft;
   $("#app").innerHTML = mast() + `<main class="wrap gut page">${body}</main>`;
   const nav2 = document.querySelector("nav.tabs"); if (nav2) nav2.scrollLeft = NAV_X;
+  freezeCols();
   scrollTo(0, y);
+}
+// Frozen table columns (class frz) stay put when the table scrolls sideways: each sits just right of the ones before it.
+function freezeCols() {
+  for (const t of document.querySelectorAll("table.sq")) {
+    const hs = [...t.querySelectorAll("thead th")]; let x = 0;
+    hs.forEach((th, i) => { if (!th.classList.contains("frz")) return; const left = x + "px"; th.style.left = left; for (const r of t.tBodies[0] ? t.tBodies[0].rows : []) if (r.cells[i]) r.cells[i].style.left = left; x += th.offsetWidth;
+      if (!hs[i + 1] || !hs[i + 1].classList.contains("frz")) { th.classList.add("frz-end"); for (const r of t.tBodies[0] ? t.tBodies[0].rows : []) if (r.cells[i]) r.cells[i].classList.add("frz-end"); } });
+  }
 }
 
 /* ---------- Office (home) ---------- */
@@ -269,7 +280,7 @@ function pgSquad() {
       { k: "wage", l: "Wage", r: true, v: p => myWage(p), f: p => p.loan && p.loan.to === c.id ? `${pw(myWage(p))}<br><span class="small muted">${Math.round(p.loan.share * 100)}% of ${pw(p.wage)}</span>` : pw(p.wage) },
       { k: "yrs", l: "Contract", r: true, v: p => p.acad ? 99 : p.yrs, f: p => p.acad ? "Youth" : p.yrs + "y" },
       { k: "val", l: "Value", r: true, v: p => valueOf(p), f: p => money(valueOf(p)) },
-    ], ps, { sort: { k: "pos", d: 1 } })}
+    ], ps, { sort: { k: "pos", d: 1 }, freeze: ["renew", "sel", "name", "pos"] })}
     ${tab !== "acad" ? `<p class="small muted" style="margin-top:8px">XI first choice · OP your pick (he must start) · apps (sub apps) · Fit: sharpness, below about 85% the manager rests him · KP protected · NFS not for sale · TL transfer-listed · LL available for loan · LN on loan here · OUT wants to leave · UNS unsettled · NR not registered · FAV fan favourite · LEG legend · 3w injured for 3 weeks</p>` : ""}
     ${tab === "first" && (G.loanList || []).some(id => G.players[id] && G.players[id].loan && G.players[id].loan.from === c.id) ? `<h3 style="margin:14px 0 6px">Out on loan</h3>${(G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id).map(p => `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> (${p.pos}, ${r20(p.ovr)}) at ${esc(CL(p.club).name)}: ${p.s.app} games · you still pay ${pw(p.wage * (1 - p.loan.share))}${p.loan.share >= 1 ? "" : ` (${Math.round((1 - p.loan.share) * 100)}%)`}</p>`).join("")}` : ""}`
     : `<p class="muted">${tab === "acad" ? (c.fac.acad.lvl ? "The academy's first intake arrives in the summer." : "No academy yet. Build one on the Facilities page.") : tab === "prot" ? "Nobody is protected or marked not for sale. Do it from a player's card." : tab === "tl" ? "Nobody is on the transfer list." : tab === "ll" ? "Nobody is available for loan. Make a player available from his card." : tab === "exp" ? "Nobody is in the last year of his contract." : tab === "out" ? "Nobody is out on loan." : "No players."}</p>`}</section>`;

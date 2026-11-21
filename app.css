@@ -545,3 +545,10 @@ table.depth td{padding:5px 4px;vertical-align:middle;border-bottom:1px solid var
 .hof.ours { border-left: 3px solid var(--accent); padding-left: 10px; margin-left: -13px; }
 .hof-stats { display: flex; gap: 14px; margin: 6px 0 4px; }
 .hof-clubs { line-height: 1.6; }
+
+/* Frozen table columns (the squad list's player and position): they stay in view while the table scrolls sideways. */
+table.sq{border-collapse:separate;border-spacing:0}
+table.sq .frz{position:sticky;z-index:1;background:var(--surface)}
+table.sq thead .frz{z-index:2}
+table.sq .frz-end{box-shadow:1px 0 0 var(--line)}
+table.sq tr.me .frz,table.sq tr.me-row .frz{background:var(--surface-2,var(--surface))}
