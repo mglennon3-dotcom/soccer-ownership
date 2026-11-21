@@ -195,7 +195,8 @@ const lsOf = p => p.ls && p.ls.y === G.year ? p.ls : (p.ls = { y: G.year, g: 0, 
 let MATCH_CT = "L";
 const ssOf = p => p.ss && p.ss.y === G.year ? p.ss : (p.ss = { y: G.year, L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] });
 // This season, club by club (p.sc.by[club] = [apps, goals, assists]): a player who moves mid-season keeps each club's share.
-const scOf = p => p.sc && p.sc.y === G.year ? p.sc : (p.sc = { y: G.year, by: {} });
+// Started part-way through a season (an old save), his games so far go to the club he's at.
+const scOf = p => p.sc && p.sc.y === G.year ? p.sc : (p.sc = { y: G.year, by: p.club >= 0 && p.s && p.s.app ? { [p.club]: [p.s.app, p.s.g, p.s.a, p.s.sub || 0] } : {} });
 const seasonAt = (p, cid) => { const S = p.sc && p.sc.y === G.year && p.sc.by[cid]; return S || (p.sc && p.sc.y === G.year ? [0, 0, 0] : p.club === cid ? [p.s.app, p.s.g, p.s.a] : [0, 0, 0]); };
 // His season for his current club only (apps, goals, assists, sub appearances): what your squad screens count.
 const myS = p => { const v = p.club >= 0 ? seasonAt(p, p.club) : [p.s.app, p.s.g, p.s.a], split = p.sc && p.sc.y === G.year && p.sc.by[p.club];
