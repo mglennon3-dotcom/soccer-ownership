@@ -887,13 +887,26 @@ function pgHist() {
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Seasons</h2></div>${G.history.length ? `<div class="tbl-wrap"><table><thead><tr><th>Season</th><th style="text-align:left">Division</th><th>Pos</th><th>Pts</th><th>Crowd</th><th>Season tickets</th><th>Income</th><th>Costs</th><th style="text-align:left">Manager</th><th style="text-align:left">Cups · targets</th></tr></thead><tbody>
     ${G.history.map(h => `<tr><td>${seasonLabel(h.y)}</td><td style="text-align:left">${G.career && G.career.length ? `<b>${esc(h.club || "")}</b> · ` : ""}${LEAGUES[h.lg].name}</td><td class="num">${ord(h.pos)}${h.up ? ' <span class="good">▲</span>' : h.down ? ' <span class="bad">▼</span>' : ""}</td><td class="num">${h.pts}</td><td class="num">${h.att.toLocaleString("en-GB")}</td><td class="num">${h.st != null ? `${h.st.toLocaleString("en-GB")}${h.stp ? `<br><span class="small muted">at ${money(h.stp)}</span>` : ""}` : "—"}</td><td class="num">${money(h.inc)}</td><td class="num">${money(h.cost)}</td><td style="text-align:left" class="small">${esc(h.mgr)}</td><td style="text-align:left" class="small">${[...(h.cups || []), ...(h.obj || [])].map(esc).join("<br>")}</td></tr>`).join("")}</tbody></table></div>` : "<p class='muted'>Your first season is under way.</p>"}</section>
     <section class="card"><div class="card-h"><h3>Honours</h3></div>${c.trophies.length ? c.trophies.map(t => `<p>🏆 ${t[0]} ${esc(t[1])}</p>`).join("") : "<p class='muted'>None yet.</p>"}</section></div>
-    <div class="stack"><section class="card"><div class="card-h"><h3>Club legends</h3></div>${(() => { const now = c.squad.map(P).filter(p => favLevel(p, c.id) === 2), past = c.legends || [];
-      return now.length || past.length ? now.map(p => `<p class="small"><b>${esc(p.name)}</b> (${p.pos}) · still playing · ${Math.round(loveOf(p, c.id))} affection</p>`).join("") + past.slice().reverse().map(l => `<p class="small"><b>${esc(l.name)}</b> (${l.pos}) · ${l.from}–${l.to} · ${l.apps} games, ${l.goals} goals</p>`).join("")
-        : "<p class='small muted'>Players become fan favourites, then legends, through games, goals and loyalty. Legends who retire are remembered here.</p>"; })()}</section>
+    <div class="stack">${clubHofCard(c)}
     ${hofCard()}
     <section class="card"><div class="card-h"><h3>Save</h3></div><div class="row"><button class="btn sm" data-act="export">Export save file</button><label class="btn sm">Import<input type="file" id="imp" accept=".json" hidden></label><button class="btn sm" data-act="quit">Back to start</button></div></section></div></div>`;
 }
 
+/* The club hall of fame: your legends, those still playing first (with their affection), then those gone, with what
+   they did for you, their peak, when and how they went, and whether they made the hall of fame proper too. */
+function clubHofCard(c) {
+  const now = c.squad.map(P).filter(p => favLevel(p, c.id) === 2), past = (c.legends || []).slice().reverse(), inHof = n => (G.hof || []).some(h => h.name === n);
+  const card = (o) => `<div class="hof ours"><div class="row between" style="gap:10px;align-items:flex-start">
+      <div style="min-width:0"><b>${o.name}</b> <span class="pos">${o.pos}</span>${o.chip}<div class="small muted">${o.sub}</div></div>
+      ${o.peak != null ? `<div style="text-align:right;flex:none">${rating(o.peak)}<div class="small muted">${o.peakL}</div></div>` : ""}</div>
+    <div class="hof-stats small">${o.stats}</div></div>`;
+  const live = now.map(p => { const h = (p.cs || {})[c.id] || [0, 0, 0];
+    return card({ name: `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>`, pos: p.pos, chip: ' <span class="chip acad">STILL PLAYING</span>', sub: `${esc(NAT_NAME[p.nat] || p.nat)} · ${Math.round(loveOf(p, c.id))} affection`, peak: p.peak, peakL: "peak", stats: `<span><b>${h[0] + p.s.app}</b> games</span><span><b>${h[1] + p.s.g}</b> goals</span><span><b>${(h[2] || 0) + p.s.a}</b> assists</span>` }); });
+  const gone = past.map(l => card({ name: esc(l.name), pos: l.pos, chip: inHof(l.name) ? ' <span class="chip rival r3">HALL OF FAME</span>' : "", sub: `${l.nat ? esc(NAT_NAME[l.nat] || l.nat) + " · " : ""}${l.from}–${l.to}${l.how ? ` · ${l.how}` : ""}`, peak: l.peak, peakL: "peak",
+    stats: l.here ? `<span><b>${l.here[0]}</b> games</span><span><b>${l.here[1]}</b> goals</span><span><b>${l.here[2]}</b> assists</span>` : `<span><b>${l.apps}</b> games</span><span><b>${l.goals}</b> goals</span><span class="muted">(whole career)</span>` }));
+  return `<section class="card"><div class="card-h"><h3>Club hall of fame</h3><span class="small muted">${now.length + past.length} legend${now.length + past.length === 1 ? "" : "s"}</span></div>
+    ${now.length || past.length ? live.join("") + gone.join("") : "<p class='small muted'>Players become fan favourites, then legends, through games, goals and loyalty. Your legends are remembered here.</p>"}</section>`;
+}
 /* The hall of fame: great players who've retired (see hofWorthy), with every club they played
    for and what they did there. Yours (and your legends) stand out; sort by most recent, the best, or just your own. */
 let HOF_SORT = "recent";
@@ -911,7 +924,7 @@ function hofCard() {
     <div class="hof-stats small"><span><b>${h.apps}</b> games</span><span><b>${h.goals}</b> goals</span>${h.ast != null ? `<span><b>${h.ast}</b> assists</span>` : ""}</div>
     <div class="small hof-clubs">${clubsOf(h).join('<span class="muted"> → </span>')}</div></div>`;
   return `<section class="card"><div class="card-h"><h3>Hall of fame</h3><span class="small muted">${H.length} player${H.length === 1 ? "" : "s"}</span></div>
-    <p class="small muted" style="margin-bottom:8px">Retired greats: a peak of 17 or more, 500+ games with a peak of 15 or more, or one of your club's legends.</p>
+    <p class="small muted" style="margin-bottom:8px">Retired greats: a peak of 17 or more, or 500+ games with a peak of 15 or more. Your own legends are in the club hall of fame.</p>
     ${H.length ? `<div class="chips" style="margin-bottom:10px">${tabs}</div>${L.length ? L.slice(0, 25).map(row).join("") + (L.length > 25 ? `<details><summary class="small">${Math.min(75, L.length - 25)} more${L.length > 100 ? ` (of ${L.length - 25})` : ""}</summary>${L.slice(25, 100).map(row).join("")}</details>` : "") : `<p class="muted small">None of them played for you.</p>`}`
       : "<p class='muted small'>Great players who retire are remembered here.</p>"}</section>`;
 }
