@@ -273,9 +273,9 @@ function pgSquad() {
         { k: "recall", l: "", f: p => `<button class="btn sm" data-act="recall" data-id="${p.id}">Recall</button>` }] : []),
       ...(tab !== "acad" && tab !== "out" ? [{ k: "reg", l: "Reg.", v: p => regExempt(p) ? 1 : isReg(p, c) ? 2 : 0, f: p => regExempt(p) ? `<span class="small muted">U21</span>` : `<input type="checkbox" data-act="reg" data-id="${p.id}" ${isReg(p, c) ? "checked" : ""} ${windowOpen() ? "" : "disabled"} aria-label="Registered">` }] : []),
       { k: "pot", l: "Potential", v: p => potEstimate(p)[1], f: p => range(potEstimate(p)) },
-      { k: "app", l: "Apps", r: true, v: p => p.s.app, f: p => p.s.sub ? `${p.s.app - p.s.sub}<span class="small muted"> (${p.s.sub})</span>` : p.s.app },
+      { k: "app", l: "Apps", r: true, v: p => myS(p).app, f: p => { const s = myS(p); return s.sub ? `${s.app - s.sub}<span class="small muted"> (${s.sub})</span>` : s.app; } },
       { k: "fit", l: "Fit", r: true, v: p => p.fit ?? 100, f: p => { const f = Math.round(p.fit ?? 100); return `<span class="small ${f < 70 ? "bad" : f < 85 ? "warn" : ""}">${f}%</span>`; } },
-      { k: "g", l: "Gls", r: true, v: p => p.s.g, f: p => p.s.g },
+      { k: "g", l: "Gls", r: true, v: p => myS(p).g, f: p => myS(p).g },
       // A loanee: what you pay (your share), with his full wage and the share underneath.
       { k: "wage", l: "Wage", r: true, v: p => myWage(p), f: p => p.loan && p.loan.to === c.id ? `${pw(myWage(p))}<br><span class="small muted">${Math.round(p.loan.share * 100)}% of ${pw(p.wage)}</span>` : pw(p.wage) },
       { k: "yrs", l: "Contract", r: true, v: p => p.acad ? 99 : p.yrs, f: p => p.acad ? "Youth" : p.yrs + "y" },
@@ -771,13 +771,14 @@ function poHTML(po, last) {
 function pgLeagueInner() {
   const k = SUB.league || my().lg;
   const opts = LG_KEYS.map(x => `<option value="${x}" ${x === k ? "selected" : ""}>${LEAGUES[x].name}</option>`).join("");
-  const scorers = Object.values(G.players).filter(p => p.club >= 0 && CL(p.club).lg === k && p.s.g > 0).sort((a, b) => b.s.g - a.s.g).slice(0, 8);
+  const lg = p => p.ls && p.ls.y === G.year ? p.ls.g : 0;  // league goals: the Golden Boot race
+  const scorers = Object.values(G.players).filter(p => p.club >= 0 && CL(p.club).lg === k && lg(p) > 0).sort((a, b) => lg(b) - lg(a)).slice(0, 8);
   const po = (G.po && G.po[k]) || (G.phase === "summer" && G.poLast && G.poLast[k]) || null;
   return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${LEAGUES[k].name}</h2><select data-act="lgsel">${opts}</select></div>
     ${tableHTML(k, table(k))}<p class="small muted" style="margin-top:8px">${LEAGUES[k].auto ? `Top ${LEAGUES[k].auto} promoted` : "Champions"}${LEAGUES[k].po ? `, ${ord(LEAGUES[k].po[0])}–${ord(LEAGUES[k].po[1])} play-offs` : ""}, bottom ${LEAGUES[k].down} ${LEAGUES[k].tier === 7 ? "drop out of the pyramid" : "relegated"}.</p></section>
     ${poHTML(po, !G.po && G.poLast && G.poLast[k] === po)}
     ${k === my().lg ? `<section class="card"><div class="card-h"><h3>Your results</h3></div>${(G.myRes || []).length ? resultsList((G.myRes || []).slice().reverse()) : "<p class='muted'>None yet.</p>"}</section>` : ""}</div>
-    <div class="stack"><section class="card"><div class="card-h"><h3>Top scorers</h3></div>${scorers.length ? scorers.map(p => `<div class="row between small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><span class="muted">${esc(CL(p.club).short)}</span><b class="num">${p.s.g}</b></div>`).join("") : "<p class='muted'>None yet.</p>"}</section></div></div>`;
+    <div class="stack"><section class="card"><div class="card-h"><h3>Top scorers</h3></div>${scorers.length ? scorers.map(p => `<div class="row between small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><span class="muted">${esc(CL(p.club).short)}</span><b class="num">${lg(p)}</b></div>`).join("") : "<p class='muted'>None yet.</p>"}</section></div></div>`;
 }
 const FAN_COL = { hard: "var(--loss)", loyal: "var(--win)", fair: "var(--accent)", comm: "#5b8def" };
 const fanBar = c => { const m = fanMix(c); return `<div class="fanbar">${Object.keys(FAN_KINDS).map(k => `<i style="width:${m[k]}%;background:${FAN_COL[k]}" title="${FAN_KINDS[k][0]} ${m[k]}%"></i>`).join("")}</div>`; };
@@ -1051,20 +1052,21 @@ function forecastCard(c) {
 /* The Stats tab: this season's numbers for everyone who's played (or could), with totals for the club and his career.
    Minutes are counted as 90 for a start and about 25 off the bench. */
 function squadStats(c, ps, xi) {
-  const st = p => (p.s.app || 0) - (p.s.sub || 0), mn = p => st(p) * 90 + (p.s.sub || 0) * 25, ga = p => (p.s.g || 0) + (p.s.a || 0);
+  // For your club only: a player who joined mid-season counts what he's done for you.
+  const st = p => myS(p).app - myS(p).sub, mn = p => st(p) * 90 + myS(p).sub * 25, ga = p => myS(p).g + myS(p).a;
   const per90 = p => mn(p) >= 270 ? ga(p) / mn(p) * 90 : null, atClub = p => (p.cs || {})[c.id] || [0, 0, 0];
-  const top = k => Math.max(0, ...ps.map(p => p.s[k] || 0));
-  const tg = top("g"), ta = top("a"), tot = { app: sum(ps, p => p.s.app || 0), g: sum(ps, p => p.s.g || 0), a: sum(ps, p => p.s.a || 0) };
-  return `<p class="small" style="margin-bottom:8px">This season: <b>${tot.g}</b> goals and <b>${tot.a}</b> assists from the squad${tg ? ` · top scorer ${esc(ps.find(p => p.s.g === tg).name)} (${tg})` : ""}${ta ? ` · most assists ${esc(ps.find(p => p.s.a === ta).name)} (${ta})` : ""}.</p>
+  const top = k => Math.max(0, ...ps.map(p => myS(p)[k] || 0));
+  const tg = top("g"), ta = top("a"), tot = { app: sum(ps, p => myS(p).app), g: sum(ps, p => myS(p).g), a: sum(ps, p => myS(p).a) };
+  return `<p class="small" style="margin-bottom:8px">This season: <b>${tot.g}</b> goals and <b>${tot.a}</b> assists from the squad${tg ? ` · top scorer ${esc(ps.find(p => myS(p).g === tg).name)} (${tg})` : ""}${ta ? ` · most assists ${esc(ps.find(p => myS(p).a === ta).name)} (${ta})` : ""}.</p>
   ${sortTable("squad-stats", [
     { k: "name", l: "Player", left: true, v: p => p.name, f: p => `<button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${wkChip(p)} ${xi.has(p.id) ? '<span class="chip xi" title="First-choice XI">XI</span>' : ""}${p.acad ? '<span class="chip acad">ACAD</span>' : ""}` },
     { k: "pos", l: "Pos", v: p => POS.indexOf(p.pos) * 1000 - p.ovr, f: p => `<span class="pos">${p.pos}</span>` },
     { k: "age", l: "Age", r: true, v: p => p.age, f: p => p.age },
     { k: "st", l: "Starts", r: true, v: st, f: st },
-    { k: "sub", l: "Sub", r: true, v: p => p.s.sub || 0, f: p => p.s.sub || 0 },
+    { k: "sub", l: "Sub", r: true, v: p => myS(p).sub, f: p => myS(p).sub },
     { k: "min", l: "Mins", r: true, v: mn, f: p => mn(p).toLocaleString("en-GB") },
-    { k: "g", l: "Gls", r: true, v: p => p.s.g || 0, f: p => p.s.g ? `<b>${p.s.g}</b>` : 0 },
-    { k: "a", l: "Ast", r: true, v: p => p.s.a || 0, f: p => p.s.a || 0 },
+    { k: "g", l: "Gls", r: true, v: p => myS(p).g, f: p => myS(p).g ? `<b>${myS(p).g}</b>` : 0 },
+    { k: "a", l: "Ast", r: true, v: p => myS(p).a, f: p => myS(p).a },
     { k: "ga", l: "G+A", r: true, v: ga, f: ga },
     { k: "p90", l: "G+A /90", r: true, v: p => per90(p) ?? -1, f: p => per90(p) == null ? `<span class="muted">—</span>` : per90(p).toFixed(2) },
     { k: "form", l: "Form", left: true, v: p => p.s.app >= 10 ? seasonForm(p) : -9, f: p => { if ((p.s.app || 0) < 10) return `<span class="small muted">too few games</span>`; const f = seasonForm(p), w = f >= 1.2 ? "exceptional" : f >= .5 ? "very good" : f >= .15 ? "good" : f <= -.5 ? "poor" : f <= -.15 ? "below par" : "steady"; return `<span class="small ${f >= .15 ? "good" : f <= -.15 ? "bad" : "muted"}">${w}</span>`; } },
