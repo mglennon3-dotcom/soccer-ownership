@@ -254,21 +254,22 @@ function pgStats() {  // the squad's season (your club's games only): its own pa
 // The Squad page: two views, like the Office's tabs: the players (with their lists) and the season's stats.
 function pgSquadPage() {
   if (PAGE === "stats") { PAGE = "squad"; SUB.sqview = "stats"; }
-  const v = SUB.sqview || "players", T = [["players", "Players"], ["stats", "Stats"]];
-  return `<div class="chips" style="margin-bottom:14px">${T.map(([k, l]) => `<button data-act="sub" data-k="sqview" data-v="${k}" aria-pressed="${v === k}">${l}</button>`).join("")}</div>${v === "stats" ? pgStats() : pgSquad()}`;
+  const v = SUB.sqview || "players", T = [["players", "Players"], ["stats", "Stats"], ["loans", "Loans"]];
+  return `<div class="chips" style="margin-bottom:14px">${T.map(([k, l]) => `<button data-act="sub" data-k="sqview" data-v="${k}" aria-pressed="${v === k}">${l}</button>`).join("")}</div>${v === "stats" ? pgStats() : v === "loans" ? pgSquad(true) : pgSquad()}`;
 }
-function pgSquad() {
-  const c = my(), tab = SUB.squad && SUB.squad !== "stats" ? SUB.squad : "first", xi = new Set(pickXI(c).map(o => o.p.id));
+const LOAN_TABS = ["sugloan", "ll", "out", "inl"];
+function pgSquad(loans) {  // loans: the Loans view (suggested, loan-listed, lent out, borrowed); otherwise the players' lists
+  const c = my(), tab = loans ? (LOAN_TABS.includes(SUB.loans) ? SUB.loans : "sugloan") : (SUB.squad && SUB.squad !== "stats" && !LOAN_TABS.includes(SUB.squad) ? SUB.squad : "first"), xi = new Set(pickXI(c).map(o => o.p.id));
   // Tabs: the first team, the academy, and three lists: protected (kept or not for sale), transfer-listed, loan-listed.
   const SQT = { first: ["First team", p => !p.acad], acad: ["Academy", p => p.acad], prot: ["Protected", p => p.keep || p.nfs], tl: ["Transfer listed", p => p.list], ll: ["Loan listed", p => p.loanList], exp: ["Final year", p => !p.acad && !(p.loan && p.loan.to === c.id) && p.yrs <= 1] };
   // Players you've lent out live at their loan clubs: listed separately.
   const outList = (G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id);
   SQT.out = ["Loaned out", () => false];
-  const LS = loanSuggestions(c); SQT.sugloan = ["Suggested loans", p => LS.has(p.id)];
+  const LS = loanSuggestions(c); SQT.sugloan = ["Suggested loans", p => LS.has(p.id)]; SQT.inl = ["Borrowed", p => !!(p.loan && p.loan.to === c.id)];
   const all = c.squad.map(P), ps = (tab === "out" ? outList : all.filter((SQT[tab] || SQT.first)[1])).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
   const potJudge = tab === "acad" ? (staffOf("youth") ? `${staffOf("youth").name}'s estimates` : "rough guesses: no youth manager") : (staffOf("manager") ? `${staffOf("manager").name}'s estimates` : "rough guesses: no manager");
-  return `<section class="card"><div class="card-h"><h2>Squad</h2></div>
-    <div class="chips" style="margin-bottom:12px">${Object.entries(SQT).map(([k, [l, f]]) => `<button data-act="sub" data-k="squad" data-v="${k}" aria-pressed="${tab === k}">${l} (${k === "out" ? outList.length : all.filter(f).length})</button>`).join("")}</div>
+  return `<section class="card"><div class="card-h"><h2>${loans ? "Loans" : "Squad"}</h2></div>
+    <div class="chips" style="margin-bottom:12px">${Object.entries(SQT).filter(([k]) => LOAN_TABS.includes(k) === !!loans).sort((a, b) => loans ? LOAN_TABS.indexOf(a[0]) - LOAN_TABS.indexOf(b[0]) : 0).map(([k, [l, f]]) => `<button data-act="sub" data-k="${loans ? "loans" : "squad"}" data-v="${k}" aria-pressed="${tab === k}">${l} (${k === "out" ? outList.length : all.filter(f).length})</button>`).join("")}</div>
     <p class="small muted" style="margin-bottom:10px">The manager picks the side; players marked XI are his current first choices. Ratings are out of 20: about ${r20(TIER_LVL[c.tier])} is a typical starter in your division. The Regional League and National North/South are mostly 1–5, the National Division 3–7, the Third Division 5–9, the Second 6–10, the First 9–13 and the Premier Division 12–20; 18–19 is world class and 20 a once-in-a-generation player. Potential shows ${potJudge}. Tap a player to sell, release or protect him.</p>
     ${tab === "exp" ? `<p class="small" style="margin-bottom:10px">Their contracts end this summer. Your head of recruitment renews the ones he wants (the best 18 seniors, if the wage budget allows) and lets the rest go. <b>Tick Renew</b> to keep a player and make sure he's offered a new deal (it also protects him, KP); he can still turn it down if he's unhappy.</p>` : ""}
     ${tab === "first" ? (() => { const n = regList(c).length, out = ps.filter(p => !isReg(p, c)).length; return `<p class="small" style="margin-bottom:10px"><b>Registered: ${n} of ${REG_MAX}</b>${out ? ` · <span class="bad">${out} not registered (can't play)</span>` : ""} · under-21s don't need registering. ${windowOpen() ? "Tick or untick in the Reg. column while the window is open." : "The list can change in the next transfer window."}</p>
@@ -297,7 +298,7 @@ function pgSquad() {
       { k: "val", l: "Value", r: true, v: p => valueOf(p), f: p => money(valueOf(p)) },
     ], ps, { sort: { k: "pos", d: 1 }, freeze: ["renew", "sel", "name", "pos"] })}
     ${tab !== "acad" ? `<p class="small muted" style="margin-top:8px">XI first choice · OP your pick (he must start) · apps (sub apps) · Fit: sharpness, below about 85% the manager rests him · KP protected · NFS not for sale · TL transfer-listed · LL available for loan · LN on loan here · OUT wants to leave · UNS unsettled · NR not registered · FAV fan favourite · LEG legend · 3w injured for 3 weeks</p>` : ""}
-    ${tab === "first" && (G.loanList || []).some(id => G.players[id] && G.players[id].loan && G.players[id].loan.from === c.id) ? `<h3 style="margin:14px 0 6px">Out on loan</h3>${(G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id).map(p => `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> (${p.pos}, ${r20(p.ovr)}) at ${esc(CL(p.club).name)}: ${p.s.app} games · you still pay ${pw(p.wage * (1 - p.loan.share))}${p.loan.share >= 1 ? "" : ` (${Math.round((1 - p.loan.share) * 100)}%)`}</p>`).join("")}` : ""}`
+    ${tab === "out" && (G.loanList || []).some(id => G.players[id] && G.players[id].loan && G.players[id].loan.from === c.id) ? `<h3 style="margin:14px 0 6px">Out on loan</h3>${(G.loanList || []).map(id => G.players[id]).filter(p => p && p.loan && p.loan.from === c.id).map(p => `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button> (${p.pos}, ${r20(p.ovr)}) at ${esc(CL(p.club).name)}: ${p.s.app} games · you still pay ${pw(p.wage * (1 - p.loan.share))}${p.loan.share >= 1 ? "" : ` (${Math.round((1 - p.loan.share) * 100)}%)`}</p>`).join("")}` : ""}`
     : `<p class="muted">${tab === "acad" ? (c.fac.acad.lvl ? "The academy's first intake arrives in the summer." : "No academy yet. Build one on the Facilities page.") : tab === "prot" ? "Nobody is protected or marked not for sale. Do it from a player's card." : tab === "tl" ? "Nobody is on the transfer list." : tab === "ll" ? "Nobody is available for loan. Make a player available from his card." : tab === "exp" ? "Nobody is in the last year of his contract." : tab === "out" ? "Nobody is out on loan." : "No players."}</p>`}</section>`;
 }
 /* Progression on a player's card: a row a season (newest first, this season so far on top) and a small line of his
