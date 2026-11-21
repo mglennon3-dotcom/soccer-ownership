@@ -48,7 +48,7 @@ function pickQuestion(c) {
   // The questions owners get at real press conferences.
   const nf = typeof nextFixture === "function" ? nextFixture() : null, opp = nf ? CL(nf.h === c.id ? nf.a : nf.h) : null;
   if (opp && nf.w === G.week && isDerby(c, opp)) qs.push({ key: "pressDerby", q: `It's ${opp.name} this weekend. What's your message to the fans?`, opts: ["We owe them a win", "It's three points like any other"], data: { opp: opp.id } });
-  const target = Object.values(G.players).find(p => p.club >= 0 && p.club !== c.id && !CL(p.club).gone && r20(p.ovr) >= teamAvg20(c) + 2 && p.age <= 27 && willJoin(p, c) && R() < .002);
+  const target = Object.values(G.players).find(p => p.club >= 0 && p.club !== c.id && (!CL(p.club).gone || CL(p.club).abroad) && r20(p.ovr) >= teamAvg20(c) + 2 && p.age <= 27 && willJoin(p, c) && R() < .002);
   if (target && (windowOpen() || G.week >= JAN[0] - 3)) qs.push({ key: "pressLink", q: `Reports link you with ${target.name} of ${CL(target.club).name}. Any truth in it?`, opts: ["We admire him, and we're ambitious", "I don't talk about other clubs' players"], data: { pid: target.id } });
   const want = c.squad.map(P).find(p => p.req || p.unsettled >= 3);
   if (want) qs.push({ key: "pressWant", q: `${want.name} wants to leave. Will you let him go?`, opts: ["Nobody leaves on the cheap", "If the right offer comes, yes"], data: { pid: want.id } });
