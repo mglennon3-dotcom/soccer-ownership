@@ -36,7 +36,7 @@ function pickXI(c, noForce, ctx) {
   const acadMin = TIER_LVL[c.tier] - (easy ? 10 : 6) - (youth ? 2 : 0), acadB = !easy ? 0 : (ctx.kind === "cup" ? 8 : 5) + (youth ? 2 : 0);
   // Your instruction: in the lesser cup games, give your high-potential youngsters (21 or under, potential well above
   // their rating) the games: academy lads included.
-  const yc = isMine(c) && G.youthCups && ctx && ctx.lesser;
+  const yc = isMine(c) && ctx && !ctx.noYc && ((G.youthCups && ctx.lesser) || (G.ytie && ctx.opp && G.ytie.opp === ctx.opp.id && G.ytie.w === G.week && G.ytie.y === G.year));
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21))) && (!isMine(c) || isReg(p, c)));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
      one point on the 100 scale, about a tenth of a shown point at the top). */
@@ -48,7 +48,7 @@ function pickXI(c, noForce, ctx) {
   const potGap = new Map(), gapOf = p => { if (!potGap.has(p.id)) { const [a, b] = potEstimate(p); potGap.set(p.id, r20((a + b) / 2) - r20(p.ovr)); } return potGap.get(p.id); };
   const youngFav = p => p.age <= 21 ? (gapOf(p) >= 4 ? 10 + Math.min(gapOf(p), 14) : 6) : 0;
   // ...the five with the most potential (your staff's estimate) who aren't regulars already start, in their own positions where they can.
-  const regs = yc ? new Set(pickXI(c, noForce, { ...ctx, lesser: false }).map(o => o.p.id)) : null;
+  const regs = yc ? new Set(pickXI(c, noForce, { ...ctx, lesser: false, noYc: true }).map(o => o.p.id)) : null;
   const ycSet = yc ? new Set(pool.filter(p => p.age <= 21 && gapOf(p) >= 3 && !regs.has(p.id)).sort((a, b) => (potEstimate(b)[0] + potEstimate(b)[1]) - (potEstimate(a)[0] + potEstimate(a)[1])).slice(0, 5).map(p => p.id)) : null;
   const ycB = p => ycSet && ycSet.has(p.id) ? 260 : 0;  // above your depth chart, below "insist he starts"
   // A club that borrows a player agreed to give him games: yours start in their own position nearly every week.
