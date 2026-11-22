@@ -382,7 +382,10 @@ function depthChart() {
   const SHOWN = role => role === "GK" ? 6 : 7;  // how deep each list goes: seven for outfield positions
   const cards = roles.map(role => {
     const n = slots.filter(s => s === role).length;
-    const all = ps.filter(p => (role === "GK") === (p.pos === "GK")).map(p => ({ p, r: roleRating(p, role) })).sort((a, b) => b.r - a.r);
+    const elig = ps.filter(p => (role === "GK") === (p.pos === "GK")).map(p => ({ p, r: roleRating(p, role) })).sort((a, b) => b.r - a.r);
+    const all = elig.filter(x => depthLine(x.p, role) || startsAt.get(x.p.id) === role);
+    // Players from other lines who could do a job here: not in the list unless you add them.
+    const added = (G.depthX || {})[role] || [], others = elig.filter(x => !all.includes(x) && !x.p.acad).slice(0, 5);
     // Your order if you've set one (everyone eligible, as you ranked them); otherwise the manager's: starters here, then
     // the best of everyone not starting anywhere (players starting in other positions aren't cover).
     const mineL = depthSync(c, role), byId = new Map(all.map(x => [x.p.id, x]));
@@ -392,7 +395,7 @@ function depthChart() {
     for (const x of all.filter(x => x.p.acad && x.p.pos === role && !ranked.includes(x))) ranked.push(x);
     DEPTH_VIEW[role] = mineL ? mineL.slice() : [...ranked.map(x => x.p.id), ...all.filter(x => !ranked.includes(x)).map(x => x.p.id)];
     const coverR = (ranked.find(x => !startsAt.has(x.p.id) && !x.p.inj) || { r: 0 }).r;
-    const alsoHere = all.filter(x => startsAt.has(x.p.id) && startsAt.get(x.p.id) !== role && x.r > coverR).slice(0, 3);
+    const alsoHere = all.filter(x => POS_LINE[x.p.pos] === POS_LINE[role] && startsAt.has(x.p.id) && startsAt.get(x.p.id) !== role && x.r > coverR).slice(0, 3);
     let backup = 0;
     const rows = ranked.map(({ p, r }) => {
       const here = startsAt.get(p.id) === role, elsewhere = startsAt.has(p.id) && !here, oop = p.pos !== role;
@@ -406,7 +409,11 @@ function depthChart() {
     const lentOut = (G.loanList || []).map(id => G.players[id]).filter(q => q && q.loan && q.loan.from === c.id && q.pos === role);
     const away = lentOut.length ? `<p class="small muted">Out on loan: ${lentOut.map(q => `<button class="lnk" data-act="player" data-id="${q.id}">${esc(q.name)}</button> (${r20(q.ovr)}, at ${esc(CL(q.club).name)})`).join(", ")}.</p>` : "";
     const also = alsoHere.length ? `<p class="small muted">Better here than the cover, but starting elsewhere: ${alsoHere.map(x => `${esc(x.p.name)} (${r20(x.r)}, starts at ${startsAt.get(x.p.id)})`).join(", ")}.</p>` : "";
-    return `<section class="card"><div class="card-h"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${n} in the ${form}${mineL ? ` · <b>your order</b> · <button class="lnk" data-act="depthreset" data-role="${role}">let the manager pick</button>` : ""}</span></div><table class="tbl depth"><tbody>${rows}</tbody></table>${thin}${also}${away}</section>`;
+    const oRow = (x, inList) => `<div class="row between small" style="padding:3px 0;gap:8px"><span>${rating(x.r)} <button class="lnk" data-act="player" data-id="${x.p.id}">${esc(x.p.name)}</button> <span class="pos">${x.p.pos}</span> <span class="muted">${x.p.inj ? `injured ${x.p.inj}w` : startsAt.has(x.p.id) ? `starts at ${startsAt.get(x.p.id)}` : x.r > coverR ? "better than your cover" : ""}</span></span><button class="btn sm" data-act="${inList ? "depthdrop" : "depthadd"}" data-role="${role}" data-id="${x.p.id}">${inList ? "Remove" : "Add"}</button></div>`;
+    const addedX = all.filter(x => added.includes(x.p.id) && POS_LINE[x.p.pos] !== POS_LINE[role]);
+    const opts = others.length || addedX.length ? `<details class="small" style="margin-top:8px"${addedX.length ? " open" : ""}><summary class="muted">Out-of-position options${others.some(x => x.r > coverR && !x.p.inj) ? ` <span class="warn">· ${others.filter(x => x.r > coverR && !x.p.inj).length} rated above your cover</span>` : ""}</summary>
+      <p class="muted" style="margin:4px 0">Players from other areas of the team who could play ${esc(POS_NAME[role].toLowerCase())}. They're left out of this list unless you add them.</p>${addedX.map(x => oRow(x, true)).join("")}${others.map(x => oRow(x, false)).join("")}</details>` : "";
+    return `<section class="card"><div class="card-h"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${n} in the ${form}${mineL ? ` · <b>your order</b> · <button class="lnk" data-act="depthreset" data-role="${role}">let the manager pick</button>` : ""}</span></div><table class="tbl depth"><tbody>${rows}</tbody></table>${thin}${also}${away}${opts}</section>`;
   }).join("");
   return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="grid2 depth-grid">${cards}</div>`;
 }
