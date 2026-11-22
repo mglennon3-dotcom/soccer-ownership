@@ -183,7 +183,8 @@ const moodWord = m => m >= 75 ? ["Buoyant", "good"] : m >= 58 ? ["Happy", "good"
 /* Attendance: regulars (the fanbase, turning out by mood) plus casual fans, both put off by expensive tickets,
    capped by the ground. A big or local opponent brings more. */
 /* A club's going rate for a ticket: its division's typical price, scaled by how many want tickets (supporters against
-   seats: a club that sells out could charge more), how big and talked-about it is, and how happy the fans are. About
+   seats: a club that sells out could charge more), how big its support is and what kind of fans they are, how big and
+   talked-about the club is, and how happy the fans are. About
    two-thirds of the division's price for a small, empty-grounded club, up to nearly double for a sold-out giant. */
 // Supporters per seat, against what's normal in his division (the median club, worked out once a season).
 const seatsOf = c => Math.max(1, isMine(c) ? capacity(c) : c.cap || 1);
@@ -191,10 +192,22 @@ function fansPerSeatNorm(t) {
   const N = (G._fps && G._fps.y === G.year) ? G._fps : (G._fps = { y: G.year });
   return N[t] ??= (() => { const r = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === t).map(c => c.fans / seatsOf(c)).sort((a, b) => a - b); return r.length ? r[r.length >> 1] : 1; })();
 }
-function ticketRef(c) {
+function ticketK(c) {
   const want = c.abroad || !c.tier ? 1 : clamp(Math.sqrt(c.fans / seatsOf(c) / fansPerSeatNorm(c.tier)), .75, 1.45);
   const pop = 1 + (clubPop(c) - 1) * .6, mood = .92 + (c.mood ?? 50) / 600;
-  return Math.max(2, Math.round(REF_TICKET[c.tier] * clamp(want * pop * mood, .65, 1.85)));
+  // The size of the support against the division's norm, and who they are: hardcore and loyal fans pay to watch their
+  // club, community families notice prices and fair-weather fans drift if it's dear.
+  const size = c.abroad || !c.tier ? 1 : clamp(Math.pow(c.fans / FAN_T[c.tier], .12), .85, 1.2);
+  const who = 1 + (fanShare(c, "hard") - .2) * .5 + (fanShare(c, "loyal") - .25) * .25 - (fanShare(c, "comm") - .35) * .35 - (fanShare(c, "fair") - .2) * .15;
+  return want * pop * mood * size * who;
+}
+// Each division centred on its typical price: the middle club pays about that, the rest spread around it.
+function ticketNorm(t) {
+  const N = (G._tkn && G._tkn.y === G.year) ? G._tkn : (G._tkn = { y: G.year });
+  return N[t] ??= (() => { const r = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === t).map(ticketK).sort((a, b) => a - b); return r.length ? r[r.length >> 1] : 1; })();
+}
+function ticketRef(c) {
+  return Math.max(2, Math.round(REF_TICKET[c.tier] * clamp(ticketK(c) / (c.abroad || !c.tier ? 1 : ticketNorm(c.tier)), .65, 1.85)));
 }
 function priceFactor(price, ref, el = 1.3) { return clamp(Math.pow(ref / Math.max(.5, price), el), 0, 1.35); }
 function crowdFor(c, opp, price = c.prices.ticket) {
