@@ -315,7 +315,7 @@ const handsOn = o => o ? (o.hands ??= clamp(Math.round((HANDS[o.style] ?? 40) + 
 const myHandsOn = () => clamp(Math.round(10 + (G.meddle || 0) * 15), 1, 100);
 function poachWeek() {
   const c = my();
-  if (G.phase !== "season" || R() > .02) return;
+  if (G.phase !== "season" || R() > (Object.values(my().staff).some(s => s && s.praised && G.year * 100 + G.week - s.praised < 20) ? .03 : .02)) return;
   const role = pick(["manager", "manager", "recruit", "youth"]), s = staffOf(role); if (!s) return;
   if (G.inbox.some(m => m.key === "poach" && !m.done)) return;
   const now = G.year * 100 + G.week; if (s.poached && now - s.poached < 100) return;  // a year's peace after an approach

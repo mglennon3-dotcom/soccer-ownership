@@ -66,7 +66,7 @@ function advance() {
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
   if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
   mediaWeek(); trustWeek(c); poachWeek(); staffTrustWeek(); recoverWeek(); forcedWeek(); if (!windowOpen() && loansOpen()) loanOffersWeek(c); requestsCheck(); bidForMyClub();
-  youthTieAsk(c); euroYouthAsk(c); coverAsk(c); turn18Ask(); achWeek(c); settleInbox();
+  youthTieAsk(c); euroYouthAsk(c); coverAsk(c); turn18Ask(); achWeek(c); ventWeek(c); settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
 }
@@ -690,13 +690,24 @@ function euroYouthAsk(c) {
    (biggest win, longest run, record crowd, record fee, best finish) come again whenever they're beaten. The first time
    this runs on a save, what's already been done is noted quietly, so you aren't flooded. */
 let ACH_QUIET = false;
+/* Who an achievement is about, from its key: a player (by id, or a hat-trick scorer by name), the team and manager
+   (trophies, promotions, results, runs), or the head of youth (academy debuts). You can congratulate them on the card. */
+function achWho(key) {
+  const k = key.split("."), c = my(), byName = n => (c.squad.map(P).find(p => p && p.name === n) || {}).id;
+  if (k[0] === "hat") return { pid: byName(k.slice(3).join(".")) };
+  if (/^(apps\d+|gls\d+|legend|acc)$/.test(k[0])) return { pid: +k[1] };
+  if (k[0] === "debut") return { pid: +k[1], role: "youth" };
+  if (k[0] === "acad3") return { role: "youth", team: true };
+  if (/^(firstTrophy|firstTitle|firstEuro|tro|double|gk|fierce|euroAway|ddouble|euroKO|euroQual|up|b2b|best|unbeaten|pts100|pts|margin|wrun|urun|csrun)$/.test(k[0])) return { team: true, role: "manager" };
+  return null;
+}
 function ach(key, title, body) {
   const A = (G.achs ||= {}); if (A[key]) return false; A[key] = G.year;
-  if (!ACH_QUIET) { addMsg({ type: "ach", title: `🏅 ${title}`, body }); news(`🏅 ${title}`, true); }
+  if (!ACH_QUIET) { addMsg({ type: "ach", title: `🏅 ${title}`, body, who: achWho(key) }); news(`🏅 ${title}`, true); }
   return true;
 }
 const REC = () => (G.achRec ||= {});
-function record(k, v, title, body, min = -Infinity) { const R = REC(); if (v <= (R[k] ?? -Infinity)) return; const had = R[k] != null; R[k] = v; if (had && v >= min && !ACH_QUIET) { addMsg({ type: "ach", title: `🏅 ${title}`, body }); news(`🏅 ${title}`, true); } }
+function record(k, v, title, body, min = -Infinity) { const R = REC(); if (v <= (R[k] ?? -Infinity)) return; const had = R[k] != null; R[k] = v; if (had && v >= min && !ACH_QUIET) { addMsg({ type: "ach", title: `🏅 ${title}`, body, who: achWho(k) }); news(`🏅 ${title}`, true); } }
 const nth = n => n.toLocaleString("en-GB");
 function achWeek(c) {
   if (!G.achInit) { G.achInit = true; ACH_QUIET = true; G.achTro = (c.trophies || []).length; achChecks(c); ACH_QUIET = false; return; }
@@ -734,7 +745,7 @@ function achChecks(c) {
       ["u", "urun", r => r.res !== "L", 10, n => [`Club-record unbeaten run: ${n} games, and counting`, `Every competition counted.`]], ["cs", "csrun", r => r.ga === 0, 4, n => [`Club-record clean sheets: ${n} in a row, and counting`, `Nothing conceded in ${n} games.`]]];
     for (const r of res.slice(start)) for (const [k, rk, ok, min, txt] of RUNS) {
       if (!ok(r)) { S[k] = 0; continue; } if (S[k] === 0) S["b" + k] = R[rk] ?? 0; S[k]++;
-      if (S[k] === S["b" + k] + 1 && S[k] >= min && R[rk] != null) { const [t, b] = txt(S[k]); addMsg({ type: "ach", title: `🏅 ${t}`, body: b }); news(`🏅 ${t}`, true); }
+      if (S[k] === S["b" + k] + 1 && S[k] >= min && R[rk] != null) { const [t, b] = txt(S[k]); addMsg({ type: "ach", title: `🏅 ${t}`, body: b, who: achWho(rk) }); news(`🏅 ${t}`, true); }
       R[rk] = Math.max(R[rk] ?? 0, S[k]); }
     // Doing the double over a derby rival (both league games won this season)
     for (const id of new Set(res.filter(r => LEAGUES[r.comp]).map(r => r.opp))) { const two = res.filter(r => LEAGUES[r.comp] && r.opp === id); if (two.length >= 2 && two.every(r => r.res === "W") && isDerby(c, CL(id))) ach(`ddouble.${G.year}.${id}`, `The double over ${CL(id).name}`, `Both league derbies won in ${seasonLabel(G.year)}.`); }
