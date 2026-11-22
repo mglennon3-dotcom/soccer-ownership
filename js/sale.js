@@ -57,7 +57,7 @@ function buyClub(c) {
     staff: { manager: null, youth: null, recruit: null },
   });
   c.budget = { wages: Math.round(wageBill(c) * 1.05), transfer: Math.round(TV[c.tier] * .3), acad: Math.round(acadRef(c.acadLvl)), scout: scoutRef(c.tier) };
-  G.club = c.id;
+  G.club = c.id; addHoney(c, "owner");
   // The manager stays; the other jobs are filled at the club's level.
   const m = genStaff("manager", rep); Object.assign(m, { name: c.coach.name, age: c.coach.age || m.age, phil: c.coach.style, form: c.coach.form, yrs: 2, trust: 55 });
   m.at.tac = c.coach.tac; m.at.dev = c.coach.dev; m.wage = staffWage("manager", rep); c.staff.manager = m;

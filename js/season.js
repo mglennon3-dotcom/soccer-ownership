@@ -209,7 +209,7 @@ function endSeason() {
       // seating to reach the minimum; otherwise they grow it later, if ever.
       const final = up;
       for (const id of up) { const c = CL(id), min = Math.round(STADIUM_T[LEAGUES[ABOVE[k]].tier] * .3 / 100) * 100; if (!isMine(c) && c.cap < min) c.cap = Math.min(Math.max(aiSite(c), min), min); }
-      for (const id of final) { moves.push([id, ABOVE[k]]); for (const p of accSquad(CL(id), 10)) accAdd(p, "promo", `Promoted from the ${L.name} ${seasonLabel(G.year)}${ids[0] === id ? "" : G.po[k] && G.po[k].win === id ? " (play-offs)" : ""}`); }
+      for (const id of final) { addHoney(CL(id), "promo"); moves.push([id, ABOVE[k]]); for (const p of accSquad(CL(id), 10)) accAdd(p, "promo", `Promoted from the ${L.name} ${seasonLabel(G.year)}${ids[0] === id ? "" : G.po[k] && G.po[k].win === id ? " (play-offs)" : ""}`); }
     }
     if (L.down && L.tier < 7) for (const id of ids.slice(-L.down)) moves.push([id, null]);
     if (L.tier === 7) { const drop = ids.filter(id => id !== G.club).slice(-L.down); for (const id of drop) moves.push([id, "OUT"]); }
