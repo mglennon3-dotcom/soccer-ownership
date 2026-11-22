@@ -381,6 +381,22 @@ const ACT = {
   nfs: el => { const p = P(+el.dataset.id); setNotForSale(p, !p.nfs); toast(p.nfs ? `${p.name} is not for sale: no club will bid for him.` : `${p.name} is available again.`); playerModal(p.id); render(); saveGame(); },
   sugloan: el => { const p = P(+el.dataset.id); loanListToggle(p); render(); saveGame(); },
   loanlist: el => { const p = P(+el.dataset.id); loanListToggle(p); playerModal(p.id); render(); saveGame(); },
+  fselall: () => { const c = my(), ids = c.squad.filter(id => { const p = P(id); return !p.acad && !(p.loan && p.loan.to === c.id); }); if (FSEL.size === ids.length) FSEL.clear(); else ids.forEach(id => FSEL.add(id)); render(); },
+  fbulk: async el => {
+    const c = my(), v = el.dataset.v, ps = [...FSEL].map(P).filter(p => p && !p.acad && p.club === c.id && !(p.loan && p.loan.to === c.id)); if (!ps.length) return;
+    if (v === "tl" && !await ask(`Put ${ps.length} player${ps.length > 1 ? "s" : ""} on the transfer list? ${ps.map(p => p.name).join(", ")}.`)) return;
+    let n = 0;
+    for (const p of ps) {
+      if (v === "keep" && !p.keep) { p.keep = true; if (p.list) ownerList(p); n++; }
+      else if (v === "unkeep" && p.keep) { p.keep = false; n++; }
+      else if (v === "ll" && !p.loanList) { loanListToggle(p); n++; }
+      else if (v === "unll" && p.loanList) { loanListToggle(p); n++; }
+      else if (v === "tl" && !p.list) { p.keep = false; ownerList(p); n++; }
+      else if (v === "untl" && p.list) { ownerList(p); n++; }
+    }
+    const what = { keep: "protected", unkeep: "no longer protected", ll: "loan-listed", unll: "taken off the loan list", tl: "transfer-listed", untl: "taken off the transfer list" }[v];
+    toast(n ? `${n} player${n > 1 ? "s" : ""} ${what}.` : `Nothing to change: ${{ keep: "they were all protected already", unkeep: "none of them was protected", ll: "they were all on the loan list already", unll: "none of them was on the loan list", tl: "they were all on the transfer list already", untl: "none of them was on the transfer list" }[v]}.`);
+    FSEL.clear(); render(); saveGame(); },
   aselall: () => { const ids = my().squad.filter(id => P(id).acad); if (ASEL.size === ids.length) ASEL.clear(); else ids.forEach(id => ASEL.add(id)); render(); },
   abulk: async el => {
     const c = my(), v = el.dataset.v, ps = [...ASEL].map(P).filter(p => p && p.acad && p.club === c.id); if (!ps.length) return;
@@ -546,6 +562,7 @@ const CHANGE = {
     r[f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; G.rbOpen = s; render(); },
   msel: el => { SUB.my = el.value === "all" ? "all" : +el.value; render(); },
   reg: el => { const p = P(+el.dataset.id), was = autoRegOn() && windowOpen(), e = toggleReg(p); if (e) toast(e); else if (was) { G.autoReg = false; toast("Auto-registration is off: you're choosing the 25 yourself."); } render(); saveGame(); },
+  fsel: el => { const id = +el.dataset.id; if (el.checked) FSEL.add(id); else FSEL.delete(id); render(); },
   asel: el => { const id = +el.dataset.id; if (el.checked) ASEL.add(id); else ASEL.delete(id); render(); },
   pcty: el => { SUB.pcty = el.value; SUB.plg = ""; render(); },
   plg: el => { SUB.plg = el.value; render(); },
