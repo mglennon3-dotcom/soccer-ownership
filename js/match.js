@@ -71,9 +71,12 @@ function pickXI(c, noForce, ctx) {
   // about 80% (an AI club's coach is middling unless he has his own setting).
   const rot = (isMine(c) ? rotOf(staffOf("manager")) : (c.coach && c.coach.rot) || 50) / 100;
   const tired = p => Math.max(0, 80 + rot * 14 - (p.fit ?? 100)) * (.1 + rot * .5);
+  // Your instruction from his player card: he starts the domestic cup games (when fit and registered), ahead of any
+  // youth rotation or other pick: in his own position, or failing that in the same area of the team.
+  const cupB = isMine(c) && !noForce && MATCH_CT === "C" ? (p, s) => p.cupStart ? (p.pos === s ? 5000 : (s === "GK") === (p.pos === "GK") && POS_LINE[p.pos] === POS_LINE[s] ? 4000 : 0) : 0 : () => 0;
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 2600 : 0) + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 1300 : 0) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + cupB(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 2600 : 0) + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + cupB(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 1300 : 0) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
