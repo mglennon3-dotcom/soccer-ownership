@@ -56,7 +56,7 @@ function moveOdds(c) {
   const inc = (c.aiFin || {}).inc || aiIncome(c);
   if (c.cut) p *= .3; if (c.aiFin && c.aiFin.net < -inc * .2) p *= .6; if ((c.debt || 0) > inc) p *= .4;  // money worries
   if (st !== "fanowned" && c.own.wealth > (1.5e6 + c.cap * 1.5 * perSeat(c.cap * 1.5)) * 2) p *= 1.4;  // a rich owner
-  return p;
+  return p * .45;  // a new ground is a once-in-generations event: about one a season across the whole pyramid
 }
 function aiMoveCheck(c) {
   if (c.abroad || c.build || (c.moved && G.year - c.moved.y < 10) || R() > moveOdds(c)) return;
@@ -237,7 +237,10 @@ function ownersSummer() {
     // An academy player good enough for the first team gets a professional contract.
     if (!c.abroad) for (const id of c.squad) { const p = G.players[id]; if (p && p.acad && p.age >= 16 && p.ovr >= TIER_LVL[c.tier] - 4) { p.acad = false; p.wage = aiWage(p, c); p.yrs = ri(2, 4); } }  // builds started before weekly timing
     aiMoveCheck(c);
-    if (R() < S.build) { c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.05, 1.2) / 100) * 100); c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0)); }
+    // A new stand or an extension is rare, as in real life: only when the ground is full most weeks, there's room on the
+    // site, and the owner has the appetite (a few clubs a season across the whole pyramid). Training facilities improve more often.
+    if (R() < S.build * .12 && c.cap < aiSite(c) && aiEstimate(c).att >= c.cap * .9 && !c.build && !c.cut && !c.emb) c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.08, 1.25) / 100) * 100);
+    if (R() < S.build) c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0));
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
     if (S.build < .05 && R() < .3) c.train = Math.max(0, c.train - 1);
     // Supporters follow the owner's pricing.
