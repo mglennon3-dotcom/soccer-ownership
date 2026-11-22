@@ -596,7 +596,7 @@ function pgFin() {
       <dt>Sponsors</dt><dd>${money(sponsorTotal(c))}</dd><dt>Central money</dt><dd>${money(TV[T])}</dd><dt>Matchday (est.)</dt><dd>${money((f.gate + f.conc - f.rent - f.ops) * G.leagues[c.lg].clubs.length - 1)}</dd></dl></section>${loanWagesCard(c)}</div></div>`,
     game: () => perGameHTML(c),
     prices: () => `<section class="card"><div class="card-h"><h2>Prices</h2></div><div class="settings">
-      ${priceIn("ticket", "Match ticket", REF_TICKET[T], 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}${f.hold ? `, ${f.hold.toLocaleString("en-GB")} of them season-ticket holders` : ""}: ${money(f.gate)} a game on the day.`)}
+      ${priceIn("ticket", "Match ticket", ticketRef(c), 1, `Forecast crowd ${f.crowd.toLocaleString("en-GB")} of ${capacity(c).toLocaleString("en-GB")}${f.hold ? `, ${f.hold.toLocaleString("en-GB")} of them season-ticket holders` : ""}: ${money(f.gate)} a game on the day.`)}
       ${priceIn("st", `Season ticket (${homeGames(c)} league home games)`, stRef(c), 5, G.phase === "summer"
         ? `On sale until the season starts. Forecast: ${stDemand(c).toLocaleString("en-GB")} sold (${Math.round(stDemand(c) / capacity(c) * 100)}% of the ground), ${money(stDemand(c) * c.prices.st)} up front. Holders don't pay on the day.`
         : `${stHolders(c) ? `${stHolders(c).toLocaleString("en-GB")} sold this season at ${money(c.st.price)}: ${money(c.st.n * c.st.price)}.` : "None sold this season."} A new price applies from next pre-season (forecast ${stDemand(c).toLocaleString("en-GB")}).`)}

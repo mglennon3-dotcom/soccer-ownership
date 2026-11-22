@@ -113,8 +113,8 @@ const r200s = v => to20(staffEq(v)) * 10;
 const aiCoachPayF = x => x.coach ? clamp(Math.pow(1.25, (r200s((x.coach.tac + x.coach.dev) / 2) - r200s(aiStaffLvl(x.rep))) / 10), .5, 2) : 1;
 const aiYouthPayF = x => clamp(Math.pow(1.25, (r200s(aiYouthScout(x)) - r200s(YSCOUT_T[x.tier] + youthPedigree(x) * 3)) / 10), .5, 2);
 function aiEstimate(x) {
-  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(REF_TICKET[x.tier] * (S.prices || 1)));
-  const pf = priceFactor(ticket, REF_TICKET[x.tier], 1.3 + fanShare(x, "comm") * .8), sw = 1 + fanShare(x, "loyal") * .15 + fanShare(x, "fair") * (x.push ? .3 : -.15);
+  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(ticketRef(x) * (S.prices || 1)));
+  const pf = priceFactor(ticket, ticketRef(x), 1.3 + fanShare(x, "comm") * .8), sw = 1 + fanShare(x, "loyal") * .15 + fanShare(x, "fair") * (x.push ? .3 : -.15);
   const att = Math.round(Math.min(x.cap || 1e9, (x.fans * .8 * pf + x.fans * .35 * pf * .9) * sw));
   const staff = staffWage("manager", x.rep) * aiCoachPayF(x) + staffWage("youth", x.rep) * aiYouthPayF(x) + staffWage("recruit", x.rep);
   const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);

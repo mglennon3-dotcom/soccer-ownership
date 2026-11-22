@@ -71,7 +71,7 @@ function playKO(h, a, neutral, comp, label) {
     const c = my(), home = h === G.club, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? a : h);
     let crowd = null;
     if (home && !neutral) { crowd = homeGameMoney(c, opp); c._home = true; }
-    else if (!neutral) { const share = Math.round(Math.min(opp.cap, opp.fans * 1.2) * REF_TICKET[opp.tier] * .45); earn("gate", share); awayTrip(c, opp); awayRefundCheck(c, opp, gf, ga); }
+    else if (!neutral) { const share = Math.round(Math.min(opp.cap, opp.fans * 1.2) * ticketRef(opp) * .45); earn("gate", share); awayTrip(c, opp); awayRefundCheck(c, opp, gf, ga); }
     else { earn("gate", Math.round(Math.min(40000, (c.fans + opp.fans) * .8) * REF_TICKET[Math.min(c.tier, opp.tier)] * .4)); awayTrip(c, opp); }
     c.morale = clamp(c.morale + (w === G.club ? 4 : -3), 20, 95);
     h2hAdd(opp.id, gf === ga ? "D" : w === G.club ? "W" : "L"); G.myRes.push({ w: G.phase === "playoffs" ? SEASON_WEEKS + G.week : G.week, comp, label, home: home && !neutral, neutral, opp: opp.id, gf, ga, res: w === G.club ? "W" : "L", pens: r.pens, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
