@@ -46,6 +46,7 @@ function playerLoanTerms(p, from = CL(p.club)) {
 const loanPay = p => { if (p.club < 0 || !lendsTo(p)) return null; const T = playerLoanTerms(p); return T.no ? null : Math.round(p.wage * T.min / 100) * 100; };
 function askLoan(p, share) {
   const from = CL(p.club), T = playerLoanTerms(p);
+  if (embargoed(my())) return { ok: false, t: "You can't take players on loan: the club is under a transfer embargo." };
   if (!lendsTo(p)) return { ok: false, t: `${from.name} won't send ${p.name} that far down: he's a ${TIER_NAME[naturalTier(p)]} player and they want him playing at that level.` };
   if (T.no) return { ok: false, t: `${from.name} want to keep ${p.name}: he isn't available on loan.` };
   if (share >= T.min) { loanIn(p, from, share); return { ok: true, t: `${from.name} agree: ${p.name} joins on loan until the end of the season. You pay ${Math.round(share * 100)}% of his wages (${pw(p.wage * share)}).` }; }
@@ -61,6 +62,7 @@ function redoLoan(p, share) {
   return { ok: false, t: `${from.name} say no: they want you to pay at least ${Math.round(T.min * 100)}% (${pw(p.wage * T.min)}). ${3 - T.tries} more ${3 - T.tries === 1 ? "try" : "tries"}.` };
 }
 function loanIn(p, from, share = .5, how) {
+  if (embargoed(my())) { news(`${p.name}'s loan is blocked: the club is under a transfer embargo.`, true); return false; }
   const c = my(); logMove("loanin", p, { club: clubLabel(from), share, wage: p.wage, by: how || "you" }); p.loan = { from: from.id, to: c.id, share, neg: true };
   from.squad = from.squad.filter(id => id !== p.id); c.squad.push(p.id); p.club = c.id; registerNew(p, c);
   (G.loanList ||= []).push(p.id);

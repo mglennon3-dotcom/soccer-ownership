@@ -147,6 +147,16 @@ function loansWeek(c) {
   G.redWeeks = c.cash < -limit ? (G.redWeeks || 0) + 1 : 0;
   if (G.redWeeks === 6) news(`WARNING: the club is ${money(-c.cash)} overdrawn, beyond the bank's ${money(limit)} limit. Two more weeks and it goes into administration.`, true);
   if (G.redWeeks >= 8) myAdministration(c);
+  embargoWeek(c);
+}
+// The debts the embargo waits on: the overdraft, and bank loans (not the stadium mortgage).
+const embDebt = c => Math.max(0, -c.cash) + sum((G.loans || []).filter(l => !l.stadium), l => l.left) + ((c.emb && c.emb.owed) || 0);
+function embargoWeek(c) {
+  if (!c.emb) return;
+  // The creditors take a fifth of whatever is in the bank each week until they're paid.
+  if (c.emb.owed > 0 && c.cash > 0) { const pay = Math.min(c.emb.owed, Math.round(c.cash * .2)); c.cash -= pay; c.emb.owed -= pay; book("repay", pay); }
+  // At the least it covers the next summer window: it can lift once next season is under way and the debts are paid.
+  if (G.year > c.emb.y && G.phase !== "summer" && embDebt(c) <= 0) { delete c.emb; news("The transfer embargo is lifted: the debts are cleared and the club can buy and borrow players again.", true); addMsg({ type: "info", title: "Transfer embargo lifted", body: "The debts are cleared. The club can pay fees and take players on loan again." }); }
 }
 /* Stadium finance: big stadium projects can be part-paid with a long loan secured on the ground (a little cheaper
    than ordinary borrowing). The lender will finance up to the share you choose, as long as total debt stays within
@@ -169,13 +179,19 @@ function ownerLend(amt) { amt = Math.min(amt, G.owner.wealth); G.owner.wealth -=
 function ownerRecall(amt) { amt = Math.min(amt, G.owner.lent || 0, Math.max(0, my().cash)); G.owner.wealth += amt; G.owner.lent -= amt; my().cash -= amt; book("repay", amt); news(`The club repays you ${money(amt)}.`); }
 function myAdministration(c) {
   G.redWeeks = 0; c.admin = G.year;
+  // The overdraft becomes a debt to the creditors (the bank account starts again from nothing); the fire sale's money
+  // goes to them, and the rest is paid back out of the club's takings before the embargo can lift.
+  const owed = Math.max(0, -c.cash); c.cash = 0; const cash0 = 0;
   if (G.leagues[c.lg].tab && G.leagues[c.lg].tab[c.id]) G.leagues[c.lg].tab[c.id].pts -= 10;
   for (const r of ["manager", "recruit", "youth"]) trust(r, -15, null, "The club going into administration");
   moodHit(c, -20); investorMood(null, -25); bumpMedia(8);
   const sell = c.squad.map(P).filter(p => !p.acad).sort((a, b) => valueOf(b) - valueOf(a)).slice(0, 2);
   for (const p of sell) sellToAI(p, false, Math.round(valueOf(p) * .7 / 1000) * 1000);
-  c.cash = Math.min(c.cash + 0, c.cash); c.budget.transfer = 0;
-  news(`ADMINISTRATION. ${c.name} are docked ten points, the administrators sell ${sell.map(p => p.name).join(" and ")}, and the transfer budget is frozen.`, true);
+  const raised = Math.max(0, c.cash - cash0), paid = Math.min(raised, owed); c.cash -= paid;
+  c.budget.transfer = 0; c.emb = { y: G.year, w: G.week, owed: owed - paid, owed0: owed };
+  // The administrators cancel deals in the pipeline that cost a fee.
+  for (const p of Object.values(G.players)) if (p.toMe && p.toMe.fee > 0) { delete p.toMe; news(`The administrators cancel the agreed deal for ${p.name}.`); }
+  news(`ADMINISTRATION. ${c.name} are docked ten points, the administrators sell ${sell.map(p => p.name).join(" and ")}, and the club is under a transfer embargo: no fees and no loans, only free agents and your own academy, until the debts are cleared.`, true);
 }
 
 /* ---------- objectives ----------
