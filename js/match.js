@@ -37,7 +37,8 @@ function pickXI(c, noForce, ctx) {
   // Your instruction: in the lesser cup games, give your high-potential youngsters (21 or under, potential well above
   // their rating) the games: academy lads included.
   const yc = isMine(c) && ctx && !ctx.noYc && ((G.youthCups && ctx.lesser) || (G.ytie && ctx.opp && G.ytie.opp === ctx.opp.id && G.ytie.w === G.week && G.ytie.y === G.year));
-  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21))) && (!isMine(c) || isReg(p, c)));
+  const cov = isMine(c) && !(ctx && ctx.coverOff) ? G.cover || {} : {}, covId = new Set(Object.values(cov).filter(v => v.ans === "acad").flatMap(v => v.pids || [v.pid]));  // injury cover: your academy pick
+  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id))) && (!isMine(c) || isReg(p, c)));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
      one point on the 100 scale, about a tenth of a shown point at the top). */
   // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position
@@ -64,8 +65,8 @@ function pickXI(c, noForce, ctx) {
   const rot = (isMine(c) ? rotOf(staffOf("manager")) : (c.coach && c.coach.rot) || 50) / 100;
   const tired = p => Math.max(0, 80 + rot * 14 - (p.fit ?? 100)) * (.1 + rot * .5);
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 2600 : 0) + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 1300 : 0) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
