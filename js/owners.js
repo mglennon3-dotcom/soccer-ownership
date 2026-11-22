@@ -64,7 +64,8 @@ function moveOdds(c) {
 function aiMoveCheck(c) {
   if (G.groundNext == null) G.groundNext = G.year + ri(1, 3);
   if (G.year < G.groundNext || G.groundY === G.year) return;
-  if (c.abroad || c.build || (c.moved && G.year - c.moved.y < 10) || R() > moveOdds(c)) return;
+  // A club that has built a new ground won't build another for at least 20 years.
+  if (c.abroad || c.build || (c.moved && G.year - c.moved.y < 20) || G.year - aiOpened(c) < 20 || R() > moveOdds(c)) return;
   const S = ownStyle(c), st = c.own.style, roots = fanShare(c, "loyal") + fanShare(c, "hard");  // a loyal, hardcore support wants to stay close
   const kind = st === "developer" ? (R() < .6 - roots * .4 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .55 + roots * .4 ? "near" : "edge")
     : wpick(["near", "edge", "far"], k => ({ near: 3 + roots * 6, edge: 4, far: Math.max(.5, 2.5 - roots * 4) })[k]);
