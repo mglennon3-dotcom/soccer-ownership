@@ -34,7 +34,10 @@ function easyGame(c, ctx) {
 function pickXI(c, noForce, ctx) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false, easy = easyGame(c, ctx);
   const acadMin = TIER_LVL[c.tier] - (easy ? 10 : 6) - (youth ? 2 : 0), acadB = !easy ? 0 : (ctx.kind === "cup" ? 8 : 5) + (youth ? 2 : 0);
-  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && p.ovr >= acadMin) && (!isMine(c) || isReg(p, c)));
+  // Your instruction: in the lesser cup games, give your high-potential youngsters (21 or under, potential well above
+  // their rating) the games: academy lads included.
+  const yc = isMine(c) && G.youthCups && ctx && ctx.lesser;
+  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21))) && (!isMine(c) || isReg(p, c)));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
      one point on the 100 scale, about a tenth of a shown point at the top). */
   // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position
@@ -44,6 +47,10 @@ function pickXI(c, noForce, ctx) {
   // between two lads of the same rating, the one with more to come plays.
   const potGap = new Map(), gapOf = p => { if (!potGap.has(p.id)) { const [a, b] = potEstimate(p); potGap.set(p.id, r20((a + b) / 2) - r20(p.ovr)); } return potGap.get(p.id); };
   const youngFav = p => p.age <= 21 ? (gapOf(p) >= 4 ? 10 + Math.min(gapOf(p), 14) : 6) : 0;
+  // ...the five with the most potential (your staff's estimate) who aren't regulars already start, in their own positions where they can.
+  const regs = yc ? new Set(pickXI(c, noForce, { ...ctx, lesser: false }).map(o => o.p.id)) : null;
+  const ycSet = yc ? new Set(pool.filter(p => p.age <= 21 && gapOf(p) >= 3 && !regs.has(p.id)).sort((a, b) => (potEstimate(b)[0] + potEstimate(b)[1]) - (potEstimate(a)[0] + potEstimate(a)[1])).slice(0, 5).map(p => p.id)) : null;
+  const ycB = p => ycSet && ycSet.has(p.id) ? 260 : 0;  // above your depth chart, below "insist he starts"
   // A club that borrows a player agreed to give him games: yours start in their own position nearly every week.
   // Your pick: a player you insist on starts (in his own position if there's a place, otherwise in the same area).
   const forced = isMine(c) && !noForce ? (p, s) => p.force ? (p.pos === s ? 300 : (s === "GK") === (p.pos === "GK") ? (POS_LINE[p.pos] === POS_LINE[s] ? 250 : 0) : 0) : 0 : () => 0;
@@ -57,8 +64,8 @@ function pickXI(c, noForce, ctx) {
   const rot = (isMine(c) ? rotOf(staffOf("manager")) : (c.coach && c.coach.rot) || 50) / 100;
   const tired = p => Math.max(0, 80 + rot * 14 - (p.fit ?? 100)) * (.1 + rot * .5);
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
@@ -120,7 +127,7 @@ function emergencyXI(c) {
 }
 function playMatch(h, a, neutral, fr, kind) {
   for (const id of [h, a]) if (isMine(CL(id))) emergencyXI(CL(id));  // fr: a friendly, kept out of players' records
-  const H = CL(h), A = CL(a), xh = pickXI(H, false, { opp: A, kind }), xa = pickXI(A, false, { opp: H, kind }), ph = teamPower(H, xh), pa = teamPower(A, xa);
+  const H = CL(h), A = CL(a), xh = pickXI(H, false, { opp: A, kind, lesser: MATCH_LESSER }), xa = pickXI(A, false, { opp: H, kind, lesser: MATCH_LESSER }), ph = teamPower(H, xh), pa = teamPower(A, xa);
   const sh = STYLES[clubStyle(H)], sa = STYLES[clubStyle(A)], fh = styleFit(xh, clubStyle(H)), fa = styleFit(xa, clubStyle(A));
   const adv = neutral ? 0 : 2 + fanShare(H, "hard") * 2 + (isMine(H) ? terraceShare(H) * 1.2 + fzK(H) * .3 : 0), wx = G.wx ? wxAt(H) : WX.clear;
   const bh = clubBoost(CL(h)), ba = clubBoost(CL(a));
@@ -192,7 +199,7 @@ function recoverWeek() {
 const lsOf = p => p.ls && p.ls.y === G.year ? p.ls : (p.ls = { y: G.year, g: 0, a: 0, cs: 0 });
 /* Stats by type of game: league (play-offs included; foreign clubs' leagues too), domestic cups, Europe. This season
    (p.ss) and career since they've been kept (p.ct): [apps, goals, assists]. MATCH_CT is set by whoever plays the game. */
-let MATCH_CT = "L";
+let MATCH_CT = "L", MATCH_LESSER = false;  // MATCH_LESSER: a lesser cup game (see playKO)
 const ssOf = p => p.ss && p.ss.y === G.year ? p.ss : (p.ss = { y: G.year, L: [0, 0, 0], C: [0, 0, 0], E: [0, 0, 0] });
 // This season, club by club (p.sc.by[club] = [apps, goals, assists]): a player who moves mid-season keeps each club's share.
 // Started part-way through a season (an old save), his games so far go to the club he's at.
