@@ -385,6 +385,7 @@ const ACT = {
     toast(`${ps.length} player${ps.length > 1 ? "s" : ""} ${v === "keep" ? "kept" : v === "unkeep" ? "unmarked" : v === "promote" ? "promoted" : "released"}.`);
     ASEL.clear(); render(); saveGame();
   },
+  cupstart: el => { const p = P(+el.dataset.id); p.cupStart = !p.cupStart; toast(p.cupStart ? `${p.name} will start the cup games.` : `The manager picks the cup side as usual.`); playerModal(p.id); saveGame(); },
   force: el => { const p = P(+el.dataset.id); if (!p.force && my().squad.filter(id => P(id).force).length >= MAX_FORCED) return toast(`You can insist on at most ${MAX_FORCED} players.`); p.force = !p.force; p.forceNoted = false; toast(p.force ? `${p.name} will start: the manager has been told.` : `The manager picks ${p.name} on merit again.`); playerModal(p.id); render(); saveGame(); },
   recall: async el => { const p = P(+el.dataset.id); if (!p || !p.loan) return; if (!await ask(`Recall ${p.name} from ${CL(p.club).name}?${recallFee(p) ? ` They're owed ${money(recallFee(p))} for the trouble.` : ""}`)) return; recallLoan(p); closeModal(); render(); saveGame(); },
   keep: el => { const p = P(+el.dataset.id); p.keep = !p.keep; if (p.keep && p.acad) overruleYouth("keep", [p]); toast(p.keep ? `${p.name} is protected: not for sale, and he'll be offered a new contract.` : `${p.name} is no longer protected.`); playerModal(p.id); render(); },
