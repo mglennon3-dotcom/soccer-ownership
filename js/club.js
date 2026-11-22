@@ -461,7 +461,27 @@ const scoutBoost = () => G.club == null ? 0 : budgetFactor(my().budget.scout, sc
 const REF_SUITE = [0, 150000, 50000, 22000, 13000, 8000, 4500, 2500];
 const suiteMax = c => c.fac.stadium.own ? Math.floor(c.fac.stadium.cap / 250) : 0;
 const suiteDemand = c => FAN_T[c.tier] / 450 * (.6 + c.rep / 60) * (.8 + c.mood / 250);
-function suitesLet(c, price = c.prices.suite) { return Math.min(c.fac.stadium.suites || 0, Math.floor(suiteDemand(c) * priceFactor(price, REF_SUITE[c.tier], 1.5))); }
+// The going rate for a box moves with the club's ticket going rate: when supporters will pay more, so will businesses.
+const suiteRef = c => Math.round(REF_SUITE[c.tier] * ticketRef(c) / REF_TICKET[c.tier] / 500) * 500;
+function suitesLet(c, price = c.prices.suite) { return Math.min(c.fac.stadium.suites || 0, Math.floor(suiteDemand(c) * priceFactor(price, suiteRef(c), 1.5))); }
+/* The price for each that makes the most money, judged on the same forecasts the Prices page shows. Match tickets and
+   season tickets stop where supporters start to mind (20% and 30% over the going rate): beyond that the press and the
+   supporters complain, their mood suffers every week and the crowds shrink over time. Nothing goes beyond twice the going
+   rate (boxes 60% over it): past that the forecasts aren't to be trusted. A match ticket counts the bar as well (a fuller ground buys more), and a
+   season ticket the match-day takings it gives up (holders don't pay on the day). */
+function bestPrice(c, k) {
+  const P = c.prices, keep = { ...P }, G0 = homeGames(c);
+  const R = { ticket: [ticketRef(c), 1, 1.2], st: [stRef(c), 5, 1.3], conc: [REF_CONC[c.tier], .5, 2], shirt: [REF_SHIRT[c.tier], 1, 2], suite: [suiteRef(c), 500, 1.6] }[k];
+  const val = p => { P[k] = p;
+    if (k === "ticket") { const f = matchdayForecast(c, p); return f.gate + f.conc - f.ops; }
+    if (k === "st") { const f = matchdayForecast(c); return stDemand(c, p) * p + G0 * (f.gate + f.conc - f.ops); }
+    if (k === "conc") return matchdayForecast(c, P.ticket, p).conc;
+    if (k === "shirt") return merchFor(c, p);
+    return suitesLet(c, p) * p; };
+  let best = null, bv = -Infinity;
+  for (let i = 0; i <= 240; i++) { const p = Math.max(R[1], Math.round(R[0] * (.25 + (R[2] - .25) * i / 240) / R[1]) * R[1]); const v = val(p); if (v > bv) { bv = v; best = p; } }
+  Object.assign(P, keep); return best;
+}
 function suiteQuote(c, n = 4) { const room = suiteMax(c) - (c.fac.stadium.suites || 0); if (room <= 0) return null; n = Math.min(n, room); return { add: n, cost: Math.round(n * (90000 + c.fac.stadium.cap * 3) / 1e4) * 1e4, weeks: 10 + n * 2 }; }
 
 /* ---------- the pitch ----------

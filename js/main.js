@@ -312,6 +312,9 @@ const ACT = {
   depthdrop: el => { const role = el.dataset.role, id = +el.dataset.id; if (G.depthX && G.depthX[role]) G.depthX[role] = G.depthX[role].filter(i => i !== id); if (G.depth && G.depth[role]) G.depth[role] = G.depth[role].filter(i => i !== id); render(); saveGame(); },
   depthreset: el => { if (G.depth) delete G.depth[el.dataset.role]; render(); saveGame(); },
   praise: el => { praiseDo(+el.dataset.id, el.dataset.t, el.dataset.how); render(); saveGame(); },
+  optprice: el => { const c = my(), ks = el.dataset.k === "all" ? ["ticket", "st", "conc", "shirt", ...(c.fac.stadium.own && c.fac.stadium.suites ? ["suite"] : [])] : [el.dataset.k], done = [];
+    for (const k of ks) { if (k === "ticket" && priceFrozen()) { done.push("tickets frozen (your promise to the trust)"); continue; } const p = bestPrice(c, k); if (p != null) { c.prices[k] = p; done.push(`${{ ticket: "ticket", st: "season ticket", conc: "food & drink", shirt: "shirt", suite: "suites" }[k]} ${eur(p)}`); } }
+    toast(`Most profitable: ${done.join(", ")}.`); render(); saveGame(); },
   msgseen: el => { for (const m of G.inbox) if (el.dataset.id === "all" ? !["bid", "war", "choice"].includes(m.type) : m.id === +el.dataset.id) m.seen = true; render(); saveGame(); },
   signseen: () => { G.newSign = []; render(); saveGame(); },
   mend: el => { staffMend(el.dataset.r, el.dataset.k); render(); saveGame(); },
