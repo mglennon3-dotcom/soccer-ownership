@@ -16,14 +16,24 @@ const favCount = c => c.squad.filter(id => favLevel(P(id), c.id) >= 1).length;
 
 /* Each summer, before the season's numbers are cleared. */
 function loveSeason() {
+  /* Each club he played for this season gets the credit for his games there. (Loans have already ended by now, so
+     "where he is" would credit a loanee's parent club with his season elsewhere; his per-club split doesn't.) A loan
+     club, or one he left mid-season, gets a little less. */
+  const byShort = new Map(G.clubs.map(x => [x.short, x]));
   for (const p of Object.values(G.players)) {
-    if (p.club < 0 || !p.s.app) continue;
-    const c = CL(p.club), home = p.hist.length && p.hist[0][1] === c.short && p.hist[0][0] <= G.year - 1;
-    const add = p.s.app * .6 + p.s.g * 1.5 + p.s.a * .7 + 3 + (home ? 3 : 0) + (p.loan ? -3 : 0);
-    const before = favLevel(p, c.id);
-    (p.love ||= {})[c.id] = Math.round((loveOf(p, c.id) + Math.max(0, add)) * 10) / 10;
-    const after = favLevel(p, c.id);
-    if (isMine(c) && after > before) news(after === 2 ? `${p.name} is now a club legend in the eyes of the supporters.` : `${p.name} has become a fan favourite.`, after === 2);
+    if (!p.s.app) continue;
+    const loanAt = p.loanedAt && p.loanedAt.y === G.year ? byShort.get(p.loanedAt.short) : null;
+    const parts = p.sc && p.sc.y === G.year && Object.keys(p.sc.by).length ? Object.entries(p.sc.by).map(([cid, v]) => [CL(+cid), v])
+      : [[loanAt || (p.club >= 0 ? CL(p.club) : null), [p.s.app, p.s.g, p.s.a]]];
+    for (const [c, v] of parts) {
+      if (!c || !v[0]) continue;
+      const home = p.hist.length && p.hist[0][1] === c.short && p.hist[0][0] <= G.year - 1, away = c.id !== p.club || c === loanAt;
+      const add = v[0] * .6 + v[1] * 1.5 + v[2] * .7 + 3 + (home ? 3 : 0) + (away ? -3 : 0);
+      const before = favLevel(p, c.id);
+      (p.love ||= {})[c.id] = Math.round((loveOf(p, c.id) + Math.max(0, add)) * 10) / 10;
+      const after = favLevel(p, c.id);
+      if (isMine(c) && after > before) news(after === 2 ? `${p.name} is now a club legend in the eyes of the supporters.` : `${p.name} has become a fan favourite.`, after === 2);
+    }
   }
 }
 /* A favourite leaving (sold, released, contract not renewed) hurts. */
