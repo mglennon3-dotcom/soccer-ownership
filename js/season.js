@@ -66,7 +66,7 @@ function advance() {
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
   if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
   mediaWeek(); trustWeek(c); poachWeek(); staffTrustWeek(); recoverWeek(); forcedWeek(); if (!windowOpen() && loansOpen()) loanOffersWeek(c); requestsCheck(); bidForMyClub();
-  youthTieAsk(c); euroYouthAsk(c); achWeek(c); settleInbox();
+  youthTieAsk(c); euroYouthAsk(c); coverAsk(c); achWeek(c); settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
 }
@@ -612,6 +612,31 @@ function settleInbox() {
     if (m.type === "war" && m.age >= 2) warSell(m, true);
     if (m.type === "choice" && m.age >= 3) { m.auto = true; answerChoice(m, m.dflt); } }
 }
+
+/* ---------- injury cover ----------
+   When injuries leave the formation short of players for a position (fewer fit, registered first-teamers who play
+   there than it needs), the manager asks: bring in an academy player who plays there, or move someone across? Your
+   answer holds until enough of them are fit again (or the formation changes). */
+const naturalFit = (c, pos) => c.squad.map(P).filter(p => p && avail(p) && !p.acad && p.pos === pos && isReg(p, c) && !(p.loan && p.loan.from === c.id));
+function coverAsk(c) {
+  if (G.phase === "summer" && G.week < SUMMER_WEEKS - 2) return;
+  const slots = FORMS[clubForm(c)] || [], need = {}; for (const s of slots) need[s] = (need[s] || 0) + 1;
+  const C = (G.cover ||= {});
+  for (const pos of Object.keys(C)) if (!need[pos] || naturalFit(c, pos).length >= need[pos]) { if (C[pos].ans) news(`Enough ${POS_NAME[pos].toLowerCase()}s are fit again: the injury cover ends.`); delete C[pos]; }
+  for (const [pos, n] of Object.entries(need)) {
+    const have = naturalFit(c, pos).length; if (have >= n || C[pos]) continue;
+    const acs = c.squad.map(P).filter(p => p && p.acad && p.age >= 16 && avail(p) && p.pos === pos).sort((a, b) => b.ovr - a.ovr).slice(0, n - have), ac = acs[0];
+    const xi = pickXI(c, false, { coverOff: true }), oop = xi.find(o => o.slot === pos && o.p.pos !== pos);
+    C[pos] = { ans: null };
+    if (!ac) continue;  // no academy player for the position: he moves someone across, as he would anyway
+    const sw = oop ? `${oop.p.name} (normally a ${POS_NAME[oop.p.pos].toLowerCase()}), rated ${r20(roleRating(oop.p, pos))} there` : "the best of the rest";
+    addChoice("cover", `Injuries: ${have ? `only ${have}` : "no"} fit ${POS_NAME[pos].toLowerCase()}${have === 1 ? "" : "s"} for ${n} place${n > 1 ? "s" : ""}`,
+      `${mgr().name || "The manager"} asks how to cover it until they're back: bring in academy ${POS_NAME[pos].toLowerCase()}${acs.length > 1 ? "s" : ""} ${acs.map(a => `${a.name} (${a.age}, rated ${r20(a.ovr)}, potential ${est20(potEstimate(a))})`).join(" and ")}, or play ${sw}?`,
+      [`Play academy ${acs.length > 1 ? "players" : "player"} ${acs.map(a => a.name).join(" and ")}`, `Play ${oop ? oop.p.name : "someone"} out of position`], { pos, pid: ac.id, pids: acs.map(a => a.id) }, 1);
+  }
+}
+DECIDE.cover = (m, i) => { const C = (G.cover ||= {}), k = m.data.pos; if (!C[k]) return; C[k].ans = i === 0 ? "acad" : "oop"; C[k].pid = m.data.pid; C[k].pids = m.data.pids || [m.data.pid];
+  news(i === 0 ? `${G.players[m.data.pid] ? G.players[m.data.pid].name : "An academy player"} comes in at ${POS_NAME[k].toLowerCase()} until the injuries clear.` : `Out of position at ${POS_NAME[k].toLowerCase()} until the injuries clear.`); };
 
 /* ---------- European ties against much weaker sides: rotate in the youngsters? ----------
    Before a European game (group or knockout leg, not the final) against a side rated 3+ points below yours, the
