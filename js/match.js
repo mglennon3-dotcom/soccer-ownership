@@ -6,6 +6,8 @@
 // What each slot contributes to [attack, midfield, defence].
 const SLOT_W = { GK: [0, 0, 1.6], CB: [.05, .2, 1], FB: [.25, .3, .8], DM: [.1, .9, .65], CM: [.35, 1, .3], AM: [.75, .8, .1], W: [1, .45, .1], ST: [1, .2, .03] };
 const avail = p => p && !p.inj;
+// An academy player good enough for the first team (your youth manager's 'ready' bar): he's in your depth charts and can be picked.
+const acadOK = (p, c) => !!p && p.acad && p.age >= 16 && typeof youthReady === "function" && youthReady(p, c);
 const clubForm = c => isMine(c) ? (mgr().form || "4-4-2") : c.coach.form;
 const clubStyle = c => isMine(c) ? mgr().phil : c.coach.style;
 const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
@@ -16,7 +18,7 @@ const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
    set. Players who join later, or come up from the academy, slot in by their rating there; players who leave drop out. */
 function depthSync(c, role) {
   const L = (G.depth || {})[role]; if (!L) return null;
-  const ok = p => p && p.club === c.id && (role === "GK") === (p.pos === "GK") && !(p.loan && p.loan.from === c.id) && (!p.acad || p.age >= 16);
+  const ok = p => p && p.club === c.id && (role === "GK") === (p.pos === "GK") && !(p.loan && p.loan.from === c.id) && (!p.acad || acadOK(p, c));
   const keep = L.filter(id => ok(G.players[id]));
   for (const p of c.squad.map(P).filter(p => ok(p) && !keep.includes(p.id)).sort((a, b) => roleRating(b, role) - roleRating(a, role))) {
     const r = roleRating(p, role), at = keep.findIndex(id => roleRating(G.players[id], role) < r); keep.splice(at < 0 ? keep.length : at, 0, p.id);
@@ -38,7 +40,7 @@ function pickXI(c, noForce, ctx) {
   // their rating) the games: academy lads included.
   const yc = isMine(c) && ctx && !ctx.noYc && ((G.youthCups && ctx.lesser) || (G.ytie && ctx.opp && G.ytie.opp === ctx.opp.id && G.ytie.w === G.week && G.ytie.y === G.year));
   const cov = isMine(c) && !(ctx && ctx.coverOff) ? G.cover || {} : {}, covId = new Set(Object.values(cov).filter(v => v.ans === "acad").flatMap(v => v.pids || [v.pid]));  // injury cover: your academy pick
-  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id))) && (!isMine(c) || isReg(p, c)));
+  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id) || (isMine(c) && acadOK(p, c)))) && (!isMine(c) || isReg(p, c)));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
      one point on the 100 scale, about a tenth of a shown point at the top). */
   // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position

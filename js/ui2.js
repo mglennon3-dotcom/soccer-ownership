@@ -378,7 +378,7 @@ function retrainList() {
 const DEPTH_VIEW = {};
 function depthChart() {
   const c = my(), form = mgr().form || "4-4-2", slots = FORMS[form] || FORMS["4-4-2"], xi = pickXI(c), startsAt = new Map(xi.map(o => [o.p.id, o.slot]));
-  const roles = [...new Set(slots)], ps = c.squad.map(P).filter(p => p && (!p.acad || p.age >= 16) && !(p.loan && p.loan.from === c.id));
+  const roles = [...new Set(slots)], ps = c.squad.map(P).filter(p => p && (!p.acad || acadOK(p, c)) && !(p.loan && p.loan.from === c.id));
   const SHOW = 6;
   const cards = roles.map(role => {
     const n = slots.filter(s => s === role).length;
@@ -397,7 +397,7 @@ function depthChart() {
       const tag = here ? `<span class="chip xi">STARTS</span>` : p.inj ? `<span class="small bad">injured ${p.inj}w</span>` : !isReg(p, c) ? `<span class="small warn">not registered</span>`
         : elsewhere ? `<span class="small muted">starts at ${startsAt.get(p.id)}</span>` : `<span class="small muted">${["1st", "2nd", "3rd", "4th", "5th"][backup++] || ""} choice cover</span>`;
       const k = DEPTH_VIEW[role].indexOf(p.id), mv = `<span class="depth-mv"><button class="btn sm" data-act="depth" data-role="${role}" data-id="${p.id}" data-d="-1" ${k <= 0 ? "disabled" : ""} aria-label="Move ${esc(p.name)} up">▲</button><button class="btn sm" data-act="depth" data-role="${role}" data-id="${p.id}" data-d="1" ${k >= DEPTH_VIEW[role].length - 1 ? "disabled" : ""} aria-label="Move ${esc(p.name)} down">▼</button></span>`;
-      return `<tr class="${p.inj || elsewhere ? "muted" : ""}"><td class="num">${mv}${rating(r)}</td><td style="text-align:left"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${oop ? ` <span class="pos" title="Normally ${esc(POS_NAME[p.pos].toLowerCase())}">${p.pos}</span>` : ""}${p.loan && p.loan.to === c.id ? ` <span class="chip list" title="On loan from ${esc(CL(p.loan.from).name)}">LOAN</span>` : ""}<br><span class="small muted">${p.age} · potential ${est20(potEstimate(p))}${p.loan && p.loan.to === c.id ? ` · on loan from ${esc(CL(p.loan.from).name)}` : ""}</span></td><td style="text-align:right">${tag}</td></tr>`;
+      return `<tr class="${p.inj || elsewhere ? "muted" : ""}"><td class="num">${mv}${rating(r)}</td><td style="text-align:left"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${oop ? ` <span class="pos" title="Normally ${esc(POS_NAME[p.pos].toLowerCase())}">${p.pos}</span>` : ""}${p.loan && p.loan.to === c.id ? ` <span class="chip list" title="On loan from ${esc(CL(p.loan.from).name)}">LOAN</span>` : ""}${p.acad ? ` <span class="chip acad" title="An academy player">ACADEMY</span>` : ""}<br><span class="small muted">${p.age} · potential ${est20(potEstimate(p))}${p.loan && p.loan.to === c.id ? ` · on loan from ${esc(CL(p.loan.from).name)}` : ""}</span></td><td style="text-align:right">${tag}</td></tr>`;
     }).join("");
     const cover = ranked.filter(x => startsAt.get(x.p.id) !== role && !startsAt.has(x.p.id) && !x.p.inj && isReg(x.p, c));
     const thin = !cover.length ? `<p class="small bad">No cover: an injury here means someone plays out of position.</p>` : !cover.some(x => x.p.pos === role) ? `<p class="small warn">No natural ${esc(POS_NAME[role].toLowerCase())} as cover.</p>` : "";
