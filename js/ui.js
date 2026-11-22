@@ -139,7 +139,8 @@ function pgHome() {
         : `<p class="lead">Out of the play-offs: beaten in the semi-final by ${clubLink(CL(m.opp))}.</p>`; })() : `<p class="lead">No more league games this season.</p>`;
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
   // Anything waiting on your decision (a bid, a choice) puts the inbox first; otherwise it sits further down.
-  const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice") && (x.type === "choice" || G.players[x.pid]));
+  const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice") && (x.type === "choice" || G.players[x.pid]))
+    || G.inbox.some(x => x.type === "ach" && x.age < 2);  // a new achievement (a trophy, a record) brings the inbox to the top of the page too
   // Tabs keep the page short: today (what's next, the table, what needs you), the team, the club, and the news.
   // Anything waiting on your decision sits above the tabs whichever is open.
   const tab = SUB.office || "today", TABS = [["today", "Today"], ["team", "Team"], ["club", "Club"], ["news", "News"]];
@@ -211,7 +212,7 @@ function inboxCard(urgent) {
   const m = G.inbox.filter(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice" || x.age < 4)).sort((a, b) => (b.type === "war" ? 2 : b.type === "bid" || b.type === "choice" ? 1 : 0) - (a.type === "war" ? 2 : a.type === "bid" || a.type === "choice" ? 1 : 0)).slice(0, 8);
   if (!m.length) return "";
   const n = m.filter(x => x.type === "bid" || x.type === "war" || x.type === "choice").length;
-  return `<section class="card summary"><div class="card-h"><h2>Inbox</h2>${urgent ? `<span class="chip req">${n} to decide</span>` : ""}</div><div class="stack">${m.map(x => {
+  return `<section class="card summary"><div class="card-h"><h2>Inbox</h2>${urgent ? n ? `<span class="chip req">${n} to decide</span>` : `<span class="chip xi">New</span>` : ""}</div><div class="stack">${m.map(x => {
     if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
       return `<div class="decision"><div><b>${posHead(p)}${esc(x.title)}</b></div>${myPlayerLine(p)}${x.pre ? `<p class="small warn">The window is shut: accept and he stays with you until it opens, then joins them.</p>` : ""}<p class="small">${POS_NAME[p.pos]}, ${p.age}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? pr(s, "he") : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ""}</p>
