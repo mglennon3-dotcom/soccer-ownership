@@ -66,7 +66,7 @@ function advance() {
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
   if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
   mediaWeek(); trustWeek(c); poachWeek(); staffTrustWeek(); recoverWeek(); forcedWeek(); if (!windowOpen() && loansOpen()) loanOffersWeek(c); requestsCheck(); bidForMyClub();
-  youthTieAsk(c); settleInbox();
+  youthTieAsk(c); euroYouthAsk(c); achWeek(c); settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
 }
@@ -232,7 +232,7 @@ function endSeason() {
   G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: [...Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }),
     ...Object.values(G.cont || {}).map(K => { if (!K.teams.includes(G.club)) return null; if (K.win === G.club) return CONT[K.key].name + ": winners"; const r = K.ko.filter(R => R.ties.some(t => t.h === G.club || t.a === G.club)).pop(); return `${CONT[K.key].name}: ${r ? r.n.toLowerCase() : "group stage"}`; })].filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
     inc: ledgerIncome(f), cost: ledgerCosts(f), att: Math.round(avg(mine.att || [])), st: stHolders(mine), stp: mine.st && mine.st.y === G.year ? mine.st.price : null, fans: mine.fans, cash: mine.cash, mgr: mgr().name,
-    top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" });
+    top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" }); achSeason(G.history[0], mine);
   investorsSummer({ up: wentUp, down: wentDown }); fanCultureSummer(mine, wentUp, wentDown); wageClauses(mine, wentUp, wentDown);
   endLoans();
   G.meddle = (G.meddle || 0) * .6;
@@ -611,4 +611,120 @@ function settleInbox() {
       answerBid(m, m.rec === "accept" ? true : deal ? 2 : false, true); }
     if (m.type === "war" && m.age >= 2) warSell(m, true);
     if (m.type === "choice" && m.age >= 3) { m.auto = true; answerChoice(m, m.dflt); } }
+}
+
+/* ---------- European ties against much weaker sides: rotate in the youngsters? ----------
+   Before a European game (group or knockout leg, not the final) against a side rated 3+ points below yours, the
+   manager asks, as he does before a cup tie against a lower-division club. */
+function euroYouthAsk(c) {
+  const us = teamAvg20(c);
+  for (const K of Object.values(G.cont || {})) {
+    if (!K.teams || !K.teams.includes(c.id) || K.win != null) continue;
+    const D = CONT[K.key]; let opp = null, stage = "";
+    if (K.md < 6 && CONT_GROUP_WEEKS[K.md] === G.week) { const g = K.groups.findIndex(x => x.includes(c.id)), i = K.groups[g].indexOf(c.id), pr = GROUP_MD[K.md].find(p => p.includes(i)); if (pr) { opp = CL(K.groups[g][pr[0] === i ? pr[1] : pr[0]]); stage = `group game ${K.md + 1}`; } }
+    const RD = K.round >= 0 ? K.ko[K.round] : null, t = RD && RD.ties.find(t => (t.h === c.id || t.a === c.id) && t.w == null);
+    if (!opp && t && RD.n !== "Final" && CONT_KO[K.round].w.includes(G.week)) { opp = CL(t.h === c.id ? t.a : t.h); stage = `${RD.n.toLowerCase()}, ${CONT_KO[K.round].w.indexOf(G.week) === 0 ? "first" : "second"} leg`; }
+    if (!opp) continue;
+    const them = teamAvg20(opp), key = `E.${K.key}.${G.year}.${G.week}`;
+    if (them > us - 3 || (G.ytAsked || []).includes(key)) continue;
+    (G.ytAsked ||= []).push(key); if (G.ytAsked.length > 20) G.ytAsked.shift();
+    const m = mgr();
+    addChoice("ytie", `${D.name} ${stage}: ${opp.name}, a side rated ${us - them} below ours`, `This week${opp.abroad ? `, ${opp.name} of ${countryOf(opp)}` : ""}: their side is rated about ${them}, ours ${us}. ${m.name ? m.name : "The manager"} asks: should we rotate in the youngsters? He'd start our five highest-potential players 21 or under who aren't regulars, academy lads included.`,
+      ["Yes, give the youngsters a game", "No, play our strongest side"], { opp: opp.id, w: G.week, comp: K.key }, 1);
+  }
+}
+
+/* ---------- achievements ----------
+   A card in your inbox (and a news item) the first time the club does something worth remembering: trophies and
+   promotions, records, runs and big wins, players' milestones, and the club's own growth. Each is marked once; records
+   (biggest win, longest run, record crowd, record fee, best finish) come again whenever they're beaten. The first time
+   this runs on a save, what's already been done is noted quietly, so you aren't flooded. */
+let ACH_QUIET = false;
+function ach(key, title, body) {
+  const A = (G.achs ||= {}); if (A[key]) return false; A[key] = G.year;
+  if (!ACH_QUIET) { addMsg({ type: "ach", title: `🏅 ${title}`, body }); news(`🏅 ${title}`, true); }
+  return true;
+}
+const REC = () => (G.achRec ||= {});
+function record(k, v, title, body, min = -Infinity) { const R = REC(); if (v <= (R[k] ?? -Infinity)) return; const had = R[k] != null; R[k] = v; if (had && v >= min && !ACH_QUIET) { addMsg({ type: "ach", title: `🏅 ${title}`, body }); news(`🏅 ${title}`, true); } }
+const nth = n => n.toLocaleString("en-GB");
+function achWeek(c) {
+  if (!G.achInit) { G.achInit = true; ACH_QUIET = true; G.achTro = (c.trophies || []).length; achChecks(c); ACH_QUIET = false; return; }
+  achChecks(c);
+}
+function achChecks(c) {
+  const R = REC(), ps = c.squad.map(P).filter(Boolean);
+  // Trophies, as they're won
+  const T = c.trophies || [], LN = new Set(Object.values(LEAGUES).map(L => L.name)), EU = new Set(Object.values(CONT).map(D => D.name));
+  for (let i = G.achTro ?? T.length; i < T.length; i++) {
+    const [y, name] = T[i], before = T.slice(0, i), lg = LN.has(name), eu = EU.has(name);
+    if (!before.length) ach("firstTrophy", `The first trophy in the club's history: the ${name}`, `${seasonLabel(y)}. Whatever comes next, this was the first.`);
+    else if (lg && !before.some(t => LN.has(t[1]))) ach("firstTitle", `Champions for the first time: the ${name}`, `${seasonLabel(y)}: the club's first league title.`);
+    else if (eu && !before.some(t => EU.has(t[1]))) ach("firstEuro", `European trophy winners: the ${name}`, `${seasonLabel(y)}: the club's first European trophy.`);
+    else ach(`tro.${y}.${name}`, `${name} winners`, `${seasonLabel(y)}: trophy number ${i + 1} for the club.`);
+    const same = T.slice(0, i + 1).filter(t => t[0] === y);
+    if (same.length >= 2 && same.some(t => LN.has(t[1]))) ach(`double.${y}`, `The double: ${same.map(t => t[1]).join(" and ")}`, `${seasonLabel(y)}: ${same.length} trophies in a season.`);
+  }
+  G.achTro = T.length;
+  // Results (competitive games)
+  const res = (G.myRes || []).filter(r => r.comp && r.comp !== "F"), start = G.achRes && G.achRes.y === G.year ? G.achRes.n : 0;
+  for (const r of res.slice(start)) {
+    const opp = CL(r.opp), m = r.gf - r.ga;
+    if (m >= 4) record("margin", m, `Biggest win in the club's history: ${r.gf}–${r.ga} against ${opp.name}`, `${r.label || "League"}, ${seasonLabel(G.year)}.`);
+    if (r.res === "W" && CUP_DEF[r.comp] && opp.tier < c.tier) ach(`gk.${G.year}.${r.opp}`, `Giant-killing: ${opp.name} knocked out`, `${CUP_DEF[r.comp].name}: ${r.gf}–${r.ga} against a side ${c.tier - opp.tier} division${c.tier - opp.tier > 1 ? "s" : ""} above us.`);
+    if (r.res === "W" && derbyLevel(c, opp) === 2) ach(`fierce.${r.opp}`, `A first win over fierce rivals ${opp.name}`, `${r.gf}–${r.ga}${r.home ? " at home" : " away"}.`);
+    if (r.res === "W" && CONT[r.comp] && !r.home && !r.neutral) ach("euroAway", `A first away win in Europe: ${r.gf}–${r.ga} at ${opp.name}`, `${CONT[r.comp].name}, ${seasonLabel(G.year)}.`);
+    const mine = (r.ev || []).filter(e => (e.side === 0) === !!r.home || (r.neutral && false)), count = {}; for (const e of mine) count[e.g] = (count[e.g] || 0) + 1;
+    for (const [n, k] of Object.entries(count)) if (k >= 3) ach(`hat.${G.year}.${r.w}.${n}`, `Hat-trick: ${n}${k > 3 ? ` (${k} goals)` : ""}`, `Against ${opp.name}, ${r.gf}–${r.ga}.`);
+  }
+  if (res.length > start) {
+    // Runs, over the club's competitive games (kept across seasons)
+    // A run makes a card once, the game it passes the old record (and the record keeps growing quietly after that).
+    const S = (G.achRun ||= { w: 0, u: 0, cs: 0 }), RUNS = [["w", "wrun", r => r.res === "W", 5, n => [`Club-record winning run: ${n} in a row, and counting`, `Every competition counted.`]],
+      ["u", "urun", r => r.res !== "L", 10, n => [`Club-record unbeaten run: ${n} games, and counting`, `Every competition counted.`]], ["cs", "csrun", r => r.ga === 0, 4, n => [`Club-record clean sheets: ${n} in a row, and counting`, `Nothing conceded in ${n} games.`]]];
+    for (const r of res.slice(start)) for (const [k, rk, ok, min, txt] of RUNS) {
+      if (!ok(r)) { S[k] = 0; continue; } if (S[k] === 0) S["b" + k] = R[rk] ?? 0; S[k]++;
+      if (S[k] === S["b" + k] + 1 && S[k] >= min && R[rk] != null) { const [t, b] = txt(S[k]); addMsg({ type: "ach", title: `🏅 ${t}`, body: b }); news(`🏅 ${t}`, true); }
+      R[rk] = Math.max(R[rk] ?? 0, S[k]); }
+    // Doing the double over a derby rival (both league games won this season)
+    for (const id of new Set(res.filter(r => LEAGUES[r.comp]).map(r => r.opp))) { const two = res.filter(r => LEAGUES[r.comp] && r.opp === id); if (two.length >= 2 && two.every(r => r.res === "W") && isDerby(c, CL(id))) ach(`ddouble.${G.year}.${id}`, `The double over ${CL(id).name}`, `Both league derbies won in ${seasonLabel(G.year)}.`); }
+  }
+  G.achRes = { y: G.year, n: res.length };
+  // Europe
+  for (const K of Object.values(G.cont || {})) if ((K.ko || []).some(RD => RD.ties.some(t => t.w === c.id))) ach("euroKO", `Through a European knockout tie for the first time`, `${CONT[K.key].name}, ${seasonLabel(G.year)}.`);
+  if (G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id)) ach("euroQual", `Qualified for Europe for the first time`, `The ${(G.qual.CC || []).includes(c.id) ? "Champions Cup" : "Continental Shield"} awaits next season.`);
+  // Players
+  for (const p of ps) {
+    const h = (p.cs || {})[c.id] || [0, 0, 0];
+    for (const n of [100, 250, 500]) if (h[0] >= n) ach(`apps${n}.${p.id}`, `${p.name}: ${n} games for the club`, `${POS_NAME[p.pos]}, ${p.age}. ${h[1]} goals along the way.`);
+    for (const n of [50, 100, 200]) if (h[1] >= n) ach(`gls${n}.${p.id}`, `${p.name}: ${n} goals for the club`, `In ${h[0]} games.`);
+    if (p.yAcad === c.id && !p.acad && h[0] >= 1) ach(`debut.${p.id}`, `Academy graduate ${p.name} makes his debut`, `${POS_NAME[p.pos]}, ${p.age}: one of our own.`);
+    if (favLevel(p, c.id) === 2) ach(`legend.${p.id}`, `${p.name} is a club legend`, `The supporters will be singing his name for years.`);
+    for (const a of (p.acc || []).filter(a => a[0] === G.year && ["boot", "glove", "assist"].includes(a[1]))) ach(`acc.${p.id}.${a[0]}.${a[1]}`, `${p.name}: ${a[2]}`, `An individual honour for one of ours.`);
+  }
+  if (pickXI(c).filter(o => o.p.yAcad === c.id).length >= 3) ach("acad3", `Three of our own in the starting side`, `${pickXI(c).filter(o => o.p.yAcad === c.id).map(o => o.p.name).join(", ")}: academy graduates in the first team.`);
+  for (const h of (G.hof || []).filter(h => h.mine)) ach(`hof.${h.name}`, `${h.name} enters the hall of fame`, `Peak rating ${r20(h.peak)}, ${h.apps} games and ${h.goals} goals in his career.`);
+  // Fees, crowds and the club
+  const tl = (G.tlog || []).filter(m => m.fee > 0);
+  const paid = Math.max(0, ...tl.filter(m => m.kind === "in").map(m => m.fee)), got = Math.max(0, ...tl.filter(m => m.kind === "out").map(m => m.fee));
+  if (paid) record("feeIn", paid, `Club-record signing: ${money(paid)}`, `${(tl.find(m => m.kind === "in" && m.fee === paid) || {}).name || ""}.`); if (got) record("feeOut", got, `Club-record sale: ${money(got)}`, `${(tl.find(m => m.kind === "out" && m.fee === got) || {}).name || ""}.`);
+  const crowd = Math.max(0, ...(c.att || [])); if (crowd) record("crowd", crowd, `Record crowd: ${nth(crowd)}`, `The biggest home crowd in the club's history.`);
+  const stBest = Math.max(stHolders(c) || 0, ...(G.history || []).map(h => h.st || 0));
+  for (const n of [10000, 25000, 50000]) if (stBest >= n && (ACH_QUIET || (stHolders(c) || 0) >= n)) ach(`st${n}`, `${nth(n)} season-ticket holders`, `${nth(stHolders(c))} have committed for the season.`);
+  for (const n of [10000, 25000, 50000, 100000]) if (c.fans >= n) ach(`fans${n}`, `${nth(n)} supporters`, `The club's following has passed ${nth(n)}.`);
+  if (G.leagues[c.lg].clubs.every(id => id === c.id || CL(id).fans < c.fans)) ach(`mostFans.${c.tier}`, `The biggest support in the ${LEAGUES[c.lg].name}`, `${nth(c.fans)} supporters: more than any other club in the division.`);
+  for (const n of [10e6, 50e6, 100e6, 250e6, 500e6]) if (c.cash >= n) ach(`cash${n}`, `${money(n)} in the bank`, `Club cash has passed ${money(n)}.`);
+  for (const n of [20000, 40000, 60000]) if (capacity(c) >= n) ach(`cap${n}`, `A ${nth(n)}-capacity ground`, `${nth(capacity(c))} can now watch us at home.`);
+  for (const [k, l] of [["train", "training ground"], ["acad", "academy"]]) for (const n of [5, 10]) if (c.fac[k].lvl >= n) ach(`${k}${n}`, `The ${l} reaches level ${n}`, n === 10 ? `As good as it gets.` : `Halfway to the best there is.`);
+  for (const n of [10, 25, 50]) if ((G.history || []).length >= n) ach(`yrs${n}`, `${n} seasons under your ownership`, `Since ${seasonLabel(G.year - n)}.`);
+}
+// At the end of a season: promotions, finishes, points, an unbeaten league season, a sold-out season, a first profit.
+function achSeason(h, c) {
+  if (!G.achInit) return; const prev = (G.history || []).slice(1), lr = (G.myRes || []).filter(r => r.comp === h.lg);
+  if (h.up) { ach(`up.${h.y}`, `Promoted from the ${LEAGUES[h.lg].name}`, `${seasonLabel(h.y)}: ${ordinal(h.pos)} with ${h.pts} points.`); if (prev[0] && prev[0].up) ach(`b2b.${h.y}`, `Back-to-back promotions`, `Two seasons, two promotions.`); }
+  const rank = x => (x.tier - 1) * 40 + x.pos; if (prev.length && prev.every(x => rank(h) < rank(x))) ach(`best.${h.y}`, `The club's highest-ever finish: ${ordinal(h.pos)} in the ${LEAGUES[h.lg].name}`, `${h.pts} points in ${seasonLabel(h.y)}.`);
+  if (lr.length >= 20 && lr.every(r => r.res !== "L")) ach(`unbeaten.${h.y}`, `Unbeaten in the league all season`, `${lr.length} games, not one lost.`);
+  if (h.pts >= 100) ach(`pts100.${h.y}`, `A 100-point season`, `${h.pts} points.`); else if (prev.length && prev.every(x => h.pts > x.pts)) ach(`pts.${h.y}`, `Club-record points: ${h.pts}`, `More than in any season before.`);
+  const homes = c.att || []; if (homes.length >= 10 && homes.every(a => a >= capacity(c) * .995)) ach(`sellout.${h.y}`, `Sold out all season`, `Every home game full.`);
+  if (h.inc > h.cost && !prev.some(x => x.inc > x.cost)) ach("firstProfit", `The club's first profitable season`, `${money(h.inc - h.cost)} in profit.`);
 }
