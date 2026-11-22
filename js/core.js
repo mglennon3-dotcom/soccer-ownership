@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "0.99.0";
+const VERSION = "0.99.3";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -411,6 +411,9 @@ function newWorld(o) {
 const absWeek = () => G.year * 100 + (G.phase === "summer" ? G.week : SUMMER_WEEKS + G.week);
 const faFresh = q => q && q.faAt != null && absWeek() - q.faAt < 3;
 function toFreeAgent(p) { if (p.club >= 0) p.faAt = absWeek(); leaveClub(p); p.club = -1; p.acad = false; p.yrs = 0; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.faY = G.year; if (!G.fa.includes(p.id)) G.fa.push(p.id); }
+/* A transfer embargo (after administration): no fees, no loans in. Free agents (and pre-contracts, which cost no
+   fee) and the club's own academy only, until the debts are cleared. */
+const embargoed = c => !!(c && c.emb);
 function leaveClub(p) { p.cupStart = p.euroStart = false; if (p.club >= 0 && p.club === G.club && p.am && typeof amortLeave === "function") amortLeave(p); if (p.club >= 0 && typeof favLeaves === "function") favLeaves(p); if (p.club >= 0) { const c = CL(p.club); c.squad = c.squad.filter(id => id !== p.id); } }
 /* Transfer windows: a player who joins a club in a window can't be sold on in the same window. */
 const windowId = () => (G.phase === "summer" ? "S" : "J") + G.year;

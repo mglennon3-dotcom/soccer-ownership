@@ -171,6 +171,10 @@ function aiAccounts(c) {
   c.fee3 = (c.fee3 || []).concat([Math.round(fees)]).slice(-3);  // the last three seasons' net transfer money (wage controller)
   c.feeAvg = Math.round((c.feeAvg || 0) * .5 + fees * .5);  // selling clubs reinvest: recent transfer profit feeds the wage budget (aiAfford)
   if (c.debt) c.debt = Math.max(0, Math.round(c.debt * .955));
+  // Under an embargo every spare penny goes to the creditors; it lifts once the debt is down to half a year's income
+  // (after a season at least, three at most).
+  if (c.emb) { if (net > 0 && c.debt) c.debt = Math.max(0, Math.round(c.debt - net * .8));
+    if (G.year > c.emb.y && ((c.debt || 0) <= inc * .5 || G.year >= c.emb.y + 3)) { delete c.emb; if (c.lg === my().lg) news(`${c.name}'s transfer embargo is lifted.`); } }
   // Cooking the books: losses are hidden (false income, deals off the books), so no spending-rule trouble, no cuts, and the
   // owner doesn't seem to be paying. It all goes on the hidden pile that gets him caught.
   if (c.cook) { c.cook.hid += Math.max(0, -net) + Math.max(0, aiBill(c) - salaryCap(c.tier)); c.psr = []; return; }
@@ -275,7 +279,7 @@ function hostileCheck() {
   news(`${x.own.name} buys ${x.name} and tells reporters he'll "put ${c.name} in their place". You have a hostile neighbour.`, true); bumpMedia(5);
 }
 function administration(c) {
-  c.ded = 10; c.rep = Math.max(1, c.rep - 4);
+  c.ded = 10; c.rep = Math.max(1, c.rep - 4); c.emb = { y: G.year }; c.tb = 0;
   const best = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.ovr - a.ovr).slice(0, 3);
   for (const p of best) { const b = buyerFor(p, 8, .6); if (b && b !== c) { aiTransfer(p, b, Math.round(aiFee(p) * .6 / 1e4) * 1e4); p.wage = aiWage(p, b); } }  // a fire sale
   const where = c.lg === my().lg || c.half === my().half;
@@ -480,7 +484,7 @@ function aiTransferBudget(c) {
    from it: the seller banks the fee in its accounts and adds half of it to its own budget. A club can't bid, buy from
    another club or sign from outside the game beyond what it has left (clubs abroad are not limited). Fees count in the
    year's accounts. */
-const tbOf = c => isMine(c) ? Infinity : c.abroad ? (c.tb ?? (c.tb = foreignBudget(c))) : (c.tb ?? (c.tb = aiTransferBudget(c)));
+const tbOf = c => isMine(c) ? Infinity : c.emb ? 0 : c.abroad ? (c.tb ?? (c.tb = foreignBudget(c))) : (c.tb ?? (c.tb = aiTransferBudget(c)));
 const canAfford = (c, fee) => tbOf(c) >= fee;
 // Fees between clubs shrink down the pyramid: most non-league moves are free or a token payment.
 const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];

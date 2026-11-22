@@ -113,6 +113,7 @@ function freezeCols() {
 /* ---------- Office (home) ---------- */
 function checklist() {
   const c = my(), out = [];
+  if (c.emb) out.push([`Transfer embargo: free agents and your academy only, no fees or loans, until the debts are cleared (${money(embDebt(c))} to go${G.year > c.emb.y && G.phase !== "summer" ? "" : ", and not before next summer's window has closed"}).`, "fin"]);
   if (!staffOf("manager")) out.push(["Hire a manager. Until you do, the club captain picks the team.", "staff"]);
   if (!staffOf("recruit")) out.push(["Hire a head of recruitment. Nobody is signing players for you.", "staff"]);
   if (c.fac.acad.lvl && !staffOf("youth")) out.push(["Hire a youth manager to run the academy.", "staff"]);
@@ -829,6 +830,7 @@ const isFav = id => (G.favs || []).includes(id);
 const suggPlayers = () => { const ids = new Set([...sugg().map(x => x.id), ...incoming().map(p => p.id)]); return [...ids].map(id => G.players[id]).filter(p => p && p.club !== G.club); };
 const favPlayers = () => (G.favs || []).map(id => G.players[id]).filter(p => p && p.club !== G.club);
 function pgMarket() {
+  const EMB = embargoed(my()) ? `<p class="small bad" style="margin-bottom:10px">Transfer embargo: free agents only (and pre-contracts), no fees and no loans, until the club's debts are cleared (${money(embDebt(my()))} to go).</p>` : "";
   const c = my(), F = MARKET_F, s = staffOf("recruit"), needs = squadNeeds(c), xiCache = {}, off = new Set(F.off || []);
   const TABS = [["all", "All players"], ["fa", "Free agents"], ["listed", "Transfer listed"], ["loans", "Loan targets"], ["favs", `Favourites${favPlayers().length ? ` (${favPlayers().length})` : ""}`], ["sugg", `Suggested${suggPlayers().length ? ` (${suggPlayers().length})` : ""}`]];
   let base = F.tab === "sugg" ? suggPlayers() : F.tab === "favs" ? favPlayers() : F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
@@ -855,7 +857,7 @@ function pgMarket() {
   const sel = (k, opts) => `<select data-act="mf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const FEES = [0, 5e3, 10e3, 25e3, 50e3, 100e3, 250e3, 500e3, 1e6, 2.5e6, 5e6, 10e6, 25e6, 50e6, 100e6];
   const wageUse = c.budget.wages ? Math.round(wageBill(c) / c.budget.wages * 100) : 0;
-  return `<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Search the market</h2></div>
+  return `${EMB}<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>Search the market</h2></div>
     <p style="margin-bottom:12px">${windowOpen() ? `<b class="good">Window open</b>` : `<b class="muted">Window closed</b>: free agents sign now; anyone else can agree to join when it opens${incoming().length ? ` (${incoming().length} agreed)` : ""}`} · Transfer budget left <b class="num ${feeLeft <= 0 ? "bad" : ""}">${money(feeLeft)}</b> of ${money(c.budget.transfer)} · Wages left <b class="num">${pw(wageLeft * 52)}</b> (${wageUse}% used)${incoming().length ? ` <span class="small muted">after ${incoming().length} agreed signing${incoming().length > 1 ? "s" : ""} (${pw(pendWages())}${pendFees() ? `, ${money(pendFees())} in fees` : ""})</span>` : ""} · Cash <b class="num">${money(c.cash)}</b></p>
     <div class="chips" style="margin-bottom:12px">${TABS.map(([k, l]) => `<button data-act="mtab" data-k="${k}" aria-pressed="${F.tab === k}">${l}</button>`).join("")}</div>
     <div class="filters">

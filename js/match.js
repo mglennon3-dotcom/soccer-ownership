@@ -40,7 +40,7 @@ function easyGame(c, ctx) {
 }
 function pickXI(c, noForce, ctx) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false, easy = easyGame(c, ctx);
-  const acadMin = TIER_LVL[c.tier] - (easy ? 10 : 6) - (youth ? 2 : 0), acadB = !easy ? 0 : (ctx.kind === "cup" ? 8 : 5) + (youth ? 2 : 0);
+  const acadMin = TIER_LVL[c.tier] - (easy ? 10 : 6) - (youth ? 2 : 0) - (embargoed(c) ? 4 : 0), acadB = !easy ? 0 : (ctx.kind === "cup" ? 8 : 5) + (youth ? 2 : 0);
   // Your instruction: in the lesser cup games, give your high-potential youngsters (21 or under, potential well above
   // their rating) the games: academy lads included.
   const yc = isMine(c) && ctx && !ctx.noYc && ((G.youthCups && ctx.lesser) || (G.ytie && ctx.opp && G.ytie.opp === ctx.opp.id && G.ytie.w === G.week && G.ytie.y === G.year));

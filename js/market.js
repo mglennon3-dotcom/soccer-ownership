@@ -120,7 +120,8 @@ function shortlist(c, need, max = 6) {
   const full = regList(c).length >= REG_MAX;  // a full 25-man list: only under-21s could play
   // Stars dropping down for a huge wage are only chased if you've told him to (Market page).
   // A youth-and-potential recruiter only buys young players (23 or under): he'd rather leave a place unfilled.
-  const ok = pool.filter(q => { if ((phil === "potential" && q.age > 23) || (full && !regExempt(q)) || !willJoin(q, c) || (!G.starHunt && hugeAsk(q, c)) || q.age > 34 || negotiated(askingFee(q)) > left || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
+  const emb = embargoed(c);  // under an embargo: free agents only
+  const ok = pool.filter(q => { if ((emb && q.club !== -1) || (phil === "potential" && q.age > 23) || (full && !regExempt(q)) || !willJoin(q, c) || (!G.starHunt && hugeAsk(q, c)) || q.age > 34 || (!emb && negotiated(askingFee(q)) > left) || demandWage(q, c) * .85 > wageRoom) return false; q._ask = playerAsk(q, c); return q._ask != null && q._ask <= wageRoom; });
   return ok.map(q => ({ p: q, sc: scoutScore(q, need, c, phil) })).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, max);
 }
 
@@ -133,6 +134,7 @@ function logMove(kind, p, o = {}) {
   if (G.tlog.length > 800) G.tlog.length = 800;
 }
 function signPlayer(p, fee, wage, byOwner, how) {
+  if (embargoed(my()) && fee > 0) { news(`The deal for ${p.name} is blocked: the club is under a transfer embargo.`, true); return false; }
   const c = my(), seller = p.club >= 0 ? CL(p.club) : null, keen = tookLess(p, c, wage);
   if (keen) p.keen = keen; else delete p.keen;
   p.joinR = { y: G.year, from: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" };
@@ -166,6 +168,7 @@ function headWeek(c) {
     const p = G.players[x.id]; x.wait = false;  // the window's open: no more waiting
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
     const v = suggView(p, c, x.loan); if (!v.ok) continue;
+    if (embargoed(c) && (x.loan || v.fee > 0)) continue;  // the embargo: he can't do it (it waits)
     if (x.loan) loanIn(p, CL(p.club), v.share, "suggestion");
     else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false, "suggestion"); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, ${pr(s, "he")} paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, ${pr(s, "he")} agreed ${pw(v.ask)}.`); }
     G.sugg = sugg().filter(y => y !== x);
@@ -602,6 +605,7 @@ function completeIncoming() {
     if (p.club === G.club) continue;
     const seller = p.club >= 0 ? CL(p.club) : null;
     if (seller && seller.gone && !seller.abroad) { news(`${p.name}'s move falls through: ${seller.name} no longer exist.`, true); continue; }
+    if (embargoed(my()) && A.fee > 0 && p.club !== -1) { news(`${p.name}'s move falls through: the club is under a transfer embargo.`, true); continue; }
     if (A.rec) { G.sugg = sugg().filter(x => x.id !== p.id); signPlayer(p, p.club === -1 ? 0 : A.fee, A.wage, false, "recruit"); } else ownerBuy(p, p.club === -1 ? 0 : A.fee, A.wage);
     if (A.pre && p.club === G.club) p.yrs = 4; } }  // a pre-contract is a four-year deal
 const incoming = () => Object.values(G.players).filter(p => p.toMe);
