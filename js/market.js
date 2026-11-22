@@ -135,6 +135,7 @@ function logMove(kind, p, o = {}) {
 function signPlayer(p, fee, wage, byOwner, how) {
   const c = my(), seller = p.club >= 0 ? CL(p.club) : null, keen = tookLess(p, c, wage);
   if (keen) p.keen = keen; else delete p.keen;
+  p.joinR = { y: G.year, from: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" };
   // Signings made for you (your head of recruitment, your suggestions, first refusal...) go to the top of the Office page.
   if (!byOwner) (G.newSign ||= []).unshift({ pid: p.id, by: how || "recruit", fee, wage, keen, from: fromName(p), fromId: seller ? seller.id : null, ...(() => { const lr = (p.prog || []).slice(-1)[0], pre = G.phase === "summer" && lr; return { lastApp: pre ? lr[4] : (p.s || {}).app || 0, lastG: pre ? lr[5] : (p.s || {}).g || 0, lastA: pre ? lr[6] : (p.s || {}).a || 0, statL: pre ? "Last season" : "This season" }; })(), y: G.year, w: whenLabel(), rec: staffOf("recruit") ? staffOf("recruit").name : null });
   logMove("in", p, { club: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" });
@@ -478,9 +479,13 @@ function renewTerms(p) {
   // if the fans love him, but never under 75%).
   const worthF = clamp(1.25 - S.L * .5 - S.love * .05, .75, 1.25);
   const floor = Math.ceil(Math.max(p.yrs <= 1 ? p.wage * .9 : p.wage, S.dem * worthF) / 100) * 100;
-  const min = stayMin(S, floor, p.rn.m), read = s ? clamp(s.at.neg / 100, 0, 1) : 0;
+  let min = stayMin(S, floor, p.rn.m); const read = s ? clamp(s.at.neg / 100, 0, 1) : 0;
   // Her read of his mood: a good negotiator sees most of it, a poor one guesses.
-  const guess = p.rn.m * read + clamp(p.rn.n, -2, 2) * .03 * (1 - read), advice = s ? stayMin(S, floor, guess) : null;
+  const guess = p.rn.m * read + clamp(p.rn.n, -2, 2) * .03 * (1 - read);
+  let advice = s ? stayMin(S, floor, guess) : null;
+  // He's asked for a rise (it's in your inbox): a new contract has to meet him at least halfway.
+  const pend = G.inbox.find(m => m.key === "raise" && !m.done && m.data && m.data.pid === p.id);
+  if (pend && min != null) { min = Math.max(min, pend.data.half); if (advice != null) advice = Math.max(advice, pend.data.half); }
   const notes = [], pri = S.pr.pri, top = S.pr.top, cares = k => top.includes(k) || pri[k] >= .2;
   if (S.real != null) notes.push(S.real >= .7 ? ["good", "he's playing every week"] : S.real < .35 ? ["bad", "he isn't playing enough"] : ["", "he's in and out of the side"]);
   if (S.f.form >= .75) notes.push(["good", "the system suits him"]); else if (S.f.form < .45) notes.push(["bad", "the formation and style don't suit him"]);
@@ -490,7 +495,7 @@ function renewTerms(p) {
   if (S.love >= FAV / LEGEND) notes.push(["good", `the fans ${S.love >= 1 ? "worship" : "love"} him`]);
   notes.push(S.L >= .75 ? ["good", "he's loyal to the club"] : S.L <= .25 ? ["bad", "he's a mercenary: he'll go wherever pays most"] : S.L <= .4 ? ["", "he isn't the loyal type"] : null);
   for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
-  return { no: min == null, min, advice, guessNo: s && advice == null, s, maxY, tries: p.rn.tries, off: p.rn.off, notes: notes.filter(Boolean), S };
+  return { no: min == null, min, advice, pend, guessNo: s && advice == null, s, maxY, tries: p.rn.tries, off: p.rn.off, notes: notes.filter(Boolean), S };
 }
 function offerRenewal(p, wage, yrs) {
   const T = renewTerms(p); wage = Math.round(wage / 100) * 100;
@@ -499,6 +504,7 @@ function offerRenewal(p, wage, yrs) {
   if (wage >= T.min) {
     const was = p.wage; p.wage = wage; p.yrs = clamp(Math.round(yrs), 1, T.maxY); logPay(p, was, "new deal");
     p.dealY = G.year; p.unsettled = 0; p.payGrudge = 0; p.expiring = false; delete p.rn;
+    if (T.pend) { T.pend.done = true; T.pend.answer = `New contract agreed: ${pw(wage)}`; }
     news(`${p.name} signs a new ${p.yrs}-year contract: ${pw(wage)}${was !== wage ? ` (was ${pw(was)})` : ""}.`, true);
     return { ok: true, t: `${p.name} signs: ${pw(wage)} for ${p.yrs} year${p.yrs > 1 ? "s" : ""}.` };
   }

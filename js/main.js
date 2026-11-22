@@ -102,6 +102,12 @@ function upgradeSave() {
       const bk = Math.round(t[4] * left / Math.max(1, done + left)); if (bk > 0) p.am = { book: bk, fee: t[4], y: t[0] }; } }
   if (!G.rtd1 && G.club != null) { G.rtd1 = true; const ids = new Set(my().squad.filter(id => G.players[id] && G.players[id].retrained)); for (const role in G.depth || {}) G.depth[role] = G.depth[role].filter(id => !ids.has(id)); }  // 0.82.3: one-off: retrained players re-slotted in the depth charts
   if (!G.treq2 && G.club != null) { G.treq2 = true; for (const m of G.inbox) { const p = m.key === "treq" && !m.done && G.players[m.data.pid]; if (p && lastDealY(p) === G.year) { m.done = true; m.drop = true; p.req = 0; } } G.inbox = G.inbox.filter(m => !m.drop); }  // 0.81.3: one-off: drop transfer requests from players who only just signed
+  if (!G.raise3 && G.club != null) { G.raise3 = true;  // 0.97.0: one-off: a breakout pay demand already in the inbox re-priced off what it'd take to keep him
+    for (const m of G.inbox.filter(m => m.key === "raise" && !m.done && m.data && m.data.threat)) { const p = G.players[m.data.pid]; if (!p || p.club !== G.club) continue;
+      const keep = renewTerms(p).min, form = Math.max(0, seasonForm(p)), ask = Math.round(Math.max(p.wage * 1.15, (keep || demandWage(p, my()) * 1.2) * (1.1 + form * .1)) / 100) * 100, half = Math.round((p.wage + ask) / 2 / 100) * 100;
+      if (ask >= m.data.worth) continue;
+      const rep = t => t.split(pw(m.data.worth)).join(pw(ask)).split(pw(m.data.half)).join(pw(half));
+      m.body = rep(m.body); m.opts = m.opts.map(rep); m.data.worth = ask; m.data.half = half; } }
   if (!G.raise2 && G.club != null) { G.raise2 = true; G.inbox = G.inbox.filter(m => !(m.key === "raise" && !m.done && !m.data.threat && G.players[m.data.pid] && !settledPay(G.players[m.data.pid]))); }  // 0.81.2: one-off: drop pay-rise asks from players too new to ask
   if (!G.fix2 && G.club != null) { G.fix2 = true; const sd = my().squad.map(P).find(p => p && /Simon Dalsgaard/i.test(p.name)); if (sd) sd.yrs = 4; }  // 0.80.3: one-off: his deal is four years
   if (!G.derby && G.club != null) buildDerbies();  // 0.78.4: derbies are historical, settled once

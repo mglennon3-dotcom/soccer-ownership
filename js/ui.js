@@ -422,7 +422,7 @@ function playerModal(id) {
   `;
   const STATS = `${compStatsHTML(p, "career")}${careerHTML(p)}${transfersHTML(p)}${progressionHTML(p, mine, mine || (c && c.lg === my().lg))}
     ${p.hist.length ? `<p class="small muted">Clubs: ${p.hist.map(h => `${h[0]} ${esc(h[1])}`).join(" · ")}</p>` : ""}`;
-  const PT_BODY = { ratings: RATINGS, contract: `${mine && p.keen && p.keen.club === G.club ? `<p class="small good" style="margin-bottom:8px">${esc(keenLine(p.keen).replace(/^Took/, `Signed in ${p.keen.y}: took`))}</p>` : ""}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${acts}`, transfer: acts, stats: STATS, honours: HONOURS }[tab] || RATINGS;
+  const PT_BODY = { ratings: RATINGS, contract: `${mine ? `<div style="margin-bottom:8px">${joinedLine(p)}${(p.payLog || []).some(x => x.why !== "signed" && x.to > x.from) ? payHistoryLine(p) : ""}</div>` : ""}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? renewBox(p) : ""}${acts}`, transfer: acts, stats: STATS, honours: HONOURS }[tab] || RATINGS;
   modal(`<div class="modal-h" style="--mc:${c ? c.color : "var(--muted)"}"><div><p class="eyebrow">${POS_NAME[p.pos]} · ${p.age} · ${esc(NAT_NAME[p.nat] || p.nat)}</p><h2>${esc(p.name)}${wkChip(p)}${mine ? "" : ` <button class="fav-btn ${isFav(p.id) ? "on" : ""}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" title="${isFav(p.id) ? "Remove from favourites" : "Add to favourites"}">${isFav(p.id) ? "★" : "☆"}</button>`}</h2><p class="small muted">${archetypeOf(p) ? `<b class="arch">${esc(archetypeOf(p)[0])}</b> · ` : ""}${c ? esc(c.name) : p.club === -2 ? "Plays abroad" : "Free agent"}${p.acad ? " · academy" : ""}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b"><dl class="facts"><div><dt>Rating</dt><dd>${range(est)}</dd></div><div><dt>Potential (est.)</dt><dd>${range(potEstimate(p))}</dd></div><div><dt>Value</dt><dd>${money(valueOf(p))}</dd></div><div><dt>Wage</dt><dd>${pw(p.wage)}${p.loan && p.loan.to === G.club ? `<br><span class="small">you pay ${pw(myWage(p))} (${Math.round(p.loan.share * 100)}%)</span>` : p.loan && p.loan.from === G.club ? `<br><span class="small">you pay ${pw(p.wage * (1 - p.loan.share))} (${Math.round((1 - p.loan.share) * 100)}%)</span>` : ""}</dd></div><div><dt>Contract</dt><dd>${p.acad ? "Youth terms" : contractLeft(p)}${mine && !p.acad && !(p.loan && p.loan.to === G.club) ? `<br><span class="small">+25% if promoted, −25% if relegated</span>` : ""}</dd></div><div><dt>Season</dt><dd>${(() => { const by = p.sc && p.sc.y === G.year ? Object.entries(p.sc.by) : []; if (by.length < 2 || p.club < 0) return `${p.s.app} apps, ${p.s.g} goals, ${p.s.a} assists`; const h = seasonAt(p, p.club); return `${h[0]} apps, ${h[1]} goals, ${h[2]} assists for ${esc(CL(p.club).short)}<br><span class="small muted">${by.filter(([cid]) => +cid !== p.club).map(([cid, v]) => `${v[0]} apps, ${v[1]} goals for ${esc(CL(+cid) ? CL(+cid).short : "another club")}`).join("; ")}</span>`; })()}</dd></div><div><dt>Career</dt><dd>${p.tot[0] + p.s.app} apps, ${p.tot[1] + p.s.g} goals</dd></div>${p.inj ? `<div><dt>Injured</dt><dd class="bad">${p.inj} weeks</dd></div>` : ""}</dl>
     ${PT_BAR}${PT_BODY}</div>`);
@@ -910,9 +910,17 @@ function retrainBox(p) {
 }
 // On your own player's card: offer him a new contract, with your head of recruitment's advice on the wage.
 let RENEW_SAY = null;
+/* How he came to the club: when, from where, for what fee and wage, and (if he did) that he took less to come. */
+function joinedLine(p) {
+  if (p.yAcad === G.club && !p.joinR) return `<p class="small">Came through the academy.</p>`;
+  const lg = [...(G.tlog || [])].find(m => m.kind === "in" && m.id === p.id), j = p.joinR || (lg && { y: lg.y, from: lg.club, fee: lg.fee, wage: lg.wage, by: lg.by });
+  if (!j) return `<p class="small muted">Joined before the club kept records.</p>`;
+  const k = p.keen && p.keen.club === G.club ? p.keen : null;
+  return `<p class="small">Joined in <b>${seasonLabel(j.y)}</b>${j.from ? ` from ${esc(j.from)}` : ""}, ${j.fee ? `for ${money(j.fee)}` : "on a free"}${j.wage ? `, on ${pw(j.wage)}` : ""}.${k ? ` <span class="good">${esc(keenLine(k).replace(/ to join: he wanted to play for you/, ": he wanted to play for you"))}</span>` : ""}</p>`;
+}
 function renewBox(p) {
   const T = renewTerms(p), say = RENEW_SAY && RENEW_SAY.id === p.id ? RENEW_SAY.t : "";
-  const head = `<b class="small">Offer a new contract</b><p class="small muted">Now: ${pw(p.wage)}, ${p.yrs} year${p.yrs === 1 ? "" : "s"} left.</p>`;
+  const head = `<b class="small">Offer a new contract</b><p class="small muted">Now: ${pw(p.wage)}, ${p.yrs} year${p.yrs === 1 ? "" : "s"} left.</p>${T.pend ? `<p class="small warn">He's asked for ${pw(T.pend.data.worth)} (in your inbox). A new contract here has to meet him at least halfway (${pw(T.pend.data.half)}), and settles his demand.</p>` : ""}`;
   if (T.off) return `<div class="sugg">${head}<p class="small warn">His agent has ended talks until next season.</p></div>`;
   const read = T.notes.length ? `<p class="small">${T.notes.map(([k, t]) => `<span class="${k}">${esc(t[0].toUpperCase() + t.slice(1))}</span>`).join(". ")}.</p>` : "";
   const pick = T.advice || Math.round(Math.max(p.wage, demandWage(p, my())) * 1.1 / 100) * 100;
