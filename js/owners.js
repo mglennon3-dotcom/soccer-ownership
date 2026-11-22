@@ -56,9 +56,13 @@ function moveOdds(c) {
   const inc = (c.aiFin || {}).inc || aiIncome(c);
   if (c.cut) p *= .3; if (c.aiFin && c.aiFin.net < -inc * .2) p *= .6; if ((c.debt || 0) > inc) p *= .4;  // money worries
   if (st !== "fanowned" && c.own.wealth > (1.5e6 + c.cap * 1.5 * perSeat(c.cap * 1.5)) * 2) p *= 1.4;  // a rich owner
-  return p * .45;  // a new ground is a once-in-generations event: about one a season across the whole pyramid
+  return p;
 }
+/* A new ground is rare: about one every five years across the whole pyramid (three to seven years apart). When one is
+   due, the club with the strongest case (the odds above) gets it. */
 function aiMoveCheck(c) {
+  if (G.groundNext == null) G.groundNext = G.year + ri(2, 6);
+  if (G.year < G.groundNext || G.groundY === G.year) return;
   if (c.abroad || c.build || (c.moved && G.year - c.moved.y < 10) || R() > moveOdds(c)) return;
   const S = ownStyle(c), st = c.own.style, roots = fanShare(c, "loyal") + fanShare(c, "hard");  // a loyal, hardcore support wants to stay close
   const kind = st === "developer" ? (R() < .6 - roots * .4 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .55 + roots * .4 ? "near" : "edge")
@@ -72,6 +76,7 @@ function aiMoveCheck(c) {
   c.debt = Math.round((c.debt || 0) + Math.max(0, cost) * share);
   // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
   // The same building time as yours (construction weeks for that size, plus a few for a move), counted week by week.
+  G.groundY = G.year; G.groundNext = G.year + ri(3, 7);
   const wks = groundWeeks(cap) + 4; c.build = { cap, site, km, left: wks, total: wks, open: G.year + Math.floor((wks + G.week) / 54) };
   if (nearMe(c)) news(`${c.name} start building a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}: about ${wks} weeks of work.${squeeze(c) < .95 ? " They'll be spending less on the team while it goes up." : ""}`, c.lg === my().lg);
 }
