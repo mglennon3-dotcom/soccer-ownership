@@ -47,6 +47,8 @@ function upgradeSave() {
   if (!G.lon2 && G.club != null) { G.lon2 = true; if (!G.derby) buildDerbies(); const lon = G.clubs.filter(x => !x.gone && !x.abroad && x.region === "London");  // 0.80.9: one-off: London's local derbies; Ilkby fierce
     for (const a of lon) for (const b of lon) if (a.id < b.id && !G.derby[pairKey(a, b)] && geoDerby(a, b)) G.derby[pairKey(a, b)] = 1;
     const x = G.clubs.find(o => !o.gone && !o.abroad && /^Ilkby\b/.test(o.name)); if (x) G.derby[pairKey(my(), x)] = 2; }
+  if (!G.tk1 && G.club != null) { G.tk1 = true; const c = my();  // 0.93.1: one-off: your match ticket set to your going rate (unless you've promised a freeze)
+    if (!(typeof priceFrozen === "function" && priceFrozen())) { const was = c.prices.ticket; c.prices.ticket = ticketRef(c); if (was !== c.prices.ticket) news(`Match tickets set to the going rate: ${eur(c.prices.ticket)} (were ${eur(was)}).`); } }
   if (!G.csfix2 && G.club != null) { G.csfix2 = G.csfix1 = true;  // 0.91.11: one-off: undo 0.91.10's handing you a Shield final you lost on penalties
     for (const K of [...Object.values(G.cont || {}), ...Object.values(G.contLast || {})]) {
       const D = CONT[K.key], RD = (K.ko || []).find(R => R.n === "Final"), t = RD && RD.ties[0]; if (!t || !t.pens || t.w !== G.club) continue;
