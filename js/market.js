@@ -133,9 +133,10 @@ function logMove(kind, p, o = {}) {
   if (G.tlog.length > 800) G.tlog.length = 800;
 }
 function signPlayer(p, fee, wage, byOwner, how) {
-  const c = my(), seller = p.club >= 0 ? CL(p.club) : null;
+  const c = my(), seller = p.club >= 0 ? CL(p.club) : null, keen = tookLess(p, c, wage);
+  if (keen) p.keen = keen; else delete p.keen;
   // Signings made for you (your head of recruitment, your suggestions, first refusal...) go to the top of the Office page.
-  if (!byOwner) (G.newSign ||= []).unshift({ pid: p.id, by: how || "recruit", fee, wage, from: fromName(p), fromId: seller ? seller.id : null, ...(() => { const lr = (p.prog || []).slice(-1)[0], pre = G.phase === "summer" && lr; return { lastApp: pre ? lr[4] : (p.s || {}).app || 0, lastG: pre ? lr[5] : (p.s || {}).g || 0, lastA: pre ? lr[6] : (p.s || {}).a || 0, statL: pre ? "Last season" : "This season" }; })(), y: G.year, w: whenLabel(), rec: staffOf("recruit") ? staffOf("recruit").name : null });
+  if (!byOwner) (G.newSign ||= []).unshift({ pid: p.id, by: how || "recruit", fee, wage, keen, from: fromName(p), fromId: seller ? seller.id : null, ...(() => { const lr = (p.prog || []).slice(-1)[0], pre = G.phase === "summer" && lr; return { lastApp: pre ? lr[4] : (p.s || {}).app || 0, lastG: pre ? lr[5] : (p.s || {}).g || 0, lastA: pre ? lr[6] : (p.s || {}).a || 0, statL: pre ? "Last season" : "This season" }; })(), y: G.year, w: whenLabel(), rec: staffOf("recruit") ? staffOf("recruit").name : null });
   logMove("in", p, { club: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" });
   if (p.club === -2) G.abroad = G.abroad.filter(id => id !== p.id);
   p.abroad = undefined;
@@ -144,6 +145,7 @@ function signPlayer(p, fee, wage, byOwner, how) {
   c.cash -= fee; book("buys", fee); if (fee) p.am = { book: fee, fee, y: G.year }; if (!byOwner) c.spentT += fee;  // cash now; the accounts spread it over his contract
   if (seller && !seller.gone) aiSquadCheck(seller, true);
   news(`${byOwner ? "You sign" : `${staffOf("recruit") ? staffOf("recruit").name + " signs" : "The club signs"}`} ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) from ${seller ? seller.name : p.nat !== "ENG" ? "abroad" : "free agency"}${fee ? " for " + money(fee) : " on a free"}, on ${pw(wage)}.`, true);
+  if (keen) news(`${p.name} ${keenLine(keen).replace(/^Took/, "took")}`, true);
 }
 /* Position cover: two keepers, and for every outfield position in the manager's formation one more than it has places.
    Your staff never list, sell or release a player if that would leave his position short (long injuries don't count

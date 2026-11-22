@@ -100,6 +100,20 @@ function keenFloor(p, need) {
   return clamp(.85 - Math.min(1, -need) * .45 * (1 - money / .3), .55, .85);
 }
 const keenToJoin = (p, c = my()) => { if (p.club !== G.club && c.tier > naturalTier(p)) return false; const pr = prefsOf(p, P_FACTORS), f = playerFactors(p, c); let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k]; return keenFloor(p, (pr.thr - other) / pr.pri.money) < .8; };
+/* Did he take less than his going rate because he wanted to come? His going rate here is the division's wage for his
+   rating, plus what money-minded players add, less what a free agent still unsigned knocks off (that's need, not
+   wanting to come). Anything 10% or more below that is his choice: noted, with what drew him. Call before he moves. */
+const KEEN_WHY = { time: "the chance to play regularly", form: "how he'd fit the manager's system", prest: "the club's standing", fac: "the training facilities", home: "being close to home", proj: "the club's project" };
+function tookLess(p, c, wage) {
+  if (p.acad || !wage) return null;
+  const pr = prefsOf(p, P_FACTORS), greed = clamp(1 + (pr.pri.money - .14) * 1.6, 1, 1.35);
+  const going = wageAt(p.ovr, c.tier) * (p.club === -2 ? 1.15 : 1) * greed * faDiscount(p), pct = Math.round((1 - wage / going) * 100);
+  if (pct < 10) return null;
+  const f = playerFactors(p, c), top = Object.entries(pr.pri).filter(([k]) => k !== "money" && KEEN_WHY[k]).map(([k, w]) => [k, w * f[k]]).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => KEEN_WHY[k]);
+  const aff = affinity(p, c), why = [...(aff ? [aff === "grew up supporting the club" ? "he grew up supporting the club" : aff === "came through the club's academy" ? "he came through the academy here" : "he was a favourite here"] : []), ...top].slice(0, 2);
+  return { y: G.year, club: c.id, pct, going: Math.round(going / 100) * 100, why };
+}
+const keenLine = k => `Took ${k.pct}% less than his going rate (${pw(k.going)}) to join: he wanted to play for you${k.why.length ? `, for ${k.why.join(" and ")}` : ""}.`;
 function playerAppeal(p, wage, c = my()) {
   const pr = prefsOf(p, P_FACTORS), f = { ...playerFactors(p, c), money: moneyF(wage / demandWage(p, c)) };
   return { f, pr, score: sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
