@@ -8,8 +8,8 @@ const SLOT_W = { GK: [0, 0, 1.6], CB: [.05, .2, 1], FB: [.25, .3, .8], DM: [.1, 
 const avail = p => p && !p.inj;
 // An academy player good enough for the first team (your youth manager's 'ready' bar): he's in your depth charts and can be picked.
 const acadOK = (p, c) => !!p && p.acad && p.age >= 16 && typeof youthReady === "function" && youthReady(p, c);
-// ...and, for each position, your best academy player (16+) even if he isn't there yet: in the depth chart, marked academy.
-const acadDepth = (p, c) => !!p && p.acad && p.age >= 16 && (acadOK(p, c) || c.squad.map(P).filter(q => q && q.acad && q.age >= 16 && q.pos === p.pos && !(q.loan && q.loan.from === c.id)).sort((a, b) => b.ovr - a.ovr || a.id - b.id)[0] === p);
+// ...and, for each position, your best academy player (any age) even if he isn't there yet: in the depth chart, marked academy.
+const acadDepth = (p, c) => !!p && p.acad && (acadOK(p, c) || c.squad.map(P).filter(q => q && q.acad && q.pos === p.pos && !(q.loan && q.loan.from === c.id)).sort((a, b) => b.ovr - a.ovr || a.id - b.id)[0] === p);
 const clubForm = c => isMine(c) ? (mgr().form || "4-4-2") : c.coach.form;
 const clubStyle = c => isMine(c) ? mgr().phil : c.coach.style;
 const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
@@ -42,7 +42,7 @@ function pickXI(c, noForce, ctx) {
   // their rating) the games: academy lads included.
   const yc = isMine(c) && ctx && !ctx.noYc && ((G.youthCups && ctx.lesser) || (G.ytie && ctx.opp && G.ytie.opp === ctx.opp.id && G.ytie.w === G.week && G.ytie.y === G.year));
   const cov = isMine(c) && !(ctx && ctx.coverOff) ? G.cover || {} : {}, covId = new Set(Object.values(cov).filter(v => v.ans === "acad").flatMap(v => v.pids || [v.pid]));  // injury cover: your academy pick
-  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id) || (isMine(c) && acadDepth(p, c)))) && (!isMine(c) || isReg(p, c)));
+  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || (p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id))) || (isMine(c) && acadDepth(p, c))) && (!isMine(c) || isReg(p, c)));
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
      one point on the 100 scale, about a tenth of a shown point at the top). */
   // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position
