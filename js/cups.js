@@ -65,7 +65,9 @@ function cupWeek(w) {
 }
 /* A knockout tie (cups and play-offs). Logs your result and handles your gate. */
 function playKO(h, a, neutral, comp, label) {
-  MATCH_CT = CUP_DEF[comp] ? "C" : typeof CONT !== "undefined" && CONT[comp] ? "E" : "L"; const r = playMatch(h, a, neutral, false, CUP_DEF[comp] && !/final/i.test(label || "") ? "cup" : "big"); MATCH_CT = "L"; let w = r.hg > r.ag ? h : r.ag > r.hg ? a : null; r.pens = false;
+  MATCH_CT = CUP_DEF[comp] ? "C" : typeof CONT !== "undefined" && CONT[comp] ? "E" : "L";
+  // The lesser cup games: the League Cup and National Trophy, and the National Cup before the quarter-finals.
+  MATCH_LESSER = !!CUP_DEF[comp] && (comp !== "NC" || !/quarter|semi|final/i.test(label || "")); const r = playMatch(h, a, neutral, false, CUP_DEF[comp] && !/final/i.test(label || "") ? "cup" : "big"); MATCH_CT = "L"; MATCH_LESSER = false; let w = r.hg > r.ag ? h : r.ag > r.hg ? a : null; r.pens = false;
   if (w == null) { w = R() < .5 ? h : a; r.pens = true; }
   if (h === G.club || a === G.club) {
     const c = my(), home = h === G.club, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? a : h);
