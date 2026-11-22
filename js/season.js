@@ -66,10 +66,25 @@ function advance() {
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
   if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
   mediaWeek(); trustWeek(c); poachWeek(); staffTrustWeek(); recoverWeek(); forcedWeek(); if (!windowOpen() && loansOpen()) loanOffersWeek(c); requestsCheck(); bidForMyClub();
-  settleInbox();
+  youthTieAsk(c); settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
 }
+/* Before a domestic cup tie against a club from a lower division, the manager asks whether to rotate in the youngsters
+   (your five highest-potential players 21 or under who aren't regulars, academy lads included). Not asked when your
+   standing instruction already covers the game. */
+function youthTieAsk(c) {
+  for (const { k, K, t } of (typeof myCupTie === "function" ? myCupTie() : [])) {
+    const D = CUP_DEF[k], wk = D.weeks[K.round], opp = CL(t.h === c.id ? t.a : t.h), gap = opp.tier - c.tier, key = `${k}.${K.round}.${G.year}`;
+    if (wk !== G.week || gap < 1 || (G.ytAsked || []).includes(key)) continue;
+    const lesser = k !== "NC" || !/quarter|semi|final/i.test(K.name || ""); if (G.youthCups && lesser) continue;
+    (G.ytAsked ||= []).push(key); if (G.ytAsked.length > 20) G.ytAsked.shift();
+    const m = mgr(), them = teamAvg20(opp), us = teamAvg20(c);
+    addChoice("ytie", `${D.name} ${(K.name || "").toLowerCase()}: ${opp.name}, ${gap} division${gap > 1 ? "s" : ""} below us`, `${t.h === c.id ? "At home" : "Away"} this week. ${opp.name} are in the ${TIER_NAME[opp.tier]}: their side is rated about ${them}, ours ${us}. ${m.name ? m.name : "The manager"} asks: should we rotate in the youngsters? He'd start our five highest-potential players 21 or under who aren't regulars, academy lads included.`,
+      ["Yes, give the youngsters a game", "No, play our strongest side"], { opp: opp.id, w: wk, comp: k }, 1);
+  }
+}
+DECIDE.ytie = (m, i) => { G.ytie = i === 0 ? { opp: m.data.opp, w: m.data.w, y: G.year } : null; news(i === 0 ? `The youngsters get their chance against ${CL(m.data.opp).name}.` : `The strongest side for the tie against ${CL(m.data.opp).name}.`); };
 function summerWeek() {
   if (G.week === 0) summerRelay();
   if (G.week === 1) partnerWindow();
