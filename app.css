@@ -552,3 +552,8 @@ table.sq .frz{position:sticky;z-index:1;background:var(--surface)}
 table.sq thead .frz{z-index:2}
 table.sq .frz-end{box-shadow:1px 0 0 var(--line)}
 table.sq tr.me .frz,table.sq tr.me-row .frz{background:var(--surface-2,var(--surface))}
+
+/* History: each season's cups and targets on a row of their own under it, kept on screen while the table scrolls sideways */
+.hist-sub td{white-space:normal;text-align:left;padding-top:0}
+.hist-sub td>div{position:sticky;left:6px;max-width:calc(100vw - 80px)}
+tr:has(+ .hist-sub) td{border-bottom:0}
