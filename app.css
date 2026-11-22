@@ -557,3 +557,6 @@ table.sq tr.me .frz,table.sq tr.me-row .frz{background:var(--surface-2,var(--sur
 .hist-sub td{white-space:normal;text-align:left;padding-top:0}
 .hist-sub td>div{position:sticky;left:6px;max-width:calc(100vw - 80px)}
 tr:has(+ .hist-sub) td{border-bottom:0}
+/* ...and the season column stays put as it scrolls */
+table.histtbl{border-collapse:separate;border-spacing:0}
+table.histtbl tr:not(.hist-sub)>:first-child{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--line)}
