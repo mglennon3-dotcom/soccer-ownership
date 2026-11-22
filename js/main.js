@@ -123,6 +123,8 @@ function upgradeSave() {
       if (do3) for (const r of pr.filter(split)) { const e = pr.find(q => q[0] === r[0] && q[3] === r[3] + " (loan)" && !q[4]); r[3] += " (loan)"; if (e) { const nx = pr.find(q => q[0] > r[0] && !LN.test(q[3])) || {}; e[3] = p.club >= 0 && !(p.loan) ? CL(p.club).short : nx[3] || e[3]; } }
       if (lv0 && favLevel(p, G.club) < lv0) { fixed.push(p.name); if (G.achs && favLevel(p, G.club) < 2) delete G.achs[`legend.${p.id}`]; } }
     if (fixed.length) news(`Records corrected: ${fixed.join(", ")} ${fixed.length > 1 ? "were" : "was"} wrongly counted a fan favourite or legend here for seasons spent on loan elsewhere.`); }
+  // A "club legend" card for someone who isn't one (any more): the loan-season repair took it away, so the card goes too.
+  if (G.club != null) G.inbox = G.inbox.filter(m => !(m.type === "ach" && / is a club legend$/.test(m.title || "") && (() => { const p = m.who && m.who.pid != null ? G.players[m.who.pid] : Object.values(G.players).find(q => (m.title || "").includes(q.name + " is a club legend")); return p && favLevel(p, G.club) < 2; })()));
   if (!G.raise3 && G.club != null) { G.raise3 = true;  // 0.97.0: one-off: a breakout pay demand already in the inbox re-priced off what it'd take to keep him
     for (const m of G.inbox.filter(m => m.key === "raise" && !m.done && m.data && m.data.threat)) { const p = G.players[m.data.pid]; if (!p || p.club !== G.club) continue;
       const keep = renewTerms(p).min, form = Math.max(0, seasonForm(p)), ask = Math.round(Math.max(p.wage * 1.15, (keep || demandWage(p, my()) * 1.2) * (1.1 + form * .1)) / 100) * 100, half = Math.round((p.wage + ask) / 2 / 100) * 100;
