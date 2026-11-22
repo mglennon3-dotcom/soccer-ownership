@@ -193,12 +193,22 @@ function fansPerSeatNorm(t) {
   const N = (G._fps && G._fps.y === G.year) ? G._fps : (G._fps = { y: G.year });
   return N[t] ??= (() => { const r = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === t).map(c => c.fans / seatsOf(c)).sort((a, b) => a - b); return r.length ? r[r.length >> 1] : 1; })();
 }
-/* A new ground's honeymoon: for two seasons after it opens, supporters want to be there. More of them come, more want
-   tickets (the going rate rises) and the following grows faster, fading to nothing over the two seasons. Opening day
-   itself brings a 3% bump in supporters. */
-const wkIdx = () => G.phase === "summer" ? G.week : SUMMER_WEEKS + G.week;
-function honey(c) { const h = c && c.honey; if (!h) return 0; const w = (G.year - h.y) * YEAR_TICKS() + wkIdx() - h.w; return w < 0 ? 0 : Math.max(0, 1 - w / (YEAR_TICKS() * 2)); }
-function setHoney(c) { c.honey = { y: G.year, w: wkIdx() }; c.fans = Math.round(c.fans * 1.03); }
+/* Honeymoons: a spell when supporters are excited and want to be there. More of them come, more want tickets (the going
+   rate rises) and the following grows faster, each fading to nothing over its length. The strongest one counts.
+     ground:  a new ground opens: full strength, two seasons, and a 3% bump in supporters on the day
+     promo:   promotion: 60%, one season, +2% supporters
+     owner:   a new owner: 50%, one season, +1% supporters
+     star:    a star signing for the club's level: 20-60%, about four months */
+const HM = { ground: [1, 2, .03], promo: [.6, 1, .02], owner: [.5, 1, .01], star: [.4, .3, 0] };
+const wkIdx = () => G.phase === "summer" ? G.week : G.phase === "playoffs" ? YEAR_TICKS() : SUMMER_WEEKS + G.week;  // the play-offs close the season
+function honey(c) {
+  if (!c) return 0; if (c.honey && !c.hm) c.hm = [{ k: "ground", s: 1, y: c.honey.y, w: c.honey.w, len: 2 }];
+  let best = 0; for (const h of c.hm || []) { const w = (G.year - h.y) * YEAR_TICKS() + wkIdx() - h.w, v = w < 0 ? 0 : h.s * Math.max(0, 1 - w / (YEAR_TICKS() * h.len)); if (v > best) best = v; }
+  return best;
+}
+function addHoney(c, k, s) { const [s0, len, bump] = HM[k]; c.hm = (c.hm || []).filter(h => (G.year - h.y) * YEAR_TICKS() + wkIdx() - h.w < YEAR_TICKS() * h.len && h.k !== k);
+  c.hm.push({ k, s: s ?? s0, y: G.year, w: wkIdx(), len }); if (bump) c.fans = Math.round(c.fans * (1 + bump)); }
+const setHoney = c => addHoney(c, "ground");
 function ticketK(c) {
   const want = c.abroad || !c.tier ? 1 : clamp(Math.sqrt(c.fans / seatsOf(c) / fansPerSeatNorm(c.tier)), .75, 1.45);
   const pop = 1 + (clubPop(c) - 1) * .6, mood = .92 + (c.mood ?? 50) / 600;

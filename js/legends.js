@@ -102,7 +102,7 @@ function signingBuzz(p, c) {
 }
 function signingBoost(p, c) {
   const b = signingBuzz(p, c); if (b < 4) return;
-  moodHit(c, b * .4); c.fans = Math.round(c.fans * (1 + b * .004)); c.buzz = { w: 8, k: 1 + b / 40 }; bumpMedia(b / 4);
+  moodHit(c, b * .4); c.fans = Math.round(c.fans * (1 + b * .004)); c.buzz = { w: 8, k: 1 + b / 40 }; bumpMedia(b / 4); addHoney(c, "star", clamp(b / 25, .2, .6));
   news(favLevel(p, c.id) ? `${p.name} is back! Supporters queue for shirts with his name on.` : `The signing of ${p.name} has the supporters buzzing: season ticket enquiries and shirt sales are up.`, b >= 10);
 }
 // Shirts: favourites in the squad, and a recent big signing, both sell more.

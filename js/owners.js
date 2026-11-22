@@ -298,7 +298,7 @@ function administration(c) {
   c.own = newOwner(c, pick(["local", "fanowned", "moneyball", "absentee"])); delete c.splash;
 }
 function takeover(c) {
-  const old = c.own; c.own = newOwner(c); delete c.splash;
+  const old = c.own; c.own = newOwner(c); delete c.splash; addHoney(c, "owner");
   if (c.own.style === "sugar" || c.own.style === "celebrity") c.rep = Math.min(99, c.rep + 3);
   if (c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || c.own.style === "sugar")
     news(`Takeover: ${c.own.name} buy ${c.name} from ${old.name}. ${OWNER_STYLES[c.own.style].l}: ${OWNER_STYLES[c.own.style].d.split(".")[0].toLowerCase()}.`, c.lg === my().lg);
@@ -510,7 +510,7 @@ function payFee(buyer, seller, fee) {
   if (seller && seller.abroad) { seller.tb = tbOf(seller) + fee * .5; seller.fsold = (seller.fsold || 0) + fee; }
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
-function aiTransfer(p, to, fee = aiFee(p)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); }
+function aiTransfer(p, to, fee = aiFee(p)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
 
 /* Clubs going under is rare: about one administration and one forced sale (an owner out of money having to sell) every
    five years across the whole game, each drawn three to seven years after the last. A club in trouble before one is
