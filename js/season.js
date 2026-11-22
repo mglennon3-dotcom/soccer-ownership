@@ -327,9 +327,12 @@ function yearTurnover() {
     if (grads && Math.floor(mine.ypd) > Math.floor(before)) news(`${grads} academy graduate${grads > 1 ? "s were" : " was a"} first-team regular${grads > 1 ? "s" : ""} this season: the academy's reputation grows, and better players will want to join.`); }
   for (const p of Object.values(G.players)) {
     // Progression: one compact row a season [season, age, rating, club, apps, goals, assists, potential], last ten kept.
-    const club = p.loanedAt && p.loanedAt.y === G.year ? `${p.loanedAt.short} (loan)` : p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA";
+    // (when his season is split by club, the loan club's own row carries the loan; this one is his own club's)
+    const splitLoan = p.loanedAt && p.loanedAt.y === G.year && p.sc && p.sc.y === G.year && Object.keys(p.sc.by).some(cid => +cid !== p.club && CL(+cid) && CL(+cid).short === p.loanedAt.short);
+    const club = p.loanedAt && p.loanedAt.y === G.year && !splitLoan ? `${p.loanedAt.short} (loan)` : p.club >= 0 ? CL(p.club).short : p.club === -2 ? "ABR" : "FA";
     const by = p.sc && p.sc.y === G.year ? Object.entries(p.sc.by).filter(([cid]) => +cid !== p.club) : [];  // moved mid-season: a row for each club
-    for (const [cid, v] of by) (p.prog ||= []).push([G.year, p.age, p.ovr, CL(+cid) ? CL(+cid).short : "—", v[0], v[1], v[2], p.pot, 0, null]);
+    const lo = p.loanedAt && p.loanedAt.y === G.year ? p.loanedAt.short : null;  // a loan club's row is marked as the loan
+    for (const [cid, v] of by) { const sh = CL(+cid) ? CL(+cid).short : "—"; (p.prog ||= []).push([G.year, p.age, p.ovr, sh === lo ? `${sh} (loan)` : sh, v[0], v[1], v[2], p.pot, 0, null]); }
     const here = by.length && p.club >= 0 ? seasonAt(p, p.club) : [p.s.app, p.s.g, p.s.a];
     (p.prog ||= []).push([G.year, p.age, p.ovr, club, here[0], here[1], here[2], p.pot, 0, p.wage]);  // [8] spare, [9] his wage that season if (p.prog.length > 10) p.prog.shift();
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;

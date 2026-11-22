@@ -102,16 +102,25 @@ function upgradeSave() {
       const bk = Math.round(t[4] * left / Math.max(1, done + left)); if (bk > 0) p.am = { book: bk, fee: t[4], y: t[0] }; } }
   if (!G.rtd1 && G.club != null) { G.rtd1 = true; const ids = new Set(my().squad.filter(id => G.players[id] && G.players[id].retrained)); for (const role in G.depth || {}) G.depth[role] = G.depth[role].filter(id => !ids.has(id)); }  // 0.82.3: one-off: retrained players re-slotted in the depth charts
   if (!G.treq2 && G.club != null) { G.treq2 = true; for (const m of G.inbox) { const p = m.key === "treq" && !m.done && G.players[m.data.pid]; if (p && lastDealY(p) === G.year) { m.done = true; m.drop = true; p.req = 0; } } G.inbox = G.inbox.filter(m => !m.drop); }  // 0.81.3: one-off: drop transfer requests from players who only just signed
-  if (!G.love2 && G.club != null) { G.love2 = true;  // 0.98.1: one-off: a loan season's fan affection went to the parent club; give it to the club he played for
-    const byShort = new Map(G.clubs.map(x => [x.short, x])), fixed = [];
-    for (const p of Object.values(G.players)) { const pr = p.prog || []; if (!p.love || !pr.some(r => / \(loan\)$/.test(r[3]))) continue;
-      const lv0 = favLevel(p, G.club);
-      pr.forEach((r, i) => { const m = / \(loan\)$/.exec(r[3]); if (!m || !r[4]) return; const at = byShort.get(r[3].replace(/ \(loan\)$/, ""));
-        // his parent that season: the nearest season either side he wasn't on loan
-        const own = [...pr.slice(0, i).reverse(), ...pr.slice(i + 1)].find(q => !/ \(loan\)$/.test(q[3]) && byShort.get(q[3])), par = own && byShort.get(own[3]); if (!par || !at || par === at) return;
+  if ((!G.love2 || !G.love3) && G.club != null) {
+    /* 0.98.1/0.98.4: one-off: a loan season's fan affection went to the parent club; give it to the club he played for.
+       A loan season is a row marked "(loan)" or, where his season was split by club, the row for that same club
+       (the marked row is then empty). love2 did the marked rows; love3 the split ones it missed. */
+    const do2 = !G.love2, do3 = !G.love3; G.love2 = G.love3 = true;
+    const byShort = new Map(G.clubs.map(x => [x.short, x])), fixed = [], LN = / \(loan\)$/;
+    for (const p of Object.values(G.players)) { const pr = p.prog || []; if (!pr.some(r => LN.test(r[3]))) continue;
+      const split = r => typeof r[3] === "string" && !LN.test(r[3]) && pr.some(q => q !== r && q[0] === r[0] && q[3] === r[3] + " (loan)");
+      const loanish = r => LN.test(r[3]) || split(r), lv0 = favLevel(p, G.club);
+      pr.forEach((r, i) => { if (!r[4]) return; const marked = LN.test(r[3]); if (marked ? !do2 : !(do3 && split(r))) return;
+        const at = byShort.get(r[3].replace(LN, ""));
+        // (his permanent moves first: the club he'd last joined by then; failing that, the nearest season he wasn't on loan)
+        const hj = [...(p.hist || [])].reverse().find(h => h[0] <= r[0] && byShort.get(h[1])), own = [...pr.slice(0, i).reverse(), ...pr.slice(i + 1)].find(q => !loanish(q) && byShort.get(q[3]));
+        const par = hj ? byShort.get(hj[1]) : own && byShort.get(own[3]); if (!par || !at || par === at) return;
         const home = p.hist.length && p.hist[0][1] === par.short && p.hist[0][0] < r[0], base = r[4] * .6 + r[5] * 1.5 + r[6] * .7 + 3;
-        p.love[par.id] = Math.max(0, Math.round(((p.love[par.id] || 0) - base - (home ? 3 : 0)) * 10) / 10); if (!p.love[par.id]) delete p.love[par.id];
+        p.love ||= {}; p.love[par.id] = Math.max(0, Math.round(((p.love[par.id] || 0) - base - (home ? 3 : 0)) * 10) / 10); if (!p.love[par.id]) delete p.love[par.id];
         p.love[at.id] = Math.round(((p.love[at.id] || 0) + base - 3) * 10) / 10; });
+      // the split rows: label the loan club's row as the loan, and the empty one as his own club
+      if (do3) for (const r of pr.filter(split)) { const e = pr.find(q => q[0] === r[0] && q[3] === r[3] + " (loan)" && !q[4]); r[3] += " (loan)"; if (e) { const nx = pr.find(q => q[0] > r[0] && !LN.test(q[3])) || {}; e[3] = p.club >= 0 && !(p.loan) ? CL(p.club).short : nx[3] || e[3]; } }
       if (lv0 && favLevel(p, G.club) < lv0) { fixed.push(p.name); if (G.achs && favLevel(p, G.club) < 2) delete G.achs[`legend.${p.id}`]; } }
     if (fixed.length) news(`Records corrected: ${fixed.join(", ")} ${fixed.length > 1 ? "were" : "was"} wrongly counted a fan favourite or legend here for seasons spent on loan elsewhere.`); }
   if (!G.raise3 && G.club != null) { G.raise3 = true;  // 0.97.0: one-off: a breakout pay demand already in the inbox re-priced off what it'd take to keep him
