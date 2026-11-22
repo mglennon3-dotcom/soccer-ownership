@@ -198,14 +198,18 @@ DECIDE.acadPoach = (m, i) => {
   const p = G.players[m.data.pid], x = CL(m.data.from), c = my(); if (!p || !p.acad || p.club !== c.id || !x || (x.gone && !x.abroad)) return;
   const L = loyaltyOf(p), wage = m.data.offer ?? m.data.ours, stay = i === 0 ? poachChance(p, wage, m.data.theirs) : i === 1 ? clamp(.35 + L * .45, .3, .85) : 0;
   if (i < 2 && R() < stay) {
-    if (i === 0) { const was = p.wage; p.acad = false; p.yrs = 3; p.wage = Math.max(p.wage, wage); logPay(p, was, "first professional contract"); p.dealY = G.year; news(`${p.name} turns down ${x.name}: he signs his first professional contract with you, ${pw(p.wage)} for 3 years.`, true); }
-    else { spend("acad", m.data.bonus); news(`${p.name} takes the ${money(m.data.bonus)} loyalty bonus and stays in the academy, turning down ${x.name}.`, true); }
+    if (i === 0) { const was = p.wage; p.acad = false; p.yrs = 3; p.wage = Math.max(p.wage, wage); logPay(p, was, "first professional contract"); p.dealY = G.year; news(`${p.name} turns down ${x.name}: he signs his first professional contract with you, ${pw(p.wage)} for 3 years.`, true);
+      addMsg({ type: "info", pid: p.id, title: `${p.name} stays: he signs for you`, body: `He turned down ${x.name} and signed his first professional contract with you: ${pw(p.wage)} for 3 years (they offered ${pw(m.data.theirs)}). He had a ${Math.round(stay * 100)}% chance of staying at that wage.` }); }
+    else { spend("acad", m.data.bonus); news(`${p.name} takes the ${money(m.data.bonus)} loyalty bonus and stays in the academy, turning down ${x.name}.`, true);
+      addMsg({ type: "info", pid: p.id, title: `${p.name} stays in the academy`, body: `He took the ${money(m.data.bonus)} loyalty bonus and turned down ${x.name}. He had a ${Math.round(stay * 100)}% chance of staying.` }); }
     return;
   }
   // He goes: compensation for the club that developed him.
   leaveClub(p); NEXT_FEE = m.data.comp; moveTo(p, x); p.acad = false; p.yrs = 3; p.wage = m.data.theirs; earn("sales", m.data.comp);
   logMove("out", p, { club: x.name, fee: m.data.comp, wage: p.wage, by: i === 2 ? "you" : "academy" });
   news(i === 2 ? `${p.name} leaves the academy for ${x.name}: ${money(m.data.comp)} compensation.` : `${p.name} turns down your ${i === 0 ? "offer" : "bonus"} and joins ${x.name}. You receive ${money(m.data.comp)} compensation.`, true);
+  addMsg({ type: "info", pid: p.id, title: i === 2 ? `${p.name} joins ${x.name}` : `${p.name} turns you down: he joins ${x.name}`, body: i === 2 ? `You let him go. ${x.name} pay ${money(m.data.comp)} compensation; he earns ${pw(m.data.theirs)} there.`
+    : `He turned down your ${i === 0 ? `professional contract (${pw(wage)})` : `${money(m.data.bonus)} loyalty bonus`} and signed for ${x.name} on ${pw(m.data.theirs)}. He had a ${Math.round(stay * 100)}% chance of staying. You receive ${money(m.data.comp)} compensation.` });
 };
 
 /* ---------- your loan list ----------
