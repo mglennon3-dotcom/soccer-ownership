@@ -279,6 +279,8 @@ const ACT = {
   mfind: el => { Object.assign(MARKET_F, { tab: "all", pos: el.dataset.k, arch: "", int: "sign" }); PAGE = "market"; render(); scrollTo(0, 0); },
   depth: el => { const role = el.dataset.role, id = +el.dataset.id, d = +el.dataset.d, L = (DEPTH_VIEW[role] || []).slice(), i = L.indexOf(id), j = i + d;
     if (i < 0 || j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; (G.depth ||= {})[role] = L; render(); saveGame(); },
+  depthadd: el => { const role = el.dataset.role, id = +el.dataset.id, X = ((G.depthX ||= {})[role] ||= []); if (!X.includes(id)) X.push(id); render(); saveGame(); },
+  depthdrop: el => { const role = el.dataset.role, id = +el.dataset.id; if (G.depthX && G.depthX[role]) G.depthX[role] = G.depthX[role].filter(i => i !== id); if (G.depth && G.depth[role]) G.depth[role] = G.depth[role].filter(i => i !== id); render(); saveGame(); },
   depthreset: el => { if (G.depth) delete G.depth[el.dataset.role]; render(); saveGame(); },
   signseen: () => { G.newSign = []; render(); saveGame(); },
   mend: el => { staffMend(el.dataset.r, el.dataset.k); render(); saveGame(); },

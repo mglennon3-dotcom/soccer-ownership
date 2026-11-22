@@ -18,9 +18,12 @@ const clubTac = c => isMine(c) ? mgr().at.tac : c.coach.tac;
    young players with room to grow the benefit of the doubt. */
 /* Your depth chart order (Tactics → Depth chart): G.depth[role] lists your players for that position in the order you
    set. Players who join later, or come up from the academy, slot in by their rating there; players who leave drop out. */
+/* Only players from that line of the team (defence, midfield, attack) go in a position's depth chart, unless you've
+   added one from another line yourself (G.depthX[role]): no strikers at centre-back by default. */
+const depthLine = (p, role) => POS_LINE[p.pos] === POS_LINE[role] || ((G.depthX || {})[role] || []).includes(p.id);
 function depthSync(c, role) {
   const L = (G.depth || {})[role]; if (!L) return null;
-  const ok = p => p && p.club === c.id && (role === "GK") === (p.pos === "GK") && !(p.loan && p.loan.from === c.id) && (!p.acad || acadOK(p, c) || (acadDepth(p, c) && p.pos === role));
+  const ok = p => p && p.club === c.id && (role === "GK") === (p.pos === "GK") && depthLine(p, role) && !(p.loan && p.loan.from === c.id) && (!p.acad || acadOK(p, c) || (acadDepth(p, c) && p.pos === role));
   const keep = L.filter(id => ok(G.players[id]));
   for (const p of c.squad.map(P).filter(p => ok(p) && !keep.includes(p.id)).sort((a, b) => roleRating(b, role) - roleRating(a, role))) {
     const r = roleRating(p, role), at = keep.findIndex(id => roleRating(G.players[id], role) < r); keep.splice(at < 0 ? keep.length : at, 0, p.id);
