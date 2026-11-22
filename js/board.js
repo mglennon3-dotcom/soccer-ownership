@@ -151,6 +151,12 @@ function loansWeek(c) {
 }
 // The debts the embargo waits on: the overdraft, and bank loans (not the stadium mortgage).
 const embDebt = c => Math.max(0, -c.cash) + sum((G.loans || []).filter(l => !l.stadium), l => l.left) + ((c.emb && c.emb.owed) || 0);
+DECIDE.admSale = (m, i) => { const c = my(); if (!c.emb) return;
+  if (m.data.can && i === 0 && G.owner.wealth >= c.emb.owed) { G.owner.wealth -= c.emb.owed; news(`You pay off the creditors (${money(c.emb.owed)}) out of your own fortune. ${c.name} stay yours; the embargo runs until next summer's window has closed.`, true); c.emb.owed = 0; return; }
+  const name = c.name, o = { ...m.data.o, amt: 0 };
+  sellMyClub(o); const x = G.clubs.find(k => k.name === name); if (x) { x.debt = 0; x.emb = { y: G.year }; }
+  const last = (G.career || []).slice(-1)[0]; if (last) last.lost = "administration";
+  news(`${name} is sold out of administration to ${o.name}, who clear the debts. You've lost the club. You can buy another.`, true); };
 function embargoWeek(c) {
   if (!c.emb) return;
   // The creditors take a fifth of whatever is in the bank each week until they're paid.
@@ -192,6 +198,13 @@ function myAdministration(c) {
   // The administrators cancel deals in the pipeline that cost a fee.
   for (const p of Object.values(G.players)) if (p.toMe && p.toMe.fee > 0) { delete p.toMe; news(`The administrators cancel the agreed deal for ${p.name}.`); }
   news(`ADMINISTRATION. ${c.name} are docked ten points, the administrators sell ${sell.map(p => p.name).join(" and ")}, and the club is under a transfer embargo: no fees and no loans, only free agents and your own academy, until the debts are cleared.`, true);
+  /* Still owing after the fire sale: the administrators sell the club to a new owner who will clear the debts. You can
+     stop it only by paying the creditors off yourself; otherwise you lose the club and your stake (and can buy another). */
+  if (c.emb.owed > 0) {
+    const o = newOwner(c, pick(["sugar", "multiclub", "dynasty", "moneyball", "developer"])), can = G.owner.wealth >= c.emb.owed;
+    addChoice("admSale", `The administrators have found a buyer for ${c.name}`, `The fire sale raised ${money(paid)}, but the club still owes its creditors ${money(c.emb.owed)}. ${o.name} (${OWNER_STYLES[o.style].l.toLowerCase()}) will buy the club and clear the debts. ${can ? `You can stop the sale by paying the creditors yourself, out of your own fortune (${money(G.owner.wealth)}).` : `You don't have the money to pay them yourself (your fortune is ${money(G.owner.wealth)}).`} If the sale goes through you lose the club, and your stake is worth nothing: you'd be free to buy another club.`,
+      [...(can ? [`Pay the creditors ${money(c.emb.owed)} yourself`] : []), "Let the sale go through"], { o: { style: o.style, name: o.name }, owed: c.emb.owed, can }, can ? 1 : 0);
+  }
 }
 
 /* ---------- objectives ----------
