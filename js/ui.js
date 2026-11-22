@@ -140,7 +140,7 @@ function pgHome() {
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
   // Anything waiting on your decision (a bid, a choice) puts the inbox first; otherwise it sits further down.
   const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice") && (x.type === "choice" || G.players[x.pid]))
-    || G.inbox.some(x => x.type === "ach" && x.age < 2);  // a new achievement (a trophy, a record) brings the inbox to the top of the page too
+    || G.inbox.some(x => !x.done && x.age < 2);  // anything new in the inbox (a signing, a trophy, a record...) brings it to the top of the page too
   // Tabs keep the page short: today (what's next, the table, what needs you), the team, the club, and the news.
   // Anything waiting on your decision sits above the tabs whichever is open.
   const tab = SUB.office || "today", TABS = [["today", "Today"], ["team", "Team"], ["club", "Club"], ["news", "News"]];
