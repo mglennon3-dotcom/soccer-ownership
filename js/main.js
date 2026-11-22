@@ -545,8 +545,9 @@ try { if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) &&
 window.claude?.hot?.snapshot?.(() => ({ G, PAGE }));
 start();
 
-/* On a phone the masthead is a third of the screen. Scrolling down shrinks it to the club
-   name and the Continue button; scrolling up (or reaching the top) brings back the numbers and the section tabs. */
+/* The whole masthead (numbers and section tabs) stays pinned at the top as you scroll, on phones too: it no longer
+   shrinks to the club name and Continue. (MAST_SHRINK = true brings that back.) */
+const MAST_SHRINK = false;
 const phoneWidth = () => matchMedia("(max-width:760px)").matches;
 let lastY = 0, upRun = 0, downRun = 0;
 function setCompact(on) {
@@ -560,7 +561,7 @@ function setCompact(on) {
 }
 window.addEventListener("scroll", () => {
   const y = scrollY, dy = y - lastY; lastY = y;
-  if (!phoneWidth() || !document.querySelector(".mast")) return;
+  if (!MAST_SHRINK || !phoneWidth() || !document.querySelector(".mast")) return;
   if (dy > 0) { downRun += dy; upRun = 0; } else { upRun -= dy; downRun = 0; }
   if (!MAST_COMPACT && y > 140 && downRun > 40) setCompact(true);
   else if (MAST_COMPACT && (y < 30 || upRun > 70)) setCompact(false);
