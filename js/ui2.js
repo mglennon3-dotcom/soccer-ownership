@@ -379,15 +379,15 @@ const DEPTH_VIEW = {};
 function depthChart() {
   const c = my(), form = mgr().form || "4-4-2", slots = FORMS[form] || FORMS["4-4-2"], xi = pickXI(c), startsAt = new Map(xi.map(o => [o.p.id, o.slot]));
   const roles = [...new Set(slots)], ps = c.squad.map(P).filter(p => p && (!p.acad || acadDepth(p, c)) && !(p.loan && p.loan.from === c.id));
-  const SHOW = 6;
+  const SHOWN = role => role === "GK" ? 6 : 7;  // how deep each list goes: seven for outfield positions
   const cards = roles.map(role => {
     const n = slots.filter(s => s === role).length;
     const all = ps.filter(p => (role === "GK") === (p.pos === "GK")).map(p => ({ p, r: roleRating(p, role) })).sort((a, b) => b.r - a.r);
     // Your order if you've set one (everyone eligible, as you ranked them); otherwise the manager's: starters here, then
     // the best of everyone not starting anywhere (players starting in other positions aren't cover).
     const mineL = depthSync(c, role), byId = new Map(all.map(x => [x.p.id, x]));
-    const ranked = mineL ? mineL.map(id => byId.get(id)).filter(Boolean).filter((x, i) => i < Math.max(SHOW, n + 3) || startsAt.get(x.p.id) === role)
-      : [...all.filter(x => startsAt.get(x.p.id) === role), ...all.filter(x => !startsAt.has(x.p.id)).slice(0, Math.max(3, SHOW - n))];
+    const ranked = mineL ? mineL.map(id => byId.get(id)).filter(Boolean).filter((x, i) => i < Math.max(SHOWN(role), n + 3) || startsAt.get(x.p.id) === role)
+      : [...all.filter(x => startsAt.get(x.p.id) === role), ...all.filter(x => !startsAt.has(x.p.id)).slice(0, Math.max(3, SHOWN(role) - n))];
     // Your best academy player for the position (and any ready ones) always show, at the foot of the list if need be.
     for (const x of all.filter(x => x.p.acad && x.p.pos === role && !ranked.includes(x))) ranked.push(x);
     DEPTH_VIEW[role] = mineL ? mineL.slice() : [...ranked.map(x => x.p.id), ...all.filter(x => !ranked.includes(x)).map(x => x.p.id)];
