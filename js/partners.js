@@ -173,7 +173,7 @@ function feedersWeek() { if (net().feeders.length) spend("feeders", feederFundin
    offering him a professional contract. You hear first: offer him a professional contract of your own (a little more
    than theirs), pay him a loyalty bonus to stay in the academy, or let him go for compensation. He may still choose
    them: the more loyal he is, the likelier he stays. */
-const poachComp = (p, c = my()) => Math.round(YOUTH_COMP[c.tier] * (1 + Math.max(0, to20(p.pot) - 8) * 1.5) / 1000) * 1000;
+const poachComp = (p, c = my()) => youthFee(p.pot, c.tier);  // the same scale as signing one from another academy
 /* The chance he stays on a professional contract at a given wage (a year), against the parent's offer: matching it,
    a mercenary stays about 45% of the time, a loyal player about 90%; every 10% more than their offer adds about 3-6
    points (more for a player driven by money); less than their offer costs twice as fast. */
