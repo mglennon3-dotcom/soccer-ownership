@@ -244,9 +244,9 @@ function ownersSummer() {
     // An academy player good enough for the first team gets a professional contract.
     if (!c.abroad) for (const id of c.squad) { const p = G.players[id]; if (p && p.acad && p.age >= 16 && p.ovr >= TIER_LVL[c.tier] - 4) { p.acad = false; p.wage = aiWage(p, c); p.yrs = ri(2, 4); } }  // builds started before weekly timing
     aiMoveCheck(c);
-    // A new stand or an extension is rare, as in real life: only when the ground is full most weeks, there's room on the
-    // site, and the owner has the appetite (a few clubs a season across the whole pyramid). Training facilities improve more often.
-    if (R() < S.build * .12 && c.cap < aiSite(c) && aiEstimate(c).att >= c.cap * .9 && !c.build && !c.cut && !c.emb) c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.08, 1.25) / 100) * 100);
+    // A new stand or an extension: when the ground is mostly full, there's room on the site, and the owner has the
+    // appetite (around ten clubs a season across the whole pyramid). Training facilities improve more often.
+    if (R() < S.build * .3 && c.cap < aiSite(c) && aiEstimate(c).att >= c.cap * .85 && !c.build && !c.cut && !c.emb) c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.08, 1.25) / 100) * 100);
     if (R() < S.build) c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0));
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
     if (S.build < .05 && R() < .3) c.train = Math.max(0, c.train - 1);
