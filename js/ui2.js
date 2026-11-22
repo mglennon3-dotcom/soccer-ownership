@@ -22,7 +22,7 @@ function pgBoard() {
   const so = G.saleOffers || [];
   const sale = `<section class="card"><div class="card-h"><h2>Sell the club</h2></div><p class="small muted" style="margin-bottom:8px">Sell your ${B.own}% and buy another club with the money. The investors, loans and debts stay with this club.</p>
     ${so.length ? `<div class="stack" style="gap:8px">${so.map((o, i) => `<div class="row between offer"><span><b>${esc(o.name)}</b><br><span class="small muted">${OWNER_STYLES[o.style].l}: ${OWNER_STYLES[o.style].d}</span></span><span class="row"><b class="num">${money(o.amt)}</b><button class="btn sm danger" data-act="acceptsale" data-i="${i}">Sell</button></span></div>`).join("")}</div>` : `<button class="btn" data-act="putsale">Put the club up for sale</button>`}
-    ${(G.career || []).length ? `<h3 style="margin:12px 0 6px">Clubs you've owned</h3>${G.career.map(x => `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: sold to ${esc(x.by)} for ${money(x.sold)}</p>`).join("")}` : ""}</section>`;
+    ${(G.career || []).length ? `<h3 style="margin:12px 0 6px">Clubs you've owned</h3>${G.career.map(x => x.lost ? `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: <span class="bad">lost in administration</span>, sold by the administrators to ${esc(x.by)}.</p>` : `<p class="small">${esc(x.club)}, ${x.from}–${x.to}: sold to ${esc(x.by)} for ${money(x.sold)}</p>`).join("")}` : ""}</section>`;
   return `<div class="grid2"><div class="stack">${visionCard()}${objectivesCard()}<p class="small muted" style="margin:-4px 0 4px">Staff targets are set on the <button class="lnk small" data-act="page" data-p="staff">Staff</button> page, one tab for each member of staff.</p>${own}</div><div class="stack">${trustC}${sale}</div></div>`;
 }
 function objectivesCard() {
@@ -582,7 +582,7 @@ function ownerRecord() {
   first(h => (h.cups || []).some(x => /Champions Cup|Continental Shield/.test(x)), h => "First season in Europe");
   for (const t of [5, 3, 1]) first(h => h.tier <= t, h => t === 1 ? "Reached the Premier Division" : `Reached the ${TIER_NAME[t]}`);
   const legends = (c.legends || []).slice().sort((a, b) => a.to - b.to); if (legends[0]) ms.push([legends[0].to, `First club legend retired: ${legends[0].name}`]);
-  for (const x of G.career || []) ms.push([x.to, `Sold ${x.club} for ${money(x.sold)}`]);
+  for (const x of G.career || []) ms.push([x.to, x.lost ? `Lost ${x.club} in administration` : `Sold ${x.club} for ${money(x.sold)}`]);
   ms.sort((a, b) => a[0] - b[0]);
   return { H, clubs, trophies: trophies.sort((a, b) => a[0] - b[0]), ms,
     ups: H.filter(h => h.up).length, downs: H.filter(h => h.down).length, best: H.length ? H.slice().sort((a, b) => a.tier - b.tier || a.pos - b.pos)[0] : null };

@@ -181,7 +181,7 @@ function aiAccounts(c) {
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
-  if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { if (failGate("adm")) { administration(c); c.debt = Math.round(c.debt * .4); return; } rescue(c); }
+  if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { if (failGate("adm")) { administration(c); return; } rescue(c); }
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
   o.lost = (o.lost || 0) + Math.max(0, -net);
   const here = c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1);
@@ -279,7 +279,8 @@ function hostileCheck() {
   news(`${x.own.name} buys ${x.name} and tells reporters he'll "put ${c.name} in their place". You have a hostile neighbour.`, true); bumpMedia(5);
 }
 function administration(c) {
-  c.ded = 10; c.rep = Math.max(1, c.rep - 4); c.emb = { y: G.year }; c.tb = 0;
+  // The club is sold out of administration to a new owner who clears the debts: the embargo lasts about a season.
+  c.ded = 10; c.rep = Math.max(1, c.rep - 4); c.emb = { y: G.year }; c.tb = 0; c.debt = 0;
   const best = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.ovr - a.ovr).slice(0, 3);
   for (const p of best) { const b = buyerFor(p, 8, .6); if (b && b !== c) { aiTransfer(p, b, Math.round(aiFee(p) * .6 / 1e4) * 1e4); p.wage = aiWage(p, b); } }  // a fire sale
   const where = c.lg === my().lg || c.half === my().half;
