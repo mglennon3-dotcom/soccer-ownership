@@ -288,6 +288,7 @@ const ACT = {
   depthadd: el => { const role = el.dataset.role, id = +el.dataset.id, X = ((G.depthX ||= {})[role] ||= []); if (!X.includes(id)) X.push(id); render(); saveGame(); },
   depthdrop: el => { const role = el.dataset.role, id = +el.dataset.id; if (G.depthX && G.depthX[role]) G.depthX[role] = G.depthX[role].filter(i => i !== id); if (G.depth && G.depth[role]) G.depth[role] = G.depth[role].filter(i => i !== id); render(); saveGame(); },
   depthreset: el => { if (G.depth) delete G.depth[el.dataset.role]; render(); saveGame(); },
+  msgseen: el => { for (const m of G.inbox) if (el.dataset.id === "all" ? !["bid", "war", "choice"].includes(m.type) : m.id === +el.dataset.id) m.seen = true; render(); saveGame(); },
   signseen: () => { G.newSign = []; render(); saveGame(); },
   mend: el => { staffMend(el.dataset.r, el.dataset.k); render(); saveGame(); },
   mtab: el => { MARKET_F.tab = el.dataset.k; render(); },

@@ -140,7 +140,7 @@ function pgHome() {
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
   // Anything waiting on your decision (a bid, a choice) puts the inbox first; otherwise it sits further down.
   const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice") && (x.type === "choice" || G.players[x.pid]))
-    || G.inbox.some(x => !x.done && x.age < 2);  // anything new in the inbox (a signing, a trophy, a record...) brings it to the top of the page too
+    || G.inbox.some(x => !x.done && !x.seen && x.age < 2);  // anything new in the inbox (a signing, a trophy, a record...) brings it to the top of the page too
   // Tabs keep the page short: today (what's next, the table, what needs you), the team, the club, and the news.
   // Anything waiting on your decision sits above the tabs whichever is open.
   const tab = SUB.office || "today", TABS = [["today", "Today"], ["team", "Team"], ["club", "Club"], ["news", "News"]];
@@ -209,10 +209,10 @@ const fitText = f => f >= .35 ? `<span class="good">great</span>` : f >= .1 ? `<
 const posHead = p => p ? `<span class="pos">${p.pos}</span> ` : "";
 function inboxCard(urgent) {
   // Decisions first, then recent news items.
-  const m = G.inbox.filter(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice" || x.age < 4)).sort((a, b) => (b.type === "war" ? 2 : b.type === "bid" || b.type === "choice" ? 1 : 0) - (a.type === "war" ? 2 : a.type === "bid" || a.type === "choice" ? 1 : 0)).slice(0, 8);
+  const m = G.inbox.filter(x => !x.done && !x.seen && (x.type === "bid" || x.type === "war" || x.type === "choice" || x.age < 4)).sort((a, b) => (b.type === "war" ? 2 : b.type === "bid" || b.type === "choice" ? 1 : 0) - (a.type === "war" ? 2 : a.type === "bid" || a.type === "choice" ? 1 : 0)).slice(0, 8);
   if (!m.length) return "";
   const n = m.filter(x => x.type === "bid" || x.type === "war" || x.type === "choice").length;
-  return `<section class="card summary"><div class="card-h"><h2>Inbox</h2>${urgent ? n ? `<span class="chip req">${n} to decide</span>` : `<span class="chip xi">New</span>` : ""}</div><div class="stack">${m.map(x => {
+  return `<section class="card summary"><div class="card-h"><h2>Inbox</h2><span class="row" style="gap:6px;align-items:center">${m.length > n + 1 ? `<button class="lnk small" data-act="msgseen" data-id="all">Dismiss all</button>` : ""}${urgent ? n ? `<span class="chip req">${n} to decide</span>` : `<span class="chip xi">New</span>` : ""}</span></div><div class="stack">${m.map(x => {
     if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
       return `<div class="decision"><div><b>${posHead(p)}${esc(x.title)}</b></div>${myPlayerLine(p)}${x.pre ? `<p class="small warn">The window is shut: accept and he stays with you until it opens, then joins them.</p>` : ""}<p class="small">${POS_NAME[p.pos]}, ${p.age}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? pr(s, "he") : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ""}</p>
@@ -224,7 +224,7 @@ function inboxCard(urgent) {
         ${x.bids.map(b => `<div class="row between small" style="padding:2px 0"><span>${esc(clubLabel(CL(b.id)))}</span><b class="num ${b === T ? "good" : ""}">${b.out ? '<span class="muted">dropped out</span>' : money(b.amt)}</b></div>`).join("")}
         <div class="row" style="margin-top:6px"><button class="btn sm primary" data-act="war" data-id="${x.id}" data-v="sell">Sell to ${esc(CL(T.id).name)} for ${money(T.amt)}</button>${x.final ? "" : `<button class="btn sm" data-act="war" data-id="${x.id}" data-v="raise">Ask for best and final offers</button>`}<button class="btn sm" data-act="war" data-id="${x.id}" data-v="keep">Keep him</button></div></div>`; }
     if (x.type === "objectives" && !x.rows) oldObjRows(x);  // a report written before reports were laid out
-    return `<div class="decision"><div><b>${posHead(x.pid && G.players[x.pid])}${esc(x.title)}</b></div>${x.rows ? msgRows(x) : `<p class="small">${esc(x.body || "")}</p>`}${x.go ? `<button class="btn sm" data-act="page" data-p="${x.go}" style="margin-top:6px">${esc(x.goL || "Go")}</button>` : ""}${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}" style="margin-top:6px">View</button>` : ""}</div>`;
+    return `<div class="decision"><div><b>${posHead(x.pid && G.players[x.pid])}${esc(x.title)}</b></div>${x.rows ? msgRows(x) : `<p class="small">${esc(x.body || "")}</p>`}<div class="row" style="margin-top:6px">${x.go ? `<button class="btn sm" data-act="page" data-p="${x.go}">${esc(x.goL || "Go")}</button>` : ""}${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}">View</button>` : ""}<button class="btn sm" data-act="msgseen" data-id="${x.id}">Dismiss</button></div></div>`;
   }).join("")}</div></section>`;
 }
 function resultsList(rs) {
