@@ -119,23 +119,10 @@ const tierWages = t => (G.tierW ||= calcTierW())[t];
 const r200s = v => to20(staffEq(v)) * 10;
 const aiCoachPayF = x => x.coach ? clamp(Math.pow(1.25, (r200s((x.coach.tac + x.coach.dev) / 2) - r200s(aiStaffLvl(x.rep))) / 10), .5, 2) : 1;
 const aiYouthPayF = x => clamp(Math.pow(1.25, (r200s(aiYouthScout(x)) - r200s(YSCOUT_T[x.tier] + youthPedigree(x) * 3)) / 10), .5, 2);
-/* Money-minded owners (data-driven investors, multi-club groups, property developers) price tickets for the most
-   gate money, up to 20% over the going rate like yours; asset strippers squeeze harder still (their own setting), and
-   the rest price by their style (supporter-owned and lifelong-fan owners cheap). */
-const AI_MAXPROFIT = new Set(["moneyball", "multiclub", "developer"]);
-function aiAtt(x, ticket) {
-  const pf = priceFactor(ticket, ticketRef(x), 1.3 + fanShare(x, "comm") * .8), sw = 1 + fanShare(x, "loyal") * .15 + fanShare(x, "fair") * (x.push ? .3 : -.15);
-  return Math.round(Math.min(x.cap || 1e9, (x.fans * .8 * pf + x.fans * .35 * pf * .9) * sw * (1 + .1 * honey(x))));
-}
-function aiTicket(x) {
-  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ref = ticketRef(x);
-  if (!x.own || !AI_MAXPROFIT.has(x.own.style)) return Math.max(3, Math.round(ref * (S.prices || 1)));
-  let best = ref, bv = -1; for (let f = .7; f <= 1.2001; f += .025) { const t = Math.max(3, Math.round(ref * f)), v = t * aiAtt(x, t); if (v > bv) { bv = v; best = t; } }
-  return best;
-}
 function aiEstimate(x) {
-  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = aiTicket(x);
-  const att = aiAtt(x, ticket);
+  const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(ticketRef(x) * (S.prices || 1)));
+  const pf = priceFactor(ticket, ticketRef(x), 1.3 + fanShare(x, "comm") * .8), sw = 1 + fanShare(x, "loyal") * .15 + fanShare(x, "fair") * (x.push ? .3 : -.15);
+  const att = Math.round(Math.min(x.cap || 1e9, (x.fans * .8 * pf + x.fans * .35 * pf * .9) * sw * (1 + .1 * honey(x))));
   const staff = staffWage("manager", x.rep) * aiCoachPayF(x) + staffWage("youth", x.rep) * aiYouthPayF(x) + staffWage("recruit", x.rep);
   const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);
   const merch = x.fans * .007 * 52 * REF_SHIRT[x.tier] * .55 * clubPop(x);  // a year's shirt profit: supporters times popularity
