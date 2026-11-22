@@ -205,9 +205,10 @@ function endSeason() {
     if (champ.id === G.club) news(`CHAMPIONS! ${mine.name} win the ${L.name}.`, true);
     if (ABOVE[k]) {
       const up = ids.slice(0, L.auto); if (G.po[k] && G.po[k].win != null) up.push(G.po[k].win);
-      // Promoted clubs go up whatever their ground holds. AI clubs grow their grounds as they rise.
+      // Promoted clubs go up whatever their ground holds. Only one too small for the league's ground rules adds (temporary)
+      // seating to reach the minimum; otherwise they grow it later, if ever.
       const final = up;
-      for (const id of up) { const c = CL(id); if (!isMine(c)) c.cap = Math.max(c.cap, Math.min(aiSite(c), Math.round(STADIUM_T[LEAGUES[ABOVE[k]].tier] * rf(.5, .8) / 100) * 100)); }
+      for (const id of up) { const c = CL(id), min = Math.round(STADIUM_T[LEAGUES[ABOVE[k]].tier] * .3 / 100) * 100; if (!isMine(c) && c.cap < min) c.cap = Math.min(Math.max(aiSite(c), min), min); }
       for (const id of final) { moves.push([id, ABOVE[k]]); for (const p of accSquad(CL(id), 10)) accAdd(p, "promo", `Promoted from the ${L.name} ${seasonLabel(G.year)}${ids[0] === id ? "" : G.po[k] && G.po[k].win === id ? " (play-offs)" : ""}`); }
     }
     if (L.down && L.tier < 7) for (const id of ids.slice(-L.down)) moves.push([id, null]);

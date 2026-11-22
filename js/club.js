@@ -87,6 +87,7 @@ function buildWeek(c) {
   if (S.build && --S.build.left <= 0) {
     const b = S.build; S.build = null;
     if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
+    if (b.type === "new" || b.type === "move" || b.type === "reground") { setHoney(c); moodHit(c, 5); news("The new ground is open: supporters are queuing for tickets, and the excitement should last a couple of seasons.", true); }
     if (b.type === "new") { openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = Math.max(S.site, S.cap + usedSpace(S)); if (has(c, "fanzone")) S.popup = false; }
     else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; st[side].ext = G.year; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, yr: G.year, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
@@ -105,7 +106,7 @@ function buildWeek(c) {
 
 /* ---------- supporters ---------- */
 // Where the fanbase is heading: the division, the club's standing and whether it's winning.
-function fanTarget(c) { return FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1) * (1 + commK(c) * .04); }
+function fanTarget(c) { return (1 + .1 * honey(c)) * FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1) * (1 + commK(c) * .04); }
 function fansWeek(c) {
   const t = fanTarget(c);
   const fam = familyOn(c) ? 1.3 : 1;  // a family stand brings the next generation in
@@ -192,6 +193,12 @@ function fansPerSeatNorm(t) {
   const N = (G._fps && G._fps.y === G.year) ? G._fps : (G._fps = { y: G.year });
   return N[t] ??= (() => { const r = G.clubs.filter(c => !c.gone && !c.abroad && c.tier === t).map(c => c.fans / seatsOf(c)).sort((a, b) => a - b); return r.length ? r[r.length >> 1] : 1; })();
 }
+/* A new ground's honeymoon: for two seasons after it opens, supporters want to be there. More of them come, more want
+   tickets (the going rate rises) and the following grows faster, fading to nothing over the two seasons. Opening day
+   itself brings a 3% bump in supporters. */
+const wkIdx = () => G.phase === "summer" ? G.week : SUMMER_WEEKS + G.week;
+function honey(c) { const h = c && c.honey; if (!h) return 0; const w = (G.year - h.y) * YEAR_TICKS() + wkIdx() - h.w; return w < 0 ? 0 : Math.max(0, 1 - w / (YEAR_TICKS() * 2)); }
+function setHoney(c) { c.honey = { y: G.year, w: wkIdx() }; c.fans = Math.round(c.fans * 1.03); }
 function ticketK(c) {
   const want = c.abroad || !c.tier ? 1 : clamp(Math.sqrt(c.fans / seatsOf(c) / fansPerSeatNorm(c.tier)), .75, 1.45);
   const pop = 1 + (clubPop(c) - 1) * .6, mood = .92 + (c.mood ?? 50) / 600;
@@ -199,7 +206,7 @@ function ticketK(c) {
   // club, community families notice prices and fair-weather fans drift if it's dear.
   const size = c.abroad || !c.tier ? 1 : clamp(Math.pow(c.fans / FAN_T[c.tier], .12), .85, 1.2);
   const who = 1 + (fanShare(c, "hard") - .2) * .5 + (fanShare(c, "loyal") - .25) * .25 - (fanShare(c, "comm") - .35) * .35 - (fanShare(c, "fair") - .2) * .15;
-  return want * pop * mood * size * who;
+  return want * pop * mood * size * who * (1 + .15 * honey(c));
 }
 // Each division centred on its typical price: the middle club pays about that, the rest spread around it.
 function ticketNorm(t) {
@@ -212,7 +219,7 @@ function ticketRef(c) {
 function priceFactor(price, ref, el = 1.3) { return clamp(Math.pow(ref / Math.max(.5, price), el), 0, 1.35); }
 function crowdFor(c, opp, price = c.prices.ticket) {
   const pf = priceFactor(price * (G.sTrust && G.sTrust.u18 ? .93 : 1), ticketRef(c), 1.3 + fanShare(c, "comm") * .8);  // families notice prices
-  const turn = clamp(.5 + c.mood / 250 + terraceShare(c) * .05 + fzK(c) * .03, .35, .95) * pf;
+  const turn = Math.min(1, clamp(.5 + c.mood / 250 + terraceShare(c) * .05 + fzK(c) * .03, .35, .95) * (1 + .1 * honey(c))) * pf;
   const draw = opp ? clamp(.85 + (opp.rep - c.rep) / 60 + (opp.half === c.half ? .05 : 0), .8, 1.6) : 1;
   const away = opp ? Math.round(Math.min(opp.fans * .06, 1500 * (8 - c.tier))) : 0;
   const wx = G.wx ? 1 - (1 - wxAt(c).crowd) * openShare(c) : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp ? [1, 1.15, 1.3][derbyLevel(c, opp)] : 1;
