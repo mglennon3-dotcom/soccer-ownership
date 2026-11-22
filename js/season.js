@@ -66,7 +66,7 @@ function advance() {
   if (G.phase !== "playoffs" || G.week === 0) refreshOffers(c);
   if (G.saleOffers) { for (const o of G.saleOffers) o.exp--; G.saleOffers = G.saleOffers.filter(o => o.exp > 0); if (!G.saleOffers.length) G.saleOffers = null; }
   mediaWeek(); trustWeek(c); poachWeek(); staffTrustWeek(); recoverWeek(); forcedWeek(); if (!windowOpen() && loansOpen()) loanOffersWeek(c); requestsCheck(); bidForMyClub();
-  youthTieAsk(c); euroYouthAsk(c); coverAsk(c); achWeek(c); settleInbox();
+  youthTieAsk(c); euroYouthAsk(c); coverAsk(c); turn18Ask(); achWeek(c); settleInbox();
   if (c.cash < -Math.max(250000, TV[c.tier]) && !G.warnedDebt) { G.warnedDebt = true; news(`The club is ${money(-c.cash)} overdrawn and paying 10% interest. Put money in from Finances or cut costs.`, true); }
   if (c.cash >= 0) G.warnedDebt = false;
 }
@@ -333,6 +333,7 @@ function yearTurnover() {
     const here = by.length && p.club >= 0 ? seasonAt(p, p.club) : [p.s.app, p.s.g, p.s.a];
     (p.prog ||= []).push([G.year, p.age, p.ovr, club, here[0], here[1], here[2], p.pot, 0, p.wage]);  // [8] spare, [9] his wage that season if (p.prog.length > 10) p.prog.shift();
     p.tot[0] += p.s.app; p.tot[1] += p.s.g; p.age++;
+    if (p.acad && p.age === 18 && p.club === G.club) (G.turn18 ||= []).push(p.id);  // your academy players turning 18: you're asked (see turn18Ask)
     // AI wages drift toward what the club pays for the player's rating: about a third of the gap a year, down as he declines, up as he improves.
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan && p.stunC !== p.club) { /* a statement signing keeps his huge wage while he stays */ const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .35) / 100) * 100; }
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { const stays = p.age < 34 && renewsAI(p) && !(p.toMe && p.toMe.pre); p.yrs--; if (p.yrs <= 0) { if (stays) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
@@ -616,6 +617,26 @@ function settleInbox() {
     if (m.type === "war" && m.age >= 2) warSell(m, true);
     if (m.type === "choice" && m.age >= 3) { m.auto = true; answerChoice(m, m.dflt); } }
 }
+
+/* ---------- academy players turning 18 ----------
+   Each summer, for every academy player who has turned 18: offer him a professional contract or release him. Your youth
+   manager says what he'd do; if you don't answer, that's what happens. */
+function turn18Ask() {
+  const c = my(), y = staffOf("youth");
+  for (const id of (G.turn18 || []).splice(0)) {
+    const p = G.players[id]; if (!p || !p.acad || p.club !== c.id) continue;
+    const rates = youthRates(p, c), ready = youthReady(p), wage = Math.round(demandWage(p, c) / 100) * 100;
+    const view = y ? `${y.name}: ${rates ? (ready ? "rates him and thinks he's ready for a professional contract." : "rates him, though he isn't ready for the first team yet: a contract keeps him.") : "wouldn't keep him."}` : "You have no youth manager to advise you.";
+    addChoice("turn18", `${p.name} has turned 18: professional contract or release?`, `${POS_NAME[p.pos]}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. ${view}`,
+      [`Offer a professional contract (${pw(wage)}, 2 years)`, "Release him"], { pid: p.id, wage }, rates ? 0 : 1);
+  }
+}
+DECIDE.turn18 = (m, i) => {
+  const p = G.players[m.data.pid], c = my(); if (!p || !p.acad || p.club !== c.id) return;
+  if (!m.auto) overruleYouth(i === 0 ? "promote" : "release", [p]);
+  if (i === 0) { const was = p.wage; p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, m.data.wage); logPay(p, was, "first professional contract"); p.dealY = G.year; news(`${p.name} signs his first professional contract: ${pw(p.wage)} for 2 years.`, true); }
+  else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); }
+};
 
 /* ---------- injury cover ----------
    When injuries leave the formation short of players for a position (fewer fit, registered first-teamers who play
