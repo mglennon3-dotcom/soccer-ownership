@@ -36,7 +36,7 @@ function objectivesCard() {
   return `<section class="card summary"><div class="card-h"><h2>Set this season's targets</h2></div>
     <p class="small muted" style="margin-bottom:10px">They're announced to the fans. Pick a level for each, or no target. The squad currently looks like a ${ord(expectedPos())}-place side; the manager will say if he thinks a league target is unrealistic.</p>
     <div class="price-grid">${Object.entries(L).map(([k, v]) => `<label class="small"><b>${objLabel(k)}</b><select id="obj-${k}">${LVL_NAME.map((n, i) => `<option value="${i}">${i ? `${n}: ${OBJ[k].txt(v[i - 1])}` : n}</option>`).join("")}</select></label>`).join("")}</div>
-    <p class="small muted" style="margin-top:8px">Meeting a harder target raises the club's standing and (for football and youth targets) wins more new supporters, the hardest most of all. Financial targets matter to the board, not the supporters, unless the club heads for ruin; falling short costs more the further short you finish. Finishing where the squad suggested (or better) is never a failure in the league, and beating it counts in your favour.</p>
+    <p class="small muted" style="margin-top:8px">Meeting a harder target raises the club's standing and (for football and youth targets) wins more new supporters, the hardest most of all. Financial targets matter to the board, not the supporters (only real ruin, administration, turns the supporters against you); falling short costs more the further short you finish. Finishing where the squad suggested (or better) is never a failure in the league, and beating it counts in your favour.</p>
     <div class="row" style="margin-top:10px"><button class="btn primary" data-act="setobj">Announce targets</button></div></section>`;
 }
 

@@ -272,11 +272,7 @@ function judgeObjectives(report) {
     if (!money) { moodHit(c, Math.round(score * 6)); fans += score * .04; } rep += score * 1.5;
     if (k === "lg") trust("manager", met ? 5 : d >= 0 ? 0 : -4, null, met ? "Meeting the league target" : "Missing the league target");
   }
-  /* ...unless the club is heading for ruin: a loss of more than 30% of income, wages above 90% of income, or the club
-     in the red. Then the supporters notice, target or no target. */
-  const hasFin = !!(c.finLast && ledgerIncome(c.finLast) > 0);
-  const ruin = hasFin && got.fin <= -30 ? `a loss of ${-got.fin}% of income` : hasFin && got.wages >= 90 ? `wages at ${got.wages}% of income` : c.cash < 0 ? "the club in the red" : null;
-  if (ruin) { moodHit(c, -8); fans -= .02; }
+  // (Real financial ruin, administration, hits the supporters when it happens: see myAdministration.)
   // Beating (or falling short of) what the squad suggested.
   rep += clamp(d * .4, -3, 3); fans += clamp(d * .006, -.03, .04);
   const before = c.fans; c.rep = clamp(Math.round((c.rep + rep) * 10) / 10, 1, 99); c.fans = Math.max(50, Math.round(c.fans * (1 + fans)));
@@ -284,7 +280,7 @@ function judgeObjectives(report) {
   const fmtGot = (k, v) => v == null ? "—" : k === "lg" ? ORD(v) : k === "fin" ? `${v > 0 ? "+" : ""}${v}% of income` : k === "wages" ? `${v}% of income` : k === "cup" || k === "cup2" ? (v >= 8 ? "won it" : CUP_TXT[v] ? CUP_TXT[v].replace(/^Reach the /, "reached the ").replace(/^Win a tie$/, "won a tie") : "out at the first hurdle") : k === "eu" ? ["out in the group", "reached the last 16", "reached the quarter-finals", "reached the semi-finals", "reached the final", "won it"][v] || "—" : String(v);
   if (G.objRes.length) addMsg({ type: "objectives", title: `Targets: ${G.objRes.filter(r => r.met).length} of ${G.objRes.length} met`,
     rows: G.objRes.map(r => [`${objLabel(r.k)}: ${r.t.replace(" (but no worse than the squad suggested)", "")}`, `${LVL_NAME[r.lv]}${r.excused ? " · no worse than the squad suggested" : ""}${r.reached > r.lv ? ` · reached ${LVL_NAME[r.reached].toLowerCase()}` : ""}`, fmtGot(r.k, got[r.k]), r.met || (r.excused ? "ok" : false), effTxt(r.dRep, r.dFans)]),
-    foot: `${ruin ? `Supporters are alarmed at the state of the finances (${ruin}): −2% supporters and a hit to the mood. ` : ""}Finished ${ORD(report.pos)}; the squad suggested ${ORD(o.exp || report.pos)}${d ? ` (${effTxt(clamp(d * .4, -3, 3), Math.round(before * clamp(d * .006, -.03, .04)))} from that)` : ""}. In all, the club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.`,
+    foot: `Finished ${ORD(report.pos)}; the squad suggested ${ORD(o.exp || report.pos)}${d ? ` (${effTxt(clamp(d * .4, -3, 3), Math.round(before * clamp(d * .006, -.03, .04)))} from that)` : ""}. In all, the club's standing ${rep >= .05 ? `rises (+${rep.toFixed(1)} prestige)` : rep <= -.05 ? `falls (${rep.toFixed(1)} prestige)` : "holds steady"} and the support ${dF >= 0 ? `grows by ${dF.toLocaleString("en-GB")}` : `shrinks by ${(-dF).toLocaleString("en-GB")}`}.`,
     body: G.objRes.map(r => `${r.t}: ${r.met ? "met" : "missed"}`).join(". ") + "." });
   G.hype = 0; judgeStaffObjectives(o.exp ? d : null);
 }
