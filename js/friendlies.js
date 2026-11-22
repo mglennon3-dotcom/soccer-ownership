@@ -94,6 +94,7 @@ function unhappiness(p, c) {
   const pr = prefsOf(p, P_FACTORS), fit = systemFit(p), cares = 1 + (pr.pri.form + pr.pri.time) * 3;
   if (fit.slots === 0) { s += .8 * cares; why.push("having no place in the manager's system"); }
   else if (fit.style < -.4) { s += .5 * cares; why.push("a style of play that doesn't suit him"); }
+  if (p.bond) s = Math.max(0, s - p.bond * .25);  // your congratulations (or criticism) colour how he feels
   return s ? { s, why } : null;
 }
 /* Pay rises: every four weeks a player paid well under his worth (under 80% of the going rate for his rating) may ask

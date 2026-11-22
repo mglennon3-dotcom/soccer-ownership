@@ -134,3 +134,71 @@ DECIDE.awayRefund = (m, i) => { const c = my(), k = fanCare(c);
   else moodHit(c, -1 * k); };
 
 DECIDE.relayAsk = (m, i) => { const S = my().fac.stadium; if (i === 0 && S.own && !S.relay) relayPitch(m.data.type || S.ptype || "grass"); };
+
+/* ---------- praise and criticism ----------
+   On an achievement card you can congratulate whoever it's about: privately (it means more to them) or in the press
+   (the supporters and the papers like it too). After a bad defeat or a poor run you get the chance to say something:
+   about the players or the manager, in public or in private. Criticism can light a fire or start a sulk. */
+const PRAISE_HOW = { private: "privately", press: "in the press" };
+function praiseTargets(m) {
+  const w = m.who || {}, out = [], p = w.pid != null ? G.players[w.pid] : null;
+  if (p && p.club === G.club) out.push({ t: "p", l: p.name });
+  if (w.role && staffOf(w.role)) out.push({ t: "s:" + w.role, l: staffOf(w.role).name });
+  if (w.team) out.push({ t: "team", l: "The players" });
+  return out;
+}
+function praiseDo(id, t, how) {
+  const m = G.inbox.find(x => x.id === id); if (!m || (m.praised ||= {})[t]) return;
+  const c = my(), pub = how === "press"; let say = "";
+  if (t === "p") { const p = G.players[m.who.pid]; if (!p || p.club !== G.club) return;
+    // A word from the owner settles him: less likely to want away (his bond with you), and any grievance eases.
+    p.bond = Math.min(6, (p.bond || 0) + (pub ? 1 : 2)); p.unsettled = Math.max(0, (p.unsettled || 0) - (pub ? 1 : 3)); if (!pub && p.payGrudge) p.payGrudge--;
+    if (pub) { moodHit(c, 1); bumpMedia(1); }
+    // A young player praised in public can get carried away.
+    const giddy = pub && p.age <= 21 && R() < .2; if (giddy) p.unsettled = Math.max(p.unsettled || 0, 2);
+    say = pub ? (giddy ? `The headlines went to ${p.name}'s head a little: he's been distracted in training.` : `${p.name} enjoyed the headlines, and the supporters loved it.`) : `${p.name} was touched you called him personally.`; }
+  else if (t === "team") { c.morale = clamp(c.morale + (pub ? 2 : 3), 20, 95); if (pub) { moodHit(c, 2); bumpMedia(1); }
+    say = pub ? "The players read every word. The dressing room is buzzing." : "You went into the dressing room to thank the players. They won't forget it."; }
+  else if (t.startsWith("s:")) { const role = t.slice(2), st = staffOf(role); if (!st) return;
+    trust(role, pub ? 3 : 5, null, pub ? "Your public praise" : "Your congratulations");
+    if (pub) { moodHit(c, 1); bumpMedia(1); st.praised = G.year * 100 + G.week; }
+    say = pub ? `${st.name} appreciated the public credit. Other clubs will have read it too.` : `${st.name} appreciated the personal thanks.`; }
+  m.praised[t] = how; (m.praiseSay ||= []).push(say); news(say);
+}
+
+/* A bad result or a bad run: do you say something? At most once every six weeks. */
+function ventWeek(c) {
+  if (G.phase !== "season" && G.phase !== "playoffs") return;
+  const res = (G.myRes || []).filter(r => r.comp && r.comp !== "F"), from = G.ventN && G.ventN.y === G.year ? G.ventN.n : res.length;
+  const fresh = res.slice(from); G.ventN = { y: G.year, n: res.length };
+  if (!fresh.length || (G.ventW && G.year * 100 + G.week - G.ventW < 6) || G.inbox.some(m => m.key === "vent" && !m.done)) return;
+  const last = fresh[fresh.length - 1], opp = CL(last.opp), tail = n => res.slice(-n);
+  let why = null;
+  if (last.res === "L" && last.ga - last.gf >= 3) why = `A ${last.gf}–${last.ga} hammering ${last.home ? "at home to" : "at"} ${opp.name}.`;
+  else if (last.res === "L" && isDerby(c, opp)) why = `Beaten ${last.gf}–${last.ga} by ${opp.name}, of all teams.`;
+  else if (last.res === "L" && (opp.tier > c.tier || teamAvg20(opp) <= teamAvg20(c) - 2)) why = `A ${last.gf}–${last.ga} defeat to ${opp.name}, a side we should be beating.`;
+  else if (res.length >= 3 && tail(3).every(r => r.res === "L")) why = `Three defeats in a row.`;
+  else if (res.length >= 6 && tail(6).every(r => r.res !== "W")) why = `${tail(6).filter(r => r.res === "D").length ? "Six games without a win" : "Six defeats in a row"}.`;
+  if (!why) return;
+  G.ventW = G.year * 100 + G.week;
+  const m = staffOf("manager"), k = ["pp", "pv", ...(m ? ["mp", "mv"] : []), "no"];
+  const L = { pp: "Criticise the players in the press", pv: "Have a private word with the players", mp: `Criticise ${m ? m.name : "the manager"} in the press`, mv: `Have a private word with ${m ? m.name : "the manager"}`, no: "Say nothing" };
+  addChoice("vent", "Say something about that?", `${why} Reporters want your reaction, and the dressing room is waiting to see what you do. Public words carry further, and cut deeper.`, k.map(x => L[x]), { k }, k.length - 1);
+}
+DECIDE.vent = (m, i) => {
+  const c = my(), k = m.data.k[i], M = staffOf("manager"), mot = M && M.at ? M.at.mot : 40, xi = pickXI(c).map(o => o.p).filter(p => !p.acad).sort((a, b) => b.age - a.age);
+  let title = "", body = "";
+  if (k === "pp") { moodHit(c, 1); bumpMedia(1); trust("manager", -2, null, "Criticising his players in public");
+    if (R() < .45 + mot / 400) { c.morale = clamp(c.morale + 6, 20, 95); title = "The players respond"; body = "Your words stung, and the squad have trained with a point to prove. The supporters liked the honesty."; }
+    else { c.morale = clamp(c.morale - 4, 20, 95); const hurt = xi.slice(0, 2); for (const p of hurt) { p.unsettled = Math.max(p.unsettled || 0, 3); p.bond = (p.bond || 0) - 1; }
+      title = "The dressing room isn't happy"; body = `Senior players resent being criticised in public${hurt.length ? `: ${hurt.map(p => p.name).join(" and ")} took it personally` : ""}. The supporters liked the honesty, though.`; } }
+  else if (k === "pv") { if (R() < .6 + mot / 400) { c.morale = clamp(c.morale + 4, 20, 95); title = "A word in the dressing room"; body = "The players took it on board. There's a sharper edge in training."; }
+    else { title = "A word in the dressing room"; body = "The players listened politely. Hard to say it changed much."; } }
+  else if (k === "mp") { moodHit(c, 2); bumpMedia(2); trust("manager", -10, "is angry at being criticised in public.", "Being criticised in public");
+    if (R() < .3) { c.morale = clamp(c.morale + 3, 20, 95); title = `${M ? M.name : "The manager"} answers back on the pitch`; body = "Stung by your words, he's driven the players hard all week. The supporters approve of you holding him to account."; }
+    else { c.morale = clamp(c.morale - 2, 20, 95); title = "Tension at the top"; body = `${M ? M.name : "The manager"} is furious at being called out in public, and the players can feel the tension. The supporters approve of you holding him to account.`; } }
+  else if (k === "mv") { trust("manager", -3, null, "A private warning");
+    if (R() < .5 + mot / 300) { c.morale = clamp(c.morale + 3, 20, 95); title = "Message received"; body = `${M ? M.name : "The manager"} took your private warning seriously, and has made changes in training.`; }
+    else { title = "Message received"; body = `${M ? M.name : "The manager"} heard you out. He thinks it's a blip.`; } }
+  if (title) addMsg({ type: "info", title, body });
+};
