@@ -451,6 +451,10 @@ function youthIntake(c) {
    other academies cost a little compensation. */
 const YOUTH_SCOUT = [["summer", 4, "Late-summer scouting"], ["season", 20, "January scouting"], ["season", 34, "Spring trial day"]];
 const YOUTH_COMP = [0, 60e3, 40e3, 25e3, 15e3, 8e3, 5e3, 3e3];
+/* What an academy player is worth in compensation, buying or selling: the division's base, rising steeply with his
+   potential (each point above 8 adds one and a half times the base), so a prospect with potential 16 costs about 13
+   times one with potential 8. The same scale whether you sign one from another academy or lose one of yours. */
+const youthFee = (pot, tier) => Math.round(YOUTH_COMP[tier] * (1 + Math.max(0, to20(pot) - 8) * 1.5) / 500) * 500;
 /* Academy players who stop improving drift away. Each summer, a player of 16 or older who's been with you a year and gained
    less than 3 rating points may leave: likelier the less he improved, once he's 18, when his prospects look bleak and
    with no youth manager; a good youth manager keeps more of them. A player your staff still rate highly asks first (you can try to talk him round); the rest
@@ -468,7 +472,7 @@ function acadDropouts(c) {
 }
 function acadLeave(p, c) {
   const to = R() < .65 ? pick(G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && Math.abs(x.tier - c.tier) <= 2)) : null;
-  if (to) { leaveClub(p); moveTo(p, to); p.acad = true; const fee = Math.round(YOUTH_COMP[c.tier] * rf(.3, .7) / 500) * 500; if (fee) earn("sales", fee); logMove("out", p, { club: to.name, fee, wage: 0, by: "academy" });
+  if (to) { leaveClub(p); moveTo(p, to); p.acad = true; const fee = Math.round(youthFee(p.pot, c.tier) * rf(.4, .7) / 500) * 500; if (fee) earn("sales", fee);  // he'd stopped improving: below his full worth logMove("out", p, { club: to.name, fee, wage: 0, by: "academy" });
     news(`Academy player ${p.name} (${p.age}) leaves for ${to.name}${to.name.endsWith("s") ? "'" : "'s"} academy${fee ? `: ${money(fee)} compensation` : ""}. He'd stopped improving here.`); }
   else { leaveClub(p); toFreeAgent(p); news(`Academy player ${p.name} (${p.age}) leaves the club. He'd stopped improving and wants to try something else.`); }
 }
@@ -484,7 +488,7 @@ function youthScoutWeek() {
     const from = trial ? "trial" : wide && R() < .35 ? "abroad" : R() < .5 ? "academy" : "trial";
     const pot = Math.round(oldToNew(drawPotential(sp.mean - 2 + (y.at.judge - 50) * .04 + (from === "academy" ? 1 : 0), sp.exc, gemMult(c)))), age = trial ? ri(15, 16) : ri(15, 17);
     const ovr = clamp(Math.round(pot * rf(.48, .6) + (age - 15) * 2 + normal() * 3), 12, pot);
-    const fee = from === "trial" ? 0 : Math.round(YOUTH_COMP[c.tier] * rf(.6, 1.4) * (from === "abroad" ? 1.5 : 1) / 500) * 500;
+    const fee = from === "trial" ? 0 : Math.round(youthFee(pot, c.tier) * rf(.85, 1.15) * (from === "abroad" ? 1.25 : 1) / 500) * 500;  // better prospects cost more
     // Trialists join straight away. A player from another academy (or abroad) costs compensation, so he waits for your say:
     // until then he's nobody's (club -3).
     const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat: from === "abroad" ? pickNat("ENG") : "ENG", club: fee ? -3 : c.id, pot, acad: true, lean: LEAN[sp.phil], wage: 500 });
