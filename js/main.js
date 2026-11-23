@@ -124,6 +124,22 @@ function upgradeSave() {
       if (lv0 && favLevel(p, G.club) < lv0) { fixed.push(p.name); if (G.achs && favLevel(p, G.club) < 2) delete G.achs[`legend.${p.id}`]; } }
     if (fixed.length) news(`Records corrected: ${fixed.join(", ")} ${fixed.length > 1 ? "were" : "was"} wrongly counted a fan favourite or legend here for seasons spent on loan elsewhere.`); }
   // A "club legend" card for someone who isn't one (any more): the loan-season repair took it away, so the card goes too.
+  /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
+     summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
+  if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
+    const longer = (p, n) => { if (p && p.club === G.club && n > p.yrs) { fixed.push(`${p.name} ${p.yrs}→${n}`); p.yrs = n; p.expiring = false; } };
+    const asAge = (p, a, f) => { const keep = p.age; p.age = a; try { return f(); } finally { p.age = keep; } };
+    // The renewals: the head of recruitment's summer contracts message (this summer's, or last summer's if the new one hasn't come yet).
+    const last = G.phase === "summer" ? G.year - 1 : G.year;
+    const msg = G.inbox.find(m => m.type === "contracts" && m.y === last) || G.inbox.find(m => m.type === "contracts" && m.y === last - 1);
+    if (msg) { const body = (msg.body || "").split("Leaving:")[0]; for (const [, nm, y] of body.matchAll(/(?:New contracts: |, )([^,(]+?) \((\d) yr,/g)) {
+      const p = c.squad.map(P).find(q => q && q.name === nm.trim()); if (!p) continue;
+      const core = new Set(c.squad.map(P).filter(q => !q.acad).sort((a, b) => b.ovr - a.ovr).slice(0, 18).map(q => q.id)).has(p.id);
+      const used = Math.max(0, G.year - (msg.y + 1)); longer(p, autoYears(p, renewTerms(p), core) - used); } }
+    // The signings: last season's and this summer's, counting the year already gone for last season's.
+    for (const p of c.squad.map(P)) if (p && !p.acad && p.joinR && p.joinR.y >= G.year - 1 && !(p.loan && p.loan.to === G.club)) {
+      const used = G.year - p.joinR.y - (G.phase === "summer" ? 0 : 0); longer(p, asAge(p, p.age - used, () => signYears(p, c)) - used); }
+    if (fixed.length) news(`Contract lengths put right: renewals and recent signings now run as long as they should. ${fixed.join(", ")} years.`, true); }
   // Minutes (tracked from 1.0.10): an estimate for the season so far from starts and sub appearances.
   for (const p of Object.values(G.players)) if (p.s && p.s.min == null) p.s.min = Math.max(0, (p.s.app - (p.s.sub || 0)) * 84 + (p.s.sub || 0) * 22);
   // A pay-rise request from a player whose pay was settled this season (e.g. his first professional contract) shouldn't exist: withdraw it.
