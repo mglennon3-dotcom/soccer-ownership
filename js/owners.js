@@ -172,6 +172,16 @@ const aiGoRate = c => sum(c.squad, id => { const p = G.players[id]; return p && 
 const payLevel = c => clamp(aiBudget(c) / Math.max(1, aiGoRate(c)), .5, c.tier === 1 ? 1.2 : 1.45);  // Premier pay is held nearer the going rate
 // The most he'll lose in a season: more while chasing promotion.
 const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
+/* A new stand or an extension, paid for at the same prices as yours: the owner puts in part, the rest is borrowed.
+   An owner who can't find his share, or a club whose borrowing would pass a year's income, doesn't build. */
+function aiExpand(c, S = ownStyle(c)) {
+  const to = Math.min(aiSite(c), Math.round(c.cap * rf(1.08, 1.25) / 100) * 100), add = to - c.cap; if (add <= 0) return;
+  const cost = Math.round(add * perSeat(to) * 1.1 / 1e4) * 1e4, fan = c.own.style === "fanowned";
+  const share = fan ? .8 : clamp(.5 + Math.max(0, lossTol(c)) * -.2 + (S.debt || 0) * 1.2, .3, .8), inc = (c.aiFin && c.aiFin.inc) || aiIncome(c);
+  if ((!fan && c.own.wealth < cost * (1 - share)) || (c.debt || 0) + cost * share > inc) return;
+  if (!fan) c.own.wealth = Math.round(c.own.wealth - cost * (1 - share));
+  c.debt = Math.round((c.debt || 0) + cost * share); c.cap = to;
+}
 function aiAccounts(c) {
   const o = c.own, fees = c.tnet || 0, inc = aiIncome(c) + Math.max(0, fees), cost0 = aiCosts(c) + Math.max(0, -fees), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
   c.aiFin = { y: G.year, inc: Math.round(inc), cost: Math.round(cost), net: Math.round(net), fees: Math.round(fees) }; c.tnet = 0;
@@ -246,7 +256,7 @@ function ownersSummer() {
     aiMoveCheck(c);
     // A new stand or an extension: when the ground is mostly full, there's room on the site, and the owner has the
     // appetite (around ten clubs a season across the whole pyramid). Training facilities improve more often.
-    if (R() < S.build * .3 && c.cap < aiSite(c) && aiEstimate(c).att >= c.cap * .85 && !c.build && !c.cut && !c.emb) c.cap = Math.min(aiSite(c), Math.round(c.cap * rf(1.08, 1.25) / 100) * 100);
+    if (R() < S.build * .3 && c.cap < aiSite(c) && aiEstimate(c).att >= c.cap * .85 && !c.build && !c.cut && !c.emb) aiExpand(c, S);
     if (R() < S.build) c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0));
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
     if (S.build < .05 && R() < .3) c.train = Math.max(0, c.train - 1);
