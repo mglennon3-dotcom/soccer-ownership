@@ -68,7 +68,7 @@ function amenQuote(c) { const l = c.fac.stadium.amen; return l >= 5 ? null : { l
    work, worn concrete and roofs). Rebuilding a stand resets it. */
 const ageUpF = yrs => clamp(1 + Math.max(0, yrs - 20) * .012, 1, 2);
 const standUpkeepF = S => { const st = Object.entries(standsOf(S)), t = sum(st, ([, x]) => x.cap) || 1; return sum(st, ([k, x]) => x.cap * ageUpF(G.year - standYr(S, k))) / t; };
-const stadiumUpkeep = c => { const S = c.fac.stadium; return S.own ? Math.round((S.cap * 22 + S.amen * S.cap * 8) * standUpkeepF(S) + (S.suites || 0) * 6000) : 0; };
+const stadiumUpkeep = c => { const S = c.fac.stadium; return S.own ? Math.round((S.cap * 22 + S.amen * S.cap * 8) * standUpkeepF(S) + (S.suites || 0) * boxUpkeep(c)) : 0; };
 
 /* Training ground and academy: levels 0-10. Level 0 means hired council pitches / no academy at all. */
 const facCost = (kind, lvl) => Math.round((kind === "acad" ? 100000 : 80000) * Math.pow(1.85, lvl - 1) / 1e4) * 1e4;
@@ -487,7 +487,12 @@ function bestPrice(c, k) {
   for (let i = 0; i <= 240; i++) { const p = Math.max(R[1], Math.round(R[0] * (.25 + (R[2] - .25) * i / 240) / R[1]) * R[1]); const v = val(p); if (v > bv) { bv = v; best = p; } }
   Object.assign(P, keep); return best;
 }
-function suiteQuote(c, n = 4) { const room = suiteMax(c) - (c.fac.stadium.suites || 0); if (room <= 0) return null; n = Math.min(n, room); return { add: n, cost: Math.round(n * (90000 + c.fac.stadium.cap * 3) / 1e4) * 1e4, weeks: 10 + n * 2 }; }
+/* Building a box: real-world money, about six seasons' rent at the going rate plus the structure (a top-division box
+   runs to €1-2M; one at a non-league ground a few tens of thousands). Built with a new ground they cost 15% less.
+   Running one (cleaning, catering staff, heating) costs about a twelfth of its rent, at least €1,000 a season. */
+const boxCost = (c, cap) => Math.round((20000 + suiteRef(c) * 6 + cap * 2) / 1e3) * 1e3;
+const boxUpkeep = c => Math.round(clamp(suiteRef(c) / 12, 1000, 20000));
+function suiteQuote(c, n = 4) { const room = suiteMax(c) - (c.fac.stadium.suites || 0); if (room <= 0) return null; n = Math.min(n, room); return { add: n, cost: Math.round(n * boxCost(c, c.fac.stadium.cap) / 1e4) * 1e4, weeks: 10 + n * 2 }; }
 
 /* ---------- the pitch ----------
    Your own pitch wears with every home game (a hybrid surface about half as fast) and recovers slowly, faster over
@@ -652,7 +657,7 @@ const corpLet = c => Math.min(corpSeats(c), Math.floor(suiteDemand(c) * 15));
 // Quotes.
 function groundQuote(d) {
   const st = Object.values(d.stands), tot = sum(st, x => x.cap || 0);
-  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * 1800 + (d.suites || 0) * (90000 + tot * 3) * .85 + (d.family ? 25000 : 0);
+  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * 1800 + (d.suites || 0) * boxCost(my(), tot) * .85 + (d.family ? 25000 : 0);
   return { cap: tot, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, weeks: groundWeeks(tot) + planWeeks(tot), plan: planWeeks(tot), space: tot + designSpace(d, tot), vent: (d.vent || []).slice() };
 }
 function standQuote(c, side, add) {
