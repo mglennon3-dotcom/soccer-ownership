@@ -38,6 +38,12 @@ function easyGame(c, ctx) {
   const xi = q => avg(q.squad.map(P).filter(p => p && !p.acad && !p.inj).sort((a, b) => b.ovr - a.ovr).slice(0, 11).map(p => p.ovr));
   return xi(ctx.opp) <= xi(c) - 3;
 }
+/* Minutes targets: from his player card you tell the manager how many minutes a player should get this season (for
+   his development). The manager keeps him on pace through the season: a little behind and he comes off the bench
+   first; a game or more behind and he starts. Starts and sub appearances both count. */
+const MIN_TARGETS = [0, 450, 900, 1350, 1800, 2250, 2700, 3150];
+const seasonFrac = () => G.phase === "season" ? clamp(G.week / (SEASON_WEEKS - 2), 0, 1) : G.phase === "playoffs" ? 1 : 0;
+const minBehind = p => p.minT && p.club === G.club ? p.minT * seasonFrac() - ((p.s && p.s.min) || 0) : 0;
 function pickXI(c, noForce, ctx) {
   const slots = FORMS[clubForm(c)], youth = isMine(c) ? mgr().focus === "youth" : false, easy = easyGame(c, ctx);
   const acadMin = TIER_LVL[c.tier] - (easy ? 10 : 6) - (youth ? 2 : 0) - (embargoed(c) ? 4 : 0), acadB = !easy ? 0 : (ctx.kind === "cup" ? 8 : 5) + (youth ? 2 : 0);
@@ -45,7 +51,9 @@ function pickXI(c, noForce, ctx) {
   // their rating) the games: academy lads included.
   const yc = isMine(c) && ctx && !ctx.noYc && ((G.youthCups && ctx.lesser) || (G.ytie && ctx.opp && G.ytie.opp === ctx.opp.id && G.ytie.w === G.week && G.ytie.y === G.year));
   const cov = isMine(c) && !(ctx && ctx.coverOff) ? G.cover || {} : {}, covId = new Set(Object.values(cov).filter(v => v.ans === "acad").flatMap(v => v.pids || [v.pid]));  // injury cover: your academy pick
-  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || (p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id))) || (isMine(c) && acadDepth(p, c))) && (!isMine(c) || isReg(p, c)));
+  const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || (p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id) || (isMine(c) && p.minT))) || (isMine(c) && acadDepth(p, c))) && (!isMine(c) || isReg(p, c)));
+  // Your minutes target: a game or more behind pace and he starts (in his own position, or the same area of the team).
+  const minB = isMine(c) && !noForce ? (p, s) => { const b = minBehind(p); return b < 90 ? 0 : (s === "GK") !== (p.pos === "GK") ? 0 : (p.pos === s ? 1 : POS_LINE[p.pos] === POS_LINE[s] ? .8 : 0) * Math.min(260, 120 + b / 90 * 30); } : () => 0;
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
      one point on the 100 scale, about a tenth of a shown point at the top). */
   // A youth-minded manager reads his side on the shown 20-point ratings: a youngster (21 or under) in his own position
@@ -75,8 +83,8 @@ function pickXI(c, noForce, ctx) {
   // youth rotation or other pick: in his own position, or failing that in the same area of the team.
   const cupB = isMine(c) && !noForce && (MATCH_CT === "C" || MATCH_CT === "E") ? (p, s) => (MATCH_CT === "C" ? p.cupStart : p.euroStart) ? (p.pos === s ? 5000 : (s === "GK") === (p.pos === "GK") && POS_LINE[p.pos] === POS_LINE[s] ? 4000 : 0) : 0 : () => 0;
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + cupB(p, s) * 10 + depthB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 2600 : 0) + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + cupB(p, s) + depthB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 1300 : 0) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + cupB(p, s) * 10 + depthB(p, s) * 10 + minB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 2600 : 0) + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + cupB(p, s) + depthB(p, s) + minB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 1300 : 0) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
@@ -164,13 +172,14 @@ function playMatch(h, a, neutral, fr, kind) {
      Your own side in competitive games goes by your depth chart instead: the first-choice cover comes on. */
   const subsFor = (c, xi) => {
     const n = fr ? 5 : xi.length >= 11 ? 3 : 0; if (!n) return { off: new Set(), on: [] };
-    const used = new Set(xi.map(o => o.p.id)), bench = c.squad.map(P).filter(p => avail(p) && !used.has(p.id) && p.pos !== "GK" && (!p.acad || p.age >= 17) && (!isMine(c) || isReg(p, c)) && !(p.loan && p.loan.from === c.id));
+    const used = new Set(xi.map(o => o.p.id)), bench = c.squad.map(P).filter(p => avail(p) && !used.has(p.id) && p.pos !== "GK" && (!p.acad || p.age >= 17 || (isMine(c) && p.minT && p.age >= 16)) && (!isMine(c) || isReg(p, c)) && !(p.loan && p.loan.from === c.id));
     const off = new Set(), on = [];
     for (const o of xi.filter(o => o.slot !== "GK").sort((a, b) => (a.p.fit ?? 100) - (b.p.fit ?? 100))) {
       if (on.length >= n) break;
       // Your side in a competitive game follows the depth chart: the first-choice cover for that position comes on.
       const dep = isMine(c) && !fr ? (depthSync(c, o.slot) || bench.slice().sort((a, b) => roleRating(b, o.slot) - roleRating(a, o.slot)).map(q => q.id)) : null;
-      const pick = (dep && bench.filter(q => !on.includes(q) && (o.slot === "GK") === (q.pos === "GK")).sort((a, b) => (dep.indexOf(a.id) + 1 || 999) - (dep.indexOf(b.id) + 1 || 999))[0])
+      const behind = isMine(c) && !fr ? bench.filter(q => !on.includes(q) && minBehind(q) > 0 && (o.slot === "GK") === (q.pos === "GK") && POS_LINE[q.pos] === POS_LINE[o.slot]).sort((a, b) => minBehind(b) - minBehind(a))[0] : null;
+      const pick = behind || (dep && bench.filter(q => !on.includes(q) && (o.slot === "GK") === (q.pos === "GK")).sort((a, b) => (dep.indexOf(a.id) + 1 || 999) - (dep.indexOf(b.id) + 1 || 999))[0])
         || bench.filter(q => !on.includes(q) && POS_LINE[q.pos] === POS_LINE[o.slot]).sort((a, b) => (b.ovr - b.s.app * .5) - (a.ovr - a.s.app * .5))[0]
         || bench.filter(q => !on.includes(q)).sort((a, b) => (b.ovr - b.s.app * .5) - (a.ovr - a.s.app * .5))[0];
       if (!pick) break; off.add(o.p.id); on.push(pick);
@@ -179,8 +188,9 @@ function playMatch(h, a, neutral, fr, kind) {
   };
   for (const [c, xi] of [[H, xh], [A, xa]]) {
     const { off, on: subs } = subsFor(c, xi);
-    for (const { p } of xi) { tire(p, off.has(p.id) ? .7 : 1, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); injuryCheck(p, pq); }
-    for (const p of subs) { tire(p, .35, fr); if (fr) continue; if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.sub = (p.s.sub || 0) + 1; if (p.club >= 0) { const b = scOf(p).by[p.club]; b[3] = (b[3] || 0) + 1; } if (R() < .4) injuryCheck(p, pq); }
+    const offAt = [...off].map(() => ri(55, 80)).sort((a, b) => a - b), offMin = new Map([...off].map((id, i) => [id, offAt[i]]));
+    for (const { p } of xi) { tire(p, off.has(p.id) ? .7 : 1, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.min = (p.s.min || 0) + (offMin.get(p.id) || 90); injuryCheck(p, pq); }
+    for (const [i, p] of subs.entries()) { tire(p, .35, fr); if (fr) continue; p.s.min = (p.s.min || 0) + 90 - (offAt[i] || 70); if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.sub = (p.s.sub || 0) + 1; if (p.club >= 0) { const b = scOf(p).by[p.club]; b[3] = (b[3] || 0) + 1; } if (R() < .4) injuryCheck(p, pq); }
   }
   if (!fr && !kind) for (const [xi, conceded] of [[xh, ag], [xa, hg]]) { const gk = xi.find(o => o.slot === "GK"); if (gk && !conceded) lsOf(gk.p).cs++; }  // a league clean sheet for the keeper
   ev.sort((x, y) => x.m - y.m);

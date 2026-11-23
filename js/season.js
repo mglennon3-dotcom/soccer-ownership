@@ -28,7 +28,11 @@ function startSeason() {
   for (const id of G.foreign || []) CL(id).gp = 0;
   startCups(); startContinental();
   if (typeof aiListings === "function" && G.club != null) aiListings();
-  for (const p of Object.values(G.players)) p.s = { app: 0, g: 0, a: 0 };
+  // Last season's minutes targets: how they went (the manager's report), then they're cleared.
+  if (G.club != null) { const T = Object.values(G.players).filter(p => p.minT && p.club === G.club);
+    if (T.length) news(`Minutes targets last season: ${T.map(p => `${p.name} ${((p.s && p.s.min) || 0).toLocaleString("en-GB")} of ${p.minT.toLocaleString("en-GB")}${((p.s && p.s.min) || 0) >= p.minT ? " ✓" : ""}`).join(", ")}. Set new ones on their player cards.`, true);
+    for (const p of Object.values(G.players)) delete p.minT; }
+  for (const p of Object.values(G.players)) p.s = { app: 0, g: 0, a: 0, min: 0 };
   const c = my(); c.att = []; c.hgs = null; c.morale = 55;
 }
 function tally(L, r) {

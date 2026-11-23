@@ -124,6 +124,8 @@ function upgradeSave() {
       if (lv0 && favLevel(p, G.club) < lv0) { fixed.push(p.name); if (G.achs && favLevel(p, G.club) < 2) delete G.achs[`legend.${p.id}`]; } }
     if (fixed.length) news(`Records corrected: ${fixed.join(", ")} ${fixed.length > 1 ? "were" : "was"} wrongly counted a fan favourite or legend here for seasons spent on loan elsewhere.`); }
   // A "club legend" card for someone who isn't one (any more): the loan-season repair took it away, so the card goes too.
+  // Minutes (tracked from 1.0.10): an estimate for the season so far from starts and sub appearances.
+  for (const p of Object.values(G.players)) if (p.s && p.s.min == null) p.s.min = Math.max(0, (p.s.app - (p.s.sub || 0)) * 84 + (p.s.sub || 0) * 22);
   // A pay-rise request from a player whose pay was settled this season (e.g. his first professional contract) shouldn't exist: withdraw it.
   if (G.club != null) G.inbox = G.inbox.filter(m => !(m.key === "raise" && !m.done && m.data && G.players[m.data.pid] && lastDealY(G.players[m.data.pid]) >= G.year));
   if (G.club != null) G.inbox = G.inbox.filter(m => !(m.type === "ach" && / is a club legend$/.test(m.title || "") && (() => { const p = m.who && m.who.pid != null ? G.players[m.who.pid] : Object.values(G.players).find(q => (m.title || "").includes(q.name + " is a club legend")); return p && favLevel(p, G.club) < 2; })()));
@@ -542,6 +544,7 @@ const CHANGE = {
     if (await ask(`Loan ${p.name} to ${x.name} (${TIER_NAME[x.tier]}) until the end of the season?`, "Loan him")) { if (p.loanList) loanListToggle(p); loanOut(p, x); } render(); saveGame(); },
   fweek: el => { SUB.fw = +el.value; },
   oname: el => { const v = el.value.trim(); if (v) { G.owner.name = v; saveGame(); render(); } },
+  mintgt: el => { const p = P(+el.dataset.id), n = +el.value; if (n) p.minT = n; else delete p.minT; toast(n ? `${p.name}: the manager will aim to give him ${n.toLocaleString("en-GB")} minutes this season.` : `${p.name}: no minutes target.`); playerModal(p.id); saveGame(); },
   hirev: el => { const S = my().fac.stadium; if (S.concerts && !S.hire) { S.hire = { concert: S.concerts }; delete S.concerts; } (S.hire ||= {})[el.dataset.k] = +el.value; render(); },
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
