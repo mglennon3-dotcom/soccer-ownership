@@ -289,11 +289,9 @@ function answerBid(m, accept, auto) {
     else { p.blocked = (p.blocked || 0) + 1; p.unsettled = 8 + p.blocked * 4; news(`${p.name} wanted the move to ${buyer.name} and is unsettled${p.blocked >= 2 ? ". He's been blocked before and it shows" : ""}.`, p.blocked >= 2); }
   }
   if (!auto && !deal && (accept ? "accept" : "reject") !== m.rec) {
-    // Answering a bid is your call: he only minds much when it's a big one (selling a first-choice player he wanted to
-    // keep, or turning down well over the odds). Small disagreements barely register.
-    const big = accept ? pickXI(my()).some(o => o.p === p) : m.amt >= valueOf(p) * 1.5;
-    G.meddle = (G.meddle || 0) + (big ? .3 : .1);
-    meddled("recruit", big ? -3 : -1, big ? (accept ? `would rather have kept ${p.name}.` : `thinks ${money(m.amt)} for ${p.name} was worth taking.`) : null, "Your calls on offers for players");
+    // Answering a bid is the owner's call: your head of recruitment brings players in, selling isn't her department.
+    // Only the manager minds, and only when you sell one of his first-choice players.
+    if (accept && pickXI(my()).some(o => o.p === p)) meddled("manager", -3, `would rather have kept ${p.name}.`, "Selling first-choice players");
   }
   if (accept && m.pre) {
     // Agreed out of the window: he joins them when the next one opens.

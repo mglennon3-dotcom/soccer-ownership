@@ -127,9 +127,10 @@ function upgradeSave() {
   // 1.0.21: transfer-listing no longer costs your head of recruitment's trust: give back what it cost this season and
   // last, and take it off the reasons on the Staff page.
   if (G.club != null && !G.tlrec1) { G.tlrec1 = true; const s = staffOf("recruit");
-    if (s && s.tlog) { const back = -s.tlog.filter(x => x.k === "Transfer-listing players yourself" && x.y >= G.year - 1).reduce((t, x) => t + x.d, 0);
-      s.tlog = s.tlog.filter(x => x.k !== "Transfer-listing players yourself");
-      if (back > 0) { const t0 = s.trust; s.trust = clamp(s.trust + back, 0, 100); news(`${s.name} no longer minds you choosing who goes on the transfer list: ${pr(s, "his")} trust in you is back up from ${Math.round(t0)} to ${Math.round(s.trust)}.`, true); } } }
+    const SELL = ["Transfer-listing players yourself", "Your calls on offers for players", "Taking a star off the market"];
+    if (s && s.tlog) { const back = -s.tlog.filter(x => SELL.includes(x.k) && x.y >= G.year - 1).reduce((t, x) => t + x.d, 0);
+      s.tlog = s.tlog.filter(x => !SELL.includes(x.k));
+      if (back > 0) { const t0 = s.trust; s.trust = clamp(s.trust + back, 0, 100); news(`${s.name} no longer minds your decisions on selling players (it isn't ${pr(s, "his")} department): ${pr(s, "his")} trust in you is back up from ${Math.round(t0)} to ${Math.round(s.trust)}.`, true); } } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
