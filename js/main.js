@@ -145,6 +145,29 @@ function upgradeSave() {
       G.tlog = T.filter(m => m !== inn); G.newSign = (G.newSign || []).filter(x => x.pid !== p.id); syncReg(c);
       news(`${p.name}'s return is undone: he stays at ${to.name}, and the ${money(fee)} fee is back in the club's account.`, true);
     } }
+  /* 1.0.25, one-off: your European tie that went out on a coin flip (before shootouts were played out) gets a real
+     shootout. Win it and you take your opponent's place: if the next round has been played, it's replayed now with you
+     in it, and the winner goes on to the final (if that hasn't been played yet). */
+  if (G.club != null && !G.pens1) { G.pens1 = true;
+    for (const K of Object.values(G.cont || {})) for (let qi = 0; qi < (K.ko || []).length; qi++) {
+      const RD = K.ko[qi], t = RD.ties.find(x => (x.h === G.club || x.a === G.club) && x.pens === true && x.w != null && x.w !== G.club); if (!t || RD.n === "Final") continue;
+      const D = CONT[K.key], opp = t.w, s = shootout(t.h, t.a); t.pens = s.ps;
+      if (s.w !== G.club) { news(`The ${D.name} ${RD.n.toLowerCase()} shootout against ${CL(opp).name}, replayed: you lose it ${penStr(t, G.club)}. ${CL(opp).name} stay through.`, true); continue; }
+      t.w = G.club; earn("prize", D.rounds[Math.min(qi + 1, D.rounds.length - 1)]); moodHit(my(), 4);
+      news(`The ${D.name} ${RD.n.toLowerCase()} shootout against ${CL(opp).name}, replayed: you win it ${penStr(t, G.club)}! ${my().name} go through in their place.`, true);
+      const nx = K.ko[qi + 1]; if (!nx) { K.round = Math.max(K.round, qi); break; }
+      const t2 = nx.ties.find(x => x.h === opp || x.a === opp); if (!t2) break;
+      if (t2.h === opp) t2.h = G.club; else t2.a = G.club;
+      if (nx.n === "Final") { if (t2.w != null) news(`(The final has already been played, so it stands.)`, true); break; }
+      if (t2.w == null && !t2.g1) { news(`${CL(t2.h === G.club ? t2.a : t2.h).name} are your ${nx.n.toLowerCase()} opponents.`, true); break; }
+      // The next round was already played with them in it: replay it now with you.
+      const was = t2.w; delete t2.g1; delete t2.g2; delete t2.pens; delete t2.et; t2.w = null;
+      const r1 = contMatch(t2.h, t2.a, false, K.key, `${D.short} ${nx.n.toLowerCase()}, first leg`); t2.g1 = [r1.hg, r1.ag];
+      secondLeg(K, D, nx, t2, qi + 1);
+      const fin = K.ko[qi + 2]; if (fin && fin.n === "Final" && was != null && t2.w !== was) { const tf = fin.ties[0]; if (tf && tf.w == null) { if (tf.h === was) tf.h = t2.w; else if (tf.a === was) tf.a = t2.w; }
+        else if (tf) news(`(The final has already been played, so it stands.)`, true); }
+      break;
+    } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];

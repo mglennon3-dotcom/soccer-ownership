@@ -253,15 +253,27 @@ function contWeek(w) {
     }
     for (const t of RD.ties) {
       if (leg === 0) { const r = contMatch(t.h, t.a, false, K.key, `${D.short} ${RD.n.toLowerCase()}, first leg`); t.g1 = [r.hg, r.ag]; continue; }
-      const r = contMatch(t.a, t.h, false, K.key, `${D.short} ${RD.n.toLowerCase()}, second leg`); t.g2 = [r.ag, r.hg];  // stored from the first leg's home side's view
-      const hs = t.g1[0] + t.g2[0], as = t.g1[1] + t.g2[1];
-      if (hs === as) { const s = shootout(t.h, t.a); t.pens = s.ps; t.w = s.w; } else t.w = hs > as ? t.h : t.a;
-      const out = t.w === t.h ? t.a : t.h;
-      if (t.w === G.club) { earn("prize", D.rounds[Math.min(K.round + 1, D.rounds.length - 1)]); moodHit(my(), 4); news(`${my().name} are through to the ${D.name} ${CONT_KO[K.round + 1].n.toLowerCase()} (${hs}–${as} on aggregate${t.pens ? `, won ${penStr(t, G.club)} on penalties` : ""}).`, true); }
-      if (out === G.club) news(`${my().name} are out of the ${D.name} (${hs}–${as} on aggregate${t.pens ? `, lost ${penStr(t, G.club)} on penalties` : ""}).`, true);
+      secondLeg(K, D, RD, t, K.round);
     }
     if (leg === 1) contDrawKO(K, K.round + 1);
   }
+}
+/* The second leg of a knockout tie: if the sides are level on aggregate after 90 minutes, thirty minutes of extra time
+   (tired legs: about a third of a game's chances, a little fewer), then penalties. */
+function secondLeg(K, D, RD, t, round) {
+  const r = contMatch(t.a, t.h, false, K.key, `${D.short} ${RD.n.toLowerCase()}, second leg`); t.g2 = [r.ag, r.hg];  // stored from the first leg's home side's view
+  let hs = t.g1[0] + t.g2[0], as = t.g1[1] + t.g2[1];
+  if (hs === as) {
+    const eA = poisson(clamp((r.xg ? r.xg[0] : 1.3) * .3, .05, 2)), eH = poisson(clamp((r.xg ? r.xg[1] : 1.1) * .3, .05, 2));  // r is from the second leg's home side (t.a)
+    t.et = [eH, eA]; t.g2 = [t.g2[0] + eH, t.g2[1] + eA]; hs += eH; as += eA;
+    if (t.h === G.club || t.a === G.club) { const m = G.myRes[G.myRes.length - 1]; if (m && m.label && m.label.includes("second leg")) { const meH = t.h === G.club;
+      m.gf += meH ? eH : eA; m.ga += meH ? eA : eH; m.aet = true; m.res = m.gf > m.ga ? "W" : m.gf < m.ga ? "L" : "D"; } }
+  }
+  if (hs === as) { const s = shootout(t.h, t.a); t.pens = s.ps; t.w = s.w; } else t.w = hs > as ? t.h : t.a;
+  const out = t.w === t.h ? t.a : t.h, how = `${t.et ? ", after extra time" : ""}`;
+  if (t.a === G.club) [hs, as] = [as, hs];  // the news reads from your side
+  if (t.w === G.club) { earn("prize", D.rounds[Math.min(round + 1, D.rounds.length - 1)]); moodHit(my(), 4); news(`${my().name} are through to the ${D.name} ${CONT_KO[round + 1].n.toLowerCase()} (${hs}–${as} on aggregate${how}${t.pens ? `, won ${penStr(t, G.club)} on penalties` : ""}).`, true); }
+  if (out === G.club) news(`${my().name} are out of the ${D.name} (${hs}–${as} on aggregate${how}${t.pens ? `, lost ${penStr(t, G.club)} on penalties` : ""}).`, true);
 }
 // The knockout draw: group winners against runners-up from other groups, winners at home in the second leg.
 function contDrawKO(K, round) {
