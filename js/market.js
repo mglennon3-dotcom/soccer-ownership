@@ -105,6 +105,9 @@ function scoutScore(p, need, c, phil) {
   }
   return eo;
 }
+// A player who left your club (sold, released or let go) this season or last: your head of recruitment won't bring
+// him back on her own. (You can still suggest him or buy him yourself.)
+const leftUs = p => (G.tlog || []).some(m => m.id === p.id && ["out", "release", "expired"].includes(m.kind) && m.y >= G.year - 1);
 function shortlist(c, need, max = 6) {
   const s = staffOf("recruit"), left = c.budget.transfer - c.spentT - pendFees(), wageRoom = c.budget.wages - wageBill(c) - pendWages();
   const reach = s ? s.at.net : 0, phil = s ? s.phil : "proven";
@@ -112,7 +115,7 @@ function shortlist(c, need, max = 6) {
   const seeTier = c.tier - 1 - Math.floor((reach + scoutBoost() * 3) / 35);
   const pool = [];
   for (const q of Object.values(G.players)) {
-    if (q.pos !== need.pos || q.club === c.id || q.acad || q.club === -2 || q.loan) continue;
+    if (q.pos !== need.pos || q.club === c.id || q.acad || q.club === -2 || q.loan || leftUs(q)) continue;
     if (q.club >= 0 && (CL(q.club).tier < seeTier)) continue;
     pool.push(q);
   }
