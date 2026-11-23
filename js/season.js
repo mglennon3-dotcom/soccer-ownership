@@ -309,6 +309,11 @@ function autoYears(p, T, core) {
   const base = p.age <= 23 ? 4 : p.age <= 28 ? 3 : p.age <= 30 ? 2 : 1;
   return clamp(base + (core ? 1 : 0) + (p.keep ? 1 : 0) - (R() < .3 ? 1 : 0), 1, (T && T.maxY) || 3);
 }
+// AI clubs: the same rules, with "core" meaning he's among the club's best 18 seniors.
+function aiYears(p, c) {
+  const sen = c ? c.squad.map(P).filter(q => q && !q.acad && q.id !== p.id).map(q => q.ovr).sort((a, b) => b - a) : [];
+  return autoYears(p, { maxY: p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5 }, p.ovr >= (sen[17] ?? 0));
+}
 /* Each summer: everyone a year older, retirements, contracts, youth intakes, squads rebuilt. */
 function yearTurnover() {
   loveSeason();
@@ -351,7 +356,7 @@ function yearTurnover() {
     if (p.acad && p.age === 18 && p.club === G.club) (G.turn18 ||= []).push(p.id);  // your academy players turning 18: you're asked (see turn18Ask)
     // AI wages drift toward what the club pays for the player's rating: about a third of the gap a year, down as he declines, up as he improves.
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan && p.stunC !== p.club) { /* a statement signing keeps his huge wage while he stays */ const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .35) / 100) * 100; }
-    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { const stays = p.age < 34 && renewsAI(p) && !(p.toMe && p.toMe.pre); p.yrs--; if (p.yrs <= 0) { if (stays) p.yrs = ri(1, 3); else { leaveClub(p); toFreeAgent(p); } } }
+    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { const stays = p.age < 34 && renewsAI(p) && !(p.toMe && p.toMe.pre); p.yrs--; if (p.yrs <= 0) { if (stays) p.yrs = aiYears(p, CL(p.club)); else { leaveClub(p); toFreeAgent(p); } } }
     // Veterans nobody signs hang up their boots sooner.
     const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;
     if (R() < ch) { if (p.club === G.club) news(`${p.name} retires, aged ${p.age}.`); retire(p); }
@@ -368,7 +373,7 @@ function yearTurnover() {
     if (c.gone) continue;
     for (const id of c.squad.slice()) { const p = P(id); if (!p.acad || p.age < 19) continue;
       if (isMine(c)) { if (p.keep || p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4) { p.acad = false; p.yrs = 2; const was = p.wage; p.wage = Math.max(p.wage, demandWage(p, c)); logPay(p, was, "first professional contract"); news(`Academy graduate ${p.name} (${p.pos}, ${r20(p.ovr)}) signs a professional contract.`, true); } else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released by the academy.`); } }
-      else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = ri(2, 3); p.wage = aiWage(p, c); } else { leaveClub(p); toFreeAgent(p); } }
+      else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = aiYears(p, c); p.wage = aiWage(p, c); } else { leaveClub(p); toFreeAgent(p); } }
     youthIntake(c);
   }
   // The free-agent pool is kept to a sensible size: the least employable drift out of the game.
@@ -377,12 +382,12 @@ function yearTurnover() {
   // Talent moves up: players far better than their club are bought by a club at their level.
   for (const p of Object.values(G.players)) {
     if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
-    if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { aiTransfer(p, buyer); p.wage = aiWage(p, buyer); p.yrs = ri(2, 4); } }
+    if (p.ovr > c.lvl + 7 && R() < .5) { const buyer = buyerFor(p, c.tier); if (buyer) { aiTransfer(p, buyer); p.wage = aiWage(p, buyer); p.yrs = aiYears(p, buyer); } }
   }
   // Good free agents don't stay unemployed: a club at their level takes them on.
   { const fresh = G.fa.map(P).filter(p => faFresh(p) && p.age < 32 && p.ovr >= TIER_LVL[Math.min(6, my().tier + 1)]).sort((a, b) => b.ovr - a.ovr);
     if (fresh.length) news(`Out of contract and looking for clubs: ${fresh.length} player${fresh.length > 1 ? "s" : ""} under 32 who could play at your level or near it${fresh.length ? `, among them ${fresh.slice(0, 4).map(p => `${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)})`).join(", ")}` : ""}. Clubs move in after three weeks: see Market → Free agents.`, true); }
-  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
+  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && p.ovr >= 55 && p.age <= 33)) { const b = buyerFor(p, 8); if (b) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
   for (const c of G.clubs) if (!c.gone && !isMine(c)) aiSquadCheck(c, false);
   freshFreeAgents();
   foreignSummer(); aiListings();
@@ -616,7 +621,7 @@ function aiSign(c, pos) {
   if (!p) { const ovr = clamp(target, 20, 93), age = ri(21, 30); p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); moveTo(p, c);
     const fee = c.tier <= 4 ? Math.round(valueOf(p) * FEE_TIER[c.tier] * .6 / 1e4) * 1e4 : 0; if (fee && canAfford(c, fee)) payFee(c, null, fee); }
   else aiTransfer(p, c);
-  p.wage = aiWage(p, c); p.yrs = ri(1, 4);
+  p.wage = aiWage(p, c); p.yrs = aiYears(p, c);
 }
 
 /* ---------- inbox ---------- */

@@ -219,7 +219,7 @@ function aiAccounts(c) {
   if (net < 0 && !c.splash && -net > inc * Math.max(0, spendTarget(c)) + Math.max(0, lossCap(c)) + inc * .1) {
     c.cut = 2;
     const p = c.squad.map(P).filter(p => !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0], b = p && buyerFor(p, 8);
-    if (b && b !== c) { aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = ri(2, 4); }
+    if (b && b !== c) { aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); }
     if (c.lg === my().lg) news(`${o.name} order cuts at ${c.name} after losing ${money(-net)} last season${b && b !== c ? `: ${p.name} is sold to ${b.name}` : ""}.`);
   } else if (c.cut) c.cut--;
 }
@@ -258,7 +258,7 @@ function ownersSummer() {
     // Building: ground, training ground, academy.
     if (c.build && c.build.left == null && G.year >= c.build.open) aiMoveIn(c);
     // An academy player good enough for the first team gets a professional contract.
-    if (!c.abroad) for (const id of c.squad) { const p = G.players[id]; if (p && p.acad && p.age >= 16 && p.ovr >= TIER_LVL[c.tier] - 4) { p.acad = false; p.wage = aiWage(p, c); p.yrs = ri(2, 4); } }  // builds started before weekly timing
+    if (!c.abroad) for (const id of c.squad) { const p = G.players[id]; if (p && p.acad && p.age >= 16 && p.ovr >= TIER_LVL[c.tier] - 4) { p.acad = false; p.wage = aiWage(p, c); p.yrs = aiYears(p, c); } }  // builds started before weekly timing
     aiMoveCheck(c);
     // A new stand or an extension: when the ground is mostly full, there's room on the site, and the owner has the
     // appetite (around ten clubs a season across the whole pyramid). Training facilities improve more often.
@@ -408,7 +408,7 @@ function diversitySummer() {
       if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
       const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p)))));
       if (!to) continue;
-      aiTransfer(p, to); p.wage = aiWage(p, to); p.yrs = ri(2, 4);
+      aiTransfer(p, to); p.wage = aiWage(p, to); p.yrs = aiYears(p, to);
       if (c.lg === my().lg || to.lg === my().lg || p.ovr >= 85) news(`${p.name} leaves champions ${c.name} for ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""}, looking for a new challenge.`);
     }
   }
@@ -426,7 +426,7 @@ function diversitySummer() {
     { const home = pool.filter(p => !CL(p.club).abroad), away = pool.filter(p => CL(p.club).abroad); if (home.length && away.length) pool = R() < .6 ? home : away; }
     const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(500e3 * 52, Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages top out at €500k a week */, why = affinity(p, c);
     if (!c.cook && aiBill(c) + wage > salaryCap(c.tier) && !startCooking(c, true)) continue;  // past the cap only by cooking the books
-    aiTransfer(p, c); p.wage = wage; p.yrs = ri(2, 4); p.stunY = G.year; p.stunC = c.id; c.splash = true; if (from.abroad) { if (!foreignSign(from, p.pos)) foreignSquad(from); } else aiSquadCheck(from, true);  // the seller replaces him with whoever it can afford at its own level: bought (with the fee in hand) or free  // the fee comes out of the budget, however far below zero
+    aiTransfer(p, c); p.wage = wage; p.yrs = aiYears(p, c); p.stunY = G.year; p.stunC = c.id; c.splash = true; if (from.abroad) { if (!foreignSign(from, p.pos)) foreignSquad(from); } else aiSquadCheck(from, true);  // the seller replaces him with whoever it can afford at its own level: bought (with the fee in hand) or free  // the fee comes out of the budget, however far below zero
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) ${from.abroad ? `joins from ${from.name} (${COUNTRY[from.country].name})` : `drops down from ${from.name}`} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
   // Going home.
@@ -437,7 +437,7 @@ function diversitySummer() {
       const home = G.clubs.filter(x => x.abroad && x.country === p.nat && Math.abs(x.lvl - p.ovr) < 12);
       if (isMine(c)) { if (home.length && !G.inbox.some(m => m.key === "homeGo" && !m.done)) addChoice("homeGo", `${p.name} wants to go home`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He misses ${NAT_NAME[p.nat] || "home"} and ${pick(home).name} want him. They'd pay about ${money(valueOf(p) * .8)}.`, ["Let him go", "Persuade him to stay"], { pid: p.id, to: pick(home).id }, 0); continue; }
       if (!home.length) continue;
-      const to = pick(home); moveTo(p, to); p.wage = aiWage(p, to); p.yrs = ri(1, 3);
+      const to = pick(home); moveTo(p, to); p.wage = aiWage(p, to); p.yrs = aiYears(p, to);
       if (c.lg === my().lg && p.ovr >= TIER_LVL[c.tier]) news(`${p.name} leaves ${c.name} to go home to ${to.name} in ${COUNTRY[to.country].name}.`);
     }
   }
@@ -475,7 +475,7 @@ function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
     const b = fits.length ? pick(fits) : null;
     if (!b) { leaveClub(p); toFreeAgent(p); sold.push(p.name + " (released: nobody would pay for him)"); continue; }
     const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4));
-    aiTransfer(p, b, fee); p.wage = aiWage(p, b); p.yrs = ri(2, 4); sold.push(`${p.name} to ${b.name}${b.abroad ? ` (${COUNTRY[b.country].name})` : ""}${fee ? ` for ${money(fee)}` : " for nothing"}`); }
+    aiTransfer(p, b, fee); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); sold.push(`${p.name} to ${b.name}${b.abroad ? ` (${COUNTRY[b.country].name})` : ""}${fee ? ` for ${money(fee)}` : " for nothing"}`); }
   if (sold.length && (c.lg === my().lg || c.tier === 1)) news(`${c.name} sell to stay within the spending rule: ${sold.join(", ")}.`); }
 const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBudget(c) * 1.2;
 // Owners who play by their own rules: reckless styles, and any owner who has made a statement signing. They ignore the

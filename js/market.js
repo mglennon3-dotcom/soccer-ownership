@@ -679,7 +679,7 @@ function marketWeek() {
   if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
   headWeek(c); bidsWeek(c); loanOffersWeek(c);
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
-  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
+  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
   const last = (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
