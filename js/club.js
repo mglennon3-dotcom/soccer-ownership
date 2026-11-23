@@ -494,6 +494,33 @@ const boxCost = (c, cap) => Math.round((20000 + suiteRef(c) * 6 + cap * 2) / 1e3
 const boxUpkeep = c => Math.round(clamp(suiteRef(c) / 12, 1000, 20000));
 function suiteQuote(c, n = 4) { const room = suiteMax(c) - (c.fac.stadium.suites || 0); if (room <= 0) return null; n = Math.min(n, room); return { add: n, cost: Math.round(n * boxCost(c, c.fac.stadium.cap) / 1e4) * 1e4, weeks: 10 + n * 2 }; }
 
+/* ---------- pitch size ----------
+   Within the laws a ground can mark out a tight pitch or an expansive one. Both teams play on it, but some styles love
+   it and some hate it: on a tight pitch long balls and second balls (direct), a compact block (defensive) and pressing
+   thrive, while passing and wing play are cramped; an expansive pitch is the reverse, and a pressing side runs itself
+   ragged on it. Your players train on it, so a non-standard pitch gives you a small extra edge at home. The top two
+   divisions insist on the standard size; the size can only be changed in the summer, when the pitch is marked out
+   again, and an expansive pitch needs a little room on the site (the stands sit further back). */
+const PSIZE = {
+  tight: { l: "Tight", dim: "100 × 64 m", d: "Suits direct, defensive and pressing sides; cramps possession and wing play.",
+    m: { direct: .05, defensive: .05, press: .03, possession: -.05, wing: -.06, counter: -.03 }, shut: { direct: .02, defensive: .03 } },
+  std: { l: "Standard", dim: "105 × 68 m", d: "The modern norm: no side is favoured.", m: {}, shut: {} },
+  wide: { l: "Expansive", dim: "110 × 72 m", d: "Suits possession, wing play and counter-attacks; a pressing side tires and a compact block is stretched.",
+    m: { possession: .05, wing: .06, counter: .04, direct: -.03, defensive: -.05, press: -.03 }, shut: {}, room: 600 },
+};
+const PSIZE_STD_TIER = 2;  // the Premier and First Divisions: standard size only
+// The size in force at a ground: yours as set (standard in the top two divisions), everyone else standard.
+const psizeOf = c => isMine(c) && atHome(c) && c.fac.stadium.own && c.tier > PSIZE_STD_TIER ? c.fac.stadium.psize || "std" : "std";
+const psizeCost = c => Math.round(PITCH.grass.cost(c) * .4 / 1000) * 1000;
+const psizeOK = (c, k) => c.fac.stadium.own && c.tier > PSIZE_STD_TIER && G.phase === "summer" && k !== (c.fac.stadium.psize || "std") && (!PSIZE[k].room || siteRoom(c.fac.stadium) >= PSIZE[k].room);
+function setPsize(k) {
+  const c = my(), S = c.fac.stadium, cost = psizeCost(c); spend("build", cost); S.psize = k;
+  news(`The pitch is marked out again: ${PSIZE[k].l.toLowerCase()} (${PSIZE[k].dim}), for ${money(cost)}.`, true);
+  // The manager's view: does it suit the way he plays?
+  const m = staffOf("manager"); if (m) { const f = (PSIZE[k].m[m.phil] || 0); if (f > 0) trust("manager", 4, `likes the ${PSIZE[k].l.toLowerCase()} pitch: it suits his ${STYLES[m.phil].l.toLowerCase()} football.`);
+    else if (f < 0) trust("manager", -5, `isn't happy with the ${PSIZE[k].l.toLowerCase()} pitch: it works against his ${STYLES[m.phil].l.toLowerCase()} football.`); }
+}
+
 /* ---------- the pitch ----------
    Your own pitch wears with every home game (a hybrid surface about half as fast) and recovers slowly, faster over
    the summer. A worn pitch blunts passing football at home (and suits direct sides), causes more injuries and annoys supporters, until you

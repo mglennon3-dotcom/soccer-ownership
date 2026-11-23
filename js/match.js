@@ -160,6 +160,11 @@ function playMatch(h, a, neutral, fr, kind) {
   const pq = isMine(H) && !neutral ? pitchOf(H) : null;
   if (pq != null && pq < 70) { const PK = { possession: -.005, wing: -.004, counter: -.003, press: -.002, defensive: 0, direct: .002 }, k = st => 1 + (PK[st] ?? -.002) * (70 - pq);
     lh *= k(clubStyle(H)); la *= k(clubStyle(A)); }
+  // Pitch size (your ground only): each side's style for or against it; a tight pitch helps a compact side keep the
+  // other out; you know your own pitch.
+  const pz = neutral ? null : PSIZE[psizeOf(H)];
+  if (pz && pz !== PSIZE.std) { const sH = clubStyle(H), sA = clubStyle(A);
+    lh *= (1 + (pz.m[sH] || 0)) * (1 - (pz.shut[sA] || 0)) * 1.02; la *= (1 + (pz.m[sA] || 0)) * (1 - (pz.shut[sH] || 0)); }
   const hg = poisson(clamp(lh, .1, 6)), ag = poisson(clamp(la, .1, 6));
   const ev = [];
   for (const [xi, n, side] of [[xh, hg, 0], [xa, ag, 1]]) for (let i = 0; i < n; i++) {
@@ -189,7 +194,8 @@ function playMatch(h, a, neutral, fr, kind) {
   for (const [c, xi] of [[H, xh], [A, xa]]) {
     const { off, on: subs } = subsFor(c, xi);
     const offAt = [...off].map(() => ri(55, 80)).sort((a, b) => a - b), offMin = new Map([...off].map((id, i) => [id, offAt[i]]));
-    for (const { p } of xi) { tire(p, off.has(p.id) ? .7 : 1, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.min = (p.s.min || 0) + (offMin.get(p.id) || 90); injuryCheck(p, pq); }
+    const ragged = pz === PSIZE.wide && clubStyle(c) === "press" ? 1.25 : 1;
+    for (const { p } of xi) { tire(p, (off.has(p.id) ? .7 : 1) * ragged, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.min = (p.s.min || 0) + (offMin.get(p.id) || 90); injuryCheck(p, pq); }
     for (const [i, p] of subs.entries()) { tire(p, .35, fr); if (fr) continue; p.s.min = (p.s.min || 0) + 90 - (offAt[i] || 70); if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.sub = (p.s.sub || 0) + 1; if (p.club >= 0) { const b = scOf(p).by[p.club]; b[3] = (b[3] || 0) + 1; } if (R() < .4) injuryCheck(p, pq); }
   }
   if (!fr && !kind) for (const [xi, conceded] of [[xh, ag], [xa, hg]]) { const gk = xi.find(o => o.slot === "GK"); if (gk && !conceded) lsOf(gk.p).cs++; }  // a league clean sheet for the keeper
