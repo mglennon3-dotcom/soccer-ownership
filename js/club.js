@@ -68,7 +68,7 @@ function amenQuote(c) { const l = c.fac.stadium.amen; return l >= 5 ? null : { l
    work, worn concrete and roofs). Rebuilding a stand resets it. */
 const ageUpF = yrs => clamp(1 + Math.max(0, yrs - 20) * .012, 1, 2);
 const standUpkeepF = S => { const st = Object.entries(standsOf(S)), t = sum(st, ([, x]) => x.cap) || 1; return sum(st, ([k, x]) => x.cap * ageUpF(G.year - standYr(S, k))) / t; };
-const stadiumUpkeep = c => { const S = c.fac.stadium; return S.own ? Math.round((S.cap * 22 + S.amen * S.cap * 8) * standUpkeepF(S) + (S.suites || 0) * boxUpkeep(c)) : 0; };
+const stadiumUpkeep = c => { const S = c.fac.stadium; return S.own ? Math.round((S.cap * 22 + S.amen * S.cap * 8) * standUpkeepF(S) + (S.suites || 0) * boxUpkeep(c) + corpSeats(c) * corpUpkeep(c)) : 0; };
 
 /* Training ground and academy: levels 0-10. Level 0 means hired council pitches / no academy at all. */
 const facCost = (kind, lvl) => Math.round((kind === "acad" ? 100000 : 80000) * Math.pow(1.85, lvl - 1) / 1e4) * 1e4;
@@ -657,11 +657,16 @@ const corpSeats = c => atHome(c) && c.fac.stadium.own && closedSide(c.fac.stadiu
 const hospShare = c => atHome(c) && c.fac.stadium.own ? Math.min(.5, (corpSeats(c) + (c.fac.stadium.suites || 0) * 12) / Math.max(1, c.fac.stadium.cap)) : 0;
 const corpMax = c => Math.floor(((standsOf(c.fac.stadium).W || {}).cap || 0) * .15);
 const REF_CORP = [0, 9000, 3500, 1800, 1100, 700, 400, 250];  // a corporate seat for the season
+/* Fitting a corporate seat: a padded seat plus its share of the lounge, bar and kitchen behind it, real-world money of
+   about four seasons' rent (some €36,000 a seat in the top division); 15% less built with a new ground. Each costs about
+   a tenth of its rent a season to run (catering staff, hosts). */
+const corpCost = c => Math.round(500 + REF_CORP[c.tier] * 4);
+const corpUpkeep = c => Math.round(REF_CORP[c.tier] / 10);
 const corpLet = c => Math.min(corpSeats(c), Math.floor(suiteDemand(c) * 15));
 // Quotes.
 function groundQuote(d) {
   const st = Object.values(d.stands), tot = sum(st, x => x.cap || 0);
-  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * 1800 + (d.suites || 0) * boxCost(my(), tot) * .85 + (d.family ? 25000 : 0);
+  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * corpCost(my()) * .85 + (d.suites || 0) * boxCost(my(), tot) * .85 + (d.family ? 25000 : 0);
   return { cap: tot, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, weeks: groundWeeks(tot) + planWeeks(tot), plan: planWeeks(tot), space: tot + designSpace(d, tot), vent: (d.vent || []).slice() };
 }
 function standQuote(c, side, add) {
@@ -748,7 +753,7 @@ function regroundQuote(c, d) { const q = groundQuote(d), demo = 100000 + c.fac.s
 const tempHost = c => { const need = Math.min(c.fac.stadium.cap * .6, 30000); const i = HOSTS.findIndex(h => h.cap >= need); return i < 0 ? HOSTS.length - 1 : i; };
 const roofQuote = (c, side) => { const n = standsOf(c.fac.stadium)[side].cap; return { side, cost: Math.round((50000 + n * 260) / 1e4) * 1e4, weeks: Math.round(12 + n / 1500) }; };
 const convertQuote = (c, side) => { const x = standsOf(c.fac.stadium)[side], to = x.type === "terrace" ? "seat" : "terrace"; return { side, to, cost: Math.round((40000 + x.cap * (to === "seat" ? 320 : 120)) / 1e4) * 1e4, weeks: Math.round(8 + x.cap / 2500) }; };
-const corpQuote = (c, n) => ({ add: n, cost: Math.round(n * 1800 / 1000) * 1000, weeks: 6 });
+const corpQuote = (c, n) => ({ add: n, cost: Math.round(n * corpCost(c) / 1000) * 1000, weeks: 6 + Math.round(n / 100) });
 const familyCost = (c, side) => Math.round((25000 + standsOf(c.fac.stadium)[side].cap * 20) / 1000) * 1000;
 function setFamily(c, side) {
   const st = standsOf(c.fac.stadium); for (const k in st) st[k].family = k === side ? !st[k].family : false;
