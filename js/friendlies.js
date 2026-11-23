@@ -102,7 +102,7 @@ function unhappiness(p, c) {
    unsettled and the grievance stays). Left unanswered, your head of recruitment decides on the wage budget. */
 // A player who joined this season (summer or January) doesn't ask for a new deal until next season.
 // The season he signed, joined, or last had his pay settled (a new deal or a rise).
-const lastDealY = p => Math.max(p.dealY || 0, ...(p.payLog || []).filter(x => ["signed", "new deal", "pay rise"].includes(x.why)).map(x => x.y), ...(G.tlog || []).filter(m => m.kind === "in" && m.id === p.id).map(m => m.y));
+const lastDealY = p => Math.max(p.dealY || 0, ...(p.payLog || []).filter(x => ["signed", "new deal", "pay rise", "first professional contract", "contract renewal"].includes(x.why)).map(x => x.y), ...(G.tlog || []).filter(m => m.kind === "in" && m.id === p.id).map(m => m.y));
 // He agreed his wage when he signed or re-signed, so he doesn't ask for more until the season after next: a full
 // season on the deal after the one he joined in. A breakout season can still bring a demand the season after.
 const settledPay = p => G.year - lastDealY(p) >= 2;

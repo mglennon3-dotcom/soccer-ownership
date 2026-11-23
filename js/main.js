@@ -124,6 +124,8 @@ function upgradeSave() {
       if (lv0 && favLevel(p, G.club) < lv0) { fixed.push(p.name); if (G.achs && favLevel(p, G.club) < 2) delete G.achs[`legend.${p.id}`]; } }
     if (fixed.length) news(`Records corrected: ${fixed.join(", ")} ${fixed.length > 1 ? "were" : "was"} wrongly counted a fan favourite or legend here for seasons spent on loan elsewhere.`); }
   // A "club legend" card for someone who isn't one (any more): the loan-season repair took it away, so the card goes too.
+  // A pay-rise request from a player whose pay was settled this season (e.g. his first professional contract) shouldn't exist: withdraw it.
+  if (G.club != null) G.inbox = G.inbox.filter(m => !(m.key === "raise" && !m.done && m.data && G.players[m.data.pid] && lastDealY(G.players[m.data.pid]) >= G.year));
   if (G.club != null) G.inbox = G.inbox.filter(m => !(m.type === "ach" && / is a club legend$/.test(m.title || "") && (() => { const p = m.who && m.who.pid != null ? G.players[m.who.pid] : Object.values(G.players).find(q => (m.title || "").includes(q.name + " is a club legend")); return p && favLevel(p, G.club) < 2; })()));
   if (!G.raise3 && G.club != null) { G.raise3 = true;  // 0.97.0: one-off: a breakout pay demand already in the inbox re-priced off what it'd take to keep him
     for (const m of G.inbox.filter(m => m.key === "raise" && !m.done && m.data && m.data.threat)) { const p = G.players[m.data.pid]; if (!p || p.club !== G.club) continue;
