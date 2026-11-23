@@ -73,7 +73,7 @@ function aiMoveCheck(c) {
   const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * landK(c) - aiSite(c) * 150 * landK(c);
   // Paid partly by the owner, the rest borrowed against the new ground (supporters' trusts borrow most of it), or
   // all of it borrowed.
-  if (!aiFund(c, S, Math.max(0, cost), Infinity)) return;
+  if (!aiFund(c, S, Math.max(0, cost), Infinity, 6)) return;
   // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
   // The same building time as yours (construction weeks for that size, plus a few for a move), counted week by week.
   G.groundY = G.year; G.groundNext = G.year + ri(1, 3);
@@ -178,12 +178,12 @@ function aiExpand(c, S = ownStyle(c)) {
 }
 /* Paying for building work. Usually the owner puts in part and the club borrows the rest, keeping its borrowing under
    `lim` years of income. Some owners borrow the whole lot instead (reckless ones often, a careful one rarely, and
-   more often when they can't find their share), and then the limit is three years' income: the debt can drag the
+   more often when they can't find their share), and then the limit is three years' income (six for a new ground): the debt can drag the
    club down for years and, with a bad run, into administration. Supporters' trusts borrow most of it, never all. */
-function aiFund(c, S, cost, lim) {
+function aiFund(c, S, cost, lim, allLim = 3) {
   const fan = c.own.style === "fanowned", inc = (c.aiFin && c.aiFin.inc) || aiIncome(c), debt = c.debt || 0;
   const share = fan ? .8 : clamp(.5 + Math.max(0, lossTol(c)) * -.2 + (S.debt || 0) * 1.2, .3, .8), can = fan || c.own.wealth >= cost * (1 - share);
-  if (!fan && R() < clamp((S.debt || 0) * 3 + (can ? .05 : .15), 0, .7) && debt + cost <= inc * 3) { c.debt = Math.round(debt + cost); c.allLoan = (c.allLoan || 0) + 1; return true; }
+  if (!fan && R() < clamp((S.debt || 0) * 3 + (can ? .05 : .15), 0, .7) && debt + cost <= inc * allLim) { c.debt = Math.round(debt + cost); c.allLoan = (c.allLoan || 0) + 1; return true; }
   if (!can || debt + cost * share > inc * lim) return false;
   if (!fan) c.own.wealth = Math.round(c.own.wealth - cost * (1 - share));
   c.debt = Math.round(debt + cost * share); return true;

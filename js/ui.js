@@ -664,6 +664,19 @@ function pgComm() {
 }
 
 /* ---------- Facilities ---------- */
+/* How much interest businesses have in hospitality at the new ground (the same demand as now: it follows the
+   division, the club's standing and the supporters' mood, not the size of the ground), what each would earn, and the
+   cost of building it in. */
+function hospInterest(d, c, tot) {
+  const bx = d.suites || 0, cs = d.corp || 0, bMax = Math.floor(tot / 250), cMax = Math.floor((d.stands.W.cap || 0) * .15);
+  const bWant = Math.floor(suiteDemand(c) * priceFactor(suiteRef(c), suiteRef(c), 1.5)), cWant = Math.floor(suiteDemand(c) * 15);
+  const lvl = (want, n) => want <= 0 ? ['<span class="bad">no interest</span>', "bad"] : n > want * 1.1 ? [`<span class="warn">more than businesses want</span>`, "warn"] : n >= want * .8 ? ['<span class="good">about right</span>', "good"] : ['<span class="good">strong: room for more</span>', "good"];
+  const word = w => w >= 40 ? "very strong" : w >= 15 ? "strong" : w >= 5 ? "moderate" : w > 0 ? "weak" : "none";
+  return `<div class="sugg" style="margin-top:8px"><b class="small">Interest from businesses</b>
+    <p class="small"><b>Executive boxes</b> (up to ${bMax} here): interest is ${word(bWant)}, about <b>${bWant}</b> would be taken at the going rate (${money(suiteRef(c))} a season). ${bx ? `Your ${bx}: ${lvl(bWant, bx)[0]}; they'd earn about ${money(Math.min(bx, bWant) * suiteRef(c))} a season and cost ${money(bx * (90000 + tot * 3) * .85)} to build in.` : "None planned."}</p>
+    <p class="small"><b>Corporate seats</b> (up to ${cMax.toLocaleString("en-GB")} in the Main stand): interest is ${word(cWant / 15)}, about <b>${cWant.toLocaleString("en-GB")}</b> would sell at ${money(REF_CORP[c.tier])} a season. ${cs ? `Your ${cs.toLocaleString("en-GB")}: ${lvl(cWant, cs)[0]}; they'd earn about ${money(Math.min(cs, cWant) * REF_CORP[c.tier])} a season and cost ${money(cs * 1800)} to fit.` : "None planned."}</p>
+    <p class="small muted">Interest grows with success, a higher division and happier supporters.</p></div>`;
+}
 /* The stand-by-stand designer for a new ground: capacity, seats or terrace, roof, for each stand; a family stand;
    corporate seats. Each change re-quotes. */
 function standDesigner(d, c) {
@@ -678,8 +691,9 @@ function standDesigner(d, c) {
       <td><input type="checkbox" data-act="sd" data-k="${k}.roof" ${x.roof ? "checked" : ""} aria-label="Roof"></td></tr>`; }).join("")}
     </tbody></table></div>
     <div class="filters" style="margin-top:8px"><label class="f">Family stand<select data-act="sd" data-k="family"><option value="">None</option>${Object.entries(SIDES).map(([k, l]) => `<option value="${k}" ${d.family === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label class="f">Corporate seats (Main stand)<input type="text" inputmode="numeric" class="num-in" data-act="sd" data-k="corp" value="${d.corp || 0}"></label></div>${extras}
-    <p class="small muted" style="margin-top:6px">Terraces cost about half as much a place, are louder (a bigger home advantage, happier supporters) and sell a fifth cheaper; the Premier and First Divisions are all-seater. A roof keeps the crowd coming in bad weather (+20% to build). A family stand grows the support faster and sells more shirts. Corporate seats (up to 15% of the Main stand) are sold to businesses by the season.</p>`;
+      <label class="f">Corporate seats (Main stand)<input type="text" inputmode="numeric" class="num-in" data-act="sd" data-k="corp" value="${d.corp || 0}"></label>
+      <label class="f">Executive boxes<input type="text" inputmode="numeric" class="num-in" data-act="sd" data-k="suites" value="${d.suites || 0}"></label></div>${hospInterest(d, c, tot)}${extras}
+    <p class="small muted" style="margin-top:6px">Terraces cost about half as much a place, are louder (a bigger home advantage, happier supporters) and sell a fifth cheaper; the Premier and First Divisions are all-seater. A roof keeps the crowd coming in bad weather (+20% to build). A family stand grows the support faster and sells more shirts. Corporate seats (up to 15% of the Main stand) and executive boxes (one per 250 places) are sold to businesses by the season; boxes built with the ground cost 15% less than fitting them later.</p>`;
 }
 const closedNote = (d, c) => { const t = sum(Object.values(d.stands), x => x.type === "terrace" ? x.cap || 0 : 0); return t ? ` <span class="small muted">(${t.toLocaleString("en-GB")} on terraces${c.tier <= ALL_SEATER ? ": closed in this division" : ""})</span>` : ""; };
 function progress(b) { const done = b.total - b.left, plan = b.plan || 0;
@@ -745,14 +759,14 @@ function pgFac() {
               ${S.cap - x.cap + r.cap > siteCap(S) ? `<p class="small warn">Too big for the site: at most ${(siteCap(S) - S.cap + x.cap).toLocaleString("en-GB")} places here.</p>` : ""}
               <button class="btn sm" data-act="rebuild" data-k="${k}" ${r.cap < 50 || S.cap - x.cap + r.cap > siteCap(S) ? "disabled" : ""}>Demolish and rebuild</button></details>`; })()}</div>`; }).join("")}
       <div class="row between offer"><span>Corporate seats in the Main stand<br><span class="small muted">${corpSeats(c)} of up to ${corpMax(c)} · ${corpLet(c)} sold at about ${money(REF_CORP[c.tier])} a season each · ${money(corpQuote(c, 1).cost)} a seat to fit</span></span>${corpSeats(c) < corpMax(c) ? `<span class="row" style="flex-wrap:nowrap"><input type="text" inputmode="numeric" class="num-in" id="corp-n" value="${Math.min(20, corpMax(c) - corpSeats(c))}" style="width:5em" aria-label="Corporate seats to add"><button class="btn sm" data-act="corp">Add</button></span>` : ""}</div>`;
-    { const d = (G.stDraft ||= Object.assign(standPlan(S.cap), { vent: Object.keys(S.vent || {}) })), q = regroundQuote(c, d), h = HOSTS[tempHost(c)];
+    { const d = (G.stDraft ||= Object.assign(standPlan(S.cap), { vent: Object.keys(S.vent || {}), suites: S.suites || 0, corp: corpSeats(c) })); if (d.suites == null) { d.suites = S.suites || 0; d.corp = d.corp || corpSeats(c); } const q = regroundQuote(c, d), h = HOSTS[tempHost(c)];
       bd += `<details style="margin-top:12px" ${G.rgOpen ? "open" : ""}><summary><b>Demolish and rebuild the whole ground</b></summary><p class="small muted" style="margin:6px 0">Start again on the same site, stand by stand. Home games move to ${esc(h.name)} (${h.cap.toLocaleString("en-GB")}, ${money(h.rent)} a game) until it reopens; you can pick another rented ground meanwhile.</p>
         <div class="chips" style="margin:8px 0">${BUILD_SIZES.map(n => `<button data-act="stplan" data-n="${n}">${n.toLocaleString("en-GB")}</button>`).join("")}</div>
         ${standDesigner(d, c)}
         ${q.space > siteCap(S) ? `<p class="small warn" style="margin-top:6px">Too big: the stands and extras need room for ${q.space.toLocaleString("en-GB")}; the site takes ${siteCap(S).toLocaleString("en-GB")}.</p>` : ""}
         <div class="row between offer" style="margin-top:8px"><span><b>${q.cap.toLocaleString("en-GB")}</b> capacity${closedNote(d, c)}<br><span class="small muted">${money(q.cost)} (${money(q.demo)} of it demolition) · about ${q.weeks} weeks</span></span><button class="btn sm primary" data-act="reground" ${q.cap < 500 || q.space > siteCap(S) ? "disabled" : ""}>Rebuild</button></div></details>`; }
     { const sites = newSites(c), pick = sites.find(x => x.k === G.moveK) || sites[1], plots = plotSizes(c, pick), plot = plots.includes(G.plotN) ? G.plotN : plots[Math.min(1, plots.length - 1)],
-        d = (G.mvDraft ||= Object.assign(standPlan(Math.min(plot, Math.round(S.cap * 1.8 / 500) * 500)), { vent: Object.keys(S.vent || {}) })), q = moveQuote(c, d, pick, plot);
+        d = (G.mvDraft ||= Object.assign(standPlan(Math.min(plot, Math.round(S.cap * 1.8 / 500) * 500)), { vent: Object.keys(S.vent || {}), suites: S.suites || 0, corp: corpSeats(c) })); if (d.suites == null) { d.suites = S.suites || 0; d.corp = d.corp || corpSeats(c); } const q = moveQuote(c, d, pick, plot);
       bd += `<details style="margin-top:12px" ${G.mvOpen ? "open" : ""}><summary><b>Build a new ground elsewhere</b></summary><p class="small muted" style="margin:6px 0">Buy land and build a new home. While it's built you can stay here and sell this ground on moving day, or sell it now (about ${money(oldGroundValue(c))}) and play at a rented ground meanwhile. The further you go, the more supporters object.</p>
         ${sites.map(x => `<div class="row between offer"><span><b>${x.l}</b> · ${x.km} km away<br><span class="small muted">Plots for a ground of up to ${x.site.toLocaleString("en-GB")} · land from ${money(landCost(c, x, plotSizes(c, x)[0]))} · supporters: <span class="${x.km <= 3 ? "good" : x.km <= 9 ? "warn" : "bad"}">${x.km <= 3 ? "excited" : x.km <= 9 ? "uneasy about it" : x.km > 20 ? "angry; many will stop coming" : "unhappy; some will stop coming"}</span></span></span>${x.k === pick.k ? `<span class="good small">Chosen</span>` : `<button class="btn sm" data-act="mvsite" data-k="${x.k}">Choose</button>`}</div>`).join("")}
         <p class="small" style="margin:10px 0 4px"><b>Plot size</b> <span class="muted">(the biggest ground it will ever take)</span></p>
