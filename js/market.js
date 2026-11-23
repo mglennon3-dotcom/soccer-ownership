@@ -435,7 +435,9 @@ function negotiate(p, c = my()) {
   const w = windowId(); if (!p.ng || p.ng.w !== w) p.ng = { w, n: normal(), m: normal() };
   const lever = (neg - 50) / 250 + (p.list ? .08 : 0) + (p.club >= 0 && p.yrs <= 1 ? .1 : 0) + (p.req ? .08 : 0);
   const ask = askingFee(p), fee = Math.round(ask * clamp(1 - lever + p.ng.n * .03, .55, 1) / 1000) * 1000;
-  const agent = Math.round(min * 1.25 / 100) * 100, wage = Math.round((min + (agent - min) * clamp(1 - neg / 100 + p.ng.m * .1, 0, 1)) / 100) * 100;
+  // His wage: the agent opens a quarter above what he'd really take; your head of recruitment talks him down to that
+  // (the same figure you'd get dealing yourself). Negotiating skill shows in the fee.
+  const agent = Math.round(min * 1.25 / 100) * 100, wage = Math.round(min / 100) * 100;
   return { ask, fee, agent, wage };
 }
 function suggest(p, loan) {
