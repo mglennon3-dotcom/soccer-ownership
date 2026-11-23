@@ -303,6 +303,12 @@ function seasonReview(r, up, down) {
   if (staffOf("manager")) trust("manager", clamp(Math.round(diff / 2), -6, 8) + (up ? 8 : 0), null, "How the season went");
 }
 
+/* How long your head of recruitment renews for: long deals for young players and the core of the side, shorter as
+   they age (one year at a time from 32), a year longer for a player you've protected; never more than he'd sign. */
+function autoYears(p, T, core) {
+  const base = p.age <= 23 ? 4 : p.age <= 28 ? 3 : p.age <= 30 ? 2 : 1;
+  return clamp(base + (core ? 1 : 0) + (p.keep ? 1 : 0) - (R() < .3 ? 1 : 0), 1, (T && T.maxY) || 3);
+}
 /* Each summer: everyone a year older, retirements, contracts, youth intakes, squads rebuilt. */
 function yearTurnover() {
   loveSeason();
@@ -322,7 +328,7 @@ function yearTurnover() {
     const greedy = T && !T.no && T.min > Math.max(p.wage, demandWage(p, mine) * 1.5);
     const ask = want ? (T.no || greedy ? null : T.min) : undefined;
     if (ask === null) { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); const why = greedy ? `wanted ${pw(T.min)}, more than he's worth to us` : `turned down a new deal${un ? `: ${un.why[0]}` : loyaltyOf(p) <= .25 ? ": a mercenary, off to the highest bidder" : ""}`; gone.push(`${p.name} (${why})`); continue; }
-    if (ask !== undefined) { const was = p.wage; p.yrs = ri(1, 3); p.wage = Math.max(p.wage, Math.round(ask / 100) * 100); logPay(p, was, "contract renewal"); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
+    if (ask !== undefined) { const was = p.wage; p.yrs = autoYears(p, T, core.has(p.id)); p.wage = Math.max(p.wage, Math.round(ask / 100) * 100); logPay(p, was, "contract renewal"); kept.push(`${p.name} (${p.yrs} yr, ${pw(p.wage)})`); }
     else { logMove("expired", p, { wage: p.wage }); toFreeAgent(p); gone.push(p.name); }
   }
   if (kept.length || gone.length) addMsg({ type: "contracts", title: `Contracts: ${kept.length} renewed, ${gone.length} released`, body: (kept.length ? `New contracts: ${kept.join(", ")}. ` : "") + (gone.length ? `Leaving: ${gone.join(", ")}.` : "") });
