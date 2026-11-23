@@ -50,9 +50,10 @@ function setGround(c, i) {
 const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, cap: groundCap(c), amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.own ? c.fac.stadium.away : c.fac.stadium.host];
 const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
-/* Real-world money: about €4,000 a seat for a small ground (AFC Wimbledon's 9,000 cost ~€35M), ~€7,000 for 30,000,
-   ~€11,500 for 60,000 (Everton's and Tottenham's new grounds ran to €850M–1.1bn), ~€16,000 for a 90,000 national stadium. */
-const perSeat = cap => 2500 + cap * .15;
+/* Real-world money, dearer per seat the bigger the ground: about €3,500 a seat for 10,000 (AFC Wimbledon's 9,000 cost
+   ~€35M), ~€7,000 for 30,000 (~€210M), ~€15,000 for 52,000 (Everton's cost ~€900M), ~€20,000 for 62,000 (Tottenham's
+   cost £1bn, ~€1.2bn), capped at €26,000 a seat (a 90,000 national stadium, ~€2.3bn). */
+const perSeat = cap => Math.min(26000, 3000 + 4.4e-6 * cap * cap);
 // What a ground is worth on the books, for club valuations (the replacement cost, written down).
 const valSeat = cap => 650 + cap * .055;
 /* How long building takes, like real life: construction grows with size (about a year for a small ground, nearly four
