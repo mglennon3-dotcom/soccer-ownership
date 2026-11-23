@@ -70,7 +70,7 @@ function aiMoveCheck(c) {
   const kind = st === "developer" ? (R() < .6 - roots * .4 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .55 + roots * .4 ? "near" : "edge")
     : wpick(["near", "edge", "far"], k => ({ near: 3 + roots * 6, edge: 4, far: Math.max(.5, 2.5 - roots * 4) })[k]);
   const K = SITE_KINDS[kind], km = ri(...K.km), cap = clamp(Math.round(Math.max(c.cap * rf(1.3, 1.8), c.fans * 1.2) / 500) * 500, c.cap + 1000, SITE_MAX), site = clamp(Math.round(cap * rf(1.3, 2) / 500) * 500, cap, SITE_MAX);
-  const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * (1 + (7 - c.tier) * .08) - aiSite(c) * 150 * (1 + (7 - c.tier) * .08);
+  const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * landK(c) - aiSite(c) * 150 * landK(c);
   // Paid partly by the owner, the rest borrowed against the new ground (supporters' trusts borrow most of it).
   const share = st === "fanowned" ? .8 : clamp(.5 + Math.max(0, lossTol(c)) * -.2 + (S.debt || 0) * 1.2, .3, .8);
   if (st !== "fanowned" && c.own.wealth < cost * (1 - share)) return;

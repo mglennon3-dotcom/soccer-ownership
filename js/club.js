@@ -50,7 +50,11 @@ function setGround(c, i) {
 const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, cap: groundCap(c), amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.own ? c.fac.stadium.away : c.fac.stadium.host];
 const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
-const perSeat = cap => 650 + cap * .055;
+/* Real-world money: about €4,000 a seat for a small ground (AFC Wimbledon's 9,000 cost ~€35M), ~€7,000 for 30,000,
+   ~€11,500 for 60,000 (Everton's and Tottenham's new grounds ran to €850M–1.1bn), ~€16,000 for a 90,000 national stadium. */
+const perSeat = cap => 2500 + cap * .15;
+// What a ground is worth on the books, for club valuations (the replacement cost, written down).
+const valSeat = cap => 650 + cap * .055;
 /* How long building takes, like real life: construction grows with size (about a year for a small ground, nearly four
    for a 60,000 one). A season is 54 weeks. */
 const groundWeeks = cap => Math.round(45 + cap / 400);
@@ -670,8 +674,10 @@ function newSites(c) {
 function plotSizes(c, site) { const lo = Math.min(site.site, Math.max(c.fac.stadium.cap + 1000, siteCap(c.fac.stadium) + 500)), out = [];
   for (let i = 0; i < 4; i++) out.push(Math.round((lo + (site.site - lo) * i / 3) / 500) * 500); return [...new Set(out)]; }
 // Land: priced per place the plot can hold, a little dearer per place for a big plot, dearer in the bigger divisions.
-const landCost = (c, site, plot) => Math.round(plot * site.rate * (1 + (7 - c.tier) * .08) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
-const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * (1 + (7 - c.tier) * .08) / 1e4) * 1e4;
+// Land is dear where the big clubs are (cities): each division up makes it about 1.7 times dearer.
+const landK = c => Math.pow(1.7, 7 - clamp(c.tier, 1, 7));
+const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
+const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) / 1e4) * 1e4;
 // (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
 const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
 function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = landCost(c, site, plot), sell = oldGroundValue(c); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }
