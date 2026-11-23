@@ -131,6 +131,20 @@ function upgradeSave() {
     if (s && s.tlog) { const back = -s.tlog.filter(x => SELL.includes(x.k) && x.y >= G.year - 1).reduce((t, x) => t + x.d, 0);
       s.tlog = s.tlog.filter(x => !SELL.includes(x.k));
       if (back > 0) { const t0 = s.trust; s.trust = clamp(s.trust + back, 0, 100); news(`${s.name} no longer minds your decisions on selling players (it isn't ${pr(s, "his")} department): ${pr(s, "his")} trust in you is back up from ${Math.round(t0)} to ${Math.round(s.trust)}.`, true); } } }
+  /* 1.0.23: undo your head of recruitment buying back a player you'd just sold (before 1.0.22 stopped it): he goes
+     back to the club you sold him to, the fee comes back, and the deal is struck from the books. */
+  if (G.club != null && !G.unbuy1) { G.unbuy1 = true; const c = my();
+    for (const p of c.squad.map(P).filter(Boolean)) {
+      const T = (G.tlog || []), inn = T.find(m => m.id === p.id && m.kind === "in"); if (!inn || inn.by !== "recruit" || !inn.fee) continue;
+      const out = T.find(m => m.id === p.id && m.kind === "out" && m.t < inn.t && m.club === inn.club && m.y >= inn.y - 1); if (!out) continue;
+      const to = G.clubs.find(k => k.name === inn.club && !k.gone); if (!to) continue;
+      const fee = inn.fee; delete p.am; c.cash += fee; book("buys", -fee); c.spentT = Math.max(0, (c.spentT || 0) - fee);
+      if (!to.abroad) { to.tnet = (to.tnet || 0) - fee; to.tb = tbOf(to) - fee * .5; }
+      NEXT_FEE = 0; moveTo(p, to); p.tx.pop(); p.hist.pop(); const tx = p.tx[p.tx.length - 1]; if (tx && tx[3] === c.id && tx[2] === to.id) { p.tx.pop(); p.hist.pop(); }
+      p.wage = aiWage(p, to); p.yrs = aiYears(p, to); delete p.joinR; delete p.keen;
+      G.tlog = T.filter(m => m !== inn); G.newSign = (G.newSign || []).filter(x => x.pid !== p.id); syncReg(c);
+      news(`${p.name}'s return is undone: he stays at ${to.name}, and the ${money(fee)} fee is back in the club's account.`, true);
+    } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
