@@ -651,6 +651,10 @@ const terraceShare = c => atHome(c) && c.fac.stadium.own && c.tier > ALL_SEATER 
 const openShare = c => atHome(c) && c.fac.stadium.own ? standShare(c, x => !x.roof) : .5;
 const familyOn = c => atHome(c) && c.fac.stadium.own && Object.values(standsOf(c.fac.stadium)).some(x => x.family);
 const corpSeats = c => atHome(c) && c.fac.stadium.own && closedSide(c.fac.stadium) !== "W" ? (standsOf(c.fac.stadium).W || {}).corp || 0 : 0;
+/* Hospitality quietens a ground: corporate seats and boxes (about a dozen guests each) take places that would have
+   held vocal home supporters. The share of the crowd they make up trims the home advantage a little (a ground that
+   is 10% hospitality loses about a tenth of a typical home advantage). */
+const hospShare = c => atHome(c) && c.fac.stadium.own ? Math.min(.5, (corpSeats(c) + (c.fac.stadium.suites || 0) * 12) / Math.max(1, c.fac.stadium.cap)) : 0;
 const corpMax = c => Math.floor(((standsOf(c.fac.stadium).W || {}).cap || 0) * .15);
 const REF_CORP = [0, 9000, 3500, 1800, 1100, 700, 400, 250];  // a corporate seat for the season
 const corpLet = c => Math.min(corpSeats(c), Math.floor(suiteDemand(c) * 15));
