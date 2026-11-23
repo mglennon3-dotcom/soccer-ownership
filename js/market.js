@@ -643,9 +643,9 @@ function setNotForSale(p, on) {
 function ownerList(p) {
   p.list = !p.list; if (p.list) p.nfs = false;
   if (!p.list) return news(`${p.name} is taken off the transfer list.`);
-  G.meddle = (G.meddle || 0) + .5;
+  // Deciding who's for sale is the owner's call: your head of recruitment just handles the offers. Only listing one of
+  // the manager's first-choice players annoys anyone.
   const starter = pickXI(my()).some(o => o.p === p);
-  if (staffOf("recruit")) meddled("recruit", -3, null, "Transfer-listing players yourself");
   if (starter) meddled("manager", -6, `is unhappy you've transfer-listed ${p.name}, one of ${pr(staffOf("manager"), "his")} first-choice players.`, "Transfer-listing first-choice players");
   news(`You put ${p.name} on the transfer list. Offers will come in while the window is open.`);
 }
