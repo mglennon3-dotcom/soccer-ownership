@@ -71,11 +71,9 @@ function aiMoveCheck(c) {
     : wpick(["near", "edge", "far"], k => ({ near: 3 + roots * 6, edge: 4, far: Math.max(.5, 2.5 - roots * 4) })[k]);
   const K = SITE_KINDS[kind], km = ri(...K.km), cap = clamp(Math.round(Math.max(c.cap * rf(1.3, 1.8), c.fans * 1.2) / 500) * 500, c.cap + 1000, SITE_MAX), site = clamp(Math.round(cap * rf(1.3, 2) / 500) * 500, cap, SITE_MAX);
   const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * landK(c) - aiSite(c) * 150 * landK(c);
-  // Paid partly by the owner, the rest borrowed against the new ground (supporters' trusts borrow most of it).
-  const share = st === "fanowned" ? .8 : clamp(.5 + Math.max(0, lossTol(c)) * -.2 + (S.debt || 0) * 1.2, .3, .8);
-  if (st !== "fanowned" && c.own.wealth < cost * (1 - share)) return;
-  if (st !== "fanowned") c.own.wealth = Math.round(c.own.wealth - Math.max(0, cost) * (1 - share));
-  c.debt = Math.round((c.debt || 0) + Math.max(0, cost) * share);
+  // Paid partly by the owner, the rest borrowed against the new ground (supporters' trusts borrow most of it), or
+  // all of it borrowed.
+  if (!aiFund(c, S, Math.max(0, cost), Infinity)) return;
   // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
   // The same building time as yours (construction weeks for that size, plus a few for a move), counted week by week.
   G.groundY = G.year; G.groundNext = G.year + ri(1, 3);
@@ -176,11 +174,19 @@ const lossCap = c => aiIncome(c) * lossTol(c) * (c.push ? 1.6 : 1);
    An owner who can't find his share, or a club whose borrowing would pass a year's income, doesn't build. */
 function aiExpand(c, S = ownStyle(c)) {
   const to = Math.min(aiSite(c), Math.round(c.cap * rf(1.08, 1.25) / 100) * 100), add = to - c.cap; if (add <= 0) return;
-  const cost = Math.round(add * perSeat(to) * 1.1 / 1e4) * 1e4, fan = c.own.style === "fanowned";
-  const share = fan ? .8 : clamp(.5 + Math.max(0, lossTol(c)) * -.2 + (S.debt || 0) * 1.2, .3, .8), inc = (c.aiFin && c.aiFin.inc) || aiIncome(c);
-  if ((!fan && c.own.wealth < cost * (1 - share)) || (c.debt || 0) + cost * share > inc) return;
+  if (aiFund(c, S, Math.round(add * perSeat(to) * 1.1 / 1e4) * 1e4, 1)) c.cap = to;
+}
+/* Paying for building work. Usually the owner puts in part and the club borrows the rest, keeping its borrowing under
+   `lim` years of income. Some owners borrow the whole lot instead (reckless ones often, a careful one rarely, and
+   more often when they can't find their share), and then the limit is three years' income: the debt can drag the
+   club down for years and, with a bad run, into administration. Supporters' trusts borrow most of it, never all. */
+function aiFund(c, S, cost, lim) {
+  const fan = c.own.style === "fanowned", inc = (c.aiFin && c.aiFin.inc) || aiIncome(c), debt = c.debt || 0;
+  const share = fan ? .8 : clamp(.5 + Math.max(0, lossTol(c)) * -.2 + (S.debt || 0) * 1.2, .3, .8), can = fan || c.own.wealth >= cost * (1 - share);
+  if (!fan && R() < clamp((S.debt || 0) * 3 + (can ? .05 : .15), 0, .7) && debt + cost <= inc * 3) { c.debt = Math.round(debt + cost); c.allLoan = (c.allLoan || 0) + 1; return true; }
+  if (!can || debt + cost * share > inc * lim) return false;
   if (!fan) c.own.wealth = Math.round(c.own.wealth - cost * (1 - share));
-  c.debt = Math.round((c.debt || 0) + cost * share); c.cap = to;
+  c.debt = Math.round(debt + cost * share); return true;
 }
 function aiAccounts(c) {
   const o = c.own, fees = c.tnet || 0, inc = aiIncome(c) + Math.max(0, fees), cost0 = aiCosts(c) + Math.max(0, -fees), pre = inc - cost0, cost = cost0 + (pre > 0 ? pre * TAX : 0), net = inc - cost, fan = o.style === "fanowned";
