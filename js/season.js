@@ -237,7 +237,7 @@ function endSeason() {
   investorsSummer({ up: wentUp, down: wentDown }); fanCultureSummer(mine, wentUp, wentDown); wageClauses(mine, wentUp, wentDown);
   endLoans();
   G.meddle = (G.meddle || 0) * .6;
-  mine.fac.stadium.held = 0;  // interference is slowly forgotten
+  mine.fac.stadium.held = 0; mine.fac.stadium.hd = {};  // interference is slowly forgotten
   mine.finLast = mine.fin; mine.fin = newLedger(); mine.spentT = 0;
   summerRelay(mine);  // the pitch is re-laid the moment the season ends, so it's under way as pre-season starts
   completeAgreed(mine);  // the summer window opens: sales agreed during the season go through, before contracts run out

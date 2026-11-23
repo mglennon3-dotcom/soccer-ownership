@@ -542,7 +542,7 @@ const CHANGE = {
     if (await ask(`Loan ${p.name} to ${x.name} (${TIER_NAME[x.tier]}) until the end of the season?`, "Loan him")) { if (p.loanList) loanListToggle(p); loanOut(p, x); } render(); saveGame(); },
   fweek: el => { SUB.fw = +el.value; },
   oname: el => { const v = el.value.trim(); if (v) { G.owner.name = v; saveGame(); render(); } },
-  concerts: el => { my().fac.stadium.concerts = +el.value; render(); },
+  hirev: el => { const S = my().fac.stadium; if (S.concerts && !S.hire) { S.hire = { concert: S.concerts }; delete S.concerts; } (S.hire ||= {})[el.dataset.k] = +el.value; render(); },
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
