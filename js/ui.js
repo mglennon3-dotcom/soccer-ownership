@@ -664,6 +664,12 @@ function pgComm() {
 }
 
 /* ---------- Facilities ---------- */
+function psizeHTML(c) {
+  const S = c.fac.stadium, cur = S.psize || "std", top = c.tier <= PSIZE_STD_TIER, m = staffOf("manager");
+  const fit = k => { if (!m) return ""; const f = PSIZE[k].m[m.phil] || 0; return f > 0 ? ` · <span class="good">suits ${esc(m.name)}'s ${STYLES[m.phil].l.toLowerCase()}</span>` : f < 0 ? ` · <span class="warn">works against ${esc(m.name)}'s ${STYLES[m.phil].l.toLowerCase()}</span>` : ""; };
+  return `<p class="small" style="margin-bottom:6px"><b>Size:</b> ${PSIZE[psizeOf(c)].l} (${PSIZE[psizeOf(c)].dim})${top ? ` <span class="muted">· the ${TIER_NAME[c.tier]} insists on the standard size</span>` : ""}</p>
+    ${top ? "" : Object.entries(PSIZE).map(([k, P]) => `<div class="row between offer"><span><b>${P.l}</b> · ${P.dim}${k === cur ? ' <span class="good small">current</span>' : ""}<br><span class="small muted">${P.d}${fit(k)}${P.room && siteRoom(S) < P.room ? ` <span class="warn">Needs room for ${P.room} places on the site.</span>` : ""}</span></span>${k === cur ? "" : psizeOK(c, k) ? `<button class="btn sm" data-act="psize" data-k="${k}">${money(psizeCost(c))}</button>` : `<span class="small muted">${G.phase === "summer" ? "No room" : "Summer only"}</span>`}</div>`).join("")}`;
+}
 /* How much interest businesses have in hospitality at the new ground (the same demand as now: it follows the
    division, the club's standing and the supporters' mood, not the size of the ground), what each would earn, and the
    cost of building it in. */
@@ -784,8 +790,8 @@ function pgFac() {
     const sq = suiteQuote(c); if (sq) bd += `<div class="row between offer"><span>Add ${sq.add} executive suites<br><span class="small muted">Let to businesses by the season (demand about ${Math.round(suiteDemand(c))} at the going rate of ${money(suiteRef(c))} a season; each costs ${money(boxUpkeep(c))} a season to run). ${money(sq.cost)} · ${sq.weeks} weeks</span></span><button class="btn sm" data-act="suites">Build</button></div>`;
   }
   bd += `</section>`;
-  if (S.own) st += `<section class="card">` + (S.relay ? `<p class="small" style="margin-top:10px">The pitch is being re-laid (${S.relay.left} week${S.relay.left > 1 ? "s" : ""} left).</p>` :
-    `<h3 style="margin:14px 0 6px">Pitch</h3><p class="small muted">Wears with every home game. A worn pitch blunts passing football at home (possession and wing play suffer most, a direct side actually gains), causes more injuries and annoys supporters. It recovers over the summer.</p>${Object.entries(PITCH).map(([k, t]) => `<div class="row between offer"><span>Re-lay with ${t.l.toLowerCase()}<br><span class="small muted">${money(t.cost(c))}${k === "hybrid" ? " · wears about half as fast" : ""}</span></span><button class="btn sm" data-act="relay" data-k="${k}">Re-lay</button></div>`).join("")}`);
+  if (S.own) st += `<section class="card">` + (S.relay ? `<h3 style="margin:14px 0 6px">Pitch</h3>${psizeHTML(c)}<p class="small" style="margin-top:10px">The pitch is being re-laid (${S.relay.left} week${S.relay.left > 1 ? "s" : ""} left).</p>` :
+    `<h3 style="margin:14px 0 6px">Pitch</h3>${psizeHTML(c)}<p class="small muted">Wears with every home game. A worn pitch blunts passing football at home (possession and wing play suffer most, a direct side actually gains), causes more injuries and annoys supporters. It recovers over the summer.</p>${Object.entries(PITCH).map(([k, t]) => `<div class="row between offer"><span>Re-lay with ${t.l.toLowerCase()}<br><span class="small muted">${money(t.cost(c))}${k === "hybrid" ? " · wears about half as fast" : ""}</span></span><button class="btn sm" data-act="relay" data-k="${k}">Re-lay</button></div>`).join("")}`);
   if (S.own) st += `</section>`;
   let vt = "";
   if (!S.own && S.popup) vt += `<section class="card"><div class="card-h"><h2>Pop-up fan zone</h2><span class="good small">running</span></div><p class="small muted">Hired for every home game while you rent your ground: half the effect of a permanent fan zone (atmosphere, turnout, mood), and about ${money(Math.abs(fzGame(c, matchdayForecast(c).crowd, .5)))} a game ${fzGame(c, matchdayForecast(c).crowd, .5) < 0 ? "net cost" : "net profit"} at a typical crowd. Build a permanent one once you have your own ground.</p><div class="row" style="margin-top:8px"><button class="btn sm" data-act="popupoff">End the pop-up</button></div></section>`;
