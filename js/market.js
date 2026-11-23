@@ -289,11 +289,9 @@ function answerBid(m, accept, auto) {
     else { p.blocked = (p.blocked || 0) + 1; p.unsettled = 8 + p.blocked * 4; news(`${p.name} wanted the move to ${buyer.name} and is unsettled${p.blocked >= 2 ? ". He's been blocked before and it shows" : ""}.`, p.blocked >= 2); }
   }
   if (!auto && !deal && (accept ? "accept" : "reject") !== m.rec) {
-    // Answering a bid is your call: he only minds much when it's a big one (selling a first-choice player he wanted to
-    // keep, or turning down well over the odds). Small disagreements barely register.
-    const big = accept ? pickXI(my()).some(o => o.p === p) : m.amt >= valueOf(p) * 1.5;
-    G.meddle = (G.meddle || 0) + (big ? .3 : .1);
-    meddled("recruit", big ? -3 : -1, big ? (accept ? `would rather have kept ${p.name}.` : `thinks ${money(m.amt)} for ${p.name} was worth taking.`) : null, "Your calls on offers for players");
+    // Answering a bid is the owner's call: your head of recruitment brings players in, selling isn't her department.
+    // Only the manager minds, and only when you sell one of his first-choice players.
+    if (accept && pickXI(my()).some(o => o.p === p)) meddled("manager", -3, `would rather have kept ${p.name}.`, "Selling first-choice players");
   }
   if (accept && m.pre) {
     // Agreed out of the window: he joins them when the next one opens.
@@ -643,9 +641,9 @@ function setNotForSale(p, on) {
 function ownerList(p) {
   p.list = !p.list; if (p.list) p.nfs = false;
   if (!p.list) return news(`${p.name} is taken off the transfer list.`);
-  G.meddle = (G.meddle || 0) + .5;
+  // Deciding who's for sale is the owner's call: your head of recruitment just handles the offers. Only listing one of
+  // the manager's first-choice players annoys anyone.
   const starter = pickXI(my()).some(o => o.p === p);
-  if (staffOf("recruit")) meddled("recruit", -3, null, "Transfer-listing players yourself");
   if (starter) meddled("manager", -6, `is unhappy you've transfer-listed ${p.name}, one of ${pr(staffOf("manager"), "his")} first-choice players.`, "Transfer-listing first-choice players");
   news(`You put ${p.name} on the transfer list. Offers will come in while the window is open.`);
 }
@@ -679,7 +677,7 @@ function marketWeek() {
   if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
   headWeek(c); bidsWeek(c); loanOffersWeek(c);
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
-  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = ri(1, 3); } }
+  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
   const last = (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);
