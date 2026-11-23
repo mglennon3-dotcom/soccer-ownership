@@ -133,6 +133,12 @@ function logMove(kind, p, o = {}) {
   (G.tlog ||= []).unshift({ t: (G.tseq = (G.tseq || 0) + 1), y: G.year, ph: G.phase, w: G.week, kind, id: p.id, name: p.name, pos: p.pos, age: p.age, r: r20(p.ovr), ...o });
   if (G.tlog.length > 800) G.tlog.length = 800;
 }
+// How long a new signing's contract runs: as for renewals (autoYears), by his age and whether he walks into the best
+// 18 of the squad, up to what a player of his age will sign for.
+function signYears(p, c) {
+  const sen = c.squad.map(P).filter(q => q && !q.acad && q.id !== p.id).map(q => q.ovr).sort((a, b) => b - a);
+  return autoYears(p, { maxY: p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5 }, p.ovr >= (sen[17] ?? 0));
+}
 function signPlayer(p, fee, wage, byOwner, how) {
   if (embargoed(my()) && fee > 0) { news(`The deal for ${p.name} is blocked: the club is under a transfer embargo.`, true); return false; }
   const c = my(), seller = p.club >= 0 ? CL(p.club) : null, keen = tookLess(p, c, wage);
@@ -143,7 +149,7 @@ function signPlayer(p, fee, wage, byOwner, how) {
   logMove("in", p, { club: fromName(p), fee, wage, by: byOwner ? "you" : how || "recruit" });
   if (p.club === -2) G.abroad = G.abroad.filter(id => id !== p.id);
   p.abroad = undefined;
-  NEXT_FEE = fee; moveTo(p, c); p.wage = wage; p.yrs = p.age >= 31 ? ri(1, 2) : ri(2, 4); registerNew(p, c); logPay(p, 0, "signed");
+  NEXT_FEE = fee; moveTo(p, c); p.wage = wage; p.yrs = signYears(p, c); registerNew(p, c); logPay(p, 0, "signed");
   signingBoost(p, c);
   c.cash -= fee; book("buys", fee); if (fee) p.am = { book: fee, fee, y: G.year }; if (!byOwner) c.spentT += fee;  // cash now; the accounts spread it over his contract
   if (seller && !seller.gone) aiSquadCheck(seller, true);
