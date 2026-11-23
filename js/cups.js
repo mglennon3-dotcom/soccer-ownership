@@ -64,11 +64,28 @@ function cupWeek(w) {
   }
 }
 /* A knockout tie (cups and play-offs). Logs your result and handles your gate. */
+// A shootout's score from one club's side ("4–3"), or "" for an old tie that only recorded that it went to penalties.
+const penStr = (t, id) => Array.isArray(t.pens) ? (t.h === id ? `${t.pens[0]}–${t.pens[1]}` : `${t.pens[1]}–${t.pens[0]}`) : "";
+/* A penalty shootout: five kicks each, then sudden death. Each kick goes in about three times in four, a little more
+   for a side whose best five takers finish and keep their nerve well, a little less against a good keeper. Returns the
+   winner and the score [home side's kicks scored, away side's]. */
+function shootout(h, a) {
+  const side = id => { const c = CL(id), sq = c.squad.map(P).filter(p => p && avail(p) && !p.acad);
+    const takers = sq.filter(p => p.pos !== "GK").sort((x, y) => ((y.at.fin || 50) + (y.at.cmp || 50)) - ((x.at.fin || 50) + (x.at.cmp || 50))).slice(0, 5);
+    const gk = sq.filter(p => p.pos === "GK").sort((x, y) => y.ovr - x.ovr)[0];
+    return { kick: takers.length ? avg(takers.map(p => ((p.at.fin || 50) + (p.at.cmp || 50)) / 2)) : 50, keep: gk ? ((gk.at.ss || 50) + (gk.at.cmp || 50)) / 2 : 40 }; };
+  const H = side(h), A = side(a), pr = (k, g) => clamp(.75 + (k - 60) * .0012 - (g - 60) * .0012, .65, .85);
+  const ph = pr(H.kick, A.keep), pa = pr(A.kick, H.keep); let sh = 0, sa = 0;
+  for (let i = 0; i < 5; i++) { if (R() < ph) sh++; if (sh > sa + (5 - i)) break; if (R() < pa) sa++; if (sa > sh + (4 - i)) break; }
+  for (let i = 0; sh === sa && i < 30; i++) { const x = R() < ph, y = R() < pa; sh += x; sa += y; }
+  if (sh === sa) { if (R() < .5) sh++; else sa++; }
+  return { w: sh > sa ? h : a, ps: [sh, sa] };
+}
 function playKO(h, a, neutral, comp, label) {
   MATCH_CT = CUP_DEF[comp] ? "C" : typeof CONT !== "undefined" && CONT[comp] ? "E" : "L";
   // The lesser cup games: the League Cup and National Trophy, and the National Cup before the quarter-finals.
   MATCH_LESSER = !!CUP_DEF[comp] && (comp !== "NC" || !/quarter|semi|final/i.test(label || "")); const r = playMatch(h, a, neutral, false, CUP_DEF[comp] && !/final/i.test(label || "") ? "cup" : "big"); MATCH_CT = "L"; MATCH_LESSER = false; let w = r.hg > r.ag ? h : r.ag > r.hg ? a : null; r.pens = false;
-  if (w == null) { w = R() < .5 ? h : a; r.pens = true; }
+  if (w == null) { const s = shootout(h, a); w = s.w; r.pens = s.ps; }
   if (h === G.club || a === G.club) {
     const c = my(), home = h === G.club, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? a : h);
     let crowd = null;
@@ -76,7 +93,7 @@ function playKO(h, a, neutral, comp, label) {
     else if (!neutral) { const share = Math.round(Math.min(opp.cap, opp.fans * 1.2) * ticketRef(opp) * .45); earn("gate", share); awayTrip(c, opp); awayRefundCheck(c, opp, gf, ga); }
     else { earn("gate", Math.round(Math.min(40000, (c.fans + opp.fans) * .8) * REF_TICKET[Math.min(c.tier, opp.tier)] * .4)); awayTrip(c, opp); }
     c.morale = clamp(c.morale + (w === G.club ? 4 : -3), 20, 95);
-    h2hAdd(opp.id, gf === ga ? "D" : w === G.club ? "W" : "L"); G.myRes.push({ w: G.phase === "playoffs" ? SEASON_WEEKS + G.week : G.week, comp, label, home: home && !neutral, neutral, opp: opp.id, gf, ga, res: w === G.club ? "W" : "L", pens: r.pens, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
+    h2hAdd(opp.id, gf === ga ? "D" : w === G.club ? "W" : "L"); G.myRes.push({ w: G.phase === "playoffs" ? SEASON_WEEKS + G.week : G.week, comp, label, home: home && !neutral, neutral, opp: opp.id, gf, ga, res: w === G.club ? "W" : "L", pens: Array.isArray(r.pens) ? (home ? r.pens : [r.pens[1], r.pens[0]]) : r.pens, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
   }
   return { w, r };
 }

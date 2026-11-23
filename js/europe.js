@@ -255,10 +255,10 @@ function contWeek(w) {
       if (leg === 0) { const r = contMatch(t.h, t.a, false, K.key, `${D.short} ${RD.n.toLowerCase()}, first leg`); t.g1 = [r.hg, r.ag]; continue; }
       const r = contMatch(t.a, t.h, false, K.key, `${D.short} ${RD.n.toLowerCase()}, second leg`); t.g2 = [r.ag, r.hg];  // stored from the first leg's home side's view
       const hs = t.g1[0] + t.g2[0], as = t.g1[1] + t.g2[1];
-      t.w = hs > as ? t.h : as > hs ? t.a : (t.pens = true, R() < .5 ? t.h : t.a);
+      if (hs === as) { const s = shootout(t.h, t.a); t.pens = s.ps; t.w = s.w; } else t.w = hs > as ? t.h : t.a;
       const out = t.w === t.h ? t.a : t.h;
-      if (t.w === G.club) { earn("prize", D.rounds[Math.min(K.round + 1, D.rounds.length - 1)]); moodHit(my(), 4); news(`${my().name} are through to the ${D.name} ${CONT_KO[K.round + 1].n.toLowerCase()} (${hs}–${as} on aggregate${t.pens ? ", on penalties" : ""}).`, true); }
-      if (out === G.club) news(`${my().name} are out of the ${D.name} (${hs}–${as} on aggregate${t.pens ? ", on penalties" : ""}).`, true);
+      if (t.w === G.club) { earn("prize", D.rounds[Math.min(K.round + 1, D.rounds.length - 1)]); moodHit(my(), 4); news(`${my().name} are through to the ${D.name} ${CONT_KO[K.round + 1].n.toLowerCase()} (${hs}–${as} on aggregate${t.pens ? `, won ${penStr(t, G.club)} on penalties` : ""}).`, true); }
+      if (out === G.club) news(`${my().name} are out of the ${D.name} (${hs}–${as} on aggregate${t.pens ? `, lost ${penStr(t, G.club)} on penalties` : ""}).`, true);
     }
     if (leg === 1) contDrawKO(K, K.round + 1);
   }
