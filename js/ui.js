@@ -1152,7 +1152,7 @@ function loanSuggestions(c) {
     const depth = c.squad.map(P).filter(p => p && p.pos === pos && !p.acad && !(p.loan && p.loan.to === c.id)).sort((a, b) => b.ovr - a.ovr);
     const bench = depth.filter(p => !inXI.has(p.id));  // the first of these is first backup (if the formation uses the position)
     bench.forEach((p, i) => {
-      if (p.age > 23 || p.loan || p.agreed || (slots && i === 0)) return;
+      if (p.age > 23 || p.loan || p.agreed || p.list || (slots && i === 0)) return;  // transfer-listed: you're selling him, not lending him
       const [lo, hi] = potEstimate(p); if ((lo + hi) / 2 < bar) return;
       out.set(p.id, { order: slots ? i + slots + 1 : null, why: slots ? `${ORD(i + slots + 1)} choice ${POS_NAME[pos].toLowerCase()}` : `your ${mgr().form || "4-4-2"} has no ${POS_NAME[pos].toLowerCase()}` });
     });
