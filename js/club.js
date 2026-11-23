@@ -50,7 +50,12 @@ function setGround(c, i) {
 const ground = c => atHome(c) ? { name: c.fac.stadium.name || `${c.town} Park`, cap: groundCap(c), amen: c.fac.stadium.amen, rent: 0 } : HOSTS[c.fac.stadium.own ? c.fac.stadium.away : c.fac.stadium.host];
 const capacity = c => ground(c).cap;
 // New stadium: cost per seat rises with size (bigger stands, more seats, more cover).
-const perSeat = cap => 650 + cap * .055;
+/* Real-world money, dearer per seat the bigger the ground: about €3,500 a seat for 10,000 (AFC Wimbledon's 9,000 cost
+   ~€35M), ~€7,000 for 30,000 (~€210M), ~€15,000 for 52,000 (Everton's cost ~€900M), ~€20,000 for 62,000 (Tottenham's
+   cost £1bn, ~€1.2bn), capped at €26,000 a seat (a 90,000 national stadium, ~€2.3bn). */
+const perSeat = cap => Math.min(26000, 3000 + 4.4e-6 * cap * cap);
+// What a ground is worth on the books, for club valuations (the replacement cost, written down).
+const valSeat = cap => 650 + cap * .055;
 /* How long building takes, like real life: construction grows with size (about a year for a small ground, nearly four
    for a 60,000 one). A season is 54 weeks. */
 const groundWeeks = cap => Math.round(45 + cap / 400);
@@ -486,7 +491,7 @@ function suiteQuote(c, n = 4) { const room = suiteMax(c) - (c.fac.stadium.suites
 
 /* ---------- the pitch ----------
    Your own pitch wears with every home game (a hybrid surface about half as fast) and recovers slowly, faster over
-   the summer. A worn pitch blunts passing football at home, causes more injuries and annoys supporters, until you
+   the summer. A worn pitch blunts passing football at home (and suits direct sides), causes more injuries and annoys supporters, until you
    re-lay it. (While you rent a ground, the pitch is the landlord's problem.) */
 const PITCH = { grass: { l: "Natural grass", wear: 2.4, cost: c => 40000 + c.fac.stadium.cap * 4 }, hybrid: { l: "Hybrid (reinforced) grass", wear: 1.1, cost: c => 250000 + c.fac.stadium.cap * 22 } };
 const pitchWord = q => q >= 80 ? ["Excellent", "good"] : q >= 65 ? ["Good", "good"] : q >= 50 ? ["Worn", "warn"] : q >= 35 ? ["Poor", "bad"] : ["Mudbath", "bad"];
@@ -569,16 +574,45 @@ function ventureWeek(c) {
   return t;
 }
 const ventureGame = (c, crowd) => atHome(c) ? sum(Object.keys(c.fac.stadium.vent || {}), k => VENTURES[k].game ? VENTURES[k].game(c, crowd) : 0) : 0;
-/* Summer concerts: a big ground can host up to four. Each pays by capacity and the club's draw, and costs the pitch
-   about eight points. Set how many you want on the Facilities page; they're held during the pre-season. */
+/* Hiring out the ground: concerts, other sports, fight nights, a charity tournament. Each needs a big enough ground,
+   happens at its own time of year, pays by the size of the ground and the club's standing, and wears the pitch (a
+   baseball diamond or monster trucks far more than a boxing ring on boards). Set how many of each you want on the
+   Ventures tab; they're booked into the year as dates come up. Fees are in line with what real grounds charge. */
 const CONCERT_MIN = 15000;
-const concertFee = c => Math.round((c.fac.stadium.cap * 9 + 50000) * (.8 + c.rep / 250) / 1000) * 1000;
+const HIRE = {
+  concert: { l: "Summer concerts", d: "Stadium tours by the big acts.", min: 15000, max: 4, when: "summer", wear: [6, 10],
+    fee: c => (c.fac.stadium.cap * 9 + 50000) * (.8 + c.rep / 250), news: (c, f) => `A sold-out concert at ${c.fac.stadium.name} earns the club ${money(f)}. The groundsman is less pleased.` },
+  boxing: { l: "Boxing fight nights", d: "A world-title fight under the lights: the ring sits on boards, so the pitch barely suffers.", min: 20000, max: 2, when: "any", wear: [1, 3],
+    fee: c => c.fac.stadium.cap * 30 * (.8 + c.rep / 250), news: (c, f) => `A world-title fight night at ${c.fac.stadium.name}: ${money(f)} for the club.` },
+  rugby: { l: "Rugby internationals and cup finals", d: "The national rugby sides and the big finals need a neutral ground.", min: 25000, max: 3, when: "season", wear: [5, 8],
+    fee: c => c.fac.stadium.cap * 14 * (.8 + c.rep / 250), news: (c, f) => `A rugby international fills ${c.fac.stadium.name}: ${money(f)} for the club, and a chewed-up pitch.` },
+  nfl: { l: "American football", d: "A regular-season NFL game, played in the autumn. The league only comes to big, modern grounds; good for the club's profile abroad.", min: 55000, max: 2, when: "autumn", wear: [8, 12], tier: 2,
+    fee: c => c.fac.stadium.cap * 60 * (.8 + c.rep / 250), after: c => { c.fans = Math.round(c.fans * 1.003); }, news: (c, f) => `An NFL game at ${c.fac.stadium.name} pays the club ${money(f)} and puts the ground on American television.` },
+  baseball: { l: "Baseball", d: "A two-game MLB series in the summer. A diamond is dug into the pitch: it takes weeks to recover.", min: 50000, max: 1, when: "summer", wear: [18, 25], tier: 2,
+    fee: c => c.fac.stadium.cap * 80 * (.8 + c.rep / 250), news: (c, f) => `Major League Baseball comes to ${c.fac.stadium.name}: ${money(f)} for the club. The infield dirt will take a while to get out of the pitch.` },
+  trucks: { l: "Monster trucks and motocross", d: "Ramps, mud and engines. Pays reasonably; the pitch hates it.", min: 15000, max: 1, when: "summer", wear: [15, 22],
+    fee: c => c.fac.stadium.cap * 10 * (.8 + c.rep / 250), news: (c, f) => `Monster trucks at ${c.fac.stadium.name}: ${money(f)} for the club, and a pitch that looks like a ploughed field.` },
+  charity: { l: "Charity football tournament", d: "Local sides, celebrities and former players. The gate goes to charity: no money for the club, but the supporters and the town love it.", min: 0, max: 1, when: "summer", wear: [3, 5],
+    fee: () => 0, after: c => { moodHit(c, 3); trustRel(3); c.fans = Math.round(c.fans * 1.004); },
+    news: c => `${c.fac.stadium.name} hosts a charity football tournament. The gate goes to local causes; supporters and the town are delighted.` },
+};
+const hireFee = (c, k) => Math.round(HIRE[k].fee(c) / 1000) * 1000;
+const hireOK = (c, k) => c.fac.stadium.cap >= HIRE[k].min && (!HIRE[k].tier || c.tier <= HIRE[k].tier);
+const concertFee = c => hireFee(c, "concert");
+// The weeks each kind can be held in: pre-season, the season (not the Christmas fixtures), or the autumn.
+const hireWeeks = k => ({ summer: [1, SUMMER_WEEKS - 1, "summer"], season: [3, 40, "season"], autumn: [6, 16, "season"], any: [1, 40, null] })[HIRE[k].when];
 function concertWeek(c) {
-  const S = c.fac.stadium; if (!S.own || S.cap < CONCERT_MIN || G.phase !== "summer") return;
-  const want = S.concerts || 0, held = S.held || 0;
-  if (held < want && G.week >= 1 && G.week <= 6 && G.week % 1 === 0 && R() < .7) {
-    const fee = concertFee(c); earn("events", fee); S.held = held + 1; S.pitch = Math.max(5, S.pitch - rf(6, 10));
-    news(`A sold-out concert at ${S.name} earns the club ${money(fee)}. The groundsman is less pleased.`);
+  const S = c.fac.stadium; if (!S.own || !atHome(c) || G.phase === "playoffs") return;
+  if (S.concerts && !S.hire) { S.hire = { concert: S.concerts }; delete S.concerts; }
+  const H = S.hire || {}, D = S.hd ||= {};
+  for (const k of Object.keys(H)) {
+    const V = HIRE[k]; if (!V || !hireOK(c, k)) continue;
+    const [a, b, ph] = hireWeeks(k), want = H[k] || 0, held = D[k] || 0;
+    if (held >= want || (ph && G.phase !== ph) || G.week < a || G.week > b) continue;
+    // Spread across the window: dates come up at random, but anything still unbooked happens before the window closes.
+    const left = b - G.week + 1; if (R() > Math.max(.25, (want - held) / left)) continue;
+    const fee = hireFee(c, k); if (fee) earn("events", fee); D[k] = held + 1; S.pitch = Math.max(5, S.pitch - rf(...V.wear)); if (V.after) V.after(c);
+    news(V.news(c, fee));
   }
 }
 
@@ -670,8 +704,10 @@ function newSites(c) {
 function plotSizes(c, site) { const lo = Math.min(site.site, Math.max(c.fac.stadium.cap + 1000, siteCap(c.fac.stadium) + 500)), out = [];
   for (let i = 0; i < 4; i++) out.push(Math.round((lo + (site.site - lo) * i / 3) / 500) * 500); return [...new Set(out)]; }
 // Land: priced per place the plot can hold, a little dearer per place for a big plot, dearer in the bigger divisions.
-const landCost = (c, site, plot) => Math.round(plot * site.rate * (1 + (7 - c.tier) * .08) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
-const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * (1 + (7 - c.tier) * .08) / 1e4) * 1e4;
+// Land is dear where the big clubs are (cities): each division up makes it about 1.7 times dearer.
+const landK = c => Math.pow(1.7, 7 - clamp(c.tier, 1, 7));
+const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
+const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) / 1e4) * 1e4;
 // (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
 const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
 function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = landCost(c, site, plot), sell = oldGroundValue(c); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }

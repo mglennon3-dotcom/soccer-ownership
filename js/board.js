@@ -5,7 +5,7 @@
 /* ---------- valuation ---------- */
 function valuation(c = my()) {
   const S = c.fac.stadium, income = (c.finLast ? ledgerIncome(c.finLast) : TV[c.tier] + sponsorTotal(c) + matchdayForecast(c).gate * 23);
-  const ground = S.own ? S.cap * perSeat(S.cap) * .6 + sum(Object.keys(S.vent || {}), k => VENTURES[k].cost(c) * .5) : 0;
+  const ground = S.own ? S.cap * valSeat(S.cap) * .6 + sum(Object.keys(S.vent || {}), k => VENTURES[k].cost(c) * .5) : 0;
   const facilities = (c.fac.train.lvl ? facCost("train", c.fac.train.lvl) * 1.4 : 0) + (c.fac.acad.lvl ? facCost("acad", c.fac.acad.lvl) * 1.4 : 0);
   const squad = sum(c.squad, id => valueOf(P(id))) * .7, brand = TV[c.tier] * 1.5 + c.fans * 400 * (1 + (c.media || 10) / 100);
   return Math.max(50000, Math.round((income * 1.2 + ground + facilities + squad + brand - debtOf() + Math.max(0, c.cash)) / 1e4) * 1e4);

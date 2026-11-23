@@ -37,7 +37,7 @@ function toAIClub(c, o) {
 
 /* What an AI club's owner wants for it. Some won't sell at any price. */
 function aiValue(c) {
-  const ground = c.cap * perSeat(c.cap) * .6, squad = sum(c.squad, id => valueOf(P(id))) * .7;
+  const ground = c.cap * valSeat(c.cap) * .6, squad = sum(c.squad, id => valueOf(P(id))) * .7;
   return Math.round((TV[c.tier] * 1.5 + COMM_T[c.tier] + c.fans * 400 + ground + squad + (c.train + c.acadLvl) * 2e5) / 1e4) * 1e4;
 }
 const SELL_MULT = { local: 1.2, sugar: 1.7, stripper: .85, moneyball: 1.2, developer: 1.1, celebrity: 1.4, multiclub: 1.3, absentee: .8, gambler: .95, meddler: 1.25, academy: 1.15, dynasty: 1.5, crypto: .9, explayer: 1.3 };
