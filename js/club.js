@@ -491,7 +491,7 @@ function suiteQuote(c, n = 4) { const room = suiteMax(c) - (c.fac.stadium.suites
 
 /* ---------- the pitch ----------
    Your own pitch wears with every home game (a hybrid surface about half as fast) and recovers slowly, faster over
-   the summer. A worn pitch blunts passing football at home, causes more injuries and annoys supporters, until you
+   the summer. A worn pitch blunts passing football at home (and suits direct sides), causes more injuries and annoys supporters, until you
    re-lay it. (While you rent a ground, the pitch is the landlord's problem.) */
 const PITCH = { grass: { l: "Natural grass", wear: 2.4, cost: c => 40000 + c.fac.stadium.cap * 4 }, hybrid: { l: "Hybrid (reinforced) grass", wear: 1.1, cost: c => 250000 + c.fac.stadium.cap * 22 } };
 const pitchWord = q => q >= 80 ? ["Excellent", "good"] : q >= 65 ? ["Good", "good"] : q >= 50 ? ["Worn", "warn"] : q >= 35 ? ["Poor", "bad"] : ["Mudbath", "bad"];

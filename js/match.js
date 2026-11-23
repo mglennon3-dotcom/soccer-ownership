@@ -147,9 +147,11 @@ function playMatch(h, a, neutral, fr, kind) {
   la *= sa.for * (1 + .08 * fa) * sh.against * (1 - .06 * fh);
   // Bad weather: fewer goals, and passing football suffers most.
   const wf = st => wx.play * (wx.play < 1 && (st === "possession" || st === "wing") ? .96 : 1); lh *= wf(clubStyle(H)); la *= wf(clubStyle(A));
-  // A worn home pitch blunts passing football (both sides) and makes the game scrappier.
+  // A worn home pitch (both sides play on it): passing football suffers most, a pressing or counter-attacking side a
+  // little, a defensive one not at all, and a direct side gains (long balls over the bumps; the passers can't settle).
   const pq = isMine(H) && !neutral ? pitchOf(H) : null;
-  if (pq != null && pq < 70) { const k = st => (st === "possession" || st === "wing" || st === "counter" ? .004 : .002) * (70 - pq); lh *= 1 - k(clubStyle(H)); la *= 1 - k(clubStyle(A)); }
+  if (pq != null && pq < 70) { const PK = { possession: -.005, wing: -.004, counter: -.003, press: -.002, defensive: 0, direct: .002 }, k = st => 1 + (PK[st] ?? -.002) * (70 - pq);
+    lh *= k(clubStyle(H)); la *= k(clubStyle(A)); }
   const hg = poisson(clamp(lh, .1, 6)), ag = poisson(clamp(la, .1, 6));
   const ev = [];
   for (const [xi, n, side] of [[xh, hg, 0], [xa, ag, 1]]) for (let i = 0; i < n; i++) {
