@@ -600,6 +600,7 @@ const ACT = {
     for (const [id, v] of Object.entries(P.v)) { const x = $("#" + id); if (x) x.value = v; }
     if (P.wealth) document.querySelectorAll("#f-wealth [aria-pressed]").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === P.wealth));
     el.parentNode.querySelectorAll(".pick-card").forEach(b => b.setAttribute("aria-pressed", b === el)); $("#f-more").open = true; CHANGE.fhint(); toast(`${P.l}: filled in. Change anything you like.`); },
+  dcardall: el => { const on = el.dataset.v === "1"; G.depthCards = {}; for (const d of document.querySelectorAll("details[data-dcard]")) G.depthCards[d.dataset.dcard] = on; render(); },
   fmore: () => { SUB.fmore = (SUB.fmore || 40) + 40; render(); },
   found: async () => {
     const name = $("#f-name").value.trim(); if (!name) return toast("Give your club a name.");
@@ -677,6 +678,8 @@ const CHANGE = {
     if (k === "arch" && el.value && MARKET_F.pos && !(ARCHETYPES[MARKET_F.pos] || []).some(a => a[0] === el.value)) MARKET_F.pos = "";
     render(); },
 };
+// Depth-chart cards remember whether you left them open.
+document.addEventListener("toggle", e => { const d = e.target; if (d && d.dataset && d.dataset.dcard) (G.depthCards ||= {})[d.dataset.dcard] = d.open; }, true);
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   if (el.tagName === "SELECT" || el.tagName === "INPUT") return;
