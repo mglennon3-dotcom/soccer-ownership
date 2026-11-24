@@ -777,10 +777,14 @@ const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
    extend it later up to what the plot takes. The supporters hear about the plan when you buy. You can sell the plot
    back (for 85% of what you paid) while nothing's built on it. */
 const ownPlot = c => c.fac.stadium.plot || null;
-/* Buying the land next door: houses, a car park, a works yard. The neighbours sell a piece at a time (once a season),
-   at a premium over town land (about a fifth more than an in-town plot, place for place), and each piece can't be
-   more than the site already is. It makes the current site bigger, so the stands can be extended further. */
-const ADJ_RATE = 220;
+/* Buying the land next door: the ground is surrounded by homes. A little land (a yard, a car park, a few houses) goes at
+   about RESI times ordinary town land; the more of the neighbourhood you take compared with the footprint you started
+   with, the dearer every further piece (whole streets have to be bought out) and the more it upsets the supporters and
+   the town: a small old ground in the middle of a village can't grow much this way without a fight. Supporters would
+   much rather the club moved a short way than displaced its neighbours. */
+const adjBase = S => S.site0 || siteCap(S);  // the site before you started buying up the neighbourhood
+// How far beyond the original footprint a purchase reaches, averaged over the piece: 1 for the first bit, rising after.
+const adjSpread = (S, add) => Math.max(1, (siteCap(S) + add / 2) / adjBase(S));
 // Suggested amounts (you can ask for any): up to what's readily for sale (as big as the site, or your support).
 const adjEasy = c => Math.max(siteCap(c.fac.stadium), supportSize(c));
 const adjMax = c => Math.max(0, SITE_MAX - siteCap(c.fac.stadium));
@@ -788,11 +792,15 @@ const adjOpts = c => { const max = Math.min(adjMax(c), adjEasy(c)); if (max < 50
   return [...new Set([.1, .25, .5, 1].map(f => Math.round(Math.max(500, max * f) / 500) * 500).filter(n => n <= max))]; };
 // Price: the ground is surrounded by housing, so the land next door costs RESI times ordinary town land in the area.
 const RESI = 2.5;
-const adjCost = (c, add) => Math.round(add * SITE_KINDS.near.land * RESI * landK(c) * Math.pow((siteCap(c.fac.stadium) + add) / 10000, .08) / 1e4) * 1e4;
+const adjCost = (c, add) => { const S = c.fac.stadium; return Math.round(add * SITE_KINDS.near.land * RESI * landK(c) * Math.pow((siteCap(S) + add) / 10000, .08) * Math.pow(adjSpread(S, add), 1.1) / 1e4) * 1e4; };
+// The anger: nothing for a sliver, then rising with how much of the neighbourhood you take (mood points).
+const adjAnger = (c, add) => { const r = add / adjBase(c.fac.stadium); return r < .05 ? 0 : Math.min(25, Math.round(r * 6 * adjSpread(c.fac.stadium, add) ** .5)); };
 const adjDone = () => false;
 function buyAdjacent(c, add) {
-  const S = c.fac.stadium, cost = adjCost(c, add); spend("build", cost); S.site = siteCap(S) + add; S.adjN = S.adjY === G.year ? (S.adjN || 1) + 1 : 1; S.adjY = G.year;
+  const S = c.fac.stadium, cost = adjCost(c, add), anger = adjAnger(c, add); S.site0 ||= siteCap(S); spend("build", cost); S.site = siteCap(S) + add; S.adjY = G.year;
   news(`You buy the land next to ${S.name} for ${money(cost)}: the site now takes a ground of up to ${S.site.toLocaleString("en-GB")}.`, true);
+  if (anger) { moodHit(c, -anger); trustRel(-Math.round(anger * .6));
+    news(anger >= 10 ? `Families who have lived around ${S.name} for generations are bought out of their homes, and the town is up in arms. The supporters' trust says it would far rather the club moved a short way than displaced its neighbours.` : `Some of the neighbours sell up and move away. Supporters grumble about the club pushing out locals.`, anger >= 10); }
 }
 function mvChoice(c) {
   const P0 = ownPlot(c); if (P0) return { pick: { ...P0, owned: true }, plots: [P0.site], plot: P0.site };

@@ -545,7 +545,7 @@ const ACT = {
     if (!await ask(`Buy land ${pick.km} km away (${pick.l.toLowerCase()}) with room for a ground of up to ${plot.toLocaleString()}, for ${money(landCost(c, pick, plot))}? You can build on it whenever you like.`)) return;
     buyPlot(c, pick, plot); G.mvOpen = true; render(); saveGame(); },
   adjbuy: async el => { const c = my(), n = +el.dataset.n; if (!(n >= 500 && n <= adjMax(c))) return;
-    if (!await ask(`Buy the land next to ${c.fac.stadium.name}, enough for ${n.toLocaleString()} more places, for ${money(adjCost(c, n))}?`)) return;
+    if (!await ask(`Buy the land next to ${c.fac.stadium.name}, enough for ${n.toLocaleString()} more places, for ${money(adjCost(c, n))}?${adjAnger(c, n) >= 10 ? " Families will be bought out of their homes: the supporters and the town will be furious." : adjAnger(c, n) ? " Some neighbours will have to move: supporters won't like it." : ""}`)) return;
     buyAdjacent(c, n); render(); saveGame(); },
   sellplot: async () => { const c = my(), P0 = ownPlot(c); if (!P0) return; if (!await ask(`Sell your land ${P0.km} km away for ${money(Math.round(P0.paid * .85 / 1e4) * 1e4)}?`)) return; sellPlot(c); render(); saveGame(); },
   movebuild: async () => { const c = my(), { pick: site, plots, plot } = mvChoice(c), d = G.mvDraft, q = moveQuote(c, d, site, plot), name = ($("#mv-name").value || c.town + " Stadium").trim();
