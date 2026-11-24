@@ -765,6 +765,18 @@ const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
    extend it later up to what the plot takes. The supporters hear about the plan when you buy. You can sell the plot
    back (for 85% of what you paid) while nothing's built on it. */
 const ownPlot = c => c.fac.stadium.plot || null;
+/* Buying the land next door: houses, a car park, a works yard. The neighbours sell a piece at a time (once a season),
+   at a premium over town land (about a fifth more than an in-town plot, place for place), and each piece can't be
+   more than the site already is. It makes the current site bigger, so the stands can be extended further. */
+const ADJ_RATE = 220;
+const adjOpts = c => { const s = siteCap(c.fac.stadium), max = Math.min(SITE_MAX - s, s); if (max < 500) return [];
+  return [...new Set([.1, .25, .5, 1].map(f => Math.round(Math.max(500, s * f) / 500) * 500).filter(n => n <= max))]; };
+const adjCost = (c, add) => Math.round(add * ADJ_RATE * landK(c) * Math.pow((siteCap(c.fac.stadium) + add) / 10000, .08) / 1e4) * 1e4;
+const adjDone = c => c.fac.stadium.adjY === G.year;
+function buyAdjacent(c, add) {
+  const S = c.fac.stadium, cost = adjCost(c, add); spend("build", cost); S.site = siteCap(S) + add; S.adjY = G.year;
+  news(`You buy the land next to ${S.name} for ${money(cost)}: the site now takes a ground of up to ${S.site.toLocaleString("en-GB")}.`, true);
+}
 function mvChoice(c) {
   const P0 = ownPlot(c); if (P0) return { pick: { ...P0, owned: true }, plots: [P0.site], plot: P0.site };
   const sites = newSites(c), pick = sites.find(x => x.k === G.moveK) || sites[1], plots = plotSizes(c, pick), plot = plots.includes(G.plotN) ? G.plotN : plots[Math.min(1, plots.length - 1)];
