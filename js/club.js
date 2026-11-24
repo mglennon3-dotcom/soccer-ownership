@@ -111,12 +111,20 @@ function buildWeek(c) {
 
 /* ---------- supporters ---------- */
 // Where the fanbase is heading: the division, the club's standing and whether it's winning.
-function fanTarget(c) { return (1 + .1 * honey(c)) * FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1) * (1 + commK(c) * .04); }
+/* The catchment: how many people live within reach of the ground. A big city region (London above all, then Manchester
+   and the North West, Birmingham and the West Midlands) has far more potential supporters than the rural South West
+   or East Anglia, and a ground in the city centre or the terraced streets reaches more of them than one in a village
+   or out in the country. It scales the support a club can grow to, and how fast it grows. Averages about 1. */
+const REGION_POP = { London: 1.6, "North West": 1.3, "West Midlands": 1.25, Yorkshire: 1.1, "South East": 1.1, "East Midlands": .95, "North East": .9, "East Anglia": .8, "South West": .8 };
+const LOC_POP = { city: 1.25, inner: 1.15, sub: 1, ind: 1, retail: 1, market: .85, village: .6, rural: .7 };
+const catchment = c => (REGION_POP[c.region] ?? (BIG_CITY.has(c.region) ? 1.3 : .95)) * (LOC_POP[locOf(c)] || 1);
+const catchWord = c => { const k = catchment(c); return k >= 1.5 ? "a huge catchment" : k >= 1.15 ? "a big catchment" : k >= .9 ? "an average catchment" : k >= .65 ? "a small catchment" : "a tiny catchment"; };
+function fanTarget(c) { return (1 + .1 * honey(c)) * FAN_T[c.tier] * (.55 + c.rep / 60) * (.8 + c.mood / 250) * (hostileOf(c) ? .93 : 1) * (1 + commK(c) * .04) * catchment(c); }
 function fansWeek(c) {
   const t = fanTarget(c);
   const fam = familyOn(c) ? 1.3 : 1;  // a family stand brings the next generation in
   const up = (1 + fanShare(c, "fair")) * fam, dn = (1 - fanShare(c, "loyal") * .7) * (1 + fanShare(c, "fair") * .8);  // fair-weather swing, loyal stay
-  c.fans = Math.max(50, Math.round(c.fans + (t * (fam > 1 ? 1.04 : 1) - c.fans) * (t > c.fans ? .012 * up : .004 * dn)));
+  c.fans = Math.max(50, Math.round(c.fans + (t * (fam > 1 ? 1.04 : 1) - c.fans) * (t > c.fans ? .012 * up * Math.sqrt(catchment(c)) : .004 * dn)));  // a small catchment grows more slowly too
 }
 /* ---------- supporter culture ----------
    Your support is a mix of four kinds (shares add to 100), and it shifts with how the club is run:
@@ -161,8 +169,8 @@ function aiFansSummer(c) {
   if (pr < .9) m.comm += 2; else if (pr > 1.2) { m.comm -= 2; m.fair += 1; }
   if (c.push) m.fair += 1;
   normMix(m);
-  const f = m.fair / 100, l = m.loyal / 100, t = FAN_T[c.tier] * clamp(1 + (c.rep - TIER_REP[c.tier]) / 60, .6, 1.8) * drawOf(c);
-  c.fans = Math.max(50, Math.round(c.fans + (t - c.fans) * (t > c.fans ? .15 * (1 + f) : .08 * (1 - l * .7) * (1 + f * .8))));
+  const f = m.fair / 100, l = m.loyal / 100, t = FAN_T[c.tier] * clamp(1 + (c.rep - TIER_REP[c.tier]) / 60, .6, 1.8) * drawOf(c) * catchment(c);
+  c.fans = Math.max(50, Math.round(c.fans + (t - c.fans) * (t > c.fans ? .15 * (1 + f) * Math.sqrt(catchment(c)) : .08 * (1 - l * .7) * (1 + f * .8))));
   c.lastTier = c.tier;
 }
 function moodHit(c, d) {
