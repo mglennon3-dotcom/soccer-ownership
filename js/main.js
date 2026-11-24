@@ -598,12 +598,15 @@ const ACT = {
     const name = $("#f-name").value.trim(); if (!name) return toast("Give your club a name.");
     const sel = id => ($(`#${id} [aria-pressed="true"]`) || {}).dataset?.v;
     $("#busy").hidden = false; await new Promise(r => setTimeout(r, 30));
-    newWorld({ name, town: $("#f-town").value.trim() || name.split(" ")[0], short: ($("#f-short").value.trim() || name).toUpperCase(), owner: $("#f-owner").value.trim(), vision: JSON.parse(JSON.stringify(START_V)), half: (COUNTRY.ENG.regions.find(r => r[0] === $("#f-region").value) || [0, 0, 0, "S"])[3], region: $("#f-region").value, color: sel("f-color"), wealth: sel("f-wealth") || "wealthy" });
+    const v = id => ($("#" + id) || {}).value, more = { tier: +v("f-tier") || 7, founded: +v("f-founded") || null, nick: (v("f-nick") || "").trim(), color2: sel("f-color2"), rep: v("f-rep") || "unknown", fans: v("f-fans") || "normal", mix: v("f-mix") || "bal",
+      own: v("f-own") === "own", gname: (v("f-gname") || "").trim(), gcap: num($("#f-gcap") || { value: "" }) || 0, gage: +v("f-gage") || 0, glay: v("f-glay") || "mix", groom: v("f-groom") || "some", psize: v("f-psize") || "std", ptype: v("f-ptype") || "grass", loc: v("f-loc") || "sub" };
+    newWorld({ ...more, shortSet: !!$("#f-short").value.trim(), name, town: $("#f-town").value.trim() || name.split(" ")[0], short: ($("#f-short").value.trim() || name).toUpperCase(), owner: $("#f-owner").value.trim(), vision: JSON.parse(JSON.stringify(START_V)), half: (COUNTRY.ENG.regions.find(r => r[0] === $("#f-region").value) || [0, 0, 0, "S"])[3], region: $("#f-region").value, color: sel("f-color"), wealth: sel("f-wealth") || "wealthy" });
     startSeason(); refreshOffers(my());
     $("#busy").hidden = true; PAGE = "home"; render(); saveGame();
   },
 };
 const CHANGE = {
+  fhint: () => { const h = $("#f-hint"); if (h) h.innerHTML = startHint($("#f-region").value, $("#f-loc").value); },
   renewtick: el => { const p = P(+el.dataset.id); p.keep = el.checked; if (p.keep) { p.list = false; } news(p.keep ? `${p.name} will be offered a new contract when his runs out.` : `${p.name} is no longer marked to be kept.`); render(); saveGame(); },
 
   youthcups: el => { G.youthCups = el.checked; news(el.checked ? "You tell the manager to give your high-potential youngsters the lesser cup games." : "The manager picks his strongest side in the cups again."); render(); saveGame(); },
@@ -670,10 +673,10 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   if (el.tagName === "SELECT" || el.tagName === "INPUT") return;
   // pickers on the start screen
-  const grp = el.closest("#f-half, #f-color, #f-wealth"); if (grp) { grp.querySelectorAll("[aria-pressed]").forEach(b => b.setAttribute("aria-pressed", b === el)); return; }
+  const grp = el.closest("#f-half, #f-color, #f-color2, #f-wealth"); if (grp) { grp.querySelectorAll("[aria-pressed]").forEach(b => b.setAttribute("aria-pressed", b === el)); return; }
   const f = ACT[el.dataset.act]; if (f) f(el, e);
 });
-document.addEventListener("click", e => { const b = e.target.closest("#f-half button, #f-color button, #f-wealth button"); if (b) b.parentNode.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+document.addEventListener("click", e => { const b = e.target.closest("#f-half button, #f-color button, #f-color2 button, #f-wealth button"); if (b) b.parentNode.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); });
 document.addEventListener("input", e => { const el = e.target; if (el.dataset && el.dataset.act === "apw") CHANGE.apw(el); });  // live: the chance he stays as you type
 document.addEventListener("change", e => {
   const el = e.target;

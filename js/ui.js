@@ -10,7 +10,7 @@ const num = el => Math.max(0, +String(el && el.value || "").replace(/[^0-9.]/g, 
 // A sensible step for a budget of this size: about a tenth of it, rounded.
 const stepFor = v => { const t = Math.max(1000, v / 10), m = Math.pow(10, Math.floor(Math.log10(t))); return Math.round(t / m) * m; };
 const big = v => Math.abs(v) < 1000 ? eur(v) : money(v);
-const crest = (c, s = 22) => `<svg class="crest" width="${s}" height="${Math.round(s * 1.15)}" viewBox="0 0 20 23" aria-hidden="true"><path d="M1 1h18v9c0 6-4 10-9 12C5 20 1 16 1 10z" fill="${c.color}" stroke="var(--crest-edge)"/><text x="10" y="13" text-anchor="middle" font-size="6" font-weight="700" fill="#fff" font-family="sans-serif">${esc(c.short)}</text></svg>`;
+const crest = (c, s = 22) => `<svg class="crest" width="${s}" height="${Math.round(s * 1.15)}" viewBox="0 0 20 23" aria-hidden="true"><path d="M1 1h18v9c0 6-4 10-9 12C5 20 1 16 1 10z" fill="${c.color}" stroke="${c.color2 || "var(--crest-edge)"}" stroke-width="${c.color2 ? 1.6 : 1}"/><text x="10" y="13" text-anchor="middle" font-size="6" font-weight="700" fill="#fff" font-family="sans-serif">${esc(c.short)}</text></svg>`;
 const clubLink = c => `<button class="lnk" data-act="club" data-id="${c.id}">${esc(c.name)}</button>`;
 const bar = (v, max = 100) => `<span class="bar"><i style="width:${clamp(v / max * 100, 0, 100)}%"></i></span>`;
 const rcls = v => v >= 80 ? "r-elite" : v >= 70 ? "r-high" : v >= 55 ? "r-mid" : v >= 40 ? "r-low" : "r-bad";
@@ -43,6 +43,43 @@ const attr20 = v => `${bar(v)}<b class="num">${r20(v)}</b>`;
 const word = ([w, cls]) => `<span class="${cls}">${w}</span>`;
 function toast(t) { const el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2600); }
 
+/* ---------- start screen: the club you start with ---------- */
+// The catchment line under region and setting.
+function startHint(region, loc) { const c = { region, loc }; return `<b>${esc(region)}, ${esc(LOCS[loc].l.toLowerCase())}: ${catchWord(c)}</b> <span class="muted">(${Math.round(catchment(c) * 100)}% of average). ${esc(LOCS[loc].d)}</span>`; }
+const START_TIERS = [[7, "Regional League", "the bottom of the pyramid (the classic start)"], [6, "National Division North/South", "semi-professional, a step up"], [5, "National Division", "one step below the Football League"]];
+const START_REP = { unknown: ["Unknown", "Nobody's heard of you yet."], local: ["A local name", "Known around town."], proud: ["Proud history", "Decades of tradition and a respected name."], giant: ["Fallen giant", "Once a big club: low down now, but a huge, loyal support waiting to come back."] };
+const START_FANS = { small: "Small for the division", normal: "Normal", big: "Big for the division" };
+const START_MIX = { bal: "Balanced", hard: "Hardcore", loyal: "Loyal", fair: "Fair-weather", comm: "Community" };
+const START_AGE = { 0: "Brand new", 20: "20 years old", 50: "50 years old", 100: "A century old, crumbling" };
+const START_LAYOUT = { seat: "All seated", mix: "Seats and terraces", terr: "Mostly terraces" };
+const START_ROOM = { tight: "Tight (little room to grow)", some: "Some room", lots: "Plenty of room" };
+function startMore() {
+  const opt = (o, sel) => Object.entries(o).map(([k, v]) => `<option value="${k}" ${String(k) === String(sel) ? "selected" : ""}>${esc(Array.isArray(v) ? v[0] : v)}</option>`).join("");
+  return `<details style="margin-top:16px"><summary><b>More about your club</b> <span class="muted small">(optional: starting division, history, supporters, ground)</span></summary>
+    <h3 style="margin:14px 0 8px">Starting division</h3>
+    <label><select id="f-tier">${START_TIERS.map(([t, l, d]) => `<option value="${t}">${esc(l)}: ${esc(d)}</option>`).join("")}</select></label>
+    <p class="small muted" style="margin-top:4px">Higher up, the squad you inherit is better and wages, crowds and prices are bigger: you'll want a bigger fortune.</p>
+    <h3 style="margin:14px 0 8px">Club history</h3>
+    <div class="form-grid"><label>Founded (year)<input id="f-founded" inputmode="numeric" maxlength="4" placeholder="${G ? G.year : 2025} (new)"></label>
+      <label>Nickname<input id="f-nick" maxlength="24" placeholder="e.g. The Robins"></label></div>
+    <p class="small" style="margin:8px 0 4px">Second colour</p>
+    <div class="swatches" id="f-color2">${["#ffffff", "#111111", ...CLUB_COLORS].map((c, i) => `<button style="background:${c}" data-v="${c}" aria-pressed="${i === 0}" aria-label="Second colour ${i + 1}"></button>`).join("")}</div>
+    <label style="margin-top:10px">Starting reputation<select id="f-rep">${opt(START_REP, "unknown")}</select></label>
+    <p class="small muted" style="margin-top:4px">${Object.values(START_REP).map(([l, d]) => `<b>${esc(l)}:</b> ${esc(d)}`).join(" ")}</p>
+    <h3 style="margin:14px 0 8px">Supporters</h3>
+    <div class="form-grid"><label>Starting fan base<select id="f-fans">${opt(START_FANS, "normal")}</select></label>
+      <label>The kind of support<select id="f-mix">${opt(START_MIX, "bal")}</select></label></div>
+    <h3 style="margin:14px 0 8px">The ground</h3>
+    <label>Own a ground, or rent one<select id="f-own"><option value="rent">Rent (no ground of your own yet: the classic start)</option><option value="own">Own a ground</option></select></label>
+    <div class="form-grid" style="margin-top:8px"><label>Ground name<input id="f-gname" maxlength="30" placeholder="e.g. Harwick Park"></label>
+      <label>Capacity<input id="f-gcap" inputmode="numeric" maxlength="6" placeholder="1,500"></label>
+      <label>Age<select id="f-gage">${opt(START_AGE, 20)}</select></label>
+      <label>Stands<select id="f-glay">${opt(START_LAYOUT, "mix")}</select></label>
+      <label>Room on the site<select id="f-groom">${opt(START_ROOM, "some")}</select></label>
+      <label>Pitch size<select id="f-psize">${opt(Object.fromEntries(Object.entries(PSIZE).map(([k, P]) => [k, `${P.l} (${P.dim})`])), "std")}</select></label>
+      <label>Surface<select id="f-ptype">${opt({ grass: "Natural grass", hybrid: "Hybrid grass" }, "grass")}</select></label></div>
+    <p class="small muted" style="margin-top:4px">Only used if you own a ground. Terraces are closed in the top two divisions. An old ground has character but costs more to keep up and wants rebuilding sooner.</p></details>`;
+}
 /* ---------- start screen ---------- */
 function renderStart(saves) {
   $("#app").innerHTML = `<div class="wrap gut"><div class="hero"><p class="eyebrow">The Owner's Box <span style="opacity:.7">· version ${VERSION}</span></p><h1>Build a club <span>from nothing</span></h1>
@@ -53,17 +90,20 @@ function renderStart(saves) {
     <div class="form-grid">
       <label>Club name<input id="f-name" maxlength="32" placeholder="e.g. Harwick Athletic"></label>
       <label>Town<input id="f-town" maxlength="20" placeholder="e.g. Harwick"></label>
-      <label>Short name (3 letters)<input id="f-short" maxlength="3" placeholder="HAR"></label>
+      <label>Short name (up to 4 letters)<input id="f-short" maxlength="4" placeholder="HAR"></label>
       <label>Your name<input id="f-owner" maxlength="30" placeholder="Chair"></label>
     </div>
     <h3 style="margin:16px 0 8px">Region</h3>
-    <label>Where the club is<select id="f-region">${COUNTRY.ENG.regions.map(r => `<option value="${esc(r[0])}" ${r[0] === "London" ? "selected" : ""}>${esc(r[0])} (Regional League ${r[3] === "N" ? "North" : "South"})</option>`).join("")}</select></label>
-    <p class="small muted" style="margin-top:4px">Sets your local derbies, away-trip distances, and which players count as local lads.</p>
+    <div class="form-grid"><label>Where the club is<select id="f-region" data-act="fhint">${COUNTRY.ENG.regions.map(r => `<option value="${esc(r[0])}" ${r[0] === "London" ? "selected" : ""}>${esc(r[0])} (${r[3] === "N" ? "North" : "South"})</option>`).join("")}</select></label>
+      <label>Setting<select id="f-loc" data-act="fhint">${Object.entries(LOCS).map(([k, L]) => `<option value="${k}" ${k === "sub" ? "selected" : ""}>${esc(L.l)}</option>`).join("")}</select></label></div>
+    <p class="small" id="f-hint" style="margin-top:6px">${startHint("London", "sub")}</p>
+    <p class="small muted" style="margin-top:4px">The region sets your local derbies, away trips and which players count as local lads. The two together set your catchment: how big a support the club can grow, and how fast, as well as land prices, crowds and atmosphere.</p>
     <h3 style="margin:16px 0 8px">Colours</h3>
     <div class="swatches" id="f-color">${CLUB_COLORS.map((c, i) => `<button style="background:${c}" data-v="${c}" aria-pressed="${i === 1}" aria-label="Colour ${i + 1}"></button>`).join("")}</div>
     <h3 style="margin:16px 0 8px">Your fortune</h3>
     <div class="pick-cards" id="f-wealth">${Object.entries(WEALTH).map(([k, w], i) => `<button class="pick-card" data-v="${k}" aria-pressed="${i === 1}"><b>${w.l}</b><span class="num">${money(w.amt)}</span><small>${w.d}</small></button>`).join("")}</div>
     ${visionCard(START_V, true)}
+    ${startMore()}
     <div class="row" style="margin-top:18px"><button class="btn primary" data-act="found">Found the club</button><span class="muted small">Building the leagues takes a few seconds.</span></div>
     </section><p class="muted small" style="margin:18px 0">All clubs, players and staff are fictional.</p></div>`;
 }
@@ -864,7 +904,7 @@ const fanBar = c => { const m = fanMix(c); return `<div class="fanbar">${Object.
 const fanSummary = c => { const m = fanMix(c); return Object.keys(m).sort((a, b) => m[b] - m[a]).slice(0, 2).map(k => `${FAN_KINDS[k][0]} ${m[k]}%`).join(", "); };
 function clubModal(id) {
   const c = CL(id), ps = c.squad.map(P).filter(p => !p.acad).sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos) || b.ovr - a.ovr);
-  modal(`<div class="modal-h" style="--mc:${c.color}">${crest(c, 36)}<div><p class="eyebrow">${divisionOf(c)} · founded ${c.founded}</p><h2>${esc(c.name)}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
+  modal(`<div class="modal-h" style="--mc:${c.color}">${crest(c, 36)}<div><p class="eyebrow">${divisionOf(c)} · founded ${c.founded}${c.nick ? ` · “${esc(c.nick)}”` : ""}</p><h2>${esc(c.name)}</h2></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b">${isMine(c) ? "" : `<dl class="facts"><div><dt>Manager</dt><dd>${esc(c.coach.name)}</dd></div><div><dt>Style</dt><dd>${STYLES[c.coach.style].l}, ${c.coach.form}</dd></div><div><dt>Ground</dt><dd>${c.cap.toLocaleString("en-GB")}<br><span class="small muted">${esc(LOC(c).l)}</span><br><span class="small ${ageWord(groundAge(c))[1]}">opened ${aiOpened(c)} · ${ageWord(groundAge(c))[0]}</span>${c.build ? `<br><span class="small warn">building a new ${c.build.cap.toLocaleString("en-GB")} ground, ${c.build.left != null ? `${c.build.left} weeks to go` : `opens ${c.build.open}`}${squeeze(c) < 1 ? ` (spending ${Math.round((1 - squeeze(c)) * 100)}% less meanwhile)` : ""}</span>` : ""}${c.moved ? `<br><span class="small muted">new ground ${c.moved.y}${c.moved.km > 3 ? `, ${c.moved.km} km from the old one` : ""}</span>` : ""}</dd></div><div><dt>Owner</dt><dd>${esc(c.own.name)}<br><span class="small muted">${OWNER_STYLES[c.own.style].l}</span></dd></div><div><dt>Owner's money</dt><dd>${lossWord(c)}${c.push && lossTol(c) > 0 ? " (more chasing promotion)" : ""}${c.aiFin ? `<br><span class="small ${c.aiFin.net < 0 ? "bad" : "good"}">${c.aiFin.net < 0 ? "Lost" : "Made"} ${money(Math.abs(c.aiFin.net))} last season</span>` : ""}${c.cut ? `<br><span class="small warn">Cutting costs</span>` : ""}${c.debt ? `<br><span class="small ${c.debt > c.aiFin?.inc * 1.5 ? "bad" : "muted"}">Debt ${money(c.debt)}</span>` : ""}</dd></div><div><dt>Wage budget</dt><dd>${money(aiBudget(c))}/yr</dd></div><div><dt>Academy</dt><dd class="small">Level ${c.acadLvl || 0}/10 · youth scouting ${sr20(aiYouthScout(c))}${pedigreeWord(c) ? `<br><span class="${pedigreeWord(c)[1]}">${pedigreeWord(c)[0]}</span>` : ""}</dd></div><div><dt>Supporters</dt><dd>${c.fans.toLocaleString("en-GB")}${drawWord(c) ? ` <span class="small ${drawWord(c)[1]}">· ${drawWord(c)[0]}</span>` : ""}<br><span class="small muted">${fanSummary(c)}</span>${fanBar(c)}</dd></div><div><dt>Honours</dt><dd>${c.trophies.length ? c.trophies.map(t => t[0] + " " + t[1]).join(", ") : "—"}</dd></div></dl>`}
     <div class="tbl-wrap"><table><tbody>${ps.map(p => `<tr class="click" data-act="player" data-id="${p.id}"><td><span class="pos">${p.pos}</span></td><td style="text-align:left">${esc(p.name)}</td><td class="num">${p.age}</td><td>${range(ovrEstimate(p))}</td></tr>`).join("")}</tbody></table></div></div>`);
 }

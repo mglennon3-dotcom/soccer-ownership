@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.38";
+const VERSION = "1.0.39";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -465,7 +465,7 @@ const WEALTH = {
   billion: { l: "Billionaire consortium", amt: 600e6, d: "Money is no object. Patience and good hires still are." },
 };
 function foundClub(o) {
-  const lg = o.half === "N" ? "L7N" : "L7S", L = G.leagues[lg];
+  const tier = [5, 6, 7].includes(o.tier) ? o.tier : 7, lg = tier === 5 ? "L5" : (o.half === "N" ? "L" + tier + "N" : "L" + tier + "S"), L = G.leagues[lg];
   // The newest club replaces the weakest one in its regional league, which folds.
   const outId = L.clubs[L.clubs.length - 1], out = CL(outId);
   for (const id of out.squad.slice()) toFreeAgent(P(id));
@@ -473,24 +473,48 @@ function foundClub(o) {
   const regions = COUNTRY.ENG.regions.filter(r => r[3] === o.half);
   G.board = { own: 100, inv: [], offers: [] }; G.sTrust = { rel: 50, members: 0, seat: false }; G.net = { partner: null, feeders: [] }; G.loans = [];
   const c = { id: G.clubs.length, name: o.name, town: o.town || o.name.split(" ")[0], short: shortFor(o.short || o.name), half: o.half, region: o.region || pick(regions)[0],
-    lg, tier: 7, rep: 4, media: 8, color: o.color || "#b42323", coach: null, squad: [], lvl: TIER_LVL[7] - 3, train: 0, acadLvl: 0, cap: 0, fans: 120, gone: false, founded: G.year, trophies: [],
-    cash: 0, mood: 60, morale: 55,
-    prices: { ticket: 8, conc: 3, shirt: 40, suite: 2500 },
-    budget: { wages: tierWages(7), transfer: 60000, acad: 0, scout: 10000, comm: 0 },
+    lg, tier, rep: 4, media: 8, color: o.color || "#b42323", color2: o.color2 || null, nick: o.nick || null, coach: null, squad: [], lvl: TIER_LVL[tier] - 3, train: 0, acadLvl: 0, cap: 0, fans: 120, gone: false, founded: G.year, trophies: [],
+    cash: 0, mood: 60, morale: 55, loc: LOCS[o.loc] ? o.loc : "sub",
+    prices: { ticket: REF_TICKET[tier], conc: REF_CONC[tier] + .5, shirt: REF_SHIRT[tier], suite: REF_SUITE[tier] },
+    budget: { wages: tierWages(tier), transfer: 60000 * { 7: 1, 6: 2, 5: 4 }[tier], acad: 0, scout: 10000, comm: 0 },
     fac: { stadium: { own: false, cap: 0, amen: 1, host: 0, build: null, suites: 0, pitch: 100, ptype: "grass", relay: null }, train: { lvl: 0, build: null }, acad: { lvl: 0, build: null } },
     deals: [], offers: [], staff: { manager: null, youth: null, recruit: null }, fin: newLedger(), finLast: null, spentT: 0 };
-  c.short = shortFor(o.short || o.name);
+  // Your short name, up to four letters, as you typed it (unless another club already has it).
+  { const want = stripAcc(o.short || "").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 4); c.short = o.shortSet && want.length >= 2 && !G.clubs.some(x => !x.gone && x.short === want) ? want : shortFor(o.short || o.name); }
+  // History, reputation and supporters.
+  if (o.founded && o.founded <= G.year && o.founded >= 1850) c.founded = o.founded;
+  const repOff = { unknown: -7, local: -2, proud: 4, giant: 8 }[o.rep] ?? -7; c.rep = clamp(TIER_REP[tier] + repOff, 2, 60);
+  if (o.rep === "giant" || o.rep === "proud") { if (c.founded === G.year) c.founded = G.year - (o.rep === "giant" ? ri(100, 140) : ri(60, 110)); c.media = o.rep === "giant" ? 20 : 12; }
+  const fanK = { small: .5, normal: 1, big: 2 }[o.fans] ?? 1, giantK = o.rep === "giant" ? 3 : o.rep === "proud" ? 1.4 : 1;
+  c.fans = Math.max(80, Math.round((tier === 7 && o.rep === "unknown" ? 120 : FAN_T[tier]) * fanK * giantK * catchment(c)));  // the classic start: about 120 who turn up to see a brand-new club
+  if (o.rep === "giant") c.draw = 2.2;
+  const m = { hard: 20, loyal: 25, fair: 20, comm: 35 }; if (o.mix && m[o.mix] != null) m[o.mix] += 20; if (o.rep === "giant") { m.loyal += 12; m.hard += 5; } if (o.rep === "proud") m.loyal += 6; c.fanMix = normMix(m);
   G.clubs.push(c); L.clubs.push(c.id); G.club = c.id; buildDerbies();  // your club has its neighbours too
   G.owner = { name: o.owner || "The owner", wealth: WEALTH[o.wealth].amt, kind: o.wealth, invested: 0, vision: o.vision };
   invest(Math.min(G.owner.wealth, Math.round(WEALTH[o.wealth].amt * .08)), true);
-  // An open trial day: the founding squad is whoever turned up.
-  for (const [pos, n] of Object.entries({ GK: 2, CB: 3, FB: 3, DM: 1, CM: 3, AM: 1, W: 2, ST: 3 })) for (let i = 0; i < n; i++) {
-    const age = ri(17, 31), ovr = Math.round(oldToNew(clamp(33 + normal() * 4 - (age < 20 ? 3 : 0), 22, 44)));
-    const p = makePlayer({ pos, ovr, age, nat: R() < .9 ? "ENG" : pickNat("ENG"), club: c.id, pot: seniorPot(ovr, age), wage: 1500 });
-    p.yrs = ri(1, 2); c.squad.push(p.id); p.hist.push([G.year, c.short]);
+  if (tier === 7) {
+    // An open trial day: the founding squad is whoever turned up.
+    for (const [pos, n] of Object.entries({ GK: 2, CB: 3, FB: 3, DM: 1, CM: 3, AM: 1, W: 2, ST: 3 })) for (let i = 0; i < n; i++) {
+      const age = ri(17, 31), ovr = Math.round(oldToNew(clamp(33 + normal() * 4 - (age < 20 ? 3 : 0), 22, 44)));
+      const p = makePlayer({ pos, ovr, age, nat: R() < .9 ? "ENG" : pickNat("ENG"), club: c.id, pot: seniorPot(ovr, age), wage: 1500 });
+      p.yrs = ri(1, 2); c.squad.push(p.id); p.hist.push([G.year, c.short]);
+    }
+  } else {
+    // A club further up: the squad you inherit, a little below the division's standard, on its going wages.
+    genSquad(c); for (const id of c.squad) { const p = P(id); p.wage = Math.round(demandWage(p, c) / 100) * 100; p.hist.push([G.year, c.short]); }
   }
-  setGround(c, 0);
-  news(`${c.name} are founded. ${c.squad.length} players from an open trial day make up the first squad, and the club will play at ${HOSTS[0].name} while it has no ground of its own.`, true);
+  // Your own ground, if you chose one: its size, age, stands, room to grow, pitch.
+  if (o.own) {
+    const S = c.fac.stadium, cap = clamp(Math.round((o.gcap || STADIUM_T[tier] * .5) / 50) * 50, 300, 30000), age = clamp(o.gage || 0, 0, 120);
+    const d = standPlan(cap); for (const k in d.stands) { const x = d.stands[k]; x.type = o.glay === "seat" ? "seat" : o.glay === "terr" ? (k === "W" ? "seat" : "terrace") : (k === "N" || k === "S" ? "terrace" : "seat"); x.roof = !(age >= 50 && k !== "W" && R() < .5); x.yr = G.year - age; }
+    Object.assign(S, { own: true, cap, stands: d.stands, name: o.gname || `${c.town} Park`, amen: age >= 50 ? 1 : 2, pitch: 100, ptype: o.ptype === "hybrid" ? "hybrid" : "grass", psize: PSIZE[o.psize] ? o.psize : "std", opened: G.year - age,
+      site: Math.round(cap * { tight: 1.1, some: 1.6, lots: 3 }[o.groom || "some"] / 500) * 500 });
+    syncCap(S); c.cap = capacity(c);
+    news(`${c.name} are founded${c.founded < G.year ? ` (est. ${c.founded})` : ""}, and play at ${S.name} (${S.cap.toLocaleString("en-GB")}${age ? `, ${age} years old` : ", brand new"}).`, true);
+  } else {
+    setGround(c, 0);
+    news(`${c.name} are founded${c.founded < G.year ? ` (est. ${c.founded})` : ""}. ${tier === 7 ? `${c.squad.length} players from an open trial day make up the first squad, and the club` : "The club"} will play at ${HOSTS[0].name} while it has no ground of its own.`, true);
+  }
   return c;
 }
 function newLedger() { return { para: 0, equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, network: 0, breaks: 0, stix: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, mdops: 0, travel: 0, refunds: 0, medical: 0, insure: 0, insclaim: 0, oldground: 0, util: 0, grading: 0, comm: 0, tax: 0, acad: 0, scout: 0, buys: 0, amort: 0, writeoff: 0, build: 0, interest: 0, invest: 0 }; }
