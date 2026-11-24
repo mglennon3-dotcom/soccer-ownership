@@ -220,7 +220,7 @@ function myPlayerLine(p) {
   const role = o ? (o.slot === p.pos ? `<span class="good">a starter</span> (${POS_NAME[o.slot].toLowerCase()})` : `<span class="good">a starter</span>, playing out of position at ${POS_NAME[o.slot].toLowerCase()}`)
     : p.acad ? "in the academy" : p.inj ? `not starting (injured, ${p.inj} wk${p.inj > 1 ? "s" : ""})` : `<span class="muted">not in the starting side</span>`;
   const agreed = p.agreed && CL(p.agreed.club) ? ` · <span class="warn">agreed to join ${esc(CL(p.agreed.club).name)} when the window opens</span>` : "";
-  return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>: rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>${myPlayerStatus(p)}`;
+  return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>: age <b>${p.age}</b>, rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>${myPlayerStatus(p)}`;
 }
 // For inbox cards about your player (loan requests, bids): is he on a list, and where does he sit in the depth chart?
 function myPlayerStatus(p) {
