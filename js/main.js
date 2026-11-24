@@ -544,7 +544,7 @@ const ACT = {
   buyplot: async () => { const c = my(), { pick, plot } = mvChoice(c); if (ownPlot(c) || c.fac.stadium.build) return;
     if (!await ask(`Buy land ${pick.km} km away (${pick.l.toLowerCase()}) with room for a ground of up to ${plot.toLocaleString()}, for ${money(landCost(c, pick, plot))}? You can build on it whenever you like.`)) return;
     buyPlot(c, pick, plot); G.mvOpen = true; render(); saveGame(); },
-  adjbuy: async el => { const c = my(), n = +el.dataset.n; if (adjDone(c) || !adjOpts(c).includes(n)) return;
+  adjbuy: async el => { const c = my(), n = +el.dataset.n; if (!(n >= 500 && n <= adjMax(c))) return;
     if (!await ask(`Buy the land next to ${c.fac.stadium.name}, enough for ${n.toLocaleString()} more places, for ${money(adjCost(c, n))}?`)) return;
     buyAdjacent(c, n); render(); saveGame(); },
   sellplot: async () => { const c = my(), P0 = ownPlot(c); if (!P0) return; if (!await ask(`Sell your land ${P0.km} km away for ${money(Math.round(P0.paid * .85 / 1e4) * 1e4)}?`)) return; sellPlot(c); render(); saveGame(); },
@@ -626,6 +626,8 @@ const CHANGE = {
     else { const [s, f] = k.split("."); d.stands[s][f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; }
     render(); },
   stname: el => { G.stName = el.value.trim(); },
+  mvplotin: el => { G.plotN = clamp(Math.round(num(el) / 500) * 500, plotMin(my()), SITE_MAX); G.mvOpen = true; render(); },
+  adjn: el => { G.adjN = clamp(Math.round(num(el) / 500) * 500, 500, Math.max(500, adjMax(my()))); render(); },
   extn: el => { (G.extN ||= {})[el.dataset.k] = Math.max(50, Math.round(num(el) / 50) * 50); render(); },
   stfin: el => { (G.stFin ||= { share: 0, years: 25 })[el.dataset.k] = +el.value; render(); },
   mvname: el => { G.mvName = el.value.trim(); },
