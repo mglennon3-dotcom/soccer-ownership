@@ -796,6 +796,21 @@ const adjCost = (c, add) => { const S = c.fac.stadium; return Math.round(add * S
 // The anger: nothing for a sliver, then rising with how much of the neighbourhood you take (mood points).
 const adjAnger = (c, add) => { const r = add / adjBase(c.fac.stadium); return r < .05 ? 0 : Math.min(25, Math.round(r * 6 * adjSpread(c.fac.stadium, add) ** .5)); };
 const adjDone = () => false;
+/* Not everything next door is homes: now and then an empty field, an abandoned warehouse, a disused car park or an old
+   factory site comes up for sale beside the ground. It's ordinary land (cheaper than town land; a building to clear
+   costs a little more), nobody is displaced, so nobody minds. A new chance comes each season (about two in five). */
+const VACANT = [["an empty field", .6, 0], ["an abandoned warehouse", .9, .15], ["a disused car park", .8, .05], ["an old factory site", .85, .2]];
+function vacantNow(c) {
+  const S = c.fac.stadium; if (!S.own || siteCap(S) >= SITE_MAX) return null;
+  if (S.vacY !== G.year) { S.vacY = G.year; if (!S.vac && R() < .4) { const [l, k, clear] = pick(VACANT); S.vac = { l, k, clear, size: clamp(Math.round(siteCap(S) * rf(.15, .6) / 500) * 500, 500, SITE_MAX - siteCap(S)) }; } }
+  return S.vac || null;
+}
+const vacantCost = (c, v) => Math.round(v.size * SITE_KINDS.near.land * landK(c) * v.k * (1 + v.clear) / 1e4) * 1e4;
+function buyVacant(c) {
+  const S = c.fac.stadium, v = S.vac; if (!v) return; const cost = vacantCost(c, v);
+  spend("build", cost); S.site = siteCap(S) + v.size; delete S.vac;
+  news(`You buy ${v.l} next to ${S.name} for ${money(cost)}${v.clear ? " (clearing it included)" : ""}: the site now takes a ground of up to ${S.site.toLocaleString("en-GB")}. Nobody minds.`, true);
+}
 function buyAdjacent(c, add) {
   const S = c.fac.stadium, cost = adjCost(c, add), anger = adjAnger(c, add); S.site0 ||= siteCap(S); spend("build", cost); S.site = siteCap(S) + add; S.adjY = G.year;
   news(`You buy the land next to ${S.name} for ${money(cost)}: the site now takes a ground of up to ${S.site.toLocaleString("en-GB")}.`, true);
