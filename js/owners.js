@@ -67,9 +67,13 @@ function aiMoveCheck(c) {
   // A club that has built a new ground won't build another for at least 20 years.
   if (c.abroad || c.build || (c.moved && G.year - c.moved.y < 20) || G.year - aiOpened(c) < 20 || R() > moveOdds(c)) return;
   const S = ownStyle(c), st = c.own.style, roots = fanShare(c, "loyal") + fanShare(c, "hard");  // a loyal, hardcore support wants to stay close
-  const kind = st === "developer" ? (R() < .6 - roots * .4 ? "far" : "edge") : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? (R() < .55 + roots * .4 ? "near" : "edge")
-    : wpick(["near", "edge", "far"], k => ({ near: 3 + roots * 6, edge: 4, far: Math.max(.5, 2.5 - roots * 4) })[k]);
-  const K = SITE_KINDS[kind], km = ri(...K.km), cap = clamp(Math.round(Math.max(c.cap * rf(1.3, 1.8), c.fans * 1.2) / 500) * 500, c.cap + 1000, SITE_MAX), site = clamp(Math.round(cap * rf(1.3, 2) / 500) * 500, cap, SITE_MAX);
+  // The owner's own leaning (a developer likes cheap land far out, a local owner stays close), then what the supporters
+  // want: a fan-owned club follows them, most owners listen, a stripper or a fund barely does.
+  const lean = st === "developer" ? { near: .5, edge: 2, far: 2.5 } : ["local", "explayer", "fanowned", "dynasty"].includes(st) ? { near: 3, edge: 1.5, far: .3 } : { near: 2, edge: 2, far: 1 };
+  const listen = { fanowned: 1.5, local: 1.1, explayer: 1.1, dynasty: 1, developer: .35, stripper: .1, absentee: .3, gambler: .6 }[st] ?? .8;
+  const cap = clamp(Math.round(Math.max(c.cap * rf(1.3, 1.8), c.fans * 1.2) / 500) * 500, c.cap + 1000, SITE_MAX);
+  const opts = Object.entries(SITE_KINDS).map(([k, K]) => { const km = ri(...K.km), site = clamp(Math.round(cap * rf(1.3, 2) * (k === "near" ? rf(.6, 1) : 1) / 500) * 500, c.cap + 500, SITE_MAX); return { k, km, site, pref: sitePref(c, { k, km, site }) }; });
+  const ch = wpick(opts, o => lean[o.k] * Math.exp(clamp(o.pref.mood, -20, 12) / 8 * listen)), kind = ch.k, K = SITE_KINDS[kind], km = ch.km, site = ch.site;
   const cost = 1.5e6 + cap * perSeat(cap) + site * K.land * landK(c) - aiSite(c) * 150 * landK(c);
   // Paid partly by the owner, the rest borrowed against the new ground (supporters' trusts borrow most of it), or
   // all of it borrowed.
@@ -77,7 +81,7 @@ function aiMoveCheck(c) {
   // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
   // The same building time as yours (construction weeks for that size, plus a few for a move), counted week by week.
   G.groundY = G.year; G.groundNext = G.year + ri(1, 3);
-  const wks = groundWeeks(cap) + 4; c.build = { cap, site, km, kind, left: wks, total: wks, open: G.year + Math.floor((wks + G.week) / 54) };
+  const wks = groundWeeks(cap) + 4; c.build = { cap, site, km, kind, mood: ch.pref.mood, left: wks, total: wks, open: G.year + Math.floor((wks + G.week) / 54) };
   if (nearMe(c)) news(`${c.name} start building a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}: about ${wks} weeks of work.${squeeze(c) < .95 ? " They'll be spending less on the team while it goes up." : ""}`, c.lg === my().lg);
 }
 const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c);
@@ -92,7 +96,10 @@ function aiBuildWeek() { boostWeek(); for (const c of G.clubs) if (c.build && c.
 function aiMoveIn(c) {
   const b = c.build, old = c.cap; c.build = null; setHoney(c); if (b.kind) c.loc = locForMove(c, b.kind);
   (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = b.cap; c.site = b.site; c.moved = { y: G.year, km: b.km, from: old }; c.opened = G.year;
-  let lost = 0; if (b.km > 9) { lost = Math.min(.25, b.km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m); }
+  // What the supporters thought of the site decides how many follow (a move they backed costs very few).
+  const mood = b.mood ?? moveMood(c, b.km);
+  let lost = siteLoss(c, { km: b.km }, mood); if (lost > 0) { c.fans = Math.round(c.fans * (1 - lost)); const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m); }
+  if (mood > 0) c.mood = clamp((c.mood || 60) + Math.min(5, mood), 0, 100);
   if (nearMe(c)) news(`${c.name} move into their new ${b.cap.toLocaleString("en-GB")}-capacity ground${b.km > 3 ? `, ${b.km} km from the old one` : ""}${lost ? `; about ${Math.round(lost * 100)}% of their support won't follow` : ""}.`, c.lg === my().lg);
 }
 const ownStyle = c => OWNER_STYLES[(c.own || {}).style || "local"];

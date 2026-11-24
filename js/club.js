@@ -752,8 +752,10 @@ function newSites(c) {
   const S = c.fac.stadium; if (G.sites && G.sites.y === G.year && G.sites.club === c.id) return G.sites.list;
   // Sized from the club's stature as well as its ground: a club that has outgrown a small old site finds plots to match
   // its support (whichever is bigger).
-  const base = Math.max(siteCap(S), supportSize(c));
-  const list = Object.entries(SITE_KINDS).map(([k, K]) => { const site = clamp(Math.round(base * rf(...K.grow) / 500) * 500, siteCap(S) + 1000, SITE_MAX);
+  const base = Math.max(siteCap(S), supportSize(c)), cramped = ["city", "inner"].includes(locOf(c));
+  // In a crowded city there's little land near the old ground: what's readily for sale in town is little more than the
+  // site you have now (you can still buy more, at the price).
+  const list = Object.entries(SITE_KINDS).map(([k, K]) => { const site = clamp(Math.round((k === "near" && cramped ? siteCap(S) * rf(1.1, 1.4) : base * rf(...K.grow)) / 500) * 500, siteCap(S) + 1000, SITE_MAX);
     return { k, l: K.l, km: ri(...K.km), site, rate: K.land }; });
   G.sites = { y: G.year, club: c.id, list }; return list;
 }
@@ -868,7 +870,7 @@ function mvChoice(c) {
 function buyPlot(c, site, plot) {
   const S = c.fac.stadium, cost = landCost(c, site, plot), plan = planExtra(c, plot);
   spend("build", cost); S.plot = { k: site.k, l: site.l, km: site.km, site: plot, rate: site.rate, paid: cost, y: G.year, plan, planT: plan };
-  G.sites = null; moveAnnounced(c, site.km);
+  G.sites = null; moveAnnounced(c, site.km, { k: site.k, km: site.km, site: plot });
   news(`You buy land ${site.km} km away (${site.l.toLowerCase()}) for ${money(cost)}: room for a ground of up to ${plot.toLocaleString("en-GB")}. ${plan ? `The planning application goes in now: about ${plan} weeks.` : "Planning permission should be a formality."} Build on it whenever you're ready.`, true);
   if (plan) { trustRel(-Math.min(10, Math.round(plan / 4))); news(`The council will take its time over a ${plot.toLocaleString("en-GB")}-capacity plot for a club that draws about ${supportSize(c).toLocaleString("en-GB")}. The supporters' trust asks whether the club can ever fill it.`, true); }
 }
@@ -877,19 +879,51 @@ function sellPlot(c) { const S = c.fac.stadium, P0 = S.plot; if (!P0) return; co
 function plotWeek(c) { const P0 = c.fac.stadium.plot; if (P0 && P0.plan > 0 && --P0.plan === 0) news(`Planning permission is granted for the ground on your land ${P0.km} km away: you can build whenever you're ready.`, true); }
 function moveQuote(c, d, site, plot) { const kind = site.k; const q = groundQuote(d), land = site.owned ? 0 : landCost(c, site, plot), sell = oldGroundValue(c), px = site.owned ? site.plan || 0 : planExtra(c, plot); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4 + px, plan: (q.plan || 0) + px, px, km: site.km, kind, site: plot, sell, lease: leaseFee(sell) }; }
 // How supporters take it: positive for a short move, increasingly negative with distance.
+/* What the supporters make of a site: a mood score (positive: they like it) and the reasons. Distance is the start
+   (a short hop is exciting, further away hurts), weighted by who the supporters are and where the club stands:
+   - loyal and hardcore fans hate leaving; fair-weather fans care more about the club growing than where it plays;
+   - families and community fans like the parking and easy access of the edge of town or a retail park;
+   - if the club can't fit in everyone who wants a ticket, a site with room for them all is a big draw;
+   - a crumbling old ground makes moving easier to accept, a brand-new one makes it baffling;
+   - a club on the way up has fans who back a bigger project; one going down sees the owner walking away;
+   - supporters of a cramped city club are used to the idea of moving; a village or market town wants to stay put. */
+function sitePref(c, x) {
+  const m = fanMix(c), roots = (m.hard + m.loyal) / 100, fam = m.comm / 100, fair = m.fair / 100, why = [], note = (d, t) => why.push([Math.abs(d), t]);
+  const ups = isMine(c) ? G.history.slice(0, 3).filter(h => h.up).length - G.history.slice(0, 3).filter(h => h.down).length : (c.upNow ? 1 : 0) - ((c.lastTier ?? c.tier) < c.tier ? 1 : 0);
+  const age = groundAge(c), S = c.fac && c.fac.stadium, plain = isMine(c) ? (S && S.own ? (S.amen || 1) <= 1 : true) : age >= 50;
+  const setK = { city: .8, inner: .9, sub: 1, ind: 1, retail: 1, market: 1.2, village: 1.35, rural: 1.1 }[locOf(c)] || 1;
+  let w = (.55 + roots * 1.3) * (1 - fair * .8) * setK * Math.pow(.85, ups) * (age >= 60 && plain ? .85 : 1);
+  w = clamp(w, .3, 2.2);
+  let mood = x.km <= 3 ? 4 : -(x.km <= 9 ? 4 + x.km * .6 : 8 + x.km * .45) * w;
+  if (x.km > 3) { if (roots >= .5) note(-mood * .5, "the loyal core want to stay close"); else if (fair >= .3) note(3, "fair-weather fans mind the distance less"); }
+  if (x.k !== "near" && fam >= .3) { const d = fam * (x.k === "edge" ? 12 : 8); mood += d; note(d, "families like the parking and easy access"); }
+  const capNow = isMine(c) ? (S && S.own ? siteCap(S) : capacity(c)) : (c.site || c.cap), want = c.fans * 1.15;
+  if (want > capNow * 1.05) { const short = want - capNow, fits = clamp(((x.site || capNow) - capNow) / short, 0, 1), k = clamp(short / Math.max(1, capNow), .2, 1);
+    mood += 9 * fits * k; if (fits >= .9) note(9 * k, "room for everyone who wants a ticket"); else if (fits < .4) note(9 * k, "too small for everyone who wants a ticket"); }
+  if (age >= 60 && plain && x.km > 3) { mood += 2; note(2.5, "the old ground is crumbling"); }
+  if (age < 10 && x.km > 3) { mood -= 3; note(3, "why leave a ground that's nearly new?"); }
+  if (ups > 0 && x.km > 3) note(2, "promotions have them backing the project"); else if (ups < 0 && x.km > 3) { mood -= 2; note(2.5, "relegation makes it feel like the owner walking away"); }
+  if (x.km > 3 && setK >= 1.2) note(2.2, `${locOf(c) === "village" ? "the village" : "the town"} wants its club to stay`);
+  return { mood: Math.round(mood * 10) / 10, why: why.sort((a, b) => b[0] - a[0]).map(w => w[1]) };
+}
+// The share of the support lost by moving far away: worse the more the supporters oppose it.
+const siteLoss = (c, x, mood) => x.km <= 9 ? 0 : Math.min(.3, x.km * .008 * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5) * clamp(-mood / 14, 0, 1.6));
 const moveMood = (c, km) => km <= 3 ? 4 : -(km <= 9 ? 4 + km * .6 : 8 + km * .45) * fanCare(c) / 1.5;
-function moveAnnounced(c, km) {
-  if (km <= 3) { moodHit(c, 2); trustRel(2); news("Supporters welcome plans for a bigger ground just down the road."); return; }
-  moodHit(c, moveMood(c, km) * .4); trustRel(-Math.round(km * .5)); bumpMedia(2);
-  news(`The supporters' trust ${km > 9 ? "is furious about" : "has doubts about"} the plan to move the club ${km} km away.`, km > 9);
+function moveAnnounced(c, km, site) {
+  const p = site ? sitePref(c, site) : { mood: moveMood(c, km), why: [] };
+  if (p.mood > 0) { moodHit(c, Math.min(4, p.mood * .5)); trustRel(2); news(`Supporters welcome the plans for a new ground ${km <= 3 ? "just down the road" : `${km} km away`}${p.why.length ? ` (${p.why[0]})` : ""}.`); return; }
+  moodHit(c, p.mood * .4); trustRel(-Math.round(Math.min(km * .5, -p.mood * .6))); bumpMedia(2);
+  news(`The supporters' trust ${p.mood <= -10 ? "is furious about" : "has doubts about"} the plan to move the club ${km} km away${p.why.length ? `: ${p.why[0]}` : ""}.`, p.mood <= -10);
 }
 function moveIn(c, b) {
   const S = c.fac.stadium, old = S.name, sell = b.sold ? b.sell : oldGroundValue(c); closeGround(S);
   if (b.kind) { const was = LOC(c).l; c.loc = locForMove(c, b.kind); if (LOC(c).l !== was) news(`The new ground's setting: ${LOC(c).l.toLowerCase()}. ${LOC(c).d}`, true); }
   S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
   syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = b.site; S.rebuilding = false; S.soldOld = false; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
-  if (!b.sold) earn("oldground", sell); moodHit(c, moveMood(c, b.km));
-  if (b.km > 9) { const lost = Math.min(.25, b.km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); trustRel(-Math.round(b.km * .4));
+  const pf = b.kind ? sitePref(c, { k: b.kind, km: b.km, site: b.site }) : { mood: moveMood(c, b.km) };
+  if (!b.sold) earn("oldground", sell); moodHit(c, pf.mood);
+  const lost = siteLoss(c, { km: b.km }, pf.mood);
+  if (lost > 0) { c.fans = Math.round(c.fans * (1 - lost)); trustRel(-Math.round(Math.min(b.km * .4, -pf.mood * .5)));
     const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m);
     news(`The club moves to ${S.name}, ${b.km} km from ${old}. Some supporters won't make the journey: about ${Math.round(lost * 100)}% of the support drifts away. ${b.sold ? "" : `${old} is sold for ${money(sell)}.`}`, true); }
   else news(`The club moves into ${S.name}${b.km > 3 ? `, ${b.km} km from ${old}` : ""}. ${S.cap.toLocaleString("en-GB")} capacity.${b.sold ? "" : ` ${old} is sold for ${money(sell)}.`}`, true);
