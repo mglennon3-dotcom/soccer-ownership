@@ -468,9 +468,11 @@ const ACT = {
       else if (v === "unll" && p.loanList) { loanListToggle(p); n++; }
       else if (v === "tl" && !p.list) { p.keep = false; ownerList(p); n++; }
       else if (v === "untl" && p.list) { ownerList(p); n++; }
+      else if (v === "nfs" && !p.nfs) { setNotForSale(p, true); n++; }
+      else if (v === "unnfs" && p.nfs) { setNotForSale(p, false); n++; }
     }
-    const what = { keep: "protected", unkeep: "no longer protected", ll: "loan-listed", unll: "taken off the loan list", tl: "transfer-listed", untl: "taken off the transfer list" }[v];
-    toast(n ? `${n} player${n > 1 ? "s" : ""} ${what}.` : `Nothing to change: ${{ keep: "they were all protected already", unkeep: "none of them was protected", ll: "they were all on the loan list already", unll: "none of them was on the loan list", tl: "they were all on the transfer list already", untl: "none of them was on the transfer list" }[v]}.`);
+    const what = { keep: "protected", unkeep: "no longer protected", ll: "loan-listed", unll: "taken off the loan list", tl: "transfer-listed", untl: "taken off the transfer list", nfs: "made not for sale", unnfs: "made available again" }[v];
+    toast(n ? `${n} player${n > 1 ? "s" : ""} ${what}.` : `Nothing to change: ${{ keep: "they were all protected already", unkeep: "none of them was protected", ll: "they were all on the loan list already", unll: "none of them was on the loan list", tl: "they were all on the transfer list already", untl: "none of them was on the transfer list", nfs: "they were all not for sale already", unnfs: "none of them was marked not for sale" }[v]}.`);
     FSEL.clear(); render(); saveGame(); },
   aselall: () => { const ids = my().squad.filter(id => P(id).acad); if (ASEL.size === ids.length) ASEL.clear(); else ids.forEach(id => ASEL.add(id)); render(); },
   abulk: async el => {
