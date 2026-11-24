@@ -222,10 +222,20 @@ function myPlayerLine(p) {
   const agreed = p.agreed && CL(p.agreed.club) ? ` · <span class="warn">agreed to join ${esc(CL(p.agreed.club).name)} when the window opens</span>` : "";
   return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>: age <b>${p.age}</b>, rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>${myPlayerStatus(p)}`;
 }
+// A position's depth chart as the Depth chart page shows it: your order if you've set one, otherwise the manager's
+// (starters there, then everyone else in that area of the team by rating, then those starting elsewhere).
+function depthOrder(c, role) {
+  const xi = pickXI(c), startsAt = new Map(xi.map(o => [o.p.id, o.slot]));
+  const all = c.squad.map(P).filter(p => p && (!p.acad || acadDepth(p, c)) && !(p.loan && p.loan.from === c.id) && (role === "GK") === (p.pos === "GK") && (depthLine(p, role) || startsAt.get(p.id) === role))
+    .sort((a, b) => roleRating(b, role) - roleRating(a, role)).map(p => p.id);
+  const mine = depthSync(c, role);
+  if (mine) return [...mine.filter(id => all.includes(id)), ...all.filter(id => !mine.includes(id))];
+  return [...all.filter(id => startsAt.get(id) === role), ...all.filter(id => !startsAt.has(id)), ...all.filter(id => startsAt.has(id) && startsAt.get(id) !== role)];
+}
 // For inbox cards about your player (loan requests, bids): is he on a list, and where does he sit in the depth chart?
 function myPlayerStatus(p) {
   const c = my(), lists = [p.list ? '<span class="chip req">TRANSFER LISTED</span>' : "", p.loanList ? '<span class="chip acad">LOAN LISTED</span>' : "", p.nfs ? '<span class="chip hg">NOT FOR SALE</span>' : "", p.keep ? '<span class="chip hg">PROTECTED</span>' : ""].filter(Boolean).join(" ");
-  const L = (typeof depthSync === "function" && depthSync(c, p.pos)) || [], i = L.indexOf(p.id), ahead = L.slice(0, Math.max(0, i)).map(id => G.players[id]).filter(Boolean);
+  const L = depthOrder(c, p.pos), i = L.indexOf(p.id), ahead = L.slice(0, Math.max(0, i)).map(id => G.players[id]).filter(Boolean);
   const nStart = (FORMS[clubForm(c)] || []).filter(s => s === p.pos).length;
   const depth = i < 0 ? `not in the depth chart at ${POS_NAME[p.pos].toLowerCase()}` : `<b>${ordinal(i + 1)}</b> in the depth chart at ${POS_NAME[p.pos].toLowerCase()}${nStart ? ` (${nStart} start${nStart > 1 ? "" : "s"} there)` : " (the formation doesn't use one)"}${ahead.length ? `, behind ${ahead.slice(0, 3).map(q => `${esc(q.name)} (${r20(roleRating(q, p.pos))})`).join(", ")}${ahead.length > 3 ? ` and ${ahead.length - 3} more` : ""}` : ""}`;
   return `<p class="small" style="margin-top:2px">${lists ? lists + " · " : ""}${depth}</p>`;
