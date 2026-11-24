@@ -8,7 +8,9 @@
    it as an appearance fee. Friendlies don't count in players' records. A side with fewer than two starts the season
    rusty for its first four league games; three or more gives it a small edge. */
 const MAX_FRIENDLIES = 8;  // one per pre-season week (SUMMER_WEEKS, defined later in season.js)
-const myLevel = c => avg(pickXI(c).map(o => o.p.ovr));
+// Your side's level (cached for a moment: the friendlies page asks it for every club in the game).
+let ML_ = { t: 0 };
+const myLevel = c => { const k = c.id + ":" + c.squad.length + ":" + G.week; if (ML_.k === k && Date.now() - ML_.t < 2000) return ML_.v; const v = avg(pickXI(c).map(o => o.p.ovr)); ML_ = { k, v, t: Date.now() }; return v; };
 // How keen club x is to play you: 0.1-1.2.
 function friendlyInterest(x, c = my()) {
   const gap = x.lvl - myLevel(c);  // how much stronger they are
@@ -50,6 +52,8 @@ function friendlyOptions() {
   G.fOpts = { y: G.year, v: 2, ids: list.map(x => x.id) };
   return list;
 }
+// Every club you could ask: all of England's (except yours) and every club abroad. Most won't be keen; you can still ask.
+const friendlyAll = () => G.clubs.filter(x => !isMine(x) && (x.abroad ? (G.foreign || []).includes(x.id) : !x.gone));
 const freeWeeks = () => { const used = new Set((G.friendlies || []).map(f => f.w)); const out = []; for (let w = G.phase === "summer" ? G.week : SUMMER_WEEKS; w < SUMMER_WEEKS; w++) if (!used.has(w)) out.push(w); return out; };
 function askFriendly(x, home, week) {
   const c = my(), F = (G.friendlies ||= []), free = freeWeeks();

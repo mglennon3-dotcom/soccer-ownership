@@ -600,6 +600,7 @@ const ACT = {
     for (const [id, v] of Object.entries(P.v)) { const x = $("#" + id); if (x) x.value = v; }
     if (P.wealth) document.querySelectorAll("#f-wealth [aria-pressed]").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === P.wealth));
     el.parentNode.querySelectorAll(".pick-card").forEach(b => b.setAttribute("aria-pressed", b === el)); $("#f-more").open = true; CHANGE.fhint(); toast(`${P.l}: filled in. Change anything you like.`); },
+  fmore: () => { SUB.fmore = (SUB.fmore || 40) + 40; render(); },
   found: async () => {
     const name = $("#f-name").value.trim(); if (!name) return toast("Give your club a name.");
     const sel = id => ($(`#${id} [aria-pressed="true"]`) || {}).dataset?.v;
@@ -612,6 +613,7 @@ const ACT = {
   },
 };
 const CHANGE = {
+  fq: el => { SUB.fq = el.value; SUB.fmore = 40; render(); const x = document.querySelector('[data-act="fq"]'); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } },
   fhint: () => { const h = $("#f-hint"); if (h) h.innerHTML = startHint($("#f-region").value, $("#f-loc").value); },
   renewtick: el => { const p = P(+el.dataset.id); p.keep = el.checked; if (p.keep) { p.list = false; } news(p.keep ? `${p.name} will be offered a new contract when his runs out.` : `${p.name} is no longer marked to be kept.`); render(); saveGame(); },
 
