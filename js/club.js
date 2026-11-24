@@ -759,7 +759,11 @@ const planExtra = (c, plot) => { const r = plot / supportSize(c); return r <= 2 
 // Land: priced per place the plot can hold, a little dearer per place for a big plot, dearer in the bigger divisions.
 // Land is dear where the big clubs are (cities): each division up makes it about 1.7 times dearer.
 const landK = c => Math.pow(1.7, 7 - clamp(c.tier, 1, 7));
-const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
+/* Beyond what a site readily offers (site.site) you can still buy more, piece by piece from more owners, at a rising
+   premium: about 50% more per place for the first doubling, and dearer the further you go. */
+const landPrem = (have, want) => want <= have ? 1 : 1 + .5 * Math.pow(want / have - 1, 1.15);
+const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Math.pow(plot / 10000, .08) * landPrem(site.site || plot, plot) / 1e4) * 1e4;
+const plotMin = c => Math.max(c.fac.stadium.cap + 1000, siteCap(c.fac.stadium) + 500);
 const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) / 1e4) * 1e4;
 // (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
 const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
@@ -772,18 +776,23 @@ const ownPlot = c => c.fac.stadium.plot || null;
    at a premium over town land (about a fifth more than an in-town plot, place for place), and each piece can't be
    more than the site already is. It makes the current site bigger, so the stands can be extended further. */
 const ADJ_RATE = 220;
-// A piece can be as big as the site already is, or as the club's support if that's bigger.
-const adjOpts = c => { const s = siteCap(c.fac.stadium), max = Math.min(SITE_MAX - s, Math.max(s, supportSize(c))); if (max < 500) return [];
+// Suggested amounts (you can ask for any): up to what's readily for sale (as big as the site, or your support).
+const adjEasy = c => Math.max(siteCap(c.fac.stadium), supportSize(c));
+const adjMax = c => Math.max(0, SITE_MAX - siteCap(c.fac.stadium));
+const adjOpts = c => { const max = Math.min(adjMax(c), adjEasy(c)); if (max < 500) return [];
   return [...new Set([.1, .25, .5, 1].map(f => Math.round(Math.max(500, max * f) / 500) * 500).filter(n => n <= max))]; };
-const adjCost = (c, add) => Math.round(add * ADJ_RATE * landK(c) * Math.pow((siteCap(c.fac.stadium) + add) / 10000, .08) / 1e4) * 1e4;
-const adjDone = c => c.fac.stadium.adjY === G.year;
+// Price: town land at a premium; more than is readily for sale means buying out holdouts (dearer the more you want), and
+// each further purchase in the same season costs a fifth more (the neighbours know you're keen).
+const adjCost = (c, add) => { const S = c.fac.stadium, n = S.adjY === G.year ? S.adjN || 1 : 0;
+  return Math.round(add * ADJ_RATE * landK(c) * Math.pow((siteCap(S) + add) / 10000, .08) * landPrem(adjEasy(c), add) * Math.pow(1.2, n) / 1e4) * 1e4; };
+const adjDone = () => false;
 function buyAdjacent(c, add) {
-  const S = c.fac.stadium, cost = adjCost(c, add); spend("build", cost); S.site = siteCap(S) + add; S.adjY = G.year;
+  const S = c.fac.stadium, cost = adjCost(c, add); spend("build", cost); S.site = siteCap(S) + add; S.adjN = S.adjY === G.year ? (S.adjN || 1) + 1 : 1; S.adjY = G.year;
   news(`You buy the land next to ${S.name} for ${money(cost)}: the site now takes a ground of up to ${S.site.toLocaleString("en-GB")}.`, true);
 }
 function mvChoice(c) {
   const P0 = ownPlot(c); if (P0) return { pick: { ...P0, owned: true }, plots: [P0.site], plot: P0.site };
-  const sites = newSites(c), pick = sites.find(x => x.k === G.moveK) || sites[1], plots = plotSizes(c, pick), plot = plots.includes(G.plotN) ? G.plotN : plots[Math.min(1, plots.length - 1)];
+  const sites = newSites(c), pick = sites.find(x => x.k === G.moveK) || sites[1], plots = plotSizes(c, pick), plot = G.plotN >= Math.min(plots[0], plotMin(c)) && G.plotN <= SITE_MAX ? G.plotN : plots[Math.min(1, plots.length - 1)];
   return { pick, plots, plot };
 }
 function buyPlot(c, site, plot) {
