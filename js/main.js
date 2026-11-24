@@ -168,6 +168,7 @@ function upgradeSave() {
         else if (tf) news(`(The final has already been played, so it stands.)`, true); }
       break;
     } }
+  if (!G.sites3) { G.sites3 = true; G.sites = null; }  // 1.0.28: bigger plots on offer
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
@@ -545,6 +546,7 @@ const ACT = {
     const rent = G.mvStay === "rent", S = c.fac.stadium, h = tempHost(c);
     if (!await ask(`Buy a plot ${site.km} km away (room for ${plot.toLocaleString()}) and build ${name} (${q.cap.toLocaleString()}) for ${money(q.cost)}? About ${q.weeks} weeks. ${rent ? `${S.name} is sold now for about ${money(q.sell)} and home games move to ${HOSTS[h].name} until the new ground opens.` : `You keep playing at ${S.name} and sell it on moving day.`}${site.km > 9 ? " Supporters won't like it." : ""}`)) return;
     const res = startBuild("stadium", { type: "move", ...q, vent: d.vent || [], sold: rent, name, stands: d.stands, family: d.family, corp: d.corp, suites: d.suites || 0, label: `building ${name} (${q.cap.toLocaleString()}), ${site.km} km away` });
+    if (S.build && S.build.type === "move" && q.px) { trustRel(-Math.min(10, Math.round(q.px / 4))); news(`The council takes its time over a ${plot.toLocaleString()}-capacity plot for a club that draws about ${supportSize(c).toLocaleString()}: about ${q.px} extra weeks of planning. The supporters' trust asks whether the club can ever fill it.`, true); }
     if (S.build && S.build.type === "move") { if (rent) { earn("oldground", q.sell); S.soldOld = true; S.rebuilding = true; S.away = h; c.cap = capacity(c); news(`${S.name} is sold for ${money(q.sell)}. Home games move to ${HOSTS[h].name} until ${name} opens.`, true); } moveAnnounced(c, site.km); }
     built(res); G.mvDraft = null; G.mvOpen = false; G.sites = null; render(); saveGame(); },
   reground: async () => { const c = my(), S = c.fac.stadium, d = G.stDraft || standPlan(S.cap), q = regroundQuote(c, d), h = tempHost(c);

@@ -730,10 +730,13 @@ function openGround(S) { S.opened = G.year; for (const k in standsOf(S)) S.stand
    want, cheap land, but a long way from your supporters). You keep playing at the old ground while the new one goes
    up; on moving day the old ground's land is sold. Supporters judge the move by distance: a short hop is exciting, a
    long one feels like the club leaving them. Loyal and hardcore fans take it hardest; families drift away. */
+// How big a plot each kind of site can offer, as a multiple of your current site: town-centre land is scarce (about
+// double), the edge of town has room for a good deal more (six to eight times), and out by the bypass there's room for
+// anything you want to build (up to the 90,000 limit).
 const SITE_KINDS = {
-  near: { l: "In town, near the current ground", km: [1, 3], grow: [1.15, 1.6], land: 180 },
-  edge: { l: "On the edge of town", km: [4, 9], grow: [1.6, 2.6], land: 90 },
-  far:  { l: "Out of town, by the bypass", km: [12, 30], grow: [3, 6], land: 35 },
+  near: { l: "In town, near the current ground", km: [1, 3], grow: [1.6, 2.2], land: 180 },
+  edge: { l: "On the edge of town", km: [4, 9], grow: [6, 8], land: 90 },
+  far:  { l: "Out of town, by the bypass", km: [12, 30], grow: [99, 99], land: 35 },
 };
 function newSites(c) {
   const S = c.fac.stadium; if (G.sites && G.sites.y === G.year && G.sites.club === c.id) return G.sites.list;
@@ -741,9 +744,15 @@ function newSites(c) {
     return { k, l: K.l, km: ri(...K.km), site, rate: K.land }; });
   G.sites = { y: G.year, club: c.id, list }; return list;
 }
-// Plot sizes on offer at a site: four steps from a little more than you have now up to the most the site allows.
-function plotSizes(c, site) { const lo = Math.min(site.site, Math.max(c.fac.stadium.cap + 1000, siteCap(c.fac.stadium) + 500)), out = [];
-  for (let i = 0; i < 4; i++) out.push(Math.round((lo + (site.site - lo) * i / 3) / 500) * 500); return [...new Set(out)]; }
+// Plot sizes on offer at a site: from a little more than you have now up to the most the site allows, in steps that
+// grow (each about double the last when the range is wide), so a small club sees sensible sizes as well as big ones.
+function plotSizes(c, site) {
+  const lo = Math.min(site.site, Math.max(c.fac.stadium.cap + 1000, siteCap(c.fac.stadium) + 500)), hi = site.site, n = clamp(Math.ceil(Math.log2(hi / lo)) + 1, 2, 7), out = [];
+  for (let i = 0; i < n; i++) out.push(Math.round(lo * Math.pow(hi / lo, i / (n - 1)) / 500) * 500); return [...new Set(out)]; }
+/* Planning: a plot much bigger than the club's support needs (more than twice the crowd it could draw) takes longer to
+   get through the council, about ten weeks more for each doubling beyond that, and the supporters' trust has doubts. */
+const supportSize = c => Math.max(2000, Math.round(c.fans * 1.2));
+const planExtra = (c, plot) => { const r = plot / supportSize(c); return r <= 2 ? 0 : Math.round(Math.log2(r / 2) * 10); };
 // Land: priced per place the plot can hold, a little dearer per place for a big plot, dearer in the bigger divisions.
 // Land is dear where the big clubs are (cities): each division up makes it about 1.7 times dearer.
 const landK = c => Math.pow(1.7, 7 - clamp(c.tier, 1, 7));
@@ -751,7 +760,7 @@ const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Mat
 const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) / 1e4) * 1e4;
 // (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
 const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
-function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = landCost(c, site, plot), sell = oldGroundValue(c); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }
+function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = landCost(c, site, plot), sell = oldGroundValue(c), px = planExtra(c, plot); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4 + px, plan: (q.plan || 0) + px, px, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }
 // How supporters take it: positive for a short move, increasingly negative with distance.
 const moveMood = (c, km) => km <= 3 ? 4 : -(km <= 9 ? 4 + km * .6 : 8 + km * .45) * fanCare(c) / 1.5;
 function moveAnnounced(c, km) {
