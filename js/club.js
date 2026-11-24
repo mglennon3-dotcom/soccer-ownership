@@ -429,7 +429,7 @@ function weeklyAccounts(c) {
   spend("util", utilities(c) / YEAR_TICKS()); insureWeek(c); if (G.phase === "season" && fzK(c)) moodHit(c, fzK(c) * .04); if (c.budget.comm) { spend("comm", c.budget.comm / YEAR_TICKS()); moodHit(c, commK(c) * .05); }
   earn("spons", sponsorTotal(c) / YEAR_TICKS());
   earn("merch", merchFor(c));
-  ventureBuildWeek(c); earn("events", ventureWeek(c)); concertWeek(c);
+  ventureBuildWeek(c); earn("events", ventureWeek(c)); concertWeek(c); plotWeek(c);
   if (G.phase === "season") earn("suites", suitesLet(c) * c.prices.suite / SEASON_WEEKS);
   corpWeek(c);
   if (G.phase === "season") { earn("tv", TV[c.tier] / 46); if (paraOf(c)) earn("para", paraOf(c) / 46); }
@@ -760,7 +760,27 @@ const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Mat
 const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) / 1e4) * 1e4;
 // (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
 const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
-function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = landCost(c, site, plot), sell = oldGroundValue(c), px = planExtra(c, plot); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4 + px, plan: (q.plan || 0) + px, px, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }
+/* Buying the land first: pay for the plot now and the planning application goes in straight away (its extra weeks
+   count down while you wait); build on it when you're ready, whatever size of ground you want to start with, and
+   extend it later up to what the plot takes. The supporters hear about the plan when you buy. You can sell the plot
+   back (for 85% of what you paid) while nothing's built on it. */
+const ownPlot = c => c.fac.stadium.plot || null;
+function mvChoice(c) {
+  const P0 = ownPlot(c); if (P0) return { pick: { ...P0, owned: true }, plots: [P0.site], plot: P0.site };
+  const sites = newSites(c), pick = sites.find(x => x.k === G.moveK) || sites[1], plots = plotSizes(c, pick), plot = plots.includes(G.plotN) ? G.plotN : plots[Math.min(1, plots.length - 1)];
+  return { pick, plots, plot };
+}
+function buyPlot(c, site, plot) {
+  const S = c.fac.stadium, cost = landCost(c, site, plot), plan = planExtra(c, plot);
+  spend("build", cost); S.plot = { k: site.k, l: site.l, km: site.km, site: plot, rate: site.rate, paid: cost, y: G.year, plan, planT: plan };
+  G.sites = null; moveAnnounced(c, site.km);
+  news(`You buy land ${site.km} km away (${site.l.toLowerCase()}) for ${money(cost)}: room for a ground of up to ${plot.toLocaleString("en-GB")}. ${plan ? `The planning application goes in now: about ${plan} weeks.` : "Planning permission should be a formality."} Build on it whenever you're ready.`, true);
+  if (plan) { trustRel(-Math.min(10, Math.round(plan / 4))); news(`The council will take its time over a ${plot.toLocaleString("en-GB")}-capacity plot for a club that draws about ${supportSize(c).toLocaleString("en-GB")}. The supporters' trust asks whether the club can ever fill it.`, true); }
+}
+function sellPlot(c) { const S = c.fac.stadium, P0 = S.plot; if (!P0) return; const back = Math.round(P0.paid * .85 / 1e4) * 1e4; earn("oldground", back); delete S.plot; news(`You sell the land ${P0.km} km away for ${money(back)}.`, true); }
+// While you hold a plot, its planning application moves on week by week.
+function plotWeek(c) { const P0 = c.fac.stadium.plot; if (P0 && P0.plan > 0 && --P0.plan === 0) news(`Planning permission is granted for the ground on your land ${P0.km} km away: you can build whenever you're ready.`, true); }
+function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = site.owned ? 0 : landCost(c, site, plot), sell = oldGroundValue(c), px = site.owned ? site.plan || 0 : planExtra(c, plot); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4 + px, plan: (q.plan || 0) + px, px, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }
 // How supporters take it: positive for a short move, increasingly negative with distance.
 const moveMood = (c, km) => km <= 3 ? 4 : -(km <= 9 ? 4 + km * .6 : 8 + km * .45) * fanCare(c) / 1.5;
 function moveAnnounced(c, km) {
