@@ -757,12 +757,17 @@ function plotSizes(c, site) {
 const supportSize = c => Math.max(2000, Math.round(c.fans * 1.2));
 const planExtra = (c, plot) => { const r = plot / supportSize(c); return r <= 2 ? 0 : Math.round(Math.log2(r / 2) * 10); };
 // Land: priced per place the plot can hold, a little dearer per place for a big plot, dearer in the bigger divisions.
-// Land is dear where the big clubs are (cities): each division up makes it about 1.7 times dearer.
-const landK = c => Math.pow(1.7, 7 - clamp(c.tier, 1, 7));
-/* Beyond what a site readily offers (site.site) you can still buy more, piece by piece from more owners, at a rising
-   premium: about 50% more per place for the first doubling, and dearer the further you go. */
-const landPrem = (have, want) => want <= have ? 1 : 1 + .5 * Math.pow(want / have - 1, 1.15);
-const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Math.pow(plot / 10000, .08) * landPrem(site.site || plot, plot) / 1e4) * 1e4;
+/* Land prices by location: London is about six times the national average, the South East and the big northern and
+   Midland cities two to three times, rural regions about average. A club's standing adds a little on top (a bigger club
+   needs a better-connected site): each division up about 1.3 times. Capitals and big-city regions abroad are dear too. */
+const REGION_LAND = { London: 6, "South East": 2.5, "West Midlands": 1.8, "North West": 1.8, "South West": 1.3, Yorkshire: 1.4, "East Midlands": 1.2, "East Anglia": 1.2, "North East": 1,
+  Madrid: 4, Catalonia: 4, Berlin: 3, Bavaria: 3, Lombardy: 3.5, Lazio: 3, "Île-de-France": 5, Lisbon: 3, Holland: 3.5, Brussels: 3, Istanbul: 3.5, Athens: 2.5, Prague: 2.5 };
+const regionLand = c => REGION_LAND[c.region] || 1;
+const landK = c => regionLand(c) * Math.pow(1.3, 7 - clamp(c.tier, 1, 7));
+// What land in the club's area costs, for the page: "about six times the national average".
+const landWord = c => { const r = regionLand(c); return r >= 5 ? "some of the dearest land in the country" : r >= 2.5 ? "dear land, well above the national average" : r >= 1.5 ? "city land, above the national average" : "land at about the national average"; };
+// Land: priced by the kind of site (town land dearest, out of town cheapest) and the area (landK); any size up to 90,000.
+const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
 const plotMin = c => Math.max(c.fac.stadium.cap + 1000, siteCap(c.fac.stadium) + 500);
 const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) / 1e4) * 1e4;
 // (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
@@ -781,10 +786,9 @@ const adjEasy = c => Math.max(siteCap(c.fac.stadium), supportSize(c));
 const adjMax = c => Math.max(0, SITE_MAX - siteCap(c.fac.stadium));
 const adjOpts = c => { const max = Math.min(adjMax(c), adjEasy(c)); if (max < 500) return [];
   return [...new Set([.1, .25, .5, 1].map(f => Math.round(Math.max(500, max * f) / 500) * 500).filter(n => n <= max))]; };
-// Price: town land at a premium; more than is readily for sale means buying out holdouts (dearer the more you want), and
-// each further purchase in the same season costs a fifth more (the neighbours know you're keen).
-const adjCost = (c, add) => { const S = c.fac.stadium, n = S.adjY === G.year ? S.adjN || 1 : 0;
-  return Math.round(add * ADJ_RATE * landK(c) * Math.pow((siteCap(S) + add) / 10000, .08) * landPrem(adjEasy(c), add) * Math.pow(1.2, n) / 1e4) * 1e4; };
+// Price: the ground is surrounded by housing, so the land next door costs RESI times ordinary town land in the area.
+const RESI = 2.5;
+const adjCost = (c, add) => Math.round(add * SITE_KINDS.near.land * RESI * landK(c) * Math.pow((siteCap(c.fac.stadium) + add) / 10000, .08) / 1e4) * 1e4;
 const adjDone = () => false;
 function buyAdjacent(c, add) {
   const S = c.fac.stadium, cost = adjCost(c, add); spend("build", cost); S.site = siteCap(S) + add; S.adjN = S.adjY === G.year ? (S.adjN || 1) + 1 : 1; S.adjY = G.year;
