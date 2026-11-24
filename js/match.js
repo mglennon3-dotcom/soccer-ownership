@@ -52,6 +52,10 @@ function pickXI(c, noForce, ctx) {
   const yc = isMine(c) && ctx && !ctx.noYc && ((G.youthCups && ctx.lesser) || (G.ytie && ctx.opp && G.ytie.opp === ctx.opp.id && G.ytie.w === G.week && G.ytie.y === G.year));
   const cov = isMine(c) && !(ctx && ctx.coverOff) ? G.cover || {} : {}, covId = new Set(Object.values(cov).filter(v => v.ans === "acad").flatMap(v => v.pids || [v.pid]));  // injury cover: your academy pick
   const pool = c.squad.map(P).filter(p => avail(p) && (!p.acad || (p.age >= 16 && (p.ovr >= acadMin || (yc && p.age <= 21) || covId.has(p.id) || (isMine(c) && p.minT))) || (isMine(c) && acadDepth(p, c))) && (!isMine(c) || isReg(p, c)));
+  // In an easy game the nudge for academy players goes to the two best of them only (the ones he thinks are nearly ready),
+  // and it's worth a point or two on the shown scale: enough to choose a lad over a senior of about his level, never over
+  // a clearly better one.
+  const acadPick = new Set(acadB ? pool.filter(p => p.acad).sort((a, b) => b.ovr - a.ovr).slice(0, 2).map(p => p.id) : []);
   // Your minutes target: a game or more behind pace and he starts (in his own position, or the same area of the team).
   const minB = isMine(c) && !noForce ? (p, s) => { const b = minBehind(p); return b < 90 ? 0 : (s === "GK") !== (p.pos === "GK") ? 0 : (p.pos === s ? 1 : POS_LINE[p.pos] === POS_LINE[s] ? .8 : 0) * Math.min(260, 120 + b / 90 * 30); } : () => 0;
   /* Managers know their own players: they pick on ability in each position, prefer a player in his own position (worth
@@ -83,8 +87,8 @@ function pickXI(c, noForce, ctx) {
   // youth rotation or other pick: in his own position, or failing that in the same area of the team.
   const cupB = isMine(c) && !noForce && (MATCH_CT === "C" || MATCH_CT === "E") ? (p, s) => (MATCH_CT === "C" ? p.cupStart : p.euroStart) ? (p.pos === s ? 5000 : (s === "GK") === (p.pos === "GK") && POS_LINE[p.pos] === POS_LINE[s] ? 4000 : 0) : 0 : () => 0;
   const score = youth
-    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + cupB(p, s) * 10 + depthB(p, s) * 10 + minB(p, s) * 10 + (p.acad && p.pos === s ? acadB * 10 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 2600 : 0) + (p.id % 7) * .0001
-    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + cupB(p, s) + depthB(p, s) + minB(p, s) - tired(p) + (p.acad && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 1300 : 0) + (p.id % 7) * .0001;
+    ? (p, s) => r20(roleRating(p, s)) * 10 + roleRating(p, s) / 50 + (p.pos === s ? 2 + youngFav(p) : 0) - tired(p) * 2.5 + forced(p, s) * 10 + cupB(p, s) * 10 + depthB(p, s) * 10 + minB(p, s) * 10 + (acadPick.has(p.id) && p.pos === s ? acadB * 2 : 0) + (p.pos === s ? ycB(p) * 10 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 2600 : 0) + (p.id % 7) * .0001
+    : (p, s) => roleRating(p, s) + (p.pos === s ? 1 : 0) + lent(p, s) + cupB(p, s) + depthB(p, s) + minB(p, s) - tired(p) + (acadPick.has(p.id) && p.pos === s ? acadB : 0) + (p.pos === s ? ycB(p) * 5 : 0) + (covId.has(p.id) && cov[s] && (cov[s].pids || [cov[s].pid]).includes(p.id) ? 1300 : 0) + (p.id % 7) * .0001;
   // The strongest player-position pairs first, across the whole formation (not slot by slot)...
   const pairs = [];
   for (let i = 0; i < slots.length; i++) for (const p of pool) pairs.push([score(p, slots[i]), i, p]);
