@@ -220,7 +220,15 @@ function myPlayerLine(p) {
   const role = o ? (o.slot === p.pos ? `<span class="good">a starter</span> (${POS_NAME[o.slot].toLowerCase()})` : `<span class="good">a starter</span>, playing out of position at ${POS_NAME[o.slot].toLowerCase()}`)
     : p.acad ? "in the academy" : p.inj ? `not starting (injured, ${p.inj} wk${p.inj > 1 ? "s" : ""})` : `<span class="muted">not in the starting side</span>`;
   const agreed = p.agreed && CL(p.agreed.club) ? ` · <span class="warn">agreed to join ${esc(CL(p.agreed.club).name)} when the window opens</span>` : "";
-  return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>: rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>`;
+  return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>: rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>${myPlayerStatus(p)}`;
+}
+// For inbox cards about your player (loan requests, bids): is he on a list, and where does he sit in the depth chart?
+function myPlayerStatus(p) {
+  const c = my(), lists = [p.list ? '<span class="chip req">TRANSFER LISTED</span>' : "", p.loanList ? '<span class="chip acad">LOAN LISTED</span>' : "", p.nfs ? '<span class="chip hg">NOT FOR SALE</span>' : "", p.keep ? '<span class="chip hg">PROTECTED</span>' : ""].filter(Boolean).join(" ");
+  const L = (typeof depthSync === "function" && depthSync(c, p.pos)) || [], i = L.indexOf(p.id), ahead = L.slice(0, Math.max(0, i)).map(id => G.players[id]).filter(Boolean);
+  const nStart = (FORMS[clubForm(c)] || []).filter(s => s === p.pos).length;
+  const depth = i < 0 ? `not in the depth chart at ${POS_NAME[p.pos].toLowerCase()}` : `<b>${ordinal(i + 1)}</b> in the depth chart at ${POS_NAME[p.pos].toLowerCase()}${nStart ? ` (${nStart} start${nStart > 1 ? "" : "s"} there)` : " (the formation doesn't use one)"}${ahead.length ? `, behind ${ahead.slice(0, 3).map(q => `${esc(q.name)} (${r20(roleRating(q, p.pos))})`).join(", ")}${ahead.length > 3 ? ` and ${ahead.length - 3} more` : ""}` : ""}`;
+  return `<p class="small" style="margin-top:2px">${lists ? lists + " · " : ""}${depth}</p>`;
 }
 // For another club's player you're looking at: your scouts' view of his rating and potential, and his place at his club.
 function theirPlayerLine(p) {
