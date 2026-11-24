@@ -405,8 +405,9 @@ function depthChart() {
     // Your order if you've set one (everyone eligible, as you ranked them); otherwise the manager's: starters here, then
     // the best of everyone not starting anywhere (players starting in other positions aren't cover).
     const mineL = depthSync(c, role), byId = new Map(all.map(x => [x.p.id, x]));
-    const ranked = mineL ? mineL.map(id => byId.get(id)).filter(Boolean).filter((x, i) => i < Math.max(SHOWN(role), n + 3) || startsAt.get(x.p.id) === role)
-      : [...all.filter(x => startsAt.get(x.p.id) === role), ...all.filter(x => !startsAt.has(x.p.id)).slice(0, Math.max(3, SHOWN(role) - n))];
+    const ranked = mineL ? mineL.map(id => byId.get(id)).filter(Boolean)
+      : [...all.filter(x => startsAt.get(x.p.id) === role), ...all.filter(x => !startsAt.has(x.p.id)), ...all.filter(x => startsAt.has(x.p.id) && startsAt.get(x.p.id) !== role)];
+    for (const x of all) if (!ranked.includes(x)) ranked.push(x);  // anyone your order doesn't have yet goes at the foot
     // Your best academy player for the position (and any ready ones) always show, at the foot of the list if need be.
     for (const x of all.filter(x => x.p.acad && x.p.pos === role && !ranked.includes(x))) ranked.push(x);
     DEPTH_VIEW[role] = mineL ? mineL.slice() : [...ranked.map(x => x.p.id), ...all.filter(x => !ranked.includes(x)).map(x => x.p.id)];
@@ -419,7 +420,7 @@ function depthChart() {
         : elsewhere ? `<span class="small muted">starts at ${startsAt.get(p.id)}</span>` : `<span class="small muted">${["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"][backup++] || "Later"} choice cover</span>`;
       const k = DEPTH_VIEW[role].indexOf(p.id), mv = `<span class="depth-mv"><button class="btn sm" data-act="depth" data-role="${role}" data-id="${p.id}" data-d="-1" ${k <= 0 ? "disabled" : ""} aria-label="Move ${esc(p.name)} up">▲</button><button class="btn sm" data-act="depth" data-role="${role}" data-id="${p.id}" data-d="1" ${k >= DEPTH_VIEW[role].length - 1 ? "disabled" : ""} aria-label="Move ${esc(p.name)} down">▼</button></span>`;
       return `<tr class="${p.inj || elsewhere ? "muted" : ""}"><td class="num">${mv}${rating(r)}</td><td style="text-align:left"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${p.list ? ' <span class="chip req">TRANSFER LISTED</span>' : ""}${p.loanList ? ' <span class="chip acad">LOAN LISTED</span>' : ""}${oop ? ` <span class="pos" title="Normally ${esc(POS_NAME[p.pos].toLowerCase())}">${p.pos}</span>` : ""}${p.loan && p.loan.to === c.id ? ` <span class="chip list" title="On loan from ${esc(CL(p.loan.from).name)}">LOAN</span>` : ""}<br><span class="small muted">${p.age} · potential ${est20(potEstimate(p))}${p.acad ? ` · <span class="good" title="${acadOK(p, c) ? "Ready for the first team" : "Your best academy player here: not ready for the first team yet"}">academy</span>` : ""}${p.loan && p.loan.to === c.id ? ` · on loan from ${esc(CL(p.loan.from).name)}` : ""}</span></td><td style="text-align:right">${tag}</td></tr>`;
-    }).join("");
+    }), cut = Math.max(SHOWN(role), n + 3);
     const cover = ranked.filter(x => startsAt.get(x.p.id) !== role && !startsAt.has(x.p.id) && !x.p.inj && isReg(x.p, c));
     const thin = !cover.length ? `<p class="small bad">No cover: an injury here means someone plays out of position.</p>` : !cover.some(x => x.p.pos === role) ? `<p class="small warn">No natural ${esc(POS_NAME[role].toLowerCase())} as cover.</p>` : "";
     const lentOut = (G.loanList || []).map(id => G.players[id]).filter(q => q && q.loan && q.loan.from === c.id && q.pos === role);
@@ -429,7 +430,7 @@ function depthChart() {
     const addedX = all.filter(x => added.includes(x.p.id) && POS_LINE[x.p.pos] !== POS_LINE[role]);
     const opts = others.length || addedX.length ? `<details class="small" style="margin-top:8px"${addedX.length ? " open" : ""}><summary class="muted">Out-of-position options${others.some(x => x.r > coverR && !x.p.inj) ? ` <span class="warn">· ${others.filter(x => x.r > coverR && !x.p.inj).length} rated above your cover</span>` : ""}</summary>
       <p class="muted" style="margin:4px 0">Players from other areas of the team who could play ${esc(POS_NAME[role].toLowerCase())}. They're left out of this list unless you add them.</p>${addedX.map(x => oRow(x, true)).join("")}${others.map(x => oRow(x, false)).join("")}</details>` : "";
-    return `<section class="card"><div class="card-h"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${n} in the ${form}${mineL ? ` · <b>your order</b> · <button class="lnk" data-act="depthreset" data-role="${role}">let the manager pick</button>` : ""}</span></div><table class="tbl depth"><tbody>${rows}</tbody></table>${thin}${also}${away}${opts}</section>`;
+    return `<section class="card"><div class="card-h"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${n} in the ${form}${mineL ? ` · <b>your order</b> · <button class="lnk" data-act="depthreset" data-role="${role}">let the manager pick</button>` : ""}</span></div><table class="tbl depth"><tbody>${rows.slice(0, cut).join("")}</tbody></table>${rows.length > cut ? `<details${G.depthOpen && G.depthOpen[role] ? " open" : ""} data-act="depthfold" data-role="${role}"><summary class="small muted">More players (${rows.length - cut})</summary><table class="tbl depth"><tbody>${rows.slice(cut).join("")}</tbody></table></details>` : ""}${thin}${also}${away}${opts}</section>`;
   }).join("");
   return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="grid2 depth-grid">${cards}</div>`;
 }
