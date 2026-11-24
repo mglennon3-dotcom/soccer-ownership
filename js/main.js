@@ -381,7 +381,7 @@ const ACT = {
   nudge: el => { const a = el.dataset.a, k = el.dataset.k, inp = document.querySelector(`input[data-act="${a}"][data-k="${k}"]`); if (!inp) return;
     const v = el.dataset.set != null ? +el.dataset.set : Math.max(0, Math.round((num(inp) + +el.dataset.d) * 100) / 100); inp.value = String(v); CHANGE[a](inp); },
   mfind: el => { Object.assign(MARKET_F, { tab: "all", pos: el.dataset.k, arch: "", int: "sign" }); PAGE = "market"; render(); scrollTo(0, 0); },
-  depth: el => { const role = el.dataset.role, id = +el.dataset.id, d = +el.dataset.d, L = (DEPTH_VIEW[role] || []).slice(), i = L.indexOf(id), j = i + d;
+  depth: el => { const role = el.dataset.role, id = +el.dataset.id, d = +el.dataset.d, L = (DEPTH_VIEW[role] || []).slice(), i = L.indexOf(id), j = i + d; if (el.closest("details")) (G.depthOpen ||= {})[role] = true;  // keep the fold open while you reorder inside it
     if (i < 0 || j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; (G.depth ||= {})[role] = L; render(); saveGame(); },
   depthadd: el => { const role = el.dataset.role, id = +el.dataset.id, X = ((G.depthX ||= {})[role] ||= []); if (!X.includes(id)) X.push(id); render(); saveGame(); },
   depthdrop: el => { const role = el.dataset.role, id = +el.dataset.id; if (G.depthX && G.depthX[role]) G.depthX[role] = G.depthX[role].filter(i => i !== id); if (G.depth && G.depth[role]) G.depth[role] = G.depth[role].filter(i => i !== id); render(); saveGame(); },
