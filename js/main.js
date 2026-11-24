@@ -168,7 +168,7 @@ function upgradeSave() {
         else if (tf) news(`(The final has already been played, so it stands.)`, true); }
       break;
     } }
-  if (!G.sites3) { G.sites3 = true; G.sites = null; }  // 1.0.28: bigger plots on offer
+  if (!G.sites4) { G.sites4 = true; G.sites3 = true; G.sites = null; }  // 1.0.28/1.0.31: bigger plots on offer
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];

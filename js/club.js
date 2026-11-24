@@ -730,7 +730,7 @@ function openGround(S) { S.opened = G.year; for (const k in standsOf(S)) S.stand
    want, cheap land, but a long way from your supporters). You keep playing at the old ground while the new one goes
    up; on moving day the old ground's land is sold. Supporters judge the move by distance: a short hop is exciting, a
    long one feels like the club leaving them. Loyal and hardcore fans take it hardest; families drift away. */
-// How big a plot each kind of site can offer, as a multiple of your current site: town-centre land is scarce (about
+// How big a plot each kind of site can offer, as a multiple of your current site (or your support, if that's bigger): town-centre land is scarce (about
 // double), the edge of town has room for a good deal more (six to eight times), and out by the bypass there's room for
 // anything you want to build (up to the 90,000 limit).
 const SITE_KINDS = {
@@ -740,7 +740,10 @@ const SITE_KINDS = {
 };
 function newSites(c) {
   const S = c.fac.stadium; if (G.sites && G.sites.y === G.year && G.sites.club === c.id) return G.sites.list;
-  const list = Object.entries(SITE_KINDS).map(([k, K]) => { const site = clamp(Math.round(siteCap(S) * rf(...K.grow) / 500) * 500, siteCap(S) + 1000, SITE_MAX);
+  // Sized from the club's stature as well as its ground: a club that has outgrown a small old site finds plots to match
+  // its support (whichever is bigger).
+  const base = Math.max(siteCap(S), supportSize(c));
+  const list = Object.entries(SITE_KINDS).map(([k, K]) => { const site = clamp(Math.round(base * rf(...K.grow) / 500) * 500, siteCap(S) + 1000, SITE_MAX);
     return { k, l: K.l, km: ri(...K.km), site, rate: K.land }; });
   G.sites = { y: G.year, club: c.id, list }; return list;
 }
@@ -769,8 +772,9 @@ const ownPlot = c => c.fac.stadium.plot || null;
    at a premium over town land (about a fifth more than an in-town plot, place for place), and each piece can't be
    more than the site already is. It makes the current site bigger, so the stands can be extended further. */
 const ADJ_RATE = 220;
-const adjOpts = c => { const s = siteCap(c.fac.stadium), max = Math.min(SITE_MAX - s, s); if (max < 500) return [];
-  return [...new Set([.1, .25, .5, 1].map(f => Math.round(Math.max(500, s * f) / 500) * 500).filter(n => n <= max))]; };
+// A piece can be as big as the site already is, or as the club's support if that's bigger.
+const adjOpts = c => { const s = siteCap(c.fac.stadium), max = Math.min(SITE_MAX - s, Math.max(s, supportSize(c))); if (max < 500) return [];
+  return [...new Set([.1, .25, .5, 1].map(f => Math.round(Math.max(500, max * f) / 500) * 500).filter(n => n <= max))]; };
 const adjCost = (c, add) => Math.round(add * ADJ_RATE * landK(c) * Math.pow((siteCap(c.fac.stadium) + add) / 10000, .08) / 1e4) * 1e4;
 const adjDone = c => c.fac.stadium.adjY === G.year;
 function buyAdjacent(c, add) {
