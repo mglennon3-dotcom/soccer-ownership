@@ -169,6 +169,9 @@ function upgradeSave() {
       break;
     } }
   if (!G.sites4) { G.sites4 = true; G.sites3 = true; G.sites = null; }  // 1.0.28/1.0.31: bigger plots on offer
+  // 1.0.36: every ground gets a setting (city centre, terraced streets, suburbs, industrial, retail park, market town,
+  // village, open country); other clubs' support takes on its colour.
+  if (!G.locs1) { G.locs1 = true; for (const c of G.clubs) { if (c.gone) continue; const had = !!c.loc; locOf(c); if (!had && !isMine(c) && c.fanMix) locMix(c); } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];

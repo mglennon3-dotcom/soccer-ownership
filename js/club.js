@@ -180,6 +180,7 @@ function fanCultureSummer(c, up, down) {
   if (r < .9) m.comm += 2; else if (r > 1.2) { m.comm -= 2; m.fair += 1; }
   m.comm += Math.round(commK(c) * 1.5);  // a funded community foundation brings families in
   if (fzK(c) >= 1) { m.hard += 1; m.comm += 1; }  // the fan zone: a louder core and more families
+  if (atHome(c) && c.fac.stadium.own) for (const [f, v] of Object.entries(LOC(c).mix)) m[f] = (m[f] || 0) + v;  // where the ground stands
   const t = sum(Object.values(m), x => Math.max(5, x)); for (const k in m) m[k] = Math.round(Math.max(5, m[k]) / t * 100);
   const big = Object.keys(m).sort((a, b) => (m[b] - old[b]) - (m[a] - old[a]))[0];
   if (m[big] - old[big] >= 2) news(`Your support is changing: more ${FAN_KINDS[big][0].toLowerCase()} supporters this year (${m[big]}% now).`);
@@ -238,13 +239,14 @@ function crowdFor(c, opp, price = c.prices.ticket) {
   const draw = opp ? clamp(.85 + (opp.rep - c.rep) / 60 + (opp.half === c.half ? .05 : 0), .8, 1.6) : 1;
   const away = opp ? Math.round(Math.min(opp.fans * .06, 1500 * (8 - c.tier))) : 0;
   const wx = G.wx ? 1 - (1 - wxAt(c).crowd) * openShare(c) : 1, protest = G.sTrust && G.sTrust.protest ? .85 : 1, derby = opp ? [1, 1.15, 1.3][derbyLevel(c, opp)] : 1;
-  return Math.min(capacity(c), Math.round((c.fans * turn + c.fans * .35 * pf * draw + away) * wx * protest * derby));
+  const loc = atHome(c) ? LOC(c).att * (locOf(c) === "rural" && has(c, "park") ? 1.05 : 1) : 1;  // the setting: transport links (a car park makes up for open country)
+  return Math.min(capacity(c), Math.round((c.fans * turn + c.fans * .35 * pf * draw + away) * wx * protest * derby * loc));
 }
 function concessionsFor(c, crowd, price = c.prices.conc) {
   const am = ground(c).amen, buy = clamp(1.6 * Math.pow(REF_CONC[c.tier] / Math.max(.3, price), 1.4), 0, 2.6) * (.65 + am * .12);
-  const gross = crowd * buy * price, cut = atHome(c) ? 1 : .5;  // a landlord keeps half the bar takings
+  const lc = atHome(c) ? LOC(c).conc : 1, gross = crowd * buy * price * lc, cut = atHome(c) ? 1 : .5;  // a landlord keeps half the bar takings
   // Stock and staff cost about 30% of the going rate an item: very cheap food and drink sells out at a loss.
-  return { gross, net: crowd * buy * (price - REF_CONC[c.tier] * .3) * cut };
+  return { gross, net: crowd * buy * lc * (price - REF_CONC[c.tier] * .3) * cut };
 }
 function merchFor(c, price = c.prices.shirt) {  // per week
   const units = commMult() * c.fans * .007 * Math.min(3, Math.pow(REF_SHIRT[c.tier] / Math.max(5, price), 1.7)) * (.8 + c.mood / 250) * merchMult(c) * (familyOn(c) ? 1.12 : 1) * clubPop(c);
@@ -757,6 +759,39 @@ function plotSizes(c, site) {
 const supportSize = c => Math.max(2000, Math.round(c.fans * 1.2));
 const planExtra = (c, plot) => { const r = plot / supportSize(c); return r <= 2 ? 0 : Math.round(Math.log2(r / 2) * 10); };
 // Land: priced per place the plot can hold, a little dearer per place for a big plot, dearer in the bigger divisions.
+/* ---------- where each ground stands ----------
+   Eight settings. Each changes what land around the ground costs (land: the local price of town land there; resi: what
+   the houses next door cost on top; anger: how much buying them out upsets people), how often vacant land comes up next
+   door and what it is, the crowd (att: turnout; parking matters out in the country), the noise (adv: home advantage),
+   spending at the ground (conc), and the kind of supporters it draws over time (mix: a yearly nudge). */
+const LOCS = {
+  city:   { l: "City centre", d: "Offices, shops and flats all round: the best transport links, the dearest land.", land: 1.6, resi: 4, anger: .7, vac: .15, kinds: ["an abandoned warehouse", "a disused car park"], att: 1.05, adv: 0, conc: 1.05, mix: { fair: 1 } },
+  inner:  { l: "Inner city, terraced streets", d: "Victorian terraces right up to the stands: a loud, loyal neighbourhood, and clearing houses is bitterly resented.", land: 1.1, resi: 2.5, anger: 1.3, vac: .25, kinds: ["an abandoned warehouse", "an old factory site", "a disused car park"], att: 1, adv: .25, conc: 1, mix: { hard: 1, loyal: 1 } },
+  sub:    { l: "Suburban", d: "Semi-detached homes and schools: an ordinary neighbourhood.", land: 1, resi: 2, anger: 1, vac: .3, kinds: ["an empty field", "a disused car park"], att: 1, adv: 0, conc: 1, mix: { comm: 1 } },
+  ind:    { l: "Industrial, docks or riverside", d: "Warehouses, rail yards and wasteland: room to grow and parking, but little life around the ground.", land: .8, resi: 1, anger: .3, vac: .7, kinds: ["an abandoned warehouse", "an old factory site", "a disused car park"], att: 1, adv: -.1, conc: .97, mix: { fair: 1 } },
+  retail: { l: "Retail park, ring road", d: "Car parks and big-box shops: easy to get to and park, not much matchday atmosphere.", land: .9, resi: 1, anger: .3, vac: .6, kinds: ["a disused car park", "an empty field"], att: 1.02, adv: -.25, conc: 1.08, mix: { comm: 1, hard: -1 } },
+  market: { l: "Market town", d: "Small-town streets around the ground: strong local loyalty.", land: .9, resi: 2, anger: 1, vac: .35, kinds: ["an empty field", "an abandoned warehouse"], att: 1, adv: .1, conc: 1, mix: { loyal: 1 } },
+  village:{ l: "Village", d: "Cottages, the pub, open fields beyond: houses are dear and the village won't have them cleared, but fields often come up.", land: .7, resi: 2.5, anger: 1.3, vac: .7, kinds: ["an empty field"], att: .97, adv: .1, conc: .97, mix: { loyal: 1, comm: 1 } },
+  rural:  { l: "Open country", d: "Farmland by a main road: the cheapest land and plenty of it, but hard to reach without a car park.", land: .5, resi: 1, anger: .3, vac: .9, kinds: ["an empty field"], att: .95, adv: -.1, conc: .97, mix: { fair: 1 } },
+};
+const BIG_CITY = new Set(["London", "North West", "West Midlands", "Yorkshire", "Madrid", "Catalonia", "Berlin", "Ruhr", "Lombardy", "Lazio", "Campania", "Île-de-France", "Lisbon", "Porto", "Holland", "Brussels", "Istanbul", "Athens", "Prague"]);
+// Where a ground stands: given once (by region, division, and whether the club has moved), changed only by a move.
+function assignLoc(c) {
+  const big = BIG_CITY.has(c.region), t = c.tier || 7, moved = c.moved || (c.fac && c.fac.stadium && c.fac.stadium.km);
+  const w = t <= 2 ? { city: big ? 3 : 1, inner: 4, sub: 1.5, ind: 1.5, retail: .5, market: big ? 0 : .5, village: 0, rural: 0 }
+    : t <= 4 ? { city: big ? 1 : .3, inner: 2, sub: 2.5, ind: 1.5, retail: 1, market: big ? .5 : 2.5, village: big ? 0 : .3, rural: .1 }
+    : { city: 0, inner: big ? 1 : .5, sub: big ? 3 : 2, ind: .5, retail: .5, market: big ? .5 : 3, village: big ? .5 : 3, rural: .5 };
+  if (moved) { w.ind += 2; w.retail += 2; w.city *= .3; w.inner *= .3; }
+  return wpick(Object.keys(w), k => w[k]);
+}
+const locOf = c => LOCS[c.loc ||= assignLoc(c)] ? c.loc : (c.loc = assignLoc(c));
+const LOC = c => LOCS[locOf(c)];
+// Moving: a short hop keeps the same kind of neighbourhood; the edge of town is industrial, a retail park or suburbs;
+// out of town it's a retail park or open country.
+const locForMove = (c, kind) => kind === "near" ? locOf(c) : kind === "edge" ? wpick(["ind", "retail", "sub"], k => ({ ind: 2, retail: 1.5, sub: 1 })[k]) : wpick(["retail", "rural"], k => ({ retail: 1, rural: 1.5 })[k]);
+// A club's setting colours its support once, when first placed (other clubs); yours drifts each summer (fanCultureSummer).
+function locMix(c, k = 3) { const m = fanMix(c), x = LOC(c).mix; for (const f in x) m[f] = (m[f] || 0) + x[f] * k; normMix(m); }
+
 /* Land prices by location: London is about six times the national average, the South East and the big northern and
    Midland cities two to three times, rural regions about average. A club's standing adds a little on top (a bigger club
    needs a better-connected site): each division up about 1.3 times. Capitals and big-city regions abroad are dear too. */
@@ -767,9 +802,9 @@ const landK = c => regionLand(c) * Math.pow(1.3, 7 - clamp(c.tier, 1, 7));
 // What land in the club's area costs, for the page: "about six times the national average".
 const landWord = c => { const r = regionLand(c); return r >= 5 ? "some of the dearest land in the country" : r >= 2.5 ? "dear land, well above the national average" : r >= 1.5 ? "city land, above the national average" : "land at about the national average"; };
 // Land: priced by the kind of site (town land dearest, out of town cheapest) and the area (landK); any size up to 90,000.
-const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
+const landCost = (c, site, plot) => Math.round(plot * site.rate * landK(c) * (site.k === "near" ? LOC(c).land : 1) * Math.pow(plot / 10000, .08) / 1e4) * 1e4;
 const plotMin = c => Math.max(c.fac.stadium.cap + 1000, siteCap(c.fac.stadium) + 500);
-const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) / 1e4) * 1e4;
+const oldGroundValue = c => Math.round(siteCap(c.fac.stadium) * 150 * landK(c) * LOC(c).land / 1e4) * 1e4;
 // (Old saves: a lease-back taken out before 0.46.5 is still charged per home game until moving day.)
 const leaseFee = sell => Math.round(sell * .004 / 100) * 100;
 /* Buying the land first: pay for the plot now and the planning application goes in straight away (its extra weeks
@@ -792,9 +827,9 @@ const adjOpts = c => { const max = Math.min(adjMax(c), adjEasy(c)); if (max < 50
   return [...new Set([.1, .25, .5, 1].map(f => Math.round(Math.max(500, max * f) / 500) * 500).filter(n => n <= max))]; };
 // Price: the ground is surrounded by housing, so the land next door costs RESI times ordinary town land in the area.
 const RESI = 2.5;
-const adjCost = (c, add) => { const S = c.fac.stadium; return Math.round(add * SITE_KINDS.near.land * RESI * landK(c) * Math.pow((siteCap(S) + add) / 10000, .08) * Math.pow(adjSpread(S, add), 1.1) / 1e4) * 1e4; };
+const adjCost = (c, add) => { const S = c.fac.stadium; return Math.round(add * SITE_KINDS.near.land * LOC(c).land * LOC(c).resi * landK(c) * Math.pow((siteCap(S) + add) / 10000, .08) * Math.pow(adjSpread(S, add), 1.1) / 1e4) * 1e4; };
 // The anger: nothing for a sliver, then rising with how much of the neighbourhood you take (mood points).
-const adjAnger = (c, add) => { const r = add / adjBase(c.fac.stadium); return r < .05 ? 0 : Math.min(25, Math.round(r * 6 * adjSpread(c.fac.stadium, add) ** .5)); };
+const adjAnger = (c, add) => { const r = add / adjBase(c.fac.stadium); return r < .05 ? 0 : Math.min(25, Math.round(r * 6 * adjSpread(c.fac.stadium, add) ** .5 * LOC(c).anger)); };
 const adjDone = () => false;
 /* Not everything next door is homes: now and then an empty field, an abandoned warehouse, a disused car park or an old
    factory site comes up for sale beside the ground. It's ordinary land (cheaper than town land; a building to clear
@@ -802,10 +837,10 @@ const adjDone = () => false;
 const VACANT = [["an empty field", .6, 0], ["an abandoned warehouse", .9, .15], ["a disused car park", .8, .05], ["an old factory site", .85, .2]];
 function vacantNow(c) {
   const S = c.fac.stadium; if (!S.own || siteCap(S) >= SITE_MAX) return null;
-  if (S.vacY !== G.year) { S.vacY = G.year; if (!S.vac && R() < .4) { const [l, k, clear] = pick(VACANT); S.vac = { l, k, clear, size: clamp(Math.round(siteCap(S) * rf(.15, .6) / 500) * 500, 500, SITE_MAX - siteCap(S)) }; } }
+  if (S.vacY !== G.year) { S.vacY = G.year; if (!S.vac && R() < LOC(c).vac) { const kinds = VACANT.filter(v => LOC(c).kinds.includes(v[0])), [l, k, clear] = pick(kinds.length ? kinds : VACANT); S.vac = { l, k, clear, size: clamp(Math.round(siteCap(S) * rf(.15, .6) / 500) * 500, 500, SITE_MAX - siteCap(S)) }; } }
   return S.vac || null;
 }
-const vacantCost = (c, v) => Math.round(v.size * SITE_KINDS.near.land * landK(c) * v.k * (1 + v.clear) / 1e4) * 1e4;
+const vacantCost = (c, v) => Math.round(v.size * SITE_KINDS.near.land * landK(c) * LOC(c).land * v.k * (1 + v.clear) / 1e4) * 1e4;
 function buyVacant(c) {
   const S = c.fac.stadium, v = S.vac; if (!v) return; const cost = vacantCost(c, v);
   spend("build", cost); S.site = siteCap(S) + v.size; delete S.vac;
@@ -832,7 +867,7 @@ function buyPlot(c, site, plot) {
 function sellPlot(c) { const S = c.fac.stadium, P0 = S.plot; if (!P0) return; const back = Math.round(P0.paid * .85 / 1e4) * 1e4; earn("oldground", back); delete S.plot; news(`You sell the land ${P0.km} km away for ${money(back)}.`, true); }
 // While you hold a plot, its planning application moves on week by week.
 function plotWeek(c) { const P0 = c.fac.stadium.plot; if (P0 && P0.plan > 0 && --P0.plan === 0) news(`Planning permission is granted for the ground on your land ${P0.km} km away: you can build whenever you're ready.`, true); }
-function moveQuote(c, d, site, plot) { const q = groundQuote(d), land = site.owned ? 0 : landCost(c, site, plot), sell = oldGroundValue(c), px = site.owned ? site.plan || 0 : planExtra(c, plot); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4 + px, plan: (q.plan || 0) + px, px, km: site.km, site: plot, sell, lease: leaseFee(sell) }; }
+function moveQuote(c, d, site, plot) { const kind = site.k; const q = groundQuote(d), land = site.owned ? 0 : landCost(c, site, plot), sell = oldGroundValue(c), px = site.owned ? site.plan || 0 : planExtra(c, plot); return { ...q, land, cost: Math.round((q.cost + land) / 1e4) * 1e4, weeks: q.weeks + 4 + px, plan: (q.plan || 0) + px, px, km: site.km, kind, site: plot, sell, lease: leaseFee(sell) }; }
 // How supporters take it: positive for a short move, increasingly negative with distance.
 const moveMood = (c, km) => km <= 3 ? 4 : -(km <= 9 ? 4 + km * .6 : 8 + km * .45) * fanCare(c) / 1.5;
 function moveAnnounced(c, km) {
@@ -842,6 +877,7 @@ function moveAnnounced(c, km) {
 }
 function moveIn(c, b) {
   const S = c.fac.stadium, old = S.name, sell = b.sold ? b.sell : oldGroundValue(c); closeGround(S);
+  if (b.kind) { const was = LOC(c).l; c.loc = locForMove(c, b.kind); if (LOC(c).l !== was) news(`The new ground's setting: ${LOC(c).l.toLowerCase()}. ${LOC(c).d}`, true); }
   S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
   syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = b.site; S.rebuilding = false; S.soldOld = false; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
   if (!b.sold) earn("oldground", sell); moodHit(c, moveMood(c, b.km));
