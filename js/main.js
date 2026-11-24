@@ -172,6 +172,13 @@ function upgradeSave() {
   // 1.0.36: every ground gets a setting (city centre, terraced streets, suburbs, industrial, retail park, market town,
   // village, open country); other clubs' support takes on its colour.
   if (!G.locs1) { G.locs1 = true; for (const c of G.clubs) { if (c.gone) continue; const had = !!c.loc; locOf(c); if (!had && !isMine(c) && c.fanMix) locMix(c); } }
+  /* 1.0.38, one-off (asked for): AFC Gilstow is a village club in the South West. Its London derbies go, and it picks
+     up its new neighbours' (worked out as for any club, from distance). */
+  if (!G.gisSW1 && G.club != null && my().name === "AFC Gilstow") { G.gisSW1 = true; const c = my();
+    c.region = "South West"; c.half = "S"; c.loc = "village";
+    if (G.derby) { for (const k of Object.keys(G.derby)) if (k.split("-").includes(String(c.id))) delete G.derby[k];
+      for (const o of G.clubs.filter(x => !x.gone && !x.abroad && x !== c && (x.region === c.region || roadKm(c, x) <= 40))) { const l = geoDerby(c, o); if (l) G.derby[pairKey(c, o)] = l; } }
+    news(`AFC Gilstow is a village club in the South West: ${LOC(c).d} It has ${catchWord(c)}, so the support grows slowly.`, true); }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
