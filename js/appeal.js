@@ -25,7 +25,7 @@ const prefsOf = (o, factors) => o.pref || (o.pref = makePri(factors));
 const moneyF = ratio => clamp(.5 + (ratio - 1) * 1.5, 0, 1);
 const ratioFor = f => 1 + (f - .5) / 1.5;
 // The project: deep pockets and a club going up.
-function projectF() { const ups = G.history.slice(0, 4).filter(h => h.up).length, downs = G.history.slice(0, 4).filter(h => h.down).length; return clamp(Math.log10(Math.max(1, G.owner.wealth) / 1e5) / 5 + ups * .15 - downs * .15, 0, 1); }
+function projectF() { const ups = G.history.slice(0, 4).filter(h => h.up).length, downs = G.history.slice(0, 4).filter(h => h.down).length; return clamp(Math.log10(Math.max(1, G.owner.wealth) / 1e5) / 5 + ups * .15 - downs * .15 + (ownType().appeal || 0), 0, 1); }
 const meddleF = () => clamp(1 - (G.meddle || 0) / 6, 0, 1);
 
 /* ---------- what drives a player ----------
