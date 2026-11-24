@@ -77,7 +77,7 @@ function aiMoveCheck(c) {
   // Work starts: a season to build (two for a big ground). They keep playing at the old ground meanwhile.
   // The same building time as yours (construction weeks for that size, plus a few for a move), counted week by week.
   G.groundY = G.year; G.groundNext = G.year + ri(1, 3);
-  const wks = groundWeeks(cap) + 4; c.build = { cap, site, km, left: wks, total: wks, open: G.year + Math.floor((wks + G.week) / 54) };
+  const wks = groundWeeks(cap) + 4; c.build = { cap, site, km, kind, left: wks, total: wks, open: G.year + Math.floor((wks + G.week) / 54) };
   if (nearMe(c)) news(`${c.name} start building a new ${cap.toLocaleString("en-GB")}-capacity ground ${km <= 3 ? "just down the road" : `${km} km away`}: about ${wks} weeks of work.${squeeze(c) < .95 ? " They'll be spending less on the team while it goes up." : ""}`, c.lg === my().lg);
 }
 const nearMe = c => c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || isDerby(my(), c);
@@ -90,7 +90,7 @@ const squeeze = c => c.build ? BUILD_SQUEEZE[(c.own || {}).style] ?? .85 : 1;
 function boostWeek() { if (G.phase !== "season") return; for (const c of G.clubs) { if (c.bounceW) delete c.bounceW; else if (c.bounce > 0) c.bounce--; if (c.compl) delete c.compl; } }
 function aiBuildWeek() { boostWeek(); for (const c of G.clubs) if (c.build && c.build.left != null && !c.gone && --c.build.left <= 0) aiMoveIn(c); }
 function aiMoveIn(c) {
-  const b = c.build, old = c.cap; c.build = null; setHoney(c);
+  const b = c.build, old = c.cap; c.build = null; setHoney(c); if (b.kind) c.loc = locForMove(c, b.kind);
   (c.grounds ||= []).push({ from: aiOpened(c), to: G.year, cap: old }); c.cap = b.cap; c.site = b.site; c.moved = { y: G.year, km: b.km, from: old }; c.opened = G.year;
   let lost = 0; if (b.km > 9) { lost = Math.min(.25, b.km * .008) * (.6 + fanShare(c, "comm") + fanShare(c, "loyal") * .5); c.fans = Math.round(c.fans * (1 - lost)); const m = fanMix(c); m.comm = Math.max(5, m.comm - 4); m.fair += 3; normMix(m); }
   if (nearMe(c)) news(`${c.name} move into their new ${b.cap.toLocaleString("en-GB")}-capacity ground${b.km > 3 ? `, ${b.km} km from the old one` : ""}${lost ? `; about ${Math.round(lost * 100)}% of their support won't follow` : ""}.`, c.lg === my().lg);
@@ -120,7 +120,7 @@ const aiYouthPayF = x => clamp(Math.pow(1.25, (r200s(aiYouthScout(x)) - r200s(YS
 function aiEstimate(x) {
   const S = x.own ? OWNER_STYLES[x.own.style] : {}, ticket = Math.max(3, Math.round(ticketRef(x) * (S.prices || 1)));
   const pf = priceFactor(ticket, ticketRef(x), 1.3 + fanShare(x, "comm") * .8), sw = 1 + fanShare(x, "loyal") * .15 + fanShare(x, "fair") * (x.push ? .3 : -.15);
-  const att = Math.round(Math.min(x.cap || 1e9, (x.fans * .8 * pf + x.fans * .35 * pf * .9) * sw * (1 + .1 * honey(x))));
+  const att = Math.round(Math.min(x.cap || 1e9, (x.fans * .8 * pf + x.fans * .35 * pf * .9) * sw * (1 + .1 * honey(x)) * LOC(x).att));
   const staff = staffWage("manager", x.rep) * aiCoachPayF(x) + staffWage("youth", x.rep) * aiYouthPayF(x) + staffWage("recruit", x.rep);
   const comm = COMM_T[x.tier] * (.6 + x.rep / 60) * Math.sqrt(Math.max(.15, x.fans / FAN_T[x.tier])) * (1 + (S.media || 0) * .02);
   const merch = x.fans * .007 * 52 * REF_SHIRT[x.tier] * .55 * clubPop(x);  // a year's shirt profit: supporters times popularity
