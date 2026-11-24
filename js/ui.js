@@ -53,9 +53,24 @@ const START_MIX = { bal: "Balanced", hard: "Hardcore", loyal: "Loyal", fair: "Fa
 const START_AGE = { 0: "Brand new", 20: "20 years old", 50: "50 years old", 100: "A century old, crumbling" };
 const START_LAYOUT = { seat: "All seated", mix: "Seats and terraces", terr: "Mostly terraces" };
 const START_ROOM = { tight: "Tight (little room to grow)", some: "Some room", lots: "Plenty of room" };
+const START_PRESETS = {
+  village: { l: "Village fairy tale", d: "A South West village club at the bottom, a tiny old ground and a small, loyal following.",
+    v: { "f-region": "South West", "f-loc": "village", "f-tier": "7", "f-rep": "local", "f-fans": "small", "f-mix": "loyal", "f-own": "own", "f-gcap": "800", "f-gage": "100", "f-glay": "terr", "f-groom": "lots", "f-psize": "tight", "f-ptype": "grass", "f-founded": "1898" }, wealth: "local" },
+  giant: { l: "Fallen giant", d: "An inner-city club in the National Division: a big, crumbling ground and a huge support waiting to come back.",
+    v: { "f-region": "North West", "f-loc": "inner", "f-tier": "5", "f-rep": "giant", "f-fans": "big", "f-mix": "loyal", "f-own": "own", "f-gcap": "25000", "f-gage": "100", "f-glay": "mix", "f-groom": "some", "f-psize": "std", "f-ptype": "grass", "f-founded": "1885" }, wealth: "billion" },
+  upstart: { l: "City upstart", d: "A brand-new London club at a retail park: a small modern ground, a huge catchment and no history at all.",
+    v: { "f-region": "London", "f-loc": "retail", "f-tier": "7", "f-rep": "unknown", "f-fans": "normal", "f-mix": "fair", "f-own": "own", "f-gcap": "2000", "f-gage": "0", "f-glay": "seat", "f-groom": "lots", "f-psize": "wide", "f-ptype": "hybrid", "f-founded": "" }, wealth: "celebrity" },
+  rescue: { l: "Fan-owned rescue", d: "The supporters' trust takes over its market-town club: an old ground, a proud name and very little money.",
+    v: { "f-region": "East Midlands", "f-loc": "market", "f-tier": "6", "f-rep": "proud", "f-fans": "normal", "f-mix": "comm", "f-own": "own", "f-gcap": "4000", "f-gage": "50", "f-glay": "mix", "f-groom": "some", "f-psize": "std", "f-ptype": "grass", "f-founded": "1911" }, wealth: "trust" },
+  custom: { l: "Custom", d: "Start from the classic blank club and set everything yourself.",
+    v: { "f-region": "London", "f-loc": "sub", "f-tier": "7", "f-rep": "unknown", "f-fans": "normal", "f-mix": "bal", "f-own": "rent", "f-gcap": "", "f-gage": "20", "f-glay": "mix", "f-groom": "some", "f-psize": "std", "f-ptype": "grass", "f-founded": "" }, wealth: "wealthy" },
+};
 function startMore() {
   const opt = (o, sel) => Object.entries(o).map(([k, v]) => `<option value="${k}" ${String(k) === String(sel) ? "selected" : ""}>${esc(Array.isArray(v) ? v[0] : v)}</option>`).join("");
-  return `<details style="margin-top:16px"><summary><b>More about your club</b> <span class="muted small">(optional: starting division, history, supporters, ground)</span></summary>
+  return `<details style="margin-top:16px" id="f-more"><summary><b>More about your club</b> <span class="muted small">(optional: starting division, history, supporters, ground)</span></summary>
+    <h3 style="margin:14px 0 8px">Start from a story</h3>
+    <div class="pick-cards">${Object.entries(START_PRESETS).map(([k, P]) => `<button class="pick-card" data-act="preset" data-k="${k}"><b>${esc(P.l)}</b><small>${esc(P.d)}</small></button>`).join("")}</div>
+    <p class="small muted" style="margin-top:4px">A preset fills in the choices below (and region, setting and owner above); change anything you like afterwards.</p>
     <h3 style="margin:14px 0 8px">Starting division</h3>
     <label><select id="f-tier">${START_TIERS.map(([t, l, d]) => `<option value="${t}">${esc(l)}: ${esc(d)}</option>`).join("")}</select></label>
     <p class="small muted" style="margin-top:4px">Higher up, the squad you inherit is better and wages, crowds and prices are bigger: you'll want a bigger fortune.</p>
@@ -100,8 +115,8 @@ function renderStart(saves) {
     <p class="small muted" style="margin-top:4px">The region sets your local derbies, away trips and which players count as local lads. The two together set your catchment: how big a support the club can grow, and how fast, as well as land prices, crowds and atmosphere.</p>
     <h3 style="margin:16px 0 8px">Colours</h3>
     <div class="swatches" id="f-color">${CLUB_COLORS.map((c, i) => `<button style="background:${c}" data-v="${c}" aria-pressed="${i === 1}" aria-label="Colour ${i + 1}"></button>`).join("")}</div>
-    <h3 style="margin:16px 0 8px">Your fortune</h3>
-    <div class="pick-cards" id="f-wealth">${Object.entries(WEALTH).map(([k, w], i) => `<button class="pick-card" data-v="${k}" aria-pressed="${i === 1}"><b>${w.l}</b><span class="num">${money(w.amt)}</span><small>${w.d}</small></button>`).join("")}</div>
+    <h3 style="margin:16px 0 8px">Who owns the club</h3>
+    <div class="pick-cards" id="f-wealth">${Object.entries(WEALTH).map(([k, w]) => `<button class="pick-card" data-v="${k}" aria-pressed="${k === "wealthy"}"><b>${w.l}</b><span class="num">${money(w.amt)}</span><small>${w.d}</small></button>`).join("")}</div>
     ${visionCard(START_V, true)}
     ${startMore()}
     <div class="row" style="margin-top:18px"><button class="btn primary" data-act="found">Found the club</button><span class="muted small">Building the leagues takes a few seconds.</span></div>

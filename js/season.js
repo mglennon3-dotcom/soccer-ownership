@@ -238,6 +238,7 @@ function endSeason() {
     ...Object.values(G.cont || {}).map(K => { if (!K.teams.includes(G.club)) return null; if (K.win === G.club) return CONT[K.key].name + ": winners"; const r = K.ko.filter(R => R.ties.some(t => t.h === G.club || t.a === G.club)).pop(); return `${CONT[K.key].name}: ${r ? r.n.toLowerCase() : "group stage"}`; })].filter(Boolean), y: G.year, lg: report.lg, tier: report.tier, pos, size, pts: report.pts, up: wentUp, down: wentDown, po: G.po[report.lg] && G.po[report.lg].semis.flat().includes(G.club),
     inc: ledgerIncome(f), cost: ledgerCosts(f), att: Math.round(avg(mine.att || [])), st: stHolders(mine), stp: mine.st && mine.st.y === G.year ? mine.st.price : null, fans: mine.fans, cash: mine.cash, mgr: mgr().name,
     top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" }); achSeason(G.history[0], mine);
+  if (ownType().subs) { const subs = Math.round(mine.fans * .4 * ownType().subs / 100) * 100; if (subs > 0) { earn("equity", subs); news(`The trust's members renew their subscriptions: ${money(subs)} for the club.`); } }
   investorsSummer({ up: wentUp, down: wentDown }); fanCultureSummer(mine, wentUp, wentDown); wageClauses(mine, wentUp, wentDown);
   endLoans();
   G.meddle = (G.meddle || 0) * .6;

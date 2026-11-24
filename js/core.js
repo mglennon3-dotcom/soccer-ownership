@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.39";
+const VERSION = "1.0.40";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -459,11 +459,22 @@ function retire(p, cull) {
 }
 
 /* ---------- your club ---------- */
+/* Who owns the club. Each type has its money and its character: how the supporters' trust and the fans take to you at
+   the start (trust, mood), the media profile (media), sponsors (comm: commercial deals multiplier, for the whole
+   ownership), the kind of supporters drawn in (mix), how many come to look at first (fans), and players' view of the
+   project (appeal). A supporters' trust also collects members' subscriptions every summer. */
 const WEALTH = {
-  local:   { l: "Local businessperson", amt: 2.5e6, d: "A few million behind you. Every euro has to earn its keep." },
-  wealthy: { l: "Wealthy investor",     amt: 30e6,  d: "Enough to build a proper ground and push through the non-league." },
-  billion: { l: "Billionaire consortium", amt: 600e6, d: "Money is no object. Patience and good hires still are." },
+  fan:      { l: "Lifelong fan",            amt: 4e5,   d: "Your savings and your heart. The supporters adore you; sponsors barely notice.", trust: 80, mood: 10, comm: .95, mix: { loyal: 8, comm: 6 } },
+  trust:    { l: "Supporters' trust",       amt: 1.5e6, d: "Owned by the fans. Members' subscriptions every summer, a fiercely loyal support, but no deep pockets.", trust: 100, mood: 15, comm: .9, mix: { comm: 10, loyal: 6 }, subs: 15 },
+  local:    { l: "Local businessperson",    amt: 2.5e6, d: "A few million behind you. Every euro has to earn its keep." },
+  explayer: { l: "Former player",           amt: 12e6,  d: "A famous name from the game: players listen when you call, and the media follow you.", trust: 60, mood: 5, media: 10, appeal: .1 },
+  wealthy:  { l: "Wealthy investor",        amt: 30e6,  d: "Enough to build a proper ground and push through the non-league." },
+  celebrity:{ l: "Celebrity owner",         amt: 80e6,  d: "A household name. Sponsors and cameras arrive with you, and so do curious new fans.", trust: 45, media: 30, comm: 1.2, fans: 1.4, mix: { fair: 10 } },
+  pe:       { l: "Private equity fund",     amt: 250e6, d: "Serious money, run for a return. Commercially sharp; the supporters don't trust you.", trust: 25, mood: -8, comm: 1.1, mix: { fair: 4 } },
+  billion:  { l: "Billionaire consortium",  amt: 600e6, d: "Money is no object. Patience and good hires still are." },
+  state:    { l: "State-backed group",      amt: 5e9,   d: "Effectively unlimited money and lavish sponsors from friendly companies. The fan base is divided about where it comes from.", trust: 30, mood: -5, media: 25, comm: 1.25, fans: 1.2, appeal: .15, mix: { fair: 8 } },
 };
+const ownType = () => (G && G.owner && WEALTH[G.owner.kind]) || {};
 function foundClub(o) {
   const tier = [5, 6, 7].includes(o.tier) ? o.tier : 7, lg = tier === 5 ? "L5" : (o.half === "N" ? "L" + tier + "N" : "L" + tier + "S"), L = G.leagues[lg];
   // The newest club replaces the weakest one in its regional league, which folds.
@@ -492,6 +503,10 @@ function foundClub(o) {
   G.clubs.push(c); L.clubs.push(c.id); G.club = c.id; buildDerbies();  // your club has its neighbours too
   G.owner = { name: o.owner || "The owner", wealth: WEALTH[o.wealth].amt, kind: o.wealth, invested: 0, vision: o.vision };
   invest(Math.min(G.owner.wealth, Math.round(WEALTH[o.wealth].amt * .08)), true);
+  // The ownership's character, from day one.
+  { const W = WEALTH[o.wealth]; if (W.trust != null) G.sTrust.rel = W.trust; if (W.mood) c.mood = clamp(c.mood + W.mood, 0, 100); if (W.media) c.media = (c.media || 0) + W.media;
+    if (W.fans) c.fans = Math.round(c.fans * W.fans); if (W.mix) { const m = c.fanMix || (c.fanMix = { hard: 20, loyal: 25, fair: 20, comm: 35 }); for (const k in W.mix) m[k] += W.mix[k]; normMix(m); }
+    if (o.wealth === "trust") { G.sTrust.seat = true; G.sTrust.members = Math.round(c.fans * .4); } }
   if (tier === 7) {
     // An open trial day: the founding squad is whoever turned up.
     for (const [pos, n] of Object.entries({ GK: 2, CB: 3, FB: 3, DM: 1, CM: 3, AM: 1, W: 2, ST: 3 })) for (let i = 0; i < n; i++) {

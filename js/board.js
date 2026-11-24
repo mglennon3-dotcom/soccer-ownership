@@ -75,7 +75,7 @@ DECIDE.invExit = (m, k) => {
 /* The finance trust vision point (vpt) still trims upkeep; there are no directors any more. */
 const loanCut = () => 0;
 const upkeepMult = () => 1 - vpt("finance") * .02;
-const commMult = () => 1;
+const commMult = () => ownType().comm || 1;  // the ownership's pull with sponsors
 const buildMult = () => 1;
 const wearMult = () => 1;
 

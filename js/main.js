@@ -594,6 +594,10 @@ const ACT = {
   quit: async () => { await saveGame(); start(); },
   load: el => loadSave(el.dataset.id),
   delsave: async el => { if (!await ask("Delete this career?")) return; await dbDo("readwrite", st => st.delete(el.dataset.id)); start(); },
+  preset: el => { const P = START_PRESETS[el.dataset.k]; if (!P) return;
+    for (const [id, v] of Object.entries(P.v)) { const x = $("#" + id); if (x) x.value = v; }
+    if (P.wealth) document.querySelectorAll("#f-wealth [aria-pressed]").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === P.wealth));
+    el.parentNode.querySelectorAll(".pick-card").forEach(b => b.setAttribute("aria-pressed", b === el)); $("#f-more").open = true; CHANGE.fhint(); toast(`${P.l}: filled in. Change anything you like.`); },
   found: async () => {
     const name = $("#f-name").value.trim(); if (!name) return toast("Give your club a name.");
     const sel = id => ($(`#${id} [aria-pressed="true"]`) || {}).dataset?.v;
