@@ -439,7 +439,7 @@ function weeklyAccounts(c) {
   spend("util", utilities(c) / YEAR_TICKS()); insureWeek(c); if (G.phase === "season" && fzK(c)) moodHit(c, fzK(c) * .04); if (c.budget.comm) { spend("comm", c.budget.comm / YEAR_TICKS()); moodHit(c, commK(c) * .05); }
   earn("spons", sponsorTotal(c) / YEAR_TICKS());
   earn("merch", merchFor(c));
-  ventureBuildWeek(c); earn("events", ventureWeek(c)); concertWeek(c); plotWeek(c);
+  ventureBuildWeek(c); earn("events", ventureWeek(c)); concertWeek(c); plotWeek(c); coachBondWeek(c);
   if (G.phase === "season") earn("suites", suitesLet(c) * c.prices.suite / SEASON_WEEKS);
   corpWeek(c);
   if (G.phase === "season") { earn("tv", TV[c.tier] / 46); if (paraOf(c)) earn("para", paraOf(c) / 46); }
@@ -643,6 +643,46 @@ const hireOK = (c, k) => c.fac.stadium.cap >= HIRE[k].min && (!HIRE[k].tier || c
 const concertFee = c => hireFee(c, "concert");
 // The weeks each kind can be held in: pre-season, the season (not the Christmas fixtures), or the autumn.
 const hireWeeks = k => ({ summer: [1, SUMMER_WEEKS - 1, "summer"], season: [3, 40, "season"], autumn: [6, 16, "season"], any: [1, 40, null] })[HIRE[k].when];
+/* Loyalty to the manager. Each week a player's bond with the manager grows: faster for a regular in the side, faster
+   with a manager who motivates well, slowly for one out of the team, and it frays when he's unsettled. When the manager
+   goes (sacked, poached, retired, resigned, replaced), the players closest to him take it hard: the more popular he was
+   across the dressing room, the bigger the upheaval: unsettled players, a hit to morale, and some asking to leave,
+   especially to follow him to his new club. A new manager starts from nothing. */
+const mgrKey = s => s ? `${s.name}|${s.since}` : null;
+const mgrPop = c => { const ps = c.squad.map(P).filter(p => p && !p.acad && p.cb && p.cb.k === mgrKey(staffOf("manager"))).sort((a, b) => b.ovr - a.ovr).slice(0, 18); return ps.length ? avg(ps.map(p => p.cb.v)) : 0; };
+function coachBondWeek(c) {
+  if (G.phase === "summer" && G.week === 0) return;
+  const m = staffOf("manager"), k = mgrKey(m), last = G.mgrWas;
+  // He's gone (or been replaced): the fallout, once.
+  if (last && last.k !== k) mgrFallout(c, last);
+  G.mgrWas = m ? { k, name: m.name, him: pr(m, "him"), pop: mgrPop(c), to: null } : null;
+  if (!m) return;
+  const xi = new Set(pickXI(c).map(o => o.p.id)), mot = clamp(((m.at && m.at.mot) || 50) / 60, .5, 1.6);
+  // A manager already in post when this came in: the bonds he's built so far, from how long he's been here.
+  // Each player's own affinity for managers: loyal types bond more, and some just click with a manager more than others.
+  const aff = p => p.aff ??= Math.round(rf(.4, 1.3) * (.6 + loyaltyOf(p) * .8) * 100) / 100;
+  if (!G.cbInit) { G.cbInit = true; const yrs = Math.max(0, G.year - (m.since || G.year)); for (const p of c.squad.map(P)) if (p && !p.acad && !p.cb) p.cb = { k, v: clamp(yrs * (xi.has(p.id) ? .2 : .08) * mot * aff(p), 0, .9) }; }
+  for (const p of c.squad.map(P)) { if (!p || p.acad || (p.loan && p.loan.from === c.id)) continue;
+    if (!p.cb || p.cb.k !== k) p.cb = { k, v: 0 };
+    p.cb.v = clamp(p.cb.v + (xi.has(p.id) ? .01 : .003) * mot * aff(p) - (p.unsettled > 0 ? .01 : 0), 0, 1); }
+  G.mgrWas.pop = mgrPop(c);
+}
+function mgrFallout(c, last) {
+  const close = c.squad.map(P).filter(p => p && !p.acad && p.cb && p.cb.k === last.k && p.cb.v >= .5).sort((a, b) => b.cb.v - a.cb.v);
+  if (!close.length || last.pop < .25) return;
+  const pop = last.pop, dest = last.to != null ? CL(last.to) : null, asked = [];
+  c.morale = clamp((c.morale || 55) - Math.round(pop * 18), 20, 95);
+  for (const p of close) {
+    if (R() > p.cb.v * pop * 1.4) continue;  // close to him, but takes it in his stride
+    p.unsettled = Math.max(p.unsettled || 0, Math.round(4 + p.cb.v * 12));
+    p.mgrGrief = { t: G.year * 100 + G.week, v: p.cb.v, name: last.name, to: last.to };
+    // The closest may ask to leave straight away (to follow him, if he's gone to another club), up to three at once.
+    if (asked.length < 3 && !p.req && p.age <= 33 && R() < p.cb.v * pop * (dest ? 1.1 : .7)) { asked.push(p); p.req = G.year;
+      const why = dest ? `wanting to follow ${last.name} to ${dest.name}` : `${last.name} leaving`;
+      addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's unhappy about ${why}.`,
+        ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["the manager leaving"] }, 0); } }
+  news(`${last.name}'s departure shakes the dressing room: ${close.length} player${close.length > 1 ? "s were" : " was"} close to ${last.him || "him"}${asked.length ? `, and ${asked.map(p => p.name).join(", ")} ${asked.length > 1 ? "want" : "wants"} to leave` : ""}.${dest ? ` Some would follow ${last.him || "him"} to ${dest.name}.` : ""}`, true);
+}
 function concertWeek(c) {
   const S = c.fac.stadium; if (!S.own || !atHome(c) || G.phase === "playoffs") return;
   if (S.concerts && !S.hire) { S.hire = { concert: S.concerts }; delete S.concerts; }

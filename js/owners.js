@@ -375,7 +375,7 @@ DECIDE.poach = (m, i) => {
     if (ask <= m.data.max) { m.data.comp = ask; i = 0; } else { news(`${x.name} won't pay ${money(ask)} for ${s.name} and pull out. ${s.name} stays, a little disappointed.`); trust(m.data.role, -2, null, "A move elsewhere falling through"); return; }
   }
   if (i === 2) i = 1;
-  if (i === 0) { my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
+  if (i === 0) { if (m.data.role === "manager" && G.mgrWas) G.mgrWas.to = x.id; my().staff[m.data.role] = null; earn("sales", m.data.comp); x.coach.tac = Math.max(x.coach.tac, s.at.tac || s.at.judge || 50); news(`${s.name} leaves for ${x.name}. The club receives ${money(m.data.comp)}.`, true); }
   else trust(m.data.role, x.tier < my().tier ? -6 : -2, x.tier < my().tier ? `is unhappy you blocked ${pr(s, "his")} move to ${x.name}.` : null, "You blocking a move elsewhere");
 };
 
