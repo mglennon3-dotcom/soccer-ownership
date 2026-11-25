@@ -144,8 +144,10 @@ const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + (c.cap || 0
 const aiDebtService = c => (c.debt || 0) * .1;
 // Transfer fees, spread over contracts (amortisation): about a tenth of the squad's value a year in the Premier, less further down. At the top this is
 // where much of the money goes, so clubs pay players close to the going rate rather than inflating wages.
-const AMORT = [0, .07, .04, .02, .01, 0, 0, 0];  // transfer spending matters most at the top
-const aiAmort = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? valueOf(p) : 0; }) * AMORT[c.tier];
+const AMORT = [0, .07, .04, .02, .01, 0, 0, 0];  // (older saves: a club's squad with no recorded fees is charged a share of its value)
+// Each fee the club actually paid, spread over four years from the season he joined.
+const aiAmort = c => sum(c.squad, id => { const p = G.players[id]; if (!p || p.acad || p.loan) return 0;
+  const t = (p.tx || []).filter(x => x[3] === c.id).pop(); return t && t[4] > 0 && G.year - t[0] < 4 ? t[4] / 4 : 0; });
 const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c) + aiDebtService(c) + aiAmort(c);  // wages, staff, ground and running costs
 const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
 /* Every club budgets to break even: its wage budget is what its income leaves after staff, running and match-day costs.
@@ -167,7 +169,11 @@ const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l
 function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1);
   // The spending rule: in the professional divisions only reckless owners plan to lose more than it allows.
   if (c.cook) { const cap = salaryCap(c.tier); return Math.max(b, isFinite(cap) ? cap : b) * 2; }  // cooking the books: money no object (players still have to want to come)
-  return Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier)); }
+  let w = Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier));
+  // The squad cost rule (and UEFA's, in Europe): a sensible owner keeps wages plus fees inside it, with a little room.
+  if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (inEurope(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); w = Math.min(w, Math.max(tierWages(c.tier) * .5, lim * .95 - aiAmort(c))); }
+  else if (c.tier >= 5 && !c.abroad) w = Math.min(w, nlWageCap(c));
+  return w; }
 /* The salary cap, in the Premier Division only: no AI club's wage bill there may go past twice the division's average (set again each summer
    as wages move). Up to it, how much they spend is the owner's call; only an owner cooking the books goes beyond it. */
 const CAP_MULT = 2;
@@ -208,6 +214,7 @@ function aiAccounts(c) {
   // Cooking the books: losses are hidden (false income, deals off the books), so no spending-rule trouble, no cuts, and the
   // owner doesn't seem to be paying. It all goes on the hidden pile that gets him caught.
   if (c.cook) { c.cook.hid += Math.max(0, -net) + Math.max(0, aiBill(c) - salaryCap(c.tier)); c.psr = []; return; }
+  scrJudge(c);
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
@@ -464,6 +471,60 @@ const spendRolling = (c, net, inc) => { const h = (c.psr || []).slice(-2).concat
 function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.psr || []).length >= 2 ? spendPenalty(c.tier, r.N, r.I) : 0;  // judged once three seasons are on record
   c.psr = pen ? [] : (c.psr || []).concat([[Math.round(net), Math.round(inc)]]).slice(-3);  // a punished club starts afresh
   return { pen, ratio: r.ratio }; }
+/* ---------- squad cost rules ----------
+   Alongside the three-season loss rule, every professional club's spending on players (wages plus transfer fees spread
+   over contracts) may not pass a share of its revenue: 85% in the Premier Division, 100% in the First (where the
+   three-season loss rule does most of the work, as in the real Championship), 60% in the Second and 55% in the Third, where the owner's own money counts as revenue too (as in the real lower leagues). Break it and
+   the club may not pay a fee next season; break it by more than 8 points and it's docked points too (3, or 6 past 20). Clubs in Europe answer to UEFA as
+   well: 70% of revenue, no owner money; a first breach is a fine, a second within three years a ban from Europe.
+   Non-league has no such rule: there it's down to the owner, who'll put in only so much a year, by his nature. */
+const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
+const aiSquadCost = c => aiBill(c) + aiAmort(c);
+const ownerMoney = c => aiIncome(c) * clamp(spendTarget(c), 0, 1.5);  // what the owner plans to put in a year
+const scrRevenue = c => aiIncome(c) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c) : 0);
+// Non-league: the wage bill an owner will carry, his nature times the club's size (a benefactor about two and a half times income).
+const nlWageCap = c => aiIncome(c) * (.75 + clamp(lossTol(c), 0, 1.5));
+/* Room left for a new player's wage plus a year's share of his fee. Reckless owners (gamblers, book-cookers) ignore it
+   and take their chances with the punishment. */
+function squadRoom(c) {
+  if (c.abroad || isMine(c)) return Infinity;
+  if (c.tier >= 5) return nlWageCap(c) - aiBill(c);
+  let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (inEurope(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c));
+  return lim - aiSquadCost(c);
+}
+// A small breach costs the right to pay fees next season; a bigger one points as well.
+const scrPen = over => over <= .08 ? 0 : over <= .2 ? 3 : 6;
+const fitsRules = (c, wage, fee = 0, yrs = 3) => reckless(c) || c.abroad || isMine(c) ? true : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
+// The yearly check for an AI club (from aiAccounts): domestic squad cost rule, then UEFA's.
+// The rules come in with a season's notice: nobody is judged until the season after they're introduced.
+const scrLive = () => { if (G.scrFrom == null) { G.scrFrom = G.year + 1; news("The leagues bring in a squad cost rule from next season: spending on players (wages and transfer fees spread over contracts) capped at 85% of revenue in the Premier Division, 100% in the First, 60% in the Second and 55% in the Third, where owners' money counts. UEFA's own rule (70%) applies to clubs in Europe.", true); } return G.year >= G.scrFrom; };
+function scrJudge(c) {
+  if (c.abroad || c.tier > 4 || !scrLive()) return;
+  // Over the line, a sensible owner sells his dearest players first to get back under it.
+  if (!reckless(c) && aiSquadCost(c) > SCR_LIMIT[c.tier] * scrRevenue(c)) ruleSales(c);
+  const cost = aiSquadCost(c), r = cost / Math.max(1, scrRevenue(c)), over = r - SCR_LIMIT[c.tier];
+  if (over > .02) { const pen = scrPen(over); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1; G._scr = (G._scr || 0) + 1; if (pen) G._scrPts = (G._scrPts || 0) + 1;
+    if (c.lg === my().lg || c.tier === 1) news(`${c.name} broke the squad cost rule (${Math.round(r * 100)}% of revenue spent on players, limit ${Math.round(SCR_LIMIT[c.tier] * 100)}%): ${pen ? `docked ${pen} points, and ` : ""}no transfer fees next season.`, c.lg === my().lg); }
+  if (inEurope(c) || (G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id))) uefaJudge(c, cost / Math.max(1, aiIncome(c)), aiIncome(c));
+}
+function uefaJudge(c, r, inc) {
+  if (r <= UEFA_SCR + .02) return; c.uefa = (c.uefa || []).filter(y => y >= G.year - 3);
+  const mine = isMine(c);
+  if (c.uefa.length) { c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
+    news(`UEFA ban ${mine ? "you" : c.name} from Europe next season: a second breach of its squad cost rule in three years (${Math.round(r * 100)}% of revenue on players, limit 70%).`, mine || c.lg === my().lg); }
+  else { const fine = Math.round(inc * (r - UEFA_SCR) * .5 / 1e4) * 1e4; G._uefaFine = (G._uefaFine || 0) + 1;
+    if (mine) spend("tax", fine); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - fine);
+    news(`UEFA fine ${mine ? "you" : c.name} ${money(fine)} for breaking its squad cost rule (${Math.round(r * 100)}% of revenue on players, limit 70%). A second breach within three years means a ban from Europe.`, mine || c.lg === my().lg || c.tier === 1); }
+  c.uefa.push(G.year);
+}
+// Your club, judged at the season's end on your own accounts.
+function scrJudgeMine(c, f) {
+  if (c.tier > 4 || !scrLive()) return;
+  const inc = ledgerIncome(f), cost = (f.wages || 0) + (f.amort || 0), rev = inc + (c.tier >= 3 ? (f.equity || 0) + Math.max(0, f.invest || 0) : 0), r = cost / Math.max(1, rev), over = r - SCR_LIMIT[c.tier];
+  if (over > .02) { const pen = scrPen(over); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1;
+    news(`You broke the squad cost rule: ${Math.round(r * 100)}% of revenue went on players (wages and transfer fees spread over contracts), past the ${Math.round(SCR_LIMIT[c.tier] * 100)}% allowed. ${pen ? `The league docks you ${pen} points for next season, and you` : "You"} may not pay a transfer fee next season.`, true); }
+  if (inEurope(c)) uefaJudge(c, cost / Math.max(1, inc), inc);
+}
 // A new manager's first four weeks: usually a lift, but about one time in four the players take against him and it's a dip.
 const newBounce = (c, afterGames) => { c.bounce = 4; if (afterGames) c.bounceW = true;  // appointed after this week's games: the count starts next week
   c.bounceS = R() < .25 ? -1 : 1; };

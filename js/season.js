@@ -235,7 +235,7 @@ function endSeason() {
   if (G.goodwill) G.goodwill = Math.round(G.goodwill * .7 * 100) / 100;  // and goodwill from honoured deals fades
   dealsSeasonEnd(mine);
   { const f0 = mine.fin, inc = ledgerIncome(f0), net = inc - (ledgerCosts(f0) - f0.build - f0.acad), r = spendRule(mine, net, inc);
-    mine.ded = r.pen; if (r.pen) news(`The league docks you ${r.pen} points for next season: over three seasons you lost ${Math.round(r.ratio * 100)}% of your income, past the 35% the spending rule allows.`, true); }
+    mine.ded = r.pen; scrJudgeMine(mine, f0); if (r.pen) news(`The league docks you ${r.pen} points for next season: over three seasons you lost ${Math.round(r.ratio * 100)}% of your income, past the 35% the spending rule allows.`, true); }
   // History
   const f = mine.fin;
   G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: [...Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }),
@@ -424,7 +424,7 @@ function buyerFor(p, belowTier, feeF = 1, reach = 0) {
   // Clubs bound by the spending rule don't take on more pay once their wage bill is well past what they can afford.
   // Rivals (derby clubs, feuding owners) rarely deal with each other.
   const seller = p.club >= 0 ? CL(p.club) : null;
-  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier && !(seller && R() < [0, .7, .9][derbyLevel(seller, c)])).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF)).slice(0, 6);
+  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier && !(seller && R() < [0, .7, .9][derbyLevel(seller, c)])).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF) && fitsRules(x, aiWage(p, x), aiFee(p) * feeF, 3)).slice(0, 6);
   // Only clubs at his level (a hot prospect: up to a few points above it) or, for a player better than all of them, the strongest.
   const near = cs.filter(x => (Math.abs(x.lvl - p.ovr) <= 4 + reach || p.ovr > x.lvl) && p.ovr >= feeFloor(x));
   return near.length ? pick(near) : null;
@@ -621,7 +621,7 @@ function relegationExodus(ids) {
           ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["ambition after relegation"] }, 0); } }
     else { let n = 0;
       for (const p of ps) { if (n >= 3 || p.keep || R() > .5) continue;
-        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && p.ovr >= feeFloor(x) && (x.lvl || 0) >= p.ovr - 6 && canAfford(x, aiFee(p, x)));
+        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && p.ovr >= feeFloor(x) && (x.lvl || 0) >= p.ovr - 6 && canAfford(x, aiFee(p, x)) && fitsRules(x, aiWage(p, x), aiFee(p, x), 3));
         if (!buyers.length) continue; const near = buyers.filter(x => x.tier === c.tier - 1), b = pick(near.length ? near : buyers);
         aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
@@ -659,7 +659,7 @@ function ownerTopUp(c, fee) {
   const lw = ownStyle(c).loss || 0; if (lw <= 0) return false;
   // However rich he is, he puts in at most about his willingness to lose times half the club's income in a season.
   if (!c.topY || c.topY.y !== G.year) c.topY = { y: G.year, amt: 0 };
-  if (c.topY.amt + short > aiIncome(c) * lw * .5 || short > c.own.wealth * .04 || R() > clamp(.05 + lw * .45, 0, .8)) return false;
+  if (c.topY.amt + short > aiIncome(c) * lw * (c.tier >= 5 ? .3 : .5) || short > c.own.wealth * .04 || R() > clamp(.05 + lw * .45, 0, .8)) return false;
   c.tb = tbOf(c) + short; c.topY.amt += short; c.topUp = (c.topUp || 0) + short; return true;
 }
 function aiSign(c, pos) {
@@ -670,7 +670,9 @@ function aiSign(c, pos) {
   // Players choose too: one who rates the club below what he wants (playing time, the system, standing, how it's
   // doing, home, on his own priorities) may turn it down, so a struggling club finds the better players harder to get.
   const wont = q => { const a = aiAppeal(q, c); return a <= -1 || a < 0 && R() < clamp(-a * 5, 0, .8); };
-  const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33 && !wont(q));
+  // The rules (squad cost, UEFA, a non-league owner's limit): his wage plus a year's share of the fee must fit.
+  const estW = q => !c.abroad && hugeAsk(q, c) ? hugeWage(q, c) : aiWage(q, c), fits = (q, fee) => fitsRules(c, estW(q), fee, 3);
+  const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33 && !wont(q) && fits(q, 0));
   const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
   // The best free agent and the best player he could buy: he takes the free agent unless the other is clearly better.
   let fa = fas.length ? fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0] : null;
@@ -681,7 +683,7 @@ function aiSign(c, pos) {
     // A big-spending owner (benefactor, gambler, celebrity) reaches two divisions up, first-choice players included.
     const big = sp >= 3, lower = G.clubs.filter(x => !isMine(x) && x !== c && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier >= c.tier - (big ? 2 : 1) && x.tier <= c.tier + 2 && x.squad.length >= 20));
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && (x.abroad || x.tier >= c.tier || big || !xiSet(x).has(q.id) && q.ovr <= (c.lvl || 0) + 2) && q.ovr >= feeFloor(c) && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
-    const willing = pool.filter(q => !wont(q)), scored = willing.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1]);
+    const willing = pool.filter(q => !wont(q) && fits(q, aiFee(q, c))), scored = willing.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1]);
     const best = scored.find(([q]) => canAfford(c, aiFee(q, c)));
     // The one he really wants is beyond the budget: the owner may find the money.
     const dream = scored[0] && !canAfford(c, aiFee(scored[0][0], c)) && (!best || scored[0][1] > best[1] + 2) && ownerTopUp(c, aiFee(scored[0][0], c)) ? scored[0] : null;
@@ -692,13 +694,14 @@ function aiSign(c, pos) {
   if (!p && promoteAcad(c, pos, target)) return;  // an academy player gets his chance
   if (!p && windowOpen() && R() < .6 && aiBorrow(c, pos, target)) return;  // or a loan from a bigger club
   // A cheaper free agent, a level or two below what he wanted.
-  if (!p) { const cheap = G.fa.map(P).filter(q => q && !faFresh(q) && q.pos === pos && q.ovr >= target - 14 && q.ovr < target - 5 && q.age <= 33 && !wont(q)); if (cheap.length) p = cheap.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0]; }
+  if (!p) { const cheap = G.fa.map(P).filter(q => q && !faFresh(q) && q.pos === pos && q.ovr >= target - 14 && q.ovr < target - 5 && q.age <= 33 && !wont(q) && fits(q, 0)); if (cheap.length) p = cheap.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0]; }
   /* Nobody at all: someone from outside the game (abroad, or below the pyramid). In the professional divisions he costs
      what a player costs (his value plus 15%, as at home), so a club that can't pay for one at its level gets a lesser
      one it can; only lower down does he come for nothing. */
   if (!p) { let ovr = clamp(target, 20, 93), fee = 0; const age = ri(21, 30), pot = seniorPot(ovr, age);
     if (c.tier <= 4) { const price = o => Math.round(valueOf({ ovr: o, age, pot: seniorPot(o, age), club: -1 }) * 1.15 / 1e4) * 1e4;
-      while (ovr > Math.max(target - 10, feeFloor(c)) && !canAfford(c, price(ovr))) ovr -= 2; fee = canAfford(c, price(ovr)) ? price(ovr) : 0;
+      const ok = o => canAfford(c, price(o)) && fitsRules(c, aiWage({ ovr: o, age }, c), price(o), 3);
+      while (ovr > Math.max(target - 10, feeFloor(c)) && !ok(ovr)) ovr -= 2; fee = ok(ovr) ? price(ovr) : 0;
       if (!fee) ovr = Math.min(ovr, target - 12); }  // nothing affordable: a trialist from below, for nothing
     p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); moveTo(p, c);
     if (fee) payFee(c, null, fee); }

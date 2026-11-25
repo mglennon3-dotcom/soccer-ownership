@@ -211,7 +211,7 @@ const divisionOf = c => c.abroad ? `${COUNTRY[c.country].name}` : LEAGUES[c.lg].
 /* ---------- qualification ---------- */
 // From the Premier Division table and the National Cup, for next season.
 function qualify() {
-  const t = table("L1").map(r => r.id), nc = G.cups && G.cups.NC && G.cups.NC.win;
+  const t = table("L1").map(r => r.id).filter(id => CL(id).euroBan !== G.year + 1), nc = G.cups && G.cups.NC && G.cups.NC.win;  // a club UEFA has banned is passed over
   const cc = t.slice(0, 4), cs = t.slice(4, 6);
   if (nc != null && !cc.includes(nc) && !cs.includes(nc)) cs.push(nc); else cs.push(t[6]);
   G.qual = { CC: cc, CS: cs, y: G.year + 1 };
