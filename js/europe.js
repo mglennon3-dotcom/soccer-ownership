@@ -118,14 +118,27 @@ function foreignSquad(c, faOnly) {
    how a giant can slide and an outsider can build a dynasty. */
 function foreignSeason() {
   const byC = {}; for (const id of G.foreign || []) { const c = CL(id); if (c) (byC[c.country] ||= []).push(c); }
-  G.ftab = { y: G.year, t: {} };
+  G.ftab = { y: G.year, t: {}, ev: {} };
+  const byPos = (cs, c) => cs.slice().sort((a, b) => (b.stand ?? b.lvl) - (a.stand ?? a.lvl)).indexOf(c);
   for (const [code, cs] of Object.entries(byC)) {
     const rows = Object.fromEntries(cs.map(c => [c.id, { id: c.id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }]));
     const form = Object.fromEntries(cs.map(c => [c.id, c.lvl + normal() * 1.5]));  // a season's form: a good or bad year
+    // The season's stories: money trouble and points deductions, rich takeovers, match-fixing, a star exodus, a golden
+    // generation, an inspired manager.
+    const ev = (G.ftab.ev[code] = []), ded = {};
+    for (const c of cs) { const r = R(), big = byPos(cs, c) < 3;
+      if (r < .05) { const d = ri(6, 15); ded[c.id] = (ded[c.id] || 0) + d; c.stand = (c.stand ?? 0) - 2; form[c.id] -= 1.5; ev.push([c.id, "money", `${d}-point deduction: unpaid wages and debts`]); if (R() < .35) { c.euroBan = G.year + 1; ev.push([c.id, "ban", "banned from Europe next season over its finances"]); } }
+      else if (r < .08) { c.stand = (c.stand ?? 0) + ri(3, 6); c.lvl = Math.min(95, c.lvl + 2); form[c.id] += 2; ev.push([c.id, "rich", "taken over by a billionaire: spending big"]); }
+      else if (r < .09) { const d = ri(10, 20); ded[c.id] = (ded[c.id] || 0) + d; c.euroBan = G.year + 1; c.stand = (c.stand ?? 0) - 3; ev.push([c.id, "fix", `${d}-point deduction and a European ban: match-fixing`]); }
+      else if (r < .12) { form[c.id] -= 3; c.stand = (c.stand ?? 0) - 1; ev.push([c.id, "exodus", "lost its best players in the summer"]); }
+      else if (r < .15) { form[c.id] += 2.5; c.stand = (c.stand ?? 0) + 1.5; ev.push([c.id, "gold", "a golden generation from the academy"]); }
+      else if (r < .18) { form[c.id] += 2; ev.push([c.id, "coach", "an inspired new coach"]); }
+      if (big && ev.length && ev[ev.length - 1][0] === c.id && ["money", "fix", "rich"].includes(ev[ev.length - 1][1])) news(`${COUNTRY[code].name}: ${c.name} ${ev[ev.length - 1][2].replace(/^(\d+)-point/, "get a $1-point").replace(/^taken/, "are taken").replace(/^banned/, "are banned")}.`); }
     for (const h of cs) for (const a of cs) { if (h === a) continue;
       const d = (form[h.id] - form[a.id]) / 10 + .15, lh = clamp(1.35 * Math.exp(d), .2, 4), la = clamp(1.1 * Math.exp(-d), .2, 4), hg = poisson(lh), ag = poisson(la);
       const H = rows[h.id], A = rows[a.id]; H.p++; A.p++; H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
       if (hg > ag) { H.w++; A.l++; H.pts += 3; } else if (hg < ag) { A.w++; H.l++; A.pts += 3; } else { H.d++; A.d++; H.pts++; A.pts++; } }
+    for (const [id, d] of Object.entries(ded)) { rows[id].pts -= d; rows[id].ded = d; }
     const t = Object.values(rows).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf);
     G.ftab.t[code] = t;
     // Champions and standing: where each finished against where its standing put it.
@@ -206,7 +219,7 @@ function qualify() {
 function foreignEntrants() {
   const byC = {}; for (const id of G.foreign) { const c = CL(id); (byC[c.country] ||= []).push(c); }
   const out = { CC: [], CS: [] };
-  for (const [code, [, , ncc, ncs]] of Object.entries(FOREIGN)) { const T = G.ftab && G.ftab.t && G.ftab.t[code], L = T ? T.map(r => CL(r.id)).filter(Boolean) : (byC[code] || []).sort((a, b) => b.lvl - a.lvl); out.CC.push(...L.slice(0, ncc).map(c => c.id)); out.CS.push(...L.slice(ncc, ncc + ncs).map(c => c.id)); }
+  for (const [code, [, , ncc, ncs]] of Object.entries(FOREIGN)) { const T = G.ftab && G.ftab.t && G.ftab.t[code], L = (T ? T.map(r => CL(r.id)).filter(Boolean) : (byC[code] || []).sort((a, b) => b.lvl - a.lvl)).filter(c => c.euroBan !== G.year); out.CC.push(...L.slice(0, ncc).map(c => c.id)); out.CS.push(...L.slice(ncc, ncc + ncs).map(c => c.id)); }
   // Entrants come in ranking order (country by country, best first), so the play-offs fall to the lower-ranked ones.
   const slots = { CC: 32 - ((G.qual || {}).CC || []).length, CS: 32 - ((G.qual || {}).CS || []).length };
   G.cqual = [];
