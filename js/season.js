@@ -690,6 +690,7 @@ function aiSign(c, pos) {
   }
   if (!p && fa) p = fa;
   if (!p && promoteAcad(c, pos, target)) return;  // an academy player gets his chance
+  if (!p && windowOpen() && R() < .6 && aiBorrow(c, pos, target)) return;  // or a loan from a bigger club
   // A cheaper free agent, a level or two below what he wanted.
   if (!p) { const cheap = G.fa.map(P).filter(q => q && !faFresh(q) && q.pos === pos && q.ovr >= target - 14 && q.ovr < target - 5 && q.age <= 33 && !wont(q)); if (cheap.length) p = cheap.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0]; }
   /* Nobody at all: someone from outside the game (abroad, or below the pyramid). In the professional divisions he costs

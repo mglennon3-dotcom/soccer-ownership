@@ -543,6 +543,7 @@ const ACT = {
     await offerWageRaise(p, wage); agreePre(p, wage); closeModal(); render(); saveGame(); },
   buygo: el => {
     const p = P(+el.dataset.id), fee = num($("#b-fee")), wage = num($("#b-wage")) * 52, ask = askingFee(p);
+    if (p.loan && p.loan.ai) return toast(`${p.name} is on loan at ${CL(p.club).name} from ${CL(p.loan.from).name} until the end of the season: try again in the summer.`);
     if (embargoed(my()) && p.club !== -1) return toast("You're under a transfer embargo: free agents only (or a pre-contract) until the debts are cleared.");
     if (fee < ask * .95) return toast(`${p.club >= 0 ? CL(p.club).name : "His club"} turn the offer down. They want about ${money(ask)}.`);
     const a = playerAppeal(p, wage);

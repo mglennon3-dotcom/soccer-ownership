@@ -704,19 +704,23 @@ function completeAgreed(c = my()) {
 }
 /* Free agents don't hang around at the top of the game: a player good enough for the Football League who nobody here
    signs soon goes abroad or drops into the game below ours. The better he is, the sooner: League One standard and up
-   within a few weeks, League Two within a couple of months, the National Division within a season or so. The pool
-   lower down stays full: semi-pros and part-timers wait for a club, and only the long-forgotten drift away. */
+   within a few weeks, League Two within a couple of months, the National Division within a season or so; young ones
+   faster, veterans (30+) slower, so the good free agents left are mostly older. The pool lower down stays full:
+   semi-pros and part-timers wait for a club; the weakest (released kids who never made it) give up within a year. */
 function faDrain() {
   const now = absWeek();
   for (const p of G.fa.map(P)) { if (!p || p.toMe || faFresh(p)) continue;
     const wk = Math.max(0, now - (p.faAt ?? 0)), t = naturalTier(p);
-    const ch = t <= 3 ? (wk > 2 ? .25 : 0) : t === 4 ? (wk > 6 ? .1 : 0) : t === 5 ? (wk > 16 ? .04 : 0) : (wk > 100 ? .02 : 0);
+    let ch = t <= 3 ? (wk > 2 ? .25 : 0) : t === 4 ? (wk > 6 ? .1 : 0) : t === 5 ? (wk > 16 ? .04 : 0) : p.ovr < 30 ? (wk > 26 ? .06 : 0) : (wk > 100 ? .02 : 0);
+    // A good young player is snapped up (abroad or below) faster still; a good veteran waits longer for the right offer.
+    if (t <= 4) ch *= p.age <= 27 ? 2 : p.age >= 30 ? .35 : 1;
     if (ch && R() < ch) retire(p, true); }
 }
 function marketWeek() {
   const c = my();
   if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
   headWeek(c); bidsWeek(c); loanOffersWeek(c); faDrain();
+  if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) aiLoans();  // late in each window
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
   for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
