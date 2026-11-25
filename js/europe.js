@@ -83,7 +83,7 @@ function foreignLevels(snap) {
   const fc = (G.foreign || []).map(CL).filter(c => c && c.squad.length >= 11);
   if (fc.length && !snap) G.fOff = (G.fOff ?? 1.5) * .5 + avg(fc.map(c => avg(pickXI(c).map(o => o.p.ovr)) - c.lvl)) * .5;
   for (const [code, [top, step]] of Object.entries(FOREIGN_RANK)) {
-    const cs = (G.foreign || []).map(CL).filter(c => c && c.country === code).sort((a, b) => (b.base ?? b.lvl) - (a.base ?? a.lvl));
+    const cs = (G.foreign || []).map(CL).filter(c => c && c.country === code).sort((a, b) => (b.stand ?? -99) - (a.stand ?? -99) || (b.base ?? b.lvl) - (a.base ?? a.lvl));
     cs.forEach((c, i) => { c.base = clamp(at(top + i * step) - (G.fOff ?? 1.5), 50, 95); if (snap) { c.lvl = c.base + normal() * .6; c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98); c.cap = foreignCap(c.lvl); c.fans = foreignFans(c.lvl); c.coach = aiCoach(c.rep); } });
   }
 }
@@ -111,8 +111,35 @@ function foreignSquad(c, faOnly) {
   const sq = c.squad.map(P).filter(p => !p.acad).sort((a, b) => b.ovr - a.ovr);
   for (const p of sq.slice(27)) toFreeAgent(p);  // surplus players look for clubs (some end up in England)
 }
+/* The leagues abroad: each summer a season is played out for every country (home and away against everyone), each
+   game settled on the two sides' strength plus plenty of luck, so the favourites usually but not always come out on
+   top. The table decides who goes into Europe, and it moves the clubs on: one that finishes above its usual place gains
+   standing (and, over the following seasons, the strength that goes with it); one that finishes below loses it. That's
+   how a giant can slide and an outsider can build a dynasty. */
+function foreignSeason() {
+  const byC = {}; for (const id of G.foreign || []) { const c = CL(id); if (c) (byC[c.country] ||= []).push(c); }
+  G.ftab = { y: G.year, t: {} };
+  for (const [code, cs] of Object.entries(byC)) {
+    const rows = Object.fromEntries(cs.map(c => [c.id, { id: c.id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }]));
+    const form = Object.fromEntries(cs.map(c => [c.id, c.lvl + normal() * 1.5]));  // a season's form: a good or bad year
+    for (const h of cs) for (const a of cs) { if (h === a) continue;
+      const d = (form[h.id] - form[a.id]) / 10 + .15, lh = clamp(1.35 * Math.exp(d), .2, 4), la = clamp(1.1 * Math.exp(-d), .2, 4), hg = poisson(lh), ag = poisson(la);
+      const H = rows[h.id], A = rows[a.id]; H.p++; A.p++; H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
+      if (hg > ag) { H.w++; A.l++; H.pts += 3; } else if (hg < ag) { A.w++; H.l++; A.pts += 3; } else { H.d++; A.d++; H.pts++; A.pts++; } }
+    const t = Object.values(rows).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf);
+    G.ftab.t[code] = t;
+    // Champions and standing: where each finished against where its standing put it.
+    const champ = CL(t[0].id); champ.trophies.push([G.year, `${COUNTRY[code].name} champions`]);
+    ((G.fchamps ||= {})[code] ||= []).push([G.year, champ.id]); if (G.fchamps[code].length > 40) G.fchamps[code].shift();
+    const byStand = cs.slice().sort((a, b) => (b.stand ?? b.base ?? b.lvl) - (a.stand ?? a.base ?? a.lvl));
+    t.forEach((r, i) => { const c = CL(r.id), was = byStand.indexOf(c); c.stand = (c.stand ?? (cs.length - was)) + (was - i) * .35; c.fpos = i + 1; });
+    // keep standings on a fixed scale (the best about the league's size), so they don't drift apart over the years
+    const top = Math.max(...cs.map(c => c.stand)); for (const c of cs) c.stand = c.stand - top + cs.length;
+  }
+}
 // Each summer: standing and strength drift, squads are topped up.
 function foreignSummer() {
+  foreignSeason();
   for (const id of G.foreign || []) {
     const c = CL(id); c.base ??= c.lvl; c.lvl = clamp(c.lvl + (c.base - c.lvl) * .35 + normal() * 1.2, 50, 95); c.rep = clamp(Math.round(55 + (c.lvl - 70) * 2.2), 30, 98);
     c.tb = foreignBudget(c) + Math.max(0, c.fsold || 0) * .5; c.fsold = 0;
@@ -179,7 +206,7 @@ function qualify() {
 function foreignEntrants() {
   const byC = {}; for (const id of G.foreign) { const c = CL(id); (byC[c.country] ||= []).push(c); }
   const out = { CC: [], CS: [] };
-  for (const [code, [, , ncc, ncs]] of Object.entries(FOREIGN)) { const L = (byC[code] || []).sort((a, b) => b.lvl - a.lvl); out.CC.push(...L.slice(0, ncc).map(c => c.id)); out.CS.push(...L.slice(ncc, ncc + ncs).map(c => c.id)); }
+  for (const [code, [, , ncc, ncs]] of Object.entries(FOREIGN)) { const T = G.ftab && G.ftab.t && G.ftab.t[code], L = T ? T.map(r => CL(r.id)).filter(Boolean) : (byC[code] || []).sort((a, b) => b.lvl - a.lvl); out.CC.push(...L.slice(0, ncc).map(c => c.id)); out.CS.push(...L.slice(ncc, ncc + ncs).map(c => c.id)); }
   // Entrants come in ranking order (country by country, best first), so the play-offs fall to the lower-ranked ones.
   const slots = { CC: 32 - ((G.qual || {}).CC || []).length, CS: 32 - ((G.qual || {}).CS || []).length };
   G.cqual = [];
