@@ -47,8 +47,8 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
 /* What a club asks for a player: the same rule whoever is buying, you or an AI club.
    - His value (valueOf: rating, age, potential, years left), plus 15%.
    - A club lower down the pyramid can't hold out for as much: 100% in the Premier Division, then 90%, 75% and 60%
-     through the Football League. Non-league money is small: 20% in the National Division, 7% in National North/South
-     and 2% in the Regional League, where most moves cost next to nothing. (Your own players are priced in full.)
+     through the Football League. Non-league moves are basically free: a token 2% in the National Division, 0.5% in
+     National North/South, nothing in the Regional League. (Your own players are priced in full.)
    - 30% more for a first-choice player, and 20% more again for the club's best player.
    - 10% more with four or more years left on his deal.
    - 20% less once he's on the transfer list.
@@ -56,7 +56,7 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
    A player in his last year who won't re-sign is already cheaper through his value, and his club gives up the premiums.
    xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once. buyer: who's buying
    (you unless said otherwise; null for no one in particular). */
-const SELL_DIV = [0, 1, .9, .75, .6, .2, .07, .02];
+const SELL_DIV = [0, 1, .9, .75, .6, .02, .005, 0];
 const XI_SET = new Map();
 function xiSet(c, xi) {
   if (xi) return xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id));
@@ -72,7 +72,7 @@ function askingFee(p, xi, buyer = my()) {
   if (p.club >= 0) {
     const c = CL(p.club), mine = isMine(c);
     const leaving = !mine && p.yrs <= 1 && !renewsAI(p);  // he won't re-sign: better a fee now than nothing in the summer
-    if (!c.abroad && !mine) f *= SELL_DIV[c.tier] || 1;
+    if (!c.abroad && !mine) f *= SELL_DIV[c.tier] ?? 1;
     if (!leaving && xiSet(c, xi).has(p.id)) { f *= 1.3; if (bestOf(c) === p) f *= 1.2; }
     if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
