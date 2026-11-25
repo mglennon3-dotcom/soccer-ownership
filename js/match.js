@@ -208,7 +208,7 @@ function archChem(xi, style) {
   if (!cr) add(-1, 0, "Nobody to make the pass: no playmaker anywhere in the side");
   if (cr >= 4) add(0, -.4, "Too many playmakers: everyone wants the ball, nobody wants to chase it");
   if (!has(...SCORERS)) add(-.8, 0, "No natural goalscorer in the side");
-  return { atk: clamp(atk, -1.5, 1.5), def: clamp(def, -1.5, 1.5), good, bad, seg };
+  return { atk: clamp(atk, -1.1, 1.1), def: clamp(def, -1.1, 1.1), good, bad, seg };
 }
 /* Formations suit some styles and not others: +1 suits, -1 doesn't. A side in a formation that suits its style scores a
    little more and concedes a little less. */
@@ -226,13 +226,15 @@ const STYLE_TIRE = { press: 1.25, wing: 1.05, direct: 1, possession: .95, counte
 /* How well a player would fit into a side: his type's pairings with the eleven (the lines he'd work with) and with the
    style. Roughly -4 to +4. Used by AI clubs and your head of recruitment when choosing between signings. */
 const TF_XI = new Map();
-function typeFit(c, p, style) {
-  const a = archetypeOf(p); if (!a) return 0; const k = a[3], key = `${G.year}:${G.phase}:${G.week}`;
+function typeFit(c, p, style) { const t = typeParts(c, p, style); return t ? clamp(t.st * .8 + t.mates, -4, 4) : 0; }
+// The two halves of it: his type against the style (-1, 0 or +1), and his pairings with the eleven (roughly -3 to +3).
+function typeParts(c, p, style) {
+  const a = archetypeOf(p); if (!a) return null; const k = a[3], key = `${G.year}:${G.phase}:${G.week}`;
   let e = TF_XI.get(c.id); if (!e || e.k !== key) { e = { k: key, xi: pickXI(c, true).map(o => ({ slot: o.slot, id: o.p.id, a: archetypeOf(o.p) })) }; TF_XI.set(c.id, e); if (TF_XI.size > 400) TF_XI.clear(); }
-  let s = ((CHEM_STYLE[k] || {})[style] || 0) * .8; const L = SLOT_LINE[p.pos];
+  const st = (CHEM_STYLE[k] || {})[style] || 0; let s = 0; const L = SLOT_LINE[p.pos];
   for (const q of e.xi) { if (q.id === p.id || !q.a || q.slot === p.pos && e.xi.filter(x => x.slot === p.pos).length < 2) continue; const v = CHEM_PAIR[k + "|" + q.a[3]]; if (!v) continue;
     const QL = SLOT_LINE[q.slot]; if (Math.abs(L - QL) > 1 && !(Math.min(L, QL) === 0 && Math.max(L, QL) === 2)) continue; s += v * pairW(p.pos, q.slot) * 2; }
-  return clamp(s, -4, 4);
+  return { st, mates: s };
 }
 /* An AI manager each summer: if his squad suits another style clearly better than his own, a good tactician is likely to
    change to it (a poor one sticks with what he knows), and he picks a formation that suits the style. */
@@ -324,7 +326,7 @@ function playMatch(h, a, neutral, fr, kind) {
   const adv = neutral ? 0 : 2 + fanShare(H, "hard") * 2 + LOC(H).adv + (isMine(H) ? terraceShare(H) * 1.2 + fzK(H) * .3 - hospShare(H) * 3 : 0), wx = G.wx ? wxAt(H) : WX.clear;
   const bh = clubBoost(CL(h)), ba = clubBoost(CL(a));
   let lh = 1.3 * Math.exp(.065 * (ph.atk - pa.def + adv + bh - ba)), la = 1.3 * Math.exp(.065 * (pa.atk - ph.def - adv + ba - bh));
-  lh *= sh.for * (1 + .05 * fh) * sa.against * (1 - .04 * fa);
+  lh *= sh.for * (1 + .04 * fh) * sa.against * (1 - .03 * fa);
   { // the matchup: the side with the edge scores more and concedes less (more so with a squad built for its style),
     // and some matchups make for an open game or a tight one; a style the side isn't built for costs a little
     const e = styleEdge(plH.st, plA.st, fh, fa), amp = f => clamp(1 + .5 * f, .5, 1.5);
@@ -334,7 +336,7 @@ function playMatch(h, a, neutral, fr, kind) {
     const fH = formStyle(clubForm(H), plH.st), fA = formStyle(clubForm(A), plA.st);
     lh *= (1 + .04 * fH) * (1 - .03 * fA); la *= (1 + .04 * fA) * (1 - .03 * fH);
     lh *= tp * (1 - plH.cost) * (e > 0 ? 1 + .08 * amp(fh) : 1); la *= tp * (1 - plA.cost) * (e < 0 ? 1 + .08 * amp(fa) : 1); }
-  la *= sa.for * (1 + .05 * fa) * sh.against * (1 - .04 * fh);
+  la *= sa.for * (1 + .04 * fa) * sh.against * (1 - .03 * fh);
   // Bad weather: fewer goals, and passing football suffers most.
   const wf = st => wx.play * (wx.play < 1 && (st === "possession" || st === "wing") ? .96 : 1); lh *= wf(clubStyle(H)); la *= wf(clubStyle(A));
   // A worn home pitch (both sides play on it): passing football suffers most, a pressing or counter-attacking side a

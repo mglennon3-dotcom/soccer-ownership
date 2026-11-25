@@ -474,7 +474,7 @@ function stayScore(p) {
   const real = games >= 5 ? clamp(p.s.app / games / .8, 0, 1) : null;  // is he actually playing?
   const f = { ...a.f, time: real == null ? a.f.time : (a.f.time + real) / 2 };
   const L = loyaltyOf(p), love = Math.min(1, loveOf(p, c.id) / LEGEND), un = unhappiness(p, c), gr = un ? un.why.filter(w => w !== "wages") : [];
-  const s0 = sum(Object.entries(a.pr.pri).filter(([k]) => k !== "money"), ([k, w]) => w * f[k]) + (L - .5) * .12 + love * .08 * (.5 + L) - (gr.length ? Math.min(.15, un.s * .03) : 0);
+  const s0 = sum(Object.entries(a.pr.pri).filter(([k]) => k !== "money"), ([k, w]) => w * f[k]) + (L - .5) * .12 + love * .08 * (.5 + L) - (gr.length ? Math.min(.15, un.s * .03) : 0) + clubSit(c).m * .06;  // how the club is doing
   return { s0, thr: a.pr.thr, f, pr: a.pr, L, love, real, gr, dem: demandWage(p, c) };
 }
 // The least he'd sign for, given a reading of his mood (m): null if no money would keep him.
@@ -501,13 +501,15 @@ function renewTerms(p) {
   if (pend && min != null) { min = Math.max(min, pend.data.half); if (advice != null) advice = Math.max(advice, pend.data.half); }
   const notes = [], pri = S.pr.pri, top = S.pr.top, cares = k => top.includes(k) || pri[k] >= .2;
   if (S.real != null) notes.push(S.real >= .7 ? ["good", "he's playing every week"] : S.real < .35 ? ["bad", "he isn't playing enough"] : ["", "he's in and out of the side"]);
+  { const st = clubSit(c); if (st.fight) notes.push(["bad", "he's worried about the relegation fight"]); else if (st.m >= .4) notes.push(["good", "he likes where the club is going"]); else if (st.m <= -.4) notes.push(["bad", "he isn't sure where the club is going"]); }
   if (S.f.form >= .75) notes.push(["good", "the system suits him"]); else if (S.f.form < .45) notes.push(["bad", "the formation and style don't suit him"]);
+  { const sf = systemFit(p); if (sf.mates >= .4) notes.push(["good", "he clicks with the players around him"]); else if (sf.mates <= -.4) notes.push(["bad", "he doesn't click with the players around him"]); }
   if (cares("home")) notes.push(S.f.home >= 1 ? ["good", "he's at home here"] : ["bad", `he'd like to be closer to home${homeOf(p) ? ` (${homeOf(p)})` : ""}`]);
   if (cares("prest") && S.f.prest < .45) notes.push(["bad", "he thinks he's outgrowing the club"]);
   if (cares("money")) notes.push(["", "it's mostly about the money for him"]);
   if (S.love >= FAV / LEGEND) notes.push(["good", `the fans ${S.love >= 1 ? "worship" : "love"} him`]);
   notes.push(S.L >= .75 ? ["good", "he's loyal to the club"] : S.L <= .25 ? ["bad", "he's a mercenary: he'll go wherever pays most"] : S.L <= .4 ? ["", "he isn't the loyal type"] : null);
-  for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
+  for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him", "not clicking with the players around him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
   return { no: min == null, min, advice, pend, guessNo: s && advice == null, s, maxY, tries: p.rn.tries, off: p.rn.off, notes: notes.filter(Boolean), S };
 }
 function offerRenewal(p, wage, yrs) {

@@ -106,6 +106,12 @@ function unhappiness(p, c) {
   const pr = prefsOf(p, P_FACTORS), fit = systemFit(p), cares = 1 + (pr.pri.form + pr.pri.time) * 3;
   if (fit.slots === 0) { s += .8 * cares; why.push("having no place in the manager's system"); }
   else if (fit.style < -.4) { s += .5 * cares; why.push("a style of play that doesn't suit him"); }
+  if (fit.slots > 0 && fit.mates < -.5 && xi.includes(p)) { s += .4 * cares; why.push("not clicking with the players around him"); }
+  // How the club is doing: a starter clearly too good for the division below doesn't want to go down with it; a title
+  // race or promotion push keeps everyone happier.
+  { const st = clubSit(c);
+    if (st.fight && games >= 15 && c.tier < 7 && xi.includes(p) && p.ovr >= TIER_LVL[c.tier + 1] + 8) { s += .8 + (pr.top.includes("prest") ? .8 : 0); why.push("the relegation fight"); }
+    if (st.m >= .4 && s) s = Math.max(0, s - .8 * st.m); }
   if (p.bond) s = Math.max(0, s - p.bond * .25);  // your congratulations (or criticism) colour how he feels
   return s ? { s, why } : null;
 }

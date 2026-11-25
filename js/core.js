@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.73";
+const VERSION = "1.0.77";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -216,6 +216,9 @@ function renewsAI(p) {
   if (p.age >= 31) ch += .12;
   if (p.unsettled > 0 || p.req) ch -= .3;
   if (rank > 18) ch -= .25;  // not needed: may not be offered a deal
+  // How he rates the club, on his own priorities (playing time, the system, standing, how it's doing, home), and a
+  // little more for form itself: a club that's winning keeps its players; a struggling one loses them.
+  ch += clamp((aiAppeal(p, c) - .05) * 1.5, -.25, .2) + clubSit(c).m * .12;  // (a typical player rates his club about +.05)
   const h = ((p.id * 2654435761 + G.year * 40503) >>> 0) % 1000 / 1000;  // the same answer all season
   p.renew = { y: G.year, ok: h < clamp(ch, .1, .95) }; return p.renew.ok;
 }
