@@ -94,16 +94,16 @@ const fromName = p => p.club >= 0 ? CL(p.club).name : p.club === -2 ? `a club in
 /* How the head of recruitment rates a target, on what he thinks the player is (his estimates, not the truth). */
 function scoutScore(p, need, c, phil) {
   const [o1, o2] = ovrEstimate(p), [p1, p2] = potEstimate(p), eo = (o1 + o2) / 2, ep = (p1 + p2) / 2;
-  const fee = negotiated(askingFee(p)), wage = p._ask || demandWage(p, c), gain = eo - need.weakest;
+  const fee = negotiated(askingFee(p)), wage = p._ask || demandWage(p, c), gain = eo - need.weakest, tf = typeFit(c, p, mgr().phil);
   if (need.kind === "upgrade" && gain < 2) return -1;
   if (need.kind === "depth" && eo < TIER_LVL[c.tier] - 9) return -1;
   switch (phil) {
-    case "potential": return p.age <= 23 ? ep * 1.2 + eo * .4 - p.age : eo * .3;
-    case "proven": return eo * 1.5 + (p.age >= 25 && p.age <= 31 ? 4 : -4);
+    case "potential": return p.age <= 23 ? ep * 1.2 + eo * .4 - p.age + tf : eo * .3;
+    case "proven": return eo * 1.5 + (p.age >= 25 && p.age <= 31 ? 4 : -4) + tf * 1.5;
     case "value": return (Math.max(1, gain + 6)) * 1e5 / (fee + wage * 2 + 20000);
-    case "fit": { const k = STYLES[mgr().phil].keys; return eo + (p.pos === "GK" ? 0 : (avg(k.map(x => p.at[x])) - avg(OUT_KEYS.map(x => p.at[x]))) * .8); }
+    case "fit": { const k = STYLES[mgr().phil].keys; return eo + (p.pos === "GK" ? 0 : (avg(k.map(x => p.at[x])) - avg(OUT_KEYS.map(x => p.at[x]))) * .8) + tf * 3; }
   }
-  return eo;
+  return eo + tf;
 }
 // A player who left your club (sold, released or let go) this season or last: your head of recruitment won't bring
 // him back on her own. (You can still suggest him or buy him yourself.)

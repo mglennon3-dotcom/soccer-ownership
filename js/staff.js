@@ -100,7 +100,8 @@ function hire(s, wage, yrs) {
   hiredExPro(s);
   (G.filled ||= {})[s.role] = true; if (G.pools && G.pools[s.role]) G.pools[s.role].list = G.pools[s.role].list.filter(x => x !== s);
   news(`${s.name} is appointed ${ROLES_STAFF[s.role].l.toLowerCase()} on ${money(wage)} a year for ${yrs} year${yrs > 1 ? "s" : ""}.`, true);
-  if (s.role === "manager") { c.form = s.form; if (G.phase === "season") newBounce(c); }
+  if (s.role === "manager") { c.form = s.form; if (G.phase === "season") newBounce(c);
+    if (c.crisis) { if (/lost the players/.test(c.crisis.why)) { c.sf = Math.max(c.sf || 0, 0); delete c.crisis; news(`${s.name}'s arrival clears the air: the players are behind the new manager.`); } else { c.sf = (c.sf || 0) * .6; c.crisis.v *= .6; } } }
 }
 // Releasing staff early costs half their remaining contract.
 const payoff = s => Math.round(s.wage * Math.max(0, s.yrs - (G.phase === "season" ? G.week / 46 : 0)) * .5);

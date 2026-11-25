@@ -27,6 +27,10 @@ function startSeason() {
   for (const k of LG_KEYS) G.leagues[k].pend = [];
   for (const id of G.foreign || []) CL(id).gp = 0;
   startCups(); startContinental();
+  if (G.club != null) { const c = my(), cr = clubSeasonForm(c);
+    if (cr && cr.y === G.year) news(`Something isn't right at the club going into the season: ${cr.why}. Results may suffer${cr.left ? " for a while" : ""}.`, true);
+    else if (cr) news(`The problems from last season haven't gone away: ${cr.why}.`, true);
+    else if (c.surge === G.year) news("Pre-season has gone brilliantly: there's a buzz about the squad.", true); }
   if (typeof aiListings === "function" && G.club != null) aiListings();
   // Last season's minutes targets: how they went (the manager's report), then they're cleared.
   if (G.club != null) { const T = Object.values(G.players).filter(p => p.minT && p.club === G.club);
@@ -133,7 +137,7 @@ function afterMatch(r, k) {
   const res = gf > ga ? "W" : gf < ga ? "L" : "D", m = mgr().at.mot, derby = [1, 1.5, 2][derbyLevel(c, opp)];
   c.morale = clamp(c.morale + (res === "W" ? 4 : res === "L" ? -5 + m / 25 : 0) + (55 + vpt("results") - c.morale) * .1, 20, 95);
   moodHit(c, (res === "W" ? 1.6 : res === "L" ? -1.6 : 0) * derby);
-  h2hAdd(opp.id, res); G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
+  h2hAdd(opp.id, res); G.myRes.push({ w: G.week, comp: k, derby: derby > 1, home, opp: opp.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[home ? 0 : 1], plan: r.plan && r.plan[home ? 0 : 1], edge: r.edge == null ? null : r.edge * (home ? 1 : -1) });
   // The grudge match is played: the press come back for your reaction (unless it was a draw).
   const fd = (c.feud || {})[opp.id];
   if (fd && fd.g) { fd.g = false; const own = opp.own ? opp.own.name : "their owner", score = `${gf}–${ga}`;
@@ -615,13 +619,14 @@ function aiSign(c, pos) {
   const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5 - (!c.cook && !c.abroad && aiBill(c) > salaryCap(c.tier) * .95 ? 5 : 0) - (c.emb ? 5 : 0));  // under an embargo: whoever will come for nothing
   let p = null;
   const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
-  if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
+  const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
+  if (fas.length) p = fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0];
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     // The four professional divisions also shop abroad, from clubs no bigger than they are: imports cost a fee that leaves the country.
     const lower = G.clubs.filter(x => !isMine(x) && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier > c.tier && x.tier <= c.tier + 2));
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     const afford = pool.filter(q => canAfford(c, aiFee(q)));
-    if (afford.length) p = pick(afford);
+    if (afford.length) p = afford.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1])[0][0];
   }
   // Nobody affordable at another club: someone from outside the game (abroad, or below the pyramid) on a free.
   // In the professional divisions that player still costs a fee when the club can pay one (it leaves the game).
