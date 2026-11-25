@@ -607,10 +607,13 @@ function wageClauses(c, up, down) {
 }
 /* Relegation: players clearly too good for the division below push to leave. At your club the better ones hand in
    transfer requests (loyal players and fan favourites mostly stay; the ambitious ones most want out); at AI clubs up to
-   three are sold to clubs in the division they've just left, or the one above. */
+   three are sold to clubs at their level (within a few points of him), in the division just left or the one above.
+   AI clubs' contracts also pay 25% less after relegation, as yours do. */
 function relegationExodus(ids) {
   const sold = [];
   for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad) continue;
+    // Relegation clauses at AI clubs too: every contract pays 25% less in the division below (yours: wageClauses).
+    if (!isMine(c)) for (const q of c.squad.map(P)) if (q && !q.acad && !q.loan && q.wage) q.wage = Math.round(q.wage * (1 - CLAUSE) / 100) * 100;
     const ps = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.age <= 31 && p.ovr >= TIER_LVL[c.tier] + 8).sort((a, b) => b.ovr - a.ovr);
     if (isMine(c)) { let n = 0;
       for (const p of ps) { if (n >= 3 || p.req || p.keep) continue;
@@ -621,7 +624,7 @@ function relegationExodus(ids) {
           ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["ambition after relegation"] }, 0); } }
     else { let n = 0;
       for (const p of ps) { if (n >= 3 || p.keep || R() > .5) continue;
-        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && p.ovr >= feeFloor(x) && (x.lvl || 0) >= p.ovr - 6 && canAfford(x, aiFee(p, x)) && fitsRules(x, aiWage(p, x), aiFee(p, x), 3));
+        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && p.ovr >= feeFloor(x) && (x.lvl || 0) >= p.ovr - 4 && canAfford(x, aiFee(p, x)) && fitsRules(x, aiWage(p, x), aiFee(p, x), 3));
         if (!buyers.length) continue; const near = buyers.filter(x => x.tier === c.tier - 1), b = pick(near.length ? near : buyers);
         aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
