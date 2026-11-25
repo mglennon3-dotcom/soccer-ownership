@@ -494,6 +494,11 @@ function tacticsShape() {
       <p class="small" style="margin:6px 0">${esc(focusTxt || "")}</p>
       <dl class="ledger"><dt>Formation</dt><dd>${form}</dd><dt>Squad suits the style</dt><dd>${fitText(fit)}</dd>${hired ? `<dt>Tactics</dt><dd>${sr20(M.at.tac)}/20</dd><dt>Motivation</dt><dd>${sr20(M.at.mot)}/20</dd>` : ""}<dt>Team morale</dt><dd>${Math.round(c.morale)}</dd></dl>
       <h3 style="margin:14px 0 6px">What the style needs</h3><div class="stack" style="gap:6px">${keyRows}</div></section>
+    ${(() => { const ch = archChem(xi), sg = v => v > 0 ? `<span class="good">+${v.toFixed(1)}</span>` : v < 0 ? `<span class="bad">${v.toFixed(1)}</span>` : "level";
+      return `<section class="card"><div class="card-h"><h3>How the side fits together</h3><span class="small muted">attack ${sg(ch.atk)} · defence ${sg(ch.def)}</span></div>
+      ${ch.good.map(t => `<p class="small"><span class="good">✓</span> ${esc(t)}</p>`).join("")}${ch.bad.map(t => `<p class="small"><span class="bad">✕</span> ${esc(t)}</p>`).join("")}
+      ${!ch.good.length && !ch.bad.length ? `<p class="small muted">No partnerships that stand out either way.</p>` : ""}
+      <p class="small muted" style="margin-top:6px">From each player's type (shown on his card). Partnerships that click are worth a little in every game; ones that don't cost a little. Together, at most about as much as morale.</p></section>`; })()}
     <section class="card"><div class="card-h"><h3>Strength against the division</h3></div>${line("Attack", "a")}${line("Midfield", "m")}${line("Defence", "d")}
       <p class="small muted" style="margin-top:6px">This eleven's ratings in their positions, as the match engine weighs them, against the average side in the ${LEAGUES[c.lg].name}. Morale, the manager's tactics and how well the squad suits his style come on top.</p></section>
     <section class="card"><div class="card-h"><h3>Your instructions</h3></div>

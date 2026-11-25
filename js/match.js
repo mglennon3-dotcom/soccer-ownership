@@ -116,6 +116,43 @@ function styleFit(xi, style) {
   for (const { p } of xi) { if (p.pos === "GK") continue; const all = avg(OUT_KEYS.map(k => p.at[k])); f.push(avg(keys.map(k => p.at[k])) - all); }
   return clamp(avg(f) / 6, -1, 1);
 }
+/* How the eleven's types fit together: partnerships that click (a stopper with a covering defender, a big man with a
+   little man, a playmaker with a ball-winner to mind him) and ones that don't (two ball-playing centre-backs with nobody
+   to win a header, a midfield of passers with nobody to win it back, nobody to score the goals). Each is worth a little
+   in attack or defence; together at most about as much as morale. Returns { atk, def, good: [...], bad: [...] }. */
+const CREATORS = ["PM", "DLP", "CRE", "WPM", "DLF", "IFB"], WINNERS = ["BW", "ANC", "B2B"], SCORERS = ["POA", "RIB", "SHS", "IF", "TM"];
+function archChem(xi) {
+  const n = {}; for (const { p } of xi) { const a = archetypeOf(p); if (a) n[a[3]] = (n[a[3]] || 0) + 1; }
+  const has = (...k) => k.reduce((s, x) => s + (n[x] || 0), 0), cbs = xi.filter(o => o.slot === "CB").length;
+  let atk = 0, def = 0; const good = [], bad = [];
+  const add = (ok, a, d, t) => { atk += a; def += d; (ok ? good : bad).push(t); };
+  // The centre-backs
+  if (cbs >= 2) {
+    if (has("STP") && has("COV")) add(1, 0, .6, "Stopper and covering defender: one steps in, the other sweeps up");
+    if (has("AER") && has("BPD")) add(1, .2, .5, "Aerial presence and ball-player: one wins the headers, the other starts the play");
+    if (has("BPD") >= 2 && !has("STP", "AER")) add(0, 0, -.8, "Two ball-playing centre-backs: lovely on the ball, but nobody to win a header or a duel");
+    if (has("STP") >= 2 && !has("COV")) add(0, 0, -.5, "Two stoppers: both step out, and there's nobody covering behind");
+  }
+  if (!has("AER", "CMD", "TM", "ANC")) add(0, 0, -.4, "Weak in the air: nobody to deal with crosses and set pieces");
+  if (has("BPK") && has("BPD", "IFB")) add(1, .3, 0, "A ball-playing keeper with defenders who want the ball: they play out from the back");
+  // The midfield
+  const cr = has(...CREATORS), win = has(...WINNERS);
+  if (cr && has("BW", "ANC")) add(1, .4, .4, "A playmaker with a ball-winner to mind him");
+  if (cr >= 2 && !win) add(0, 0, -1, "A side of passers: nobody to win the ball back");
+  if (!cr) add(0, -1, 0, "Nobody to make the pass: no playmaker anywhere in the side");
+  if (cr >= 4) add(0, 0, -.4, "Too many playmakers: everyone wants the ball, nobody wants to chase it");
+  if (has("OFB") >= 2 && !has("BW", "ANC", "DFB")) add(0, 0, -.5, "Both full-backs bomb on with nobody holding: exposed on the break");
+  // The attack
+  if (has("TM") && has("POA", "RIB", "SHS")) add(1, .6, 0, "Big man, little man: the target man wins it, his partner feeds off him");
+  if (has("TM") && has("DW", "OFB")) add(1, .4, 0, "Crosses for the target man from wide");
+  if (has("TM") >= 2) add(0, -.4, 0, "Two target men: they get in each other's way");
+  if (has("DLF") && has("RIB", "SHS", "IF")) add(1, .5, 0, "The deep forward drops in and the runners go beyond him");
+  else if (has("DLF") && !has("POA", "RIB", "SHS", "IF")) add(0, -.6, 0, "The forward drops deep and nobody gets in the box");
+  if (has("RIB") && has("CRE", "PM", "DLP")) add(1, .4, 0, "A runner in behind with someone to play him through");
+  if (has("OFB") && has("IF")) add(1, .3, 0, "The inside forward cuts in, the full-back overlaps outside him");
+  if (!has(...SCORERS)) add(0, -.8, 0, "No natural goalscorer in the side");
+  return { atk: clamp(atk, -2.5, 2.5), def: clamp(def, -2.5, 2.5), good, bad };
+}
 function teamPower(c, xi) {
   let a = 0, m = 0, d = 0, wa = 0, wm = 0, wd = 0;
   for (const { p, slot } of xi) { const r = roleRating(p, slot) - (p.unsettled > 0 ? 3 : 0), w = SLOT_W[slot]; a += r * w[0]; m += r * w[1]; d += r * w[2]; wa += w[0]; wm += w[1]; wd += w[2]; }
@@ -123,7 +160,8 @@ function teamPower(c, xi) {
   const A = a / (wa || 1), M = m / (wm || 1), D = d / (wd || 1);
   const morale = ((isMine(c) ? c.morale : 55) - 55) / 15;  // about +-3
   const tac = (clubTac(c) - 50) / 20 + prepBonus(c);  // about +-2.5, plus pre-season sharpness or rust
-  return { atk: .65 * A + .35 * M + morale + tac - missing * 4, def: .7 * D + .3 * M + morale + tac - missing * 4 };
+  const ch = archChem(xi);
+  return { atk: .65 * A + .35 * M + morale + tac + ch.atk - missing * 4, def: .7 * D + .3 * M + morale + tac + ch.def - missing * 4 };
 }
 function poisson(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= R(); } while (p > L); return k - 1; }
 function scorer(xi, kind) {
