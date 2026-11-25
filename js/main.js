@@ -188,6 +188,13 @@ function upgradeSave() {
       const cap = Math.round(Math.max(p.wage * 1.15, demandWage(p, c) * 1.25) / 100) * 100; if (m.data.worth <= cap) { m.dflt = 1; continue; }
       m.data.worth = cap; m.data.half = Math.round((p.wage + cap) / 2 / 100) * 100; m.opts = [`Give him ${pw(cap)}`, `Offer ${pw(m.data.half)}`, "Refuse"]; m.dflt = 1;
       m.body = m.body.replace(/wants €[\d,]+\/wk/, `wants ${pw(cap)}`); } }
+  // 1.0.58: transfer requests made before the Premier Division ambition fix lose "ambition" as a reason (a request
+  // that had no other reason is withdrawn).
+  if (!G.amb58 && G.club != null) { G.amb58 = true; const c = my();
+    if (c.tier === 1) for (const m of G.inbox.filter(m => m.key === "treq" && !m.done && /unhappy about .*ambition/.test(m.body || ""))) { const p = G.players[m.data.pid]; if (!p) continue;
+      const why = (m.body.match(/unhappy about (.*)\.$/) || [])[1], rest = why ? why.split(" and ").filter(w => w !== "ambition") : [];
+      if (!rest.length) { G.inbox = G.inbox.filter(x => x !== m); p.req = 0; news(`${p.name} withdraws his transfer request.`, true); }
+      else m.body = m.body.replace(/unhappy about .*\.$/, `unhappy about ${rest.join(" and ")}.`); } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
