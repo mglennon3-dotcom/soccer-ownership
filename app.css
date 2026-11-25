@@ -179,6 +179,12 @@ tr.z-po td:first-child{box-shadow:inset 3px 0 var(--zone-po)} tr.z-down td:first
 .slot .disc{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--club);border:2px solid rgba(255,255,255,.85);font-family:var(--f-mono);font-weight:600;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .slot .rl{font-size:10px;font-family:var(--f-mono);opacity:.85;margin-top:-2px}
 .slot.oop .disc{border-style:dashed;border-color:var(--accent)}
+.slot .disc{position:relative}
+.slot .disc svg.ring{position:absolute;left:50%;top:50%;width:54px;height:54px;transform:translate(-50%,-50%);pointer-events:none;overflow:visible}
+.slot .disc svg.ring path{fill:none;stroke-width:4;stroke-linecap:round}
+.pitch.live .slot .disc svg.ring{display:none}
+.pitch:not(.live) .slot .disc{margin-bottom:6px}
+.pitch:not(.live) .slot .disc{z-index:1}
 .slot.empty .disc{background:rgba(0,0,0,.25);border-style:dashed}
 .slot.sel .disc{outline:3px solid var(--accent);outline-offset:2px}
 .slot .nm{font-size:12px;font-weight:600;background:rgba(0,0,0,.45);padding:0 5px;border-radius:4px;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

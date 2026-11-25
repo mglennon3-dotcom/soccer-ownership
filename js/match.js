@@ -121,37 +121,89 @@ function styleFit(xi, style) {
    to win a header, a midfield of passers with nobody to win it back, nobody to score the goals). Each is worth a little
    in attack or defence; together at most about as much as morale. Returns { atk, def, good: [...], bad: [...] }. */
 const CREATORS = ["PM", "DLP", "CRE", "WPM", "DLF", "IFB"], WINNERS = ["BW", "ANC", "B2B"], SCORERS = ["POA", "RIB", "SHS", "IF", "TM"];
-function archChem(xi) {
-  const n = {}; for (const { p } of xi) { const a = archetypeOf(p); if (a) n[a[3]] = (n[a[3]] || 0) + 1; }
-  const has = (...k) => k.reduce((s, x) => s + (n[x] || 0), 0), cbs = xi.filter(o => o.slot === "CB").length;
-  let atk = 0, def = 0; const good = [], bad = [];
-  const add = (ok, a, d, t) => { atk += a; def += d; (ok ? good : bad).push(t); };
-  // The centre-backs
-  if (cbs >= 2) {
-    if (has("STP") && has("COV")) add(1, 0, .6, "Stopper and covering defender: one steps in, the other sweeps up");
-    if (has("AER") && has("BPD")) add(1, .2, .5, "Aerial presence and ball-player: one wins the headers, the other starts the play");
-    if (has("BPD") >= 2 && !has("STP", "AER")) add(0, 0, -.8, "Two ball-playing centre-backs: lovely on the ball, but nobody to win a header or a duel");
-    if (has("STP") >= 2 && !has("COV")) add(0, 0, -.5, "Two stoppers: both step out, and there's nobody covering behind");
-  }
-  if (!has("AER", "CMD", "TM", "ANC")) add(0, 0, -.4, "Weak in the air: nobody to deal with crosses and set pieces");
-  if (has("BPK") && has("BPD", "IFB")) add(1, .3, 0, "A ball-playing keeper with defenders who want the ball: they play out from the back");
-  // The midfield
+/* Partnerships between types: [type, type, attack, defence, why]. Positive clicks, negative clashes. The same "why"
+   counts once however many players make it. A strike partnership counts most, then the attacking midfielder and the
+   wingers, then the central midfield. */
+const SP = .5, SW = .35, SC = .25;
+const CHEM_PAIRS = [
+  // strikers with strikers
+  ["TM", "POA", SP, 0, "Big man, little man: the target man wins it, the poacher feeds off him"],
+  ["TM", "RIB", SP, 0, "Big man, little man: the target man wins it, the runner goes beyond"],
+  ["DLF", "RIB", SP, 0, "The deep forward drops in and the runner goes beyond him"],
+  ["DLF", "POA", SP, 0, "The deep forward links the play, the poacher waits in the box"],
+  ["POA", "POA", -SP, 0, "Two poachers: both waiting in the box, nobody linking the play"],
+  ["TM", "TM", -SP, 0, "Two target men: they get in each other's way"],
+  ["RIB", "RIB", -SP, 0, "Two runners in behind: nobody to hold the ball up"],
+  ["TM", "DLF", -SP, 0, "Target man and deep forward: nobody runs in behind"],
+  ["DLF", "DLF", -SP, 0, "Two deep forwards: nobody gets in the box"],
+  // strikers with attacking midfielders and wingers
+  ["POA", "CRE", SW, 0, "The creator's final ball for the poacher"], ["POA", "DRB", SW, 0, "The dribbler draws defenders and leaves the poacher a tap-in"],
+  ["POA", "SHS", -SW, 0, "Poacher and shadow striker: both want the same space"], ["POA", "DW", SW, 0, "Service from the direct winger for the poacher"],
+  ["POA", "WPM", SW, 0, "Service from the wide playmaker for the poacher"], ["POA", "WW", -SW, 0, "The workhorse winger gives the poacher no service"],
+  ["TM", "SHS", SW, 0, "The shadow striker feeds off the target man's knock-downs"], ["TM", "DRB", -SW, 0, "The dribbler wants it at his feet, the target man in the air"],
+  ["TM", "DW", SW, 0, "Crosses from the direct winger for the target man"], ["TM", "IF", -SW, 0, "The inside forward cuts in and never crosses for the target man"],
+  ["RIB", "CRE", SW, 0, "The creator plays the runner through"], ["RIB", "DRB", -SW, 0, "The dribbler slows the play down for the runner"],
+  ["RIB", "WPM", SW, 0, "The wide playmaker plays the runner through"], ["RIB", "DW", SW, 0, "Direct winger and runner: pace on the break"],
+  ["RIB", "WW", -SW, 0, "The workhorse winger gives the runner no service"],
+  ["DLF", "SHS", SW, 0, "The shadow striker runs beyond the deep forward"], ["DLF", "CRE", -SW, 0, "Deep forward and creator drop into the same pocket"],
+  ["DLF", "IF", SW, 0, "The inside forward cuts in beyond the deep forward"], ["DLF", "DW", -SW, 0, "The direct winger crosses to nobody: the forward has dropped deep"],
+  // strikers with central midfielders
+  ["POA", "PM", SC, 0, "The playmaker finds the poacher"], ["POA", "BC", SC, 0, "The ball carrier drives forward for the poacher"],
+  ["TM", "B2B", SC, 0, "The box-to-box midfielder arrives for the target man's second balls"], ["TM", "PM", -SC, 0, "The playmaker is wasted: the ball goes over his head to the target man"],
+  ["RIB", "PM", SC, 0, "The playmaker plays the runner in behind"], ["RIB", "BC", SC, 0, "The ball carrier drives forward and releases the runner"],
+  ["DLF", "B2B", SC, 0, "The box-to-box midfielder arrives beyond the deep forward"], ["DLF", "BC", SC, 0, "The ball carrier arrives beyond the deep forward"],
+  // the back line and keeper
+  ["STP", "COV", 0, .6, "Stopper and covering defender: one steps in, the other sweeps up"],
+  ["AER", "BPD", .2, .5, "Aerial presence and ball-player: one wins the headers, the other starts the play"],
+  ["BPK", "BPD", .3, 0, "A ball-playing keeper with defenders who want the ball"], ["BPK", "IFB", .3, 0, "A ball-playing keeper with defenders who want the ball"],
+  ["BPD", "BPD", 0, -.8, "Two ball-playing centre-backs: nobody to win a header or a duel", n => !n.STP && !n.AER],
+  ["STP", "STP", 0, -.5, "Two stoppers: both step out, nobody covering", n => !n.COV],
+  ["OFB", "IF", .3, 0, "The inside forward cuts in, the full-back overlaps outside him"], ["TM", "OFB", .3, 0, "Crosses from the overlapping full-back for the target man"],
+  // the midfield
+  ...["BW", "ANC"].flatMap(w => ["PM", "DLP", "CRE"].map(c => [w, c, .4, .4, "A playmaker with a ball-winner to mind him"])),
+];
+const CHEM_IX = {}; for (const r of CHEM_PAIRS) { (CHEM_IX[r[0] + "|" + r[1]] ||= []).push(r); if (r[0] !== r[1]) (CHEM_IX[r[1] + "|" + r[0]] ||= []).push(r); }
+// Which styles each type suits (+1) or doesn't (-1); the attack bonus for each.
+const CHEM_STYLE = { POA: { wing: 1, possession: 1, counter: -1, defensive: -1 }, TM: { direct: 1, wing: 1, possession: -1, counter: -1 },
+  RIB: { counter: 1, direct: 1, possession: -1, defensive: -1 }, DLF: { possession: 1, counter: 1, direct: -1, wing: -1 } }, CHEM_STY_W = .4;
+const STYLE_WHY = { POA: { wing: "gets the crosses he lives on", possession: "gets chances made for him", counter: "has no pace to break", defensive: "is starved of the ball" },
+  TM: { direct: "is the target for the long ball", wing: "is the target for the crosses", possession: "sees the ball kept on the floor", counter: "is too slow to break" },
+  RIB: { counter: "has space to run into", direct: "chases balls into the channels", possession: "has no space to run into", defensive: "is isolated up front" },
+  DLF: { possession: "links the passing", counter: "drops, turns and releases", direct: "sees the ball go over his head", wing: "isn't in the box for the crosses" } };
+const ringLine = slot => ["ST", "AM", "W"].includes(slot) ? "att" : ["CM", "DM"].includes(slot) ? "mid" : "def";
+/* How the eleven's types fit together. Team effect: { atk, def, good, bad }; per player (ring on the tactics board):
+   seg[pid] = { tl, tr, st } each +n/0/-n (tl: his own line, or the attackers for a midfielder; tr: the midfielders;
+   st: the playing style), with the reasons. */
+function archChem(xi, style) {
+  const n = {}, A = xi.map(o => ({ ...o, a: archetypeOf(o.p) })); for (const o of A) if (o.a) n[o.a[3]] = (n[o.a[3]] || 0) + 1;
+  const has = (...k) => k.reduce((s, x) => s + (n[x] || 0), 0);
+  let atk = 0, def = 0; const good = [], bad = [], seen = new Set(), seg = {};
+  for (const o of A) seg[o.p.id] = { tl: 0, tr: 0, st: 0, why: [] };
+  const add = (ok, a, d, t) => { if (seen.has(t)) return; seen.add(t); atk += a; def += d; (ok ? good : bad).push(t); };
+  const mark = (o, other, v, t) => { const L = ringLine(o.slot), OL = ringLine(other.slot), s = seg[o.p.id];
+    const k = OL === "mid" && L !== "mid" ? "tr" : L === "mid" ? (OL === "mid" ? "tr" : "tl") : "tl"; s[k] += Math.sign(v); s.why.push([v > 0, t]); };
+  // pairs
+  for (let x = 0; x < A.length; x++) for (let y = x + 1; y < A.length; y++) { const p = A[x], q = A[y]; if (!p.a || !q.a) continue;
+    for (const r of CHEM_IX[p.a[3] + "|" + q.a[3]] || []) { if (r[5] && !r[5](n)) continue; const v = r[2] + r[3];
+      add(v > 0, r[2], r[3], r[4]); mark(p, q, v, r[4]); mark(q, p, v, r[4]); } }
+  // strikers needing a passer behind them; a deep forward crowded by playmakers
+  const mids = A.filter(o => ringLine(o.slot) === "mid" && o.a).map(o => o.a[3]);
+  for (const o of A) { if (!o.a) continue; const k = o.a[3], s = seg[o.p.id];
+    if ((k === "POA" || k === "RIB") && !mids.some(m => ["PM", "DLP", "BC"].includes(m))) { const t = "No passer in midfield to supply the strikers"; add(0, -SC, 0, t); s.tr--; s.why.push([false, t]); }
+    if (k === "DLF" && mids.filter(m => m === "PM" || m === "DLP").length >= 2) { const t = "Two playmakers beside the deep forward: all passing, no runs"; add(0, -SC, 0, t); s.tr--; s.why.push([false, t]); }
+    // the style
+    const sv = style && (CHEM_STYLE[k] || {})[style];
+    if (sv) { const t = `The ${o.a[0].toLowerCase()} ${STYLE_WHY[k][style]}`; atk += sv * CHEM_STY_W; (sv > 0 ? good : bad).push(`${o.p.name} ${STYLE_WHY[k][style]}`); s.st = sv; s.why.push([sv > 0, t]); }
+    else if (style && !CHEM_STYLE[k] && o.p.pos !== "GK" && STYLES[style]) { const d = avg(STYLES[style].keys.map(q => o.p.at[q])) - avg(OUT_KEYS.map(q => o.p.at[q])); s.st = d > 3 ? 1 : d < -3 ? -1 : 0; } }
+  // the side as a whole
   const cr = has(...CREATORS), win = has(...WINNERS);
-  if (cr && has("BW", "ANC")) add(1, .4, .4, "A playmaker with a ball-winner to mind him");
+  if (!has("AER", "CMD", "TM", "ANC")) add(0, 0, -.4, "Weak in the air: nobody to deal with crosses and set pieces");
   if (cr >= 2 && !win) add(0, 0, -1, "A side of passers: nobody to win the ball back");
   if (!cr) add(0, -1, 0, "Nobody to make the pass: no playmaker anywhere in the side");
   if (cr >= 4) add(0, 0, -.4, "Too many playmakers: everyone wants the ball, nobody wants to chase it");
   if (has("OFB") >= 2 && !has("BW", "ANC", "DFB")) add(0, 0, -.5, "Both full-backs bomb on with nobody holding: exposed on the break");
-  // The attack
-  if (has("TM") && has("POA", "RIB", "SHS")) add(1, .6, 0, "Big man, little man: the target man wins it, his partner feeds off him");
-  if (has("TM") && has("DW", "OFB")) add(1, .4, 0, "Crosses for the target man from wide");
-  if (has("TM") >= 2) add(0, -.4, 0, "Two target men: they get in each other's way");
-  if (has("DLF") && has("RIB", "SHS", "IF")) add(1, .5, 0, "The deep forward drops in and the runners go beyond him");
-  else if (has("DLF") && !has("POA", "RIB", "SHS", "IF")) add(0, -.6, 0, "The forward drops deep and nobody gets in the box");
-  if (has("RIB") && has("CRE", "PM", "DLP")) add(1, .4, 0, "A runner in behind with someone to play him through");
-  if (has("OFB") && has("IF")) add(1, .3, 0, "The inside forward cuts in, the full-back overlaps outside him");
   if (!has(...SCORERS)) add(0, -.8, 0, "No natural goalscorer in the side");
-  return { atk: clamp(atk, -2.5, 2.5), def: clamp(def, -2.5, 2.5), good, bad };
+  return { atk: clamp(atk, -2.5, 2.5), def: clamp(def, -2.5, 2.5), good, bad, seg };
 }
 function teamPower(c, xi) {
   let a = 0, m = 0, d = 0, wa = 0, wm = 0, wd = 0;
@@ -160,7 +212,7 @@ function teamPower(c, xi) {
   const A = a / (wa || 1), M = m / (wm || 1), D = d / (wd || 1);
   const morale = ((isMine(c) ? c.morale : 55) - 55) / 15;  // about +-3
   const tac = (clubTac(c) - 50) / 20 + prepBonus(c);  // about +-2.5, plus pre-season sharpness or rust
-  const ch = archChem(xi);
+  const ch = archChem(xi, clubStyle(c));
   return { atk: .65 * A + .35 * M + morale + tac + ch.atk - missing * 4, def: .7 * D + .3 * M + morale + tac + ch.def - missing * 4 };
 }
 function poisson(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= R(); } while (p > L); return k - 1; }

@@ -463,11 +463,21 @@ function depthChart() {
   }).join("");
   return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="row" style="gap:8px;margin-bottom:10px"><button class="btn sm" data-act="dcardall" data-v="1">Open all</button><button class="btn sm" data-act="dcardall" data-v="0">Close all</button></div><div class="grid2 depth-grid">${cards}</div>`;
 }
+/* The ring round a player on the tactics board: top left, how he fits with the attackers (his own line for a defender
+   or keeper); top right, with the midfielders; bottom, with the playing style. Green clicks, amber is fine, red clashes. */
+const CHEM_COL = v => v > 0 ? "#2fa35b" : v < 0 ? "#d9473f" : "#e3b23c";
+function chemRing(s) {
+  if (!s) return "";
+  const arc = (a0, a1) => { const r = 22, p = a => [Math.cos(a * Math.PI / 180) * r, Math.sin(a * Math.PI / 180) * r].map(v => v.toFixed(2)).join(" ");
+    return `M ${p(a0)} A ${r} ${r} 0 0 1 ${p(a1)}`; };
+  return `<svg class="ring" viewBox="-26 -26 52 52" aria-hidden="true"><path d="${arc(155, 265)}" stroke="${CHEM_COL(s.tl)}"/><path d="${arc(275, 385)}" stroke="${CHEM_COL(s.tr)}"/><path d="${arc(35, 145)}" stroke="${CHEM_COL(s.st)}"/></svg>`;
+}
 function tacticsShape() {
   const c = my(), M = mgr(), hired = !!staffOf("manager"), form = M.form || "4-4-2", xi = pickXI(c), st = STYLES[M.phil], fit = styleFit(xi, M.phil);
   const pos = FORM_XY[form] || FORM_XY["4-4-2"];
-  const slots = xi.map(({ p, slot, i }) => { const [x, y] = pos[i], r = r20(roleRating(p, slot)), oop = p.pos !== slot;
-    return `<button class="slot${oop ? " oop" : ""}" style="left:${x}%;top:${y}%" data-act="player" data-id="${p.id}" title="${esc(p.name)}: ${POS_NAME[slot]}${oop ? ` (normally ${POS_NAME[p.pos].toLowerCase()})` : ""}"><span class="disc">${r}</span><span class="nm">${esc(p.name.split(" ").slice(1).join(" ") || p.name)}</span><span class="rl">${slot} · <span style="color:${fitCol(Math.round(p.fit ?? 100))}">${Math.round(p.fit ?? 100)}%</span></span></button>`; }).join("");
+  const CH = archChem(xi, M.phil);
+  const slots = xi.map(({ p, slot, i }) => { const [x, y] = pos[i], r = r20(roleRating(p, slot)), oop = p.pos !== slot, sg = CH.seg[p.id];
+    return `<button class="slot${oop ? " oop" : ""}" style="left:${x}%;top:${y}%" data-act="player" data-id="${p.id}" title="${esc(p.name)}: ${POS_NAME[slot]}${oop ? ` (normally ${POS_NAME[p.pos].toLowerCase()})` : ""}"><span class="disc">${chemRing(sg)}${r}</span><span class="nm">${esc(p.name.split(" ").slice(1).join(" ") || p.name)}</span><span class="rl">${slot} · <span style="color:${fitCol(Math.round(p.fit ?? 100))}">${Math.round(p.fit ?? 100)}%</span></span></button>`; }).join("");
   const missing = 11 - xi.length;
   // The style's four attributes across the outfield XI, against their own average.
   const outf = xi.filter(o => o.p.pos !== "GK").map(o => o.p), allAvg = avg(outf.map(p => avg(OUT_KEYS.map(k => p.at[k]))));
@@ -485,7 +495,8 @@ function tacticsShape() {
     <section class="card"><div class="card-h"><h2>${form}</h2><span class="small muted">${hired ? esc(M.name) + "'s side" : "Picked by the club captain: there's no manager"}</span></div>
       <div class="pitch" style="--club:${c.color};max-width:420px;margin:0 auto">${PITCH_LINES}${slots}</div>
       ${missing > 0 ? `<p class="small bad" style="margin-top:8px">${missing} place${missing > 1 ? "s" : ""} empty: not enough fit players.</p>` : ""}
-      <p class="small muted" style="margin-top:8px">The number is each player's rating in that position (out of 20). A dashed ring means he's playing out of position. Tap a player for his card.</p></section>
+      <p class="small muted" style="margin-top:8px">The number is each player's rating in that position (out of 20). A dashed ring means he's playing out of position. Tap a player for his card.</p>
+      <p class="small muted" style="margin-top:4px"><b>The coloured ring</b> shows how each player fits: top left with the attackers (a defender's with the other defenders), top right with the midfielders, bottom with the playing style. <span style="color:${CHEM_COL(1)}">●</span> clicks · <span style="color:${CHEM_COL(0)}">●</span> fine · <span style="color:${CHEM_COL(-1)}">●</span> clashes.</p></section>
     <section class="card"><div class="card-h"><h3>Substitutes</h3></div>${bench.length ? bench.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span><span>${fitTxt(p)} ${rating(p.ovr)}</span></div>`).join("") : "<p class='small muted'>Nobody else is fit.</p>"}
       ${out2.length ? `<h3 style="margin:12px 0 6px">Unavailable or unsettled</h3>${out2.map(p => `<p class="small">${esc(p.name)} (${p.pos}): ${p.inj ? `injured, ${p.inj} week${p.inj > 1 ? "s" : ""}` : "unsettled, playing below his best"}</p>`).join("")}` : ""}</section>
   </div><div class="stack">
@@ -494,7 +505,7 @@ function tacticsShape() {
       <p class="small" style="margin:6px 0">${esc(focusTxt || "")}</p>
       <dl class="ledger"><dt>Formation</dt><dd>${form}</dd><dt>Squad suits the style</dt><dd>${fitText(fit)}</dd>${hired ? `<dt>Tactics</dt><dd>${sr20(M.at.tac)}/20</dd><dt>Motivation</dt><dd>${sr20(M.at.mot)}/20</dd>` : ""}<dt>Team morale</dt><dd>${Math.round(c.morale)}</dd></dl>
       <h3 style="margin:14px 0 6px">What the style needs</h3><div class="stack" style="gap:6px">${keyRows}</div></section>
-    ${(() => { const ch = archChem(xi), sg = v => v > 0 ? `<span class="good">+${v.toFixed(1)}</span>` : v < 0 ? `<span class="bad">${v.toFixed(1)}</span>` : "level";
+    ${(() => { const ch = CH, sg = v => v > 0 ? `<span class="good">+${v.toFixed(1)}</span>` : v < 0 ? `<span class="bad">${v.toFixed(1)}</span>` : "level";
       return `<section class="card"><div class="card-h"><h3>How the side fits together</h3><span class="small muted">attack ${sg(ch.atk)} · defence ${sg(ch.def)}</span></div>
       ${ch.good.map(t => `<p class="small"><span class="good">✓</span> ${esc(t)}</p>`).join("")}${ch.bad.map(t => `<p class="small"><span class="bad">✕</span> ${esc(t)}</p>`).join("")}
       ${!ch.good.length && !ch.bad.length ? `<p class="small muted">No partnerships that stand out either way.</p>` : ""}
