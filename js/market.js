@@ -289,7 +289,7 @@ function answerBid(m, accept, auto) {
   if (!p || p.club !== G.club) { m.answer = "lapsed"; return; }
   if (!accept && m.keen && p.dealY !== G.year) {
     if (deal) newDeal(p);
-    else if (p.goPromise && G.year <= p.goPromise && (buyer.abroad || buyer.tier === 1)) { delete p.goPromise; p.blocked = (p.blocked || 0) + 2; p.unsettled = 24; p.req = G.year; p.list = true; trust("manager", -3, null, "Players' trust in your word"); news(`You promised ${p.name} he could go if a club like ${buyer.name} came in. You've broken it: he won't forgive you, and he's on the transfer list.`, true); }
+    else if (p.goPromise && G.year <= p.goPromise && bigClubFor(buyer)) { delete p.goPromise; p.blocked = (p.blocked || 0) + 2; p.unsettled = 24; p.req = G.year; p.list = true; trust("manager", -3, null, "Players' trust in your word"); news(`You promised ${p.name} he could go if a club like ${buyer.name} came in. You've broken it: he won't forgive you, and he's on the transfer list.`, true); }
     else { p.blocked = (p.blocked || 0) + 1; p.unsettled = 8 + p.blocked * 4; news(`${p.name} wanted the move to ${buyer.name} and is unsettled${p.blocked >= 2 ? ". He's been blocked before and it shows" : ""}.`, p.blocked >= 2); }
   }
   if (!auto && !deal && (accept ? "accept" : "reject") !== m.rec) {
