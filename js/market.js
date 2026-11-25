@@ -46,8 +46,8 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
   return wageAt(p.ovr, nt) * wageMult(p, c) * faDiscount(p) * (1 + .15 * drop) * (beyond > 0 ? 2 + (beyond - 1) * .5 + over * .1 : 1); }
 /* What a club asks for a player: the same rule whoever is buying, you or an AI club.
    - His value (valueOf: rating, age, potential, years left), plus 15%.
-   - A club lower down the pyramid can't hold out for as much: 100% in the Premier Division, then 90%, 75% and 60%
-     through the Football League. Non-league moves are basically free: a token 2% in the National Division, 0.5% in
+   - A club lower down the pyramid can't hold out for quite as much: full price in the top two divisions, 90% in the
+     Second, 80% in the Third. Non-league moves are basically free: a token 2% in the National Division, 0.5% in
      National North/South, nothing in the Regional League. (Your own players are priced in full.)
    - 30% more for a first-choice player, and 20% more again for the club's best player.
    - 10% more with four or more years left on his deal.
@@ -56,7 +56,7 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
    A player in his last year who won't re-sign is already cheaper through his value, and his club gives up the premiums.
    xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once. buyer: who's buying
    (you unless said otherwise; null for no one in particular). */
-const SELL_DIV = [0, 1, .9, .75, .6, .02, .005, 0];
+const SELL_DIV = [0, 1, 1, .9, .8, .02, .005, 0];
 const XI_SET = new Map();
 function xiSet(c, xi) {
   if (xi) return xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id));
@@ -702,10 +702,21 @@ function completeAgreed(c = my()) {
     if (!buyer || (buyer.gone && !buyer.abroad)) { news(`${p.name}'s move to ${buyer ? buyer.name : "his new club"} falls through: the club no longer exists.`, true); continue; }
     completeSale(p, buyer, A.amt, A.auto); }
 }
+/* Free agents don't hang around at the top of the game: a player good enough for the Football League who nobody here
+   signs soon goes abroad or drops into the game below ours. The better he is, the sooner: League One standard and up
+   within a few weeks, League Two within a couple of months, the National Division within a season or so. The pool
+   lower down stays full: semi-pros and part-timers wait for a club, and only the long-forgotten drift away. */
+function faDrain() {
+  const now = absWeek();
+  for (const p of G.fa.map(P)) { if (!p || p.toMe || faFresh(p)) continue;
+    const wk = Math.max(0, now - (p.faAt ?? 0)), t = naturalTier(p);
+    const ch = t <= 3 ? (wk > 2 ? .25 : 0) : t === 4 ? (wk > 6 ? .1 : 0) : t === 5 ? (wk > 16 ? .04 : 0) : (wk > 100 ? .02 : 0);
+    if (ch && R() < ch) retire(p, true); }
+}
 function marketWeek() {
   const c = my();
   if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
-  headWeek(c); bidsWeek(c); loanOffersWeek(c);
+  headWeek(c); bidsWeek(c); loanOffersWeek(c); faDrain();
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
   for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);

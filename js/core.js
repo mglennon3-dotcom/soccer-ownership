@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.82";
+const VERSION = "1.0.83";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -222,8 +222,14 @@ function renewsAI(p) {
   const h = ((p.id * 2654435761 + G.year * 40503) >>> 0) % 1000 / 1000;  // the same answer all season
   p.renew = { y: G.year, ok: h < clamp(ch, .1, .95) }; return p.renew.ok;
 }
+/* The going rate for players around the Premier/First Division line (rated about 8 to 12) is well above what the curve
+   alone gives: up to four and a half times for a 9-10, easing off either side (nothing extra at 7 and below; little at 13 and up). */
+function bandBump(t) {
+  if (t <= 7.2) return 1; if (t <= 8.8) return 1 + 3.5 * (t - 7.2) / 1.6; if (t <= 10.3) return 4.5;
+  if (t <= 12) return 4.5 - 3.3 * (t - 10.3) / 1.7; if (t <= 14) return 1.2 - .2 * (t - 12) / 2; return 1;
+}
 function valueOf(p) {
-  const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1);
+  const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1) * bandBump(to20(p.ovr));
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
   if (p.age > 28) v *= Math.max(.12, 1 - (p.age - 28) * .13);
   // Contract length: a player whose deal is running down is worth less, as his club can lose him for nothing. Two years

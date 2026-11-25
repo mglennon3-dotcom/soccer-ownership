@@ -54,13 +54,18 @@ function clubSit(c) {
    he'd click with their eleven), the club's standing and how it's doing, and home. Returned against his threshold:
    above 0 he's keen, below it he'd rather not. Used when AI clubs sign players and when their players re-sign. */
 function aiAppeal(p, c) {
+  /* Stepping down, the same rule as for your club: within his room he weighs it like any move; past it only a
+     money-motivated player (or one with a tie to the club) can be tempted, never more than two divisions past it, never
+     the very best, and only by a huge wage that only a big-spending owner pays. */
+  if (p.club !== c.id && !c.abroad) { const past = c.tier - naturalTier(p) - joinRoom(p);
+    if (past > 0 && (past > 2 || !tempted(p, c) || (ownStyle(c).spend < 3 && !affinity(p, c)))) return -1; }
   const pr = prefsOf(p, P_FACTORS), form = (c.coach && c.coach.form) || "4-4-2", style = baseStyle(c), mo = clubSit(c).m;
   const slots = (FORMS[form] || []).filter(s => s === p.pos).length;
   let ahead = 0; for (const id of c.squad) { const q = P(id); if (q && q !== p && !q.acad && q.pos === p.pos && q.ovr > p.ovr) ahead++; }
   const t = typeParts(c, p, style) || { st: 0, mates: .8 };
   const from = p.club >= 0 && p.club !== c.id ? CL(p.club) : null, refRep = from ? from.rep : c.rep, half = p.half || (from ? from.half : null);
   const f = {
-    money: .55, fac: .5,
+    money: .55 + Math.max(0, ownStyle(c).spend) * .05, fac: .5,  // a big-spending owner pays over the odds
     time: ahead < Math.max(1, slots) ? 1 : ahead < slots + 1 ? .55 : ahead < slots + 2 ? .25 : .05,
     form: clamp((slots >= 2 ? .85 : slots === 1 ? .6 : .1) + t.st * .15 + clamp((t.mates - .8) / 2.5, -1, 1) * .15, 0, 1),
     prest: clamp(.5 + (c.rep - refRep) / 25 + mo * .12, 0, 1),
