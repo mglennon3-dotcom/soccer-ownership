@@ -198,6 +198,13 @@ function upgradeSave() {
   // 1.0.59: ...and the reason itself, not just the wording (it decides whether a new deal settles him).
   if (!G.amb59 && G.club != null) { G.amb59 = true; if (my().tier === 1) for (const m of G.inbox.filter(m => m.key === "treq" && !m.done && m.data && Array.isArray(m.data.why))) m.data.why = m.data.why.filter(w => w !== "ambition"); }
   if (!G.treq60) { G.treq60 = true; for (const m of G.inbox) if (m.key === "treq" && !m.done && m.opts && m.opts.length === 3) m.opts.push("Ask what it would take to keep him"); }
+  /* 1.0.62, one-off (asked for): Moritz Görtz's transfer request starts again, as a fresh card with today's options
+     (any half-answered request or terms card for him is cleared first). */
+  if (!G.gortz62 && G.club != null) { G.gortz62 = true; const c = my(), p = c.squad.map(P).find(q => q && q.name === "Moritz Görtz");
+    if (p) { G.inbox = G.inbox.filter(m => !(["treq", "keepTerms"].includes(m.key) && m.data && m.data.pid === p.id && !m.done));
+      p.req = G.year; delete p.goPromise; delete p.ambPromise; if (p.list) p.list = false;
+      addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's unhappy about a blocked move.`,
+        ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["a blocked move"] }, 0); } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
