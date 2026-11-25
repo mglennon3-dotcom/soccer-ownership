@@ -567,3 +567,5 @@ details.depth-card > summary h3::before{content:"▸ ";color:var(--muted)}
 details.depth-card[open] > summary h3::before{content:"▾ "}
 details.depth-card[open] > summary{margin-bottom:8px}
 details.depth-card:not([open]){padding-bottom:14px}
+
+.chip.aca{border:1px solid var(--win);color:var(--win);background:transparent}
