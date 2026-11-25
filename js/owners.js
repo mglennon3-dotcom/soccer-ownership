@@ -172,7 +172,7 @@ function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) 
   let w = Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier));
   // The squad cost rule (and UEFA's, in Europe): a sensible owner keeps wages plus fees inside it, with a little room.
   if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (inEurope(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); w = Math.min(w, Math.max(tierWages(c.tier) * .5, lim * .95 - aiAmort(c))); }
-  else if (c.tier >= 5 && !c.abroad) w = Math.min(w, nlWageCap(c));
+  else if (c.tier >= 5 && !c.abroad) w = Math.min(w, nlWageCap(c) * .85);  // leaving the owner room for the odd statement signing
   return w; }
 /* The salary cap, in the Premier Division only: no AI club's wage bill there may go past twice the division's average (set again each summer
    as wages move). Up to it, how much they spend is the owner's call; only an owner cooking the books goes beyond it. */
@@ -441,6 +441,7 @@ function diversitySummer() {
     { const home = pool.filter(p => !CL(p.club).abroad), away = pool.filter(p => CL(p.club).abroad); if (home.length && away.length) pool = R() < .6 ? home : away; }
     const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(500e3 * 52, Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages top out at €500k a week */, why = affinity(p, c);
     if (!c.cook && aiBill(c) + wage > salaryCap(c.tier) && !startCooking(c, true)) continue;  // past the cap only by cooking the books
+    if (!fitsRules(c, wage, aiFee(p, c), 3)) continue;  // the squad cost rule (or, below the leagues, what the owner will carry)
     aiTransfer(p, c); p.wage = wage; p.yrs = aiYears(p, c); p.stunY = G.year; p.stunC = c.id; c.splash = true; if (from.abroad) { if (!foreignSign(from, p.pos)) foreignSquad(from); } else aiSquadCheck(from, true);  // the seller replaces him with whoever it can afford at its own level: bought (with the fee in hand) or free  // the fee comes out of the budget, however far below zero
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) ${from.abroad ? `joins from ${from.name} (${COUNTRY[from.country].name})` : `drops down from ${from.name}`} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
@@ -494,7 +495,8 @@ function squadRoom(c) {
 }
 // A small breach costs the right to pay fees next season; a bigger one points as well.
 const scrPen = over => over <= .08 ? 0 : over <= .2 ? 3 : 6;
-const fitsRules = (c, wage, fee = 0, yrs = 3) => reckless(c) || c.abroad || isMine(c) ? true : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
+// In non-league it's the owner's own limit, so even a gambler is held to it; in the leagues a reckless owner may break the rules.
+const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : c.tier >= 5 ? wage <= squadRoom(c) : reckless(c) || !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
 // The yearly check for an AI club (from aiAccounts): domestic squad cost rule, then UEFA's.
 // The rules come in with a season's notice: nobody is judged until the season after they're introduced.
 const scrLive = () => { if (G.scrFrom == null) { G.scrFrom = G.year + 1; news("The leagues bring in a squad cost rule from next season: spending on players (wages and transfer fees spread over contracts) capped at 85% of revenue in the Premier Division, 100% in the First, 60% in the Second and 55% in the Third, where owners' money counts. UEFA's own rule (70%) applies to clubs in Europe.", true); } return G.year >= G.scrFrom; };
