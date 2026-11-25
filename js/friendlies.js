@@ -120,12 +120,15 @@ function payReviews() {
     const form = Math.max(0, seasonForm(p)), star = form >= .9 && p.s.app >= 10;
     // A breakout season: he wants paying like the player he's become, and he'll threaten to go if you won't.
     // What he asks for: what it would take to keep him (the figure on his contract page), plus 10-20% for the season he's had.
-    const keep = star ? renewTerms(p).min : null, ask = star ? Math.round(Math.max(p.wage * 1.15, (keep || demandWage(p, c) * 1.2) * (1.1 + form * .1)) / 100) * 100 : 0;
-    if (star && G.year > lastDealY(p) && p.wage < ask / 1.15 && R() < .5) {
+    // Never more than a quarter over the going rate for his level, however good the season.
+    const keep = star ? renewTerms(p).min : null, ask = star ? Math.round(Math.min(Math.max(p.wage * 1.15, (keep || demandWage(p, c) * 1.2) * (1.1 + form * .1)), Math.max(p.wage * 1.15, demandWage(p, c) * 1.25)) / 100) * 100 : 0;
+    // A player who took less to join (he wanted to come) honours it: no breakout demand until the season after next.
+    const gaveUp = p.keen && p.keen.club === c.id && G.year - (p.keen.y || 0) < 2;
+    if (star && !gaveUp && G.year > lastDealY(p) && p.wage < ask / 1.15 && R() < .5) {
       const half = Math.round((p.wage + ask) / 2 / 100) * 100;
       p.payY = G.year; n++;
       addChoice("raise", `${p.name} wants a new deal after ${formWord(form) || "a great season"}`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}: ${p.s.g} goals and ${p.s.a} assists in ${p.s.app} games. He earns ${pw(p.wage)} and wants ${pw(ask)}. His agent says he'll hand in a transfer request if he doesn't get it.`,
-        [`Give him ${pw(ask)}`, `Offer ${pw(half)}`, "Refuse"], { pid: p.id, worth: ask, half, threat: true }, 0);
+        [`Give him ${pw(ask)}`, `Offer ${pw(half)}`, "Refuse"], { pid: p.id, worth: ask, half, threat: true }, 1);
       continue;
     }
     if (!settledPay(p)) continue;
