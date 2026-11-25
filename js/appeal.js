@@ -26,6 +26,29 @@ const moneyF = ratio => clamp(.5 + (ratio - 1) * 1.5, 0, 1);
 const ratioFor = f => 1 + (f - .5) / 1.5;
 // The project: deep pockets and a club going up.
 function projectF() { const ups = G.history.slice(0, 4).filter(h => h.up).length, downs = G.history.slice(0, 4).filter(h => h.down).length; return clamp(Math.log10(Math.max(1, G.owner.wealth) / 1e5) / 5 + ups * .15 - downs * .15 + (ownType().appeal || 0), 0, 1); }
+/* How a club is doing (-1 to +1): this season's table once a few games are in (a title race or promotion push up, a
+   relegation fight down), last season's finish before then (champions, promoted, top four up; relegated or near the
+   bottom down), and a little for playing in Europe. Players weigh it when deciding to join, stay or re-sign, at your
+   club and at AI clubs. fight: in or near the relegation places, with ten games played. Worked out once a week. */
+let SIT = null;
+function clubSit(c) {
+  const key = `${G.year}.${G.phase}.${G.week}`; if (!SIT || SIT.k !== key) SIT = { k: key, m: new Map() };
+  if (!c || c.abroad || c.gone || !c.lg || !LEAGUES[c.lg]) return { m: 0, fight: false };
+  let r = SIT.m.get(c.id); if (r) return r;
+  const L = LEAGUES[c.lg], games = ((G.leagues[c.lg] && G.leagues[c.lg].tab || {})[c.id] || {}).p || 0;
+  let now = 0, w = 0, fight = false;
+  if ((G.phase === "season" || G.phase === "playoffs") && games >= 6) {
+    const t = table(c.lg), n = t.length, pos = t.findIndex(x => x.id === c.id) + 1, dn = L.down || 0;
+    w = clamp((games - 6) / 14, 0, 1);
+    now = c.tier === 1 ? (pos <= 2 ? 1 : pos <= 4 ? .6 : pos <= 6 ? .3 : 0) : (pos <= 2 ? 1 : pos <= 6 && ABOVE[c.lg] ? .4 : 0);
+    if (dn && pos > n - dn) now = -1; else if (dn && pos > n - dn - 3) now = -.5;
+    fight = !!dn && games >= 10 && pos > n - dn - 2;
+  }
+  const f = c.lastF; let last = 0;
+  if (f && f.y >= G.year - 1) last = f.up || f.pos === 1 ? .6 : f.down ? -.6 : f.tier === 1 && f.pos <= 4 ? .4 : f.pos > f.n - 4 ? -.3 : 0;
+  r = { m: clamp(now * w + last * (1 - w * .6) + (inEurope(c) ? .2 : 0), -1, 1), fight };
+  SIT.m.set(c.id, r); return r;
+}
 const meddleF = () => clamp(1 - (G.meddle || 0) / 6, 0, 1);
 
 /* ---------- what drives a player ----------
@@ -70,15 +93,15 @@ function playerFactors(p, c) {
   const others = c.squad.map(P).filter(q => q !== p && !q.acad && q.pos === p.pos && !q.inj).map(q => q.ovr).sort((a, b) => b - a);
   const slots = FORMS[mgr().form || "4-4-2"].filter(s => s === p.pos).length, ahead = others.filter(o => o > p.ovr).length;
   const half = p.half || (from ? from.half : (p.half = pick(["N", "S"])));
-  const expFac = clamp(Math.round((oldEq(p.ovr) - 40) / 5), 0, 10), tl = c.fac.train.lvl;
+  const expFac = clamp(Math.round((oldEq(p.ovr) - 40) / 5), 0, 10), tl = c.fac.train.lvl, mo = clubSit(c).m;
   return {
     time: ahead < Math.max(1, slots) ? 1 : ahead < slots + 1 ? .55 : ahead < slots + 2 ? .25 : .05,
     // The manager's system: places for his position, and whether the style suits his game (for your club, your manager's).
     form: clamp((slots >= 2 ? 1 : slots === 1 ? .65 : .1) + (isMine(c) ? (sf => sf.style * .25 + sf.mates * .15)(systemFit(p, c)) : 0), 0, 1),
-    prest: clamp(.5 + (c.rep - refRep) / 25, 0, 1),
+    prest: clamp(.5 + (c.rep - refRep) / 25 + mo * .12, 0, 1),  // standing, plus how the club is doing
     fac: clamp(.5 + (tl - expFac) / 6, 0, 1),
     home: p.nat === "ENG" ? (homeOf(p) === c.region ? 1 : half === c.half ? .7 : .35) : .3 + prefsOf(p, P_FACTORS).open * .5,
-    proj: projectF(),
+    proj: clamp(projectF() + mo * .12, 0, 1),
   };
 }
 /* The least he'd sign for: the wage that gets his overall appeal to his threshold, or null if no wage would. */
@@ -87,6 +110,8 @@ function playerAsk(p, c = my()) {
   let other = 0; for (const [k, w] of Object.entries(pr.pri)) if (k !== "money") other += w * f[k];
   const need = (pr.thr - other) / pr.pri.money;
   if (need > 1) return null;
+  // In a relegation fight, an ambitious player good enough for the division won't come until it's settled.
+  if (p.club !== G.club && relFightNo(p, c)) return null;
   // Stepping down a division he's paid as at his own level, plus 15% for each division he drops, and at least 10% over
   // what he earns now. No discount, however much he likes the club. Dropping further than he'd normally go (a player in
   // his prime leaving the division he belongs in, a star of any age) has a price too, but a huge one: at least double,
@@ -122,7 +147,8 @@ function tookLess(p, c, wage) {
 const keenLine = k => `Took ${k.pct}% less than his going rate (${pw(k.going)}) to join: he wanted to play for you${k.why.length ? `, for ${k.why.join(" and ")}` : ""}.`;
 function playerAppeal(p, wage, c = my()) {
   const pr = prefsOf(p, P_FACTORS), f = { ...playerFactors(p, c), money: moneyF(wage / demandWage(p, c)) };
-  return { f, pr, score: sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
+  // An ambitious player won't join a club in a relegation fight, whatever the terms (refusalReason says so).
+  return { f, pr, p, score: p.club !== G.club && relFightNo(p, c) ? 0 : sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
 }
 
 /* ---------- staff ---------- */
@@ -184,7 +210,9 @@ function staffAppeal(s, wage) {
   return { f, pr, score: sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) };
 }
 /* Why someone said no: what he cares about most and what let you down. */
+const relFightNo = (p, c) => c.tier < 7 && clubSit(c).fight && p.ovr >= TIER_LVL[c.tier] && prefsOf(p, P_FACTORS).top.some(k => k === "prest" || k === "proj");
 function refusalReason(a, factors, who) {
+  if (factors === P_FACTORS && !who && a.p && a.p.club !== G.club && relFightNo(a.p, my())) return "He's ambitious and won't join a club in a relegation fight: ask again once it's settled.";
   const name = Object.fromEntries(factors), worst = Object.entries(a.f).filter(([k]) => a.pr.pri[k] > .14).sort((x, y) => x[1] - y[1])[0];
   return `${who ? pr(who, "He") : "He"} cares most about ${name[a.pr.top[0]].toLowerCase()} and ${name[a.pr.top[1]].toLowerCase()}${worst && worst[1] < .45 ? `, and isn't convinced by the ${name[worst[0]].toLowerCase()}` : ""}.`;
 }

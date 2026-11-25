@@ -209,7 +209,7 @@ function endSeason() {
     const champ = CL(ids[0]); champ.trophies.push([G.year, L.name]); seasonAwards(k);
     for (const p of accSquad(champ, 10)) accAdd(p, "title", `${L.name} champions ${seasonLabel(G.year)}`);
     if (L.tier === 1) titleRivals(ids);
-    ids.forEach((id, i) => { const x = CL(id); if (!isMine(x)) x.push = i < Math.max(2, Math.round(ids.length * .25)); });
+    ids.forEach((id, i) => { const x = CL(id); if (!isMine(x)) x.push = i < Math.max(2, Math.round(ids.length * .25)); x.lastF = { y: G.year, tier: L.tier, pos: i + 1, n: ids.length }; });
     if (champ.id === G.club) news(`CHAMPIONS! ${mine.name} win the ${L.name}.`, true);
     if (ABOVE[k]) {
       const up = ids.slice(0, L.auto); if (G.po[k] && G.po[k].win != null) up.push(G.po[k].win);
@@ -279,6 +279,8 @@ function endSeason() {
       else { moodHit(c, -15); news(`Relegated. ${c.name} drop into the ${LEAGUES[dest].name}.`, true); }
     }
   }
+  for (const [id, to] of moves) { const c = CL(id); if (c.lastF && to !== "OUT") c.lastF[to ? "up" : "down"] = true; }
+  relegationExodus(moves.filter(([, to]) => to === null).map(([id]) => id));
   balanceHalves("L6N", "L6S"); balanceHalves("L7N", "L7S");
   for (const k of ["L7N", "L7S"]) while (G.leagues[k].clubs.length < LEAGUES[k].size) { const c = newClub(k, LEAGUES[k].size - 1); c.half = LEAGUES[k].half; genSquad(c); G.leagues[k].clubs.push(c.id); c.founded = G.year; }
   // Standing: reputation drifts toward the club's division, plus a little for finishing high.
@@ -595,6 +597,28 @@ function wageClauses(c, up, down) {
   news(up ? `Promotion clauses kick in: ${ps.length} players' wages rise by 25% (the wage bill goes from ${money(before)} to ${money(wageBill(c))} a year).`
     : `Relegation clauses kick in: ${ps.length} players' wages fall by 25% (the wage bill goes from ${money(before)} to ${money(wageBill(c))} a year).${quit.length ? ` Money-motivated players won't take the cut: ${quit.join(", ")} hand${quit.length > 1 ? "" : "s"} in transfer request${quit.length > 1 ? "s" : ""}.` : ""}`, true);
 }
+/* Relegation: players clearly too good for the division below push to leave. At your club the better ones hand in
+   transfer requests (loyal players and fan favourites mostly stay; the ambitious ones most want out); at AI clubs up to
+   three are sold to clubs in the division they've just left, or the one above. */
+function relegationExodus(ids) {
+  const sold = [];
+  for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad) continue;
+    const ps = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.age <= 31 && p.ovr >= TIER_LVL[c.tier] + 8).sort((a, b) => b.ovr - a.ovr);
+    if (isMine(c)) { let n = 0;
+      for (const p of ps) { if (n >= 3 || p.req || p.keep) continue;
+        const L = loyaltyOf(p), love = Math.min(1, loveOf(p, c.id) / LEGEND), pr = prefsOf(p, P_FACTORS);
+        const ch = clamp(.55 - L * .5 - love * .25 + (pr.top.includes("prest") ? .2 : 0) + Math.min(.2, (p.ovr - TIER_LVL[c.tier] - 8) * .02), .05, .85);
+        if (R() > ch) continue; n++; p.req = G.year; p.unsettled = Math.max(p.unsettled || 0, 10);
+        addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He doesn't want to play in the ${LEAGUES[c.lg].name}: he's unhappy about ambition after relegation.`,
+          ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["ambition after relegation"] }, 0); } }
+    else { let n = 0;
+      for (const p of ps) { if (n >= 3 || p.keep || R() > .5) continue;
+        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && canAfford(x, aiFee(p)));
+        if (!buyers.length) continue; const near = buyers.filter(x => x.tier === c.tier - 1), b = pick(near.length ? near : buyers);
+        aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
+  }
+  if (sold.length) news(`Relegated clubs lose their best players: ${sold.slice(0, 5).join(", ")}${sold.length > 5 ? ` and ${sold.length - 5} more` : ""}.`);
+}
 function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 
 /* ---------- AI squads ---------- */
@@ -618,14 +642,16 @@ function aiSign(c, pos) {
   // At the salary cap (and not cooking the books) he can only add cheaper players.
   const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5 - (!c.cook && !c.abroad && aiBill(c) > salaryCap(c.tier) * .95 ? 5 : 0) - (c.emb ? 5 : 0));  // under an embargo: whoever will come for nothing
   let p = null;
-  const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
+  // A struggling club finds it harder: some of the better players won't come.
+  const mo = clubSit(c).m, wont = q => mo < -.2 && q.ovr >= (c.lvl || 0) && R() < -mo * .5;
+  const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33 && !wont(q));
   const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
   if (fas.length) p = fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0];
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     // The four professional divisions also shop abroad, from clubs no bigger than they are: imports cost a fee that leaves the country.
     const lower = G.clubs.filter(x => !isMine(x) && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier > c.tier && x.tier <= c.tier + 2));
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
-    const afford = pool.filter(q => canAfford(c, aiFee(q)));
+    const afford = pool.filter(q => canAfford(c, aiFee(q)) && !wont(q));
     if (afford.length) p = afford.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1])[0][0];
   }
   // Nobody affordable at another club: someone from outside the game (abroad, or below the pyramid) on a free.
