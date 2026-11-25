@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.51";
+const VERSION = "1.0.52";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -446,6 +446,14 @@ function newcomerFor(p) {
 /* The hall of fame is an honour: a peak of 17 or more, or 500+ games with a peak of 15 or more (a long
    career at a high level: 15 or more). Your club's own legends have their own club hall of fame (History page). */
 const hofWorthy = (peak, apps) => r20(peak) >= 17 || (apps >= 500 && r20(peak) >= 15);
+/* A club's record book of retired players. Kept short: only those who could still appear in one of the club's records
+   (the top dozen in each), so it never grows without limit. */
+function alumAdd(cid, o) {
+  const L = ((G.alum ||= {})[cid] ||= []); L.push(o);
+  if (L.length > 60) { const keep = new Set(), top = f => L.slice().sort((a, b) => f(b) - f(a)).slice(0, 12).forEach(x => keep.add(x));
+    top(x => x.apps); top(x => x.g); top(x => x.a); top(x => x.apps >= 50 ? x.g / x.apps : -1); top(x => x.apps >= 20 ? x.peak : -1);
+    G.alum[cid] = L.filter(x => keep.has(x)); }
+}
 function retire(p, cull) {
   if (p.toMe && p.age < 40) return;  // he's agreed to join you: he isn't hanging up his boots yet
   if (!cull) newcomerFor(p);
@@ -455,7 +463,8 @@ function retire(p, cull) {
       clubs: [...new Set(p.hist.map(h => h[1]))],
       cs: Object.keys(cs).map(Number).filter(id => G.clubs[id]).sort((a, b) => cs[b][0] - cs[a][0]).map(id => [G.clubs[id].name, cs[id][0], cs[id][1], id]),
       mine: !!cs[G.club] || (G.club != null && p.hist.some(h => h[1] === my().short)), leg: G.club != null && typeof favLevel === "function" && favLevel(p, G.club) === 2 }); }
-  if (G.club != null && p.cs && p.cs[G.club] && p.cs[G.club][0] > 0) { const v = p.cs[G.club]; ((G.alum ||= {})[G.club] ||= []).push({ name: p.name, pos: p.pos, apps: v[0], g: v[1], a: v[2] || 0, peak: p.peak, y: G.year }); }
+  // Every club keeps its record book: what each retiring player did there.
+  if (p.cs) for (const [cid, v] of Object.entries(p.cs)) if (v && v[0] > 0) alumAdd(+cid, { name: p.name, pos: p.pos, apps: v[0], g: v[1], a: v[2] || 0, peak: p.peak, y: G.year });
   leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); delete G.players[p.id];
 }
 
