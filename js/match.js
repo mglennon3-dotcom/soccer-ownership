@@ -82,7 +82,8 @@ function pickXI(c, noForce, ctx) {
   // Tired players get rested: below 85% sharpness a player starts losing his place to a fresh deputy.
   // How readily his manager rotates: a big rotator rests players from about 94% sharpness, a creature of habit not until
   // about 80% (an AI club's coach is middling unless he has his own setting).
-  const rot = (isMine(c) ? rotOf(staffOf("manager")) : (c.coach && c.coach.rot) || 50) / 100;
+  // A pressing side runs its players hard, so its manager rotates more to keep legs fresh.
+  const rot = clamp((isMine(c) ? rotOf(staffOf("manager")) : (c.coach && c.coach.rot) || 50) / 100 + ({ press: .25, wing: .05 }[baseStyle(c)] || 0), 0, 1);
   const tired = p => Math.max(0, 80 + rot * 14 - (p.fit ?? 100)) * (.1 + rot * .5);
   // Your instruction from his player card: he starts the domestic cup games (or the European games) (when fit and registered), ahead of any
   // youth rotation or other pick: in his own position, or failing that in the same area of the team.
