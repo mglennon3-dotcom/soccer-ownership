@@ -49,6 +49,26 @@ function clubSit(c) {
   r = { m: clamp(now * w + last * (1 - w * .6) + (inEurope(c) ? .2 : 0), -1, 1), fight };
   SIT.m.set(c.id, r); return r;
 }
+/* How a player rates an AI club, on the same factors and with his own priorities as he rates yours, money aside (AI
+   clubs pay the going rate): playing time there, the manager's formation and style (his type against the style, how
+   he'd click with their eleven), the club's standing and how it's doing, and home. Returned against his threshold:
+   above 0 he's keen, below it he'd rather not. Used when AI clubs sign players and when their players re-sign. */
+function aiAppeal(p, c) {
+  const pr = prefsOf(p, P_FACTORS), form = (c.coach && c.coach.form) || "4-4-2", style = baseStyle(c), mo = clubSit(c).m;
+  const slots = (FORMS[form] || []).filter(s => s === p.pos).length;
+  let ahead = 0; for (const id of c.squad) { const q = P(id); if (q && q !== p && !q.acad && q.pos === p.pos && q.ovr > p.ovr) ahead++; }
+  const t = typeParts(c, p, style) || { st: 0, mates: .8 };
+  const from = p.club >= 0 && p.club !== c.id ? CL(p.club) : null, refRep = from ? from.rep : c.rep, half = p.half || (from ? from.half : null);
+  const f = {
+    money: .55, fac: .5,
+    time: ahead < Math.max(1, slots) ? 1 : ahead < slots + 1 ? .55 : ahead < slots + 2 ? .25 : .05,
+    form: clamp((slots >= 2 ? .85 : slots === 1 ? .6 : .1) + t.st * .15 + clamp((t.mates - .8) / 2.5, -1, 1) * .15, 0, 1),
+    prest: clamp(.5 + (c.rep - refRep) / 25 + mo * .12, 0, 1),
+    home: p.nat === "ENG" ? (homeOf(p) === c.region ? 1 : half && half === c.half ? .7 : .35) : .3 + pr.open * .5,
+    proj: clamp(.5 + mo * .4, 0, 1),
+  };
+  return sum(Object.entries(pr.pri), ([k, w]) => w * f[k]) - pr.thr;
+}
 const meddleF = () => clamp(1 - (G.meddle || 0) / 6, 0, 1);
 
 /* ---------- what drives a player ----------

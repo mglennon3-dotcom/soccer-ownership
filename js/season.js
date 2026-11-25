@@ -642,8 +642,9 @@ function aiSign(c, pos) {
   // At the salary cap (and not cooking the books) he can only add cheaper players.
   const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5 - (!c.cook && !c.abroad && aiBill(c) > salaryCap(c.tier) * .95 ? 5 : 0) - (c.emb ? 5 : 0));  // under an embargo: whoever will come for nothing
   let p = null;
-  // A struggling club finds it harder: some of the better players won't come.
-  const mo = clubSit(c).m, wont = q => mo < -.2 && q.ovr >= (c.lvl || 0) && R() < -mo * .5;
+  // Players choose too: one who rates the club below what he wants (playing time, the system, standing, how it's
+  // doing, home, on his own priorities) may turn it down, so a struggling club finds the better players harder to get.
+  const wont = q => { const a = aiAppeal(q, c); return a < 0 && R() < clamp(-a * 5, 0, .8); };
   const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33 && !wont(q));
   const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
   if (fas.length) p = fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0];
