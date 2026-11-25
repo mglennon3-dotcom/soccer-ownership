@@ -46,8 +46,9 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
   return wageAt(p.ovr, nt) * wageMult(p, c) * faDiscount(p) * (1 + .15 * drop) * (beyond > 0 ? 2 + (beyond - 1) * .5 + over * .1 : 1); }
 /* What a club asks for a player: the same rule whoever is buying, you or an AI club.
    - His value (valueOf: rating, age, potential, years left), plus 15%.
-   - A club lower down the pyramid can't hold out for as much: 100% in the Premier Division, then 90%, 75%, 60%, 45%,
-     35% and 30% in the Regional League. (Your own players are priced in full.)
+   - A club lower down the pyramid can't hold out for as much: 100% in the Premier Division, then 90%, 75% and 60%
+     through the Football League. Non-league money is small: 20% in the National Division, 7% in National North/South
+     and 2% in the Regional League, where most moves cost next to nothing. (Your own players are priced in full.)
    - 30% more for a first-choice player, and 20% more again for the club's best player.
    - 10% more with four or more years left on his deal.
    - 20% less once he's on the transfer list.
@@ -55,7 +56,7 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
    A player in his last year who won't re-sign is already cheaper through his value, and his club gives up the premiums.
    xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once. buyer: who's buying
    (you unless said otherwise; null for no one in particular). */
-const SELL_DIV = [0, 1, .9, .75, .6, .45, .35, .3];
+const SELL_DIV = [0, 1, .9, .75, .6, .2, .07, .02];
 const XI_SET = new Map();
 function xiSet(c, xi) {
   if (xi) return xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id));
