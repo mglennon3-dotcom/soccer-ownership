@@ -240,6 +240,7 @@ function endSeason() {
     top: Object.values(G.players).filter(p => p.club === G.club).sort((a, b) => b.s.g - a.s.g)[0]?.name || "" }); achSeason(G.history[0], mine);
   if (ownType().subs) { const subs = Math.round(mine.fans * .4 * ownType().subs / 100) * 100; if (subs > 0) { earn("equity", subs); news(`The trust's members renew their subscriptions: ${money(subs)} for the club.`); } }
   if (G.sTrust && G.sTrust.books) { trustRel(2); news(`The club publishes its accounts for ${seasonLabel(G.year - 1)}: income ${money(ledgerIncome(mine.finLast || mine.fin))}. The supporters' trust welcomes the openness.`); }
+  for (const p of mine.squad.map(P)) if (p && p.blocked) p.blocked = Math.max(0, p.blocked - 1);  // a blocked move fades with time
   investorsSummer({ up: wentUp, down: wentDown }); fanCultureSummer(mine, wentUp, wentDown); wageClauses(mine, wentUp, wentDown);
   endLoans();
   G.meddle = (G.meddle || 0) * .6;

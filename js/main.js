@@ -195,6 +195,8 @@ function upgradeSave() {
       const why = (m.body.match(/unhappy about (.*)\.$/) || [])[1], rest = why ? why.split(" and ").filter(w => w !== "ambition") : [];
       if (!rest.length) { G.inbox = G.inbox.filter(x => x !== m); p.req = 0; news(`${p.name} withdraws his transfer request.`, true); }
       else m.body = m.body.replace(/unhappy about .*\.$/, `unhappy about ${rest.join(" and ")}.`); } }
+  // 1.0.59: ...and the reason itself, not just the wording (it decides whether a new deal settles him).
+  if (!G.amb59 && G.club != null) { G.amb59 = true; if (my().tier === 1) for (const m of G.inbox.filter(m => m.key === "treq" && !m.done && m.data && Array.isArray(m.data.why))) m.data.why = m.data.why.filter(w => w !== "ambition"); }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
