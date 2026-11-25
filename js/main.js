@@ -648,6 +648,7 @@ const ACT = {
   },
 };
 const CHANGE = {
+  fctry: el => { SUB.fctry = el.value; render(); },
   fq: el => { SUB.fq = el.value; SUB.fmore = 40; render(); const x = document.querySelector('[data-act="fq"]'); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } },
   fhint: () => { const h = $("#f-hint"); if (h) h.innerHTML = startHint($("#f-region").value, $("#f-loc").value); },
   renewtick: el => { const p = P(+el.dataset.id); p.keep = el.checked; if (p.keep) { p.list = false; } news(p.keep ? `${p.name} will be offered a new contract when his runs out.` : `${p.name} is no longer marked to be kept.`); render(); saveGame(); },

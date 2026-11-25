@@ -116,9 +116,10 @@ function pgNet() {
 /* ---------- Competitions: league and cups ---------- */
 function pgComps() {
   const tab = SUB.comp || (G.phase === "summer" ? "pre" : "league"), mineCups = Object.keys(CUP_DEF).filter(k => CUP_DEF[k].tiers.includes(my().tier));
-  const tabs = `<div class="seg" style="margin-bottom:12px">${G.phase === "summer" ? `<button data-act="sub" data-k="comp" data-v="pre" aria-pressed="${tab === "pre"}">Pre-season</button>` : ""}<button data-act="sub" data-k="comp" data-v="league" aria-pressed="${tab === "league"}">League</button>${Object.keys(CUP_DEF).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CUP_DEF[k].name}${mineCups.includes(k) ? "" : " ·"}</button>`).join("")}${Object.keys(CONT).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CONT[k].name}</button>`).join("")}</div>`;
+  const tabs = `<div class="seg" style="margin-bottom:12px">${G.phase === "summer" ? `<button data-act="sub" data-k="comp" data-v="pre" aria-pressed="${tab === "pre"}">Pre-season</button>` : ""}<button data-act="sub" data-k="comp" data-v="league" aria-pressed="${tab === "league"}">League</button>${Object.keys(CUP_DEF).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CUP_DEF[k].name}${mineCups.includes(k) ? "" : " ·"}</button>`).join("")}${Object.keys(CONT).map(k => `<button data-act="sub" data-k="comp" data-v="${k}" aria-pressed="${tab === k}">${CONT[k].name}</button>`).join("")}${G.ftab ? `<button data-act="sub" data-k="comp" data-v="abroad" aria-pressed="${tab === "abroad"}">Leagues abroad</button>` : ""}</div>`;
   if (tab === "league") return tabs + pgLeagueInner();
   if (tab === "pre") return tabs + preseasonHTML();
+  if (tab === "abroad") return tabs + abroadHTML();
   if (CONT[tab]) return tabs + contHTML(tab);
   const K = (G.cups || {})[tab], D = CUP_DEF[tab]; if (!K) return tabs + `<p class="muted">Not started.</p>`;
   const rounds = [...new Set(K.log.map(x => x.r))];
@@ -319,6 +320,21 @@ function visionCard(v = vision(), start = false) {
 }
 
 /* ---------- pre-season friendlies ---------- */
+/* The leagues abroad: last season's final table for each country (who went into Europe marked), and its recent champions. */
+function abroadHTML() {
+  const F = G.ftab; if (!F) return `<p class="muted">The leagues abroad finish their first season next summer.</p>`;
+  const cc = new Set((((G.cont || {}).CC || {}).teams) || []), cs = new Set((((G.cont || {}).CS || {}).teams) || []), sel = SUB.fctry && F.t[SUB.fctry] ? SUB.fctry : Object.keys(F.t)[0];
+  const T = F.t[sel], champs = ((G.fchamps || {})[sel] || []).slice().reverse();
+  const counts = {}; for (const [, id] of (G.fchamps || {})[sel] || []) counts[id] = (counts[id] || 0) + 1;
+  return `<section class="card"><div class="card-h"><h3>${esc(COUNTRY[sel].name)}: ${seasonLabel(F.y)}</h3><span class="small muted">final table</span></div>
+    <label class="small" style="display:block;margin-bottom:8px">Country <select data-act="fctry">${Object.keys(F.t).map(k => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(COUNTRY[k].name)}</option>`).join("")}</select></label>
+    <div class="tbl-wrap"><table class="lg"><thead><tr><th></th><th style="text-align:left">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead><tbody>
+    ${T.map((r, i) => { const x = CL(r.id); return `<tr class="${cc.has(r.id) ? "z-cc" : cs.has(r.id) ? "z-cs" : ""}"><td class="num">${i + 1}</td><td style="text-align:left">${crest(x, 14)} ${clubLink(x)}</td><td class="num">${r.p}</td><td class="num">${r.w}</td><td class="num">${r.d}</td><td class="num">${r.l}</td><td class="num">${r.gf - r.ga > 0 ? "+" : ""}${r.gf - r.ga}</td><td class="num"><b>${r.pts}</b>${r.ded ? `<span class="small bad" title="Points deducted"> −${r.ded}</span>` : ""}</td></tr>`; }).join("")}
+    </tbody></table></div>
+    <p class="small muted" style="margin-top:6px"><span style="box-shadow:inset 3px 0 var(--zone-cc);padding-left:8px">${esc(CONT.CC.name)}</span> · <span style="box-shadow:inset 3px 0 var(--zone-cs);padding-left:8px">${esc(CONT.CS.name)}</span> this season</p>
+    ${(F.ev && F.ev[sel] || []).length ? `<div style="margin-top:8px">${F.ev[sel].map(([id, k, t]) => `<p class="small"><span class="${["money", "fix", "ban", "exodus"].includes(k) ? "bad" : "good"}">${{ money: "€", ban: "✕", rich: "★", fix: "⚠", exodus: "↓", gold: "↑", coach: "↑" }[k]}</span> <b>${esc(CL(id).name)}</b>: ${esc(t)}</p>`).join("")}</div>` : ""}
+    <p class="small muted" style="margin-top:4px"><b>Champions:</b> ${champs.slice(0, 8).map(([y, id]) => `${seasonLabel(y)} ${esc(CL(id).name)}`).join(" · ")}${Object.keys(counts).length ? ` · <b>most titles:</b> ${Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, n]) => `${esc(CL(+id).name)} ${n}`).join(", ")}` : ""}</p></section>`;
+}
 function preseasonHTML() {
   if (G.phase !== "summer") return `<p class="muted">Friendlies are arranged in pre-season.</p>`;
   const c = my(), F = G.friendlies || [], asked = new Set(G.fAsked || []), free = freeWeeks(), full = !free.length;
