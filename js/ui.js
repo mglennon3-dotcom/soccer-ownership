@@ -1107,14 +1107,30 @@ function clubHofCard(c) {
 }
 /* The hall of fame: great players who've retired (see hofWorthy), with every club they played
    for and what they did there. Yours (and your legends) stand out; sort by most recent, the best, or just your own. */
+// The hall's records: the top five in each, with your players marked.
+function hofRecords(H, mineOf) {
+  const top = (f, n = 5, ok = () => true) => H.filter(ok).slice().sort((a, b) => f(b) - f(a)).slice(0, n);
+  const who = h => `<span class="${mineOf(h) ? "good" : ""}">${esc(h.name)}</span> <span class="pos">${h.pos}</span>`;
+  const board = (title, list, val) => `<div><p class="small" style="margin:0 0 4px"><b>${title}</b></p>${list.map((h, i) => `<div class="row between small" style="gap:8px;padding:1px 0"><span>${i + 1}. ${who(h)}</span><span class="num">${val(h)}</span></div>`).join("")}</div>`;
+  const gpg = h => h.goals / Math.max(1, h.apps);
+  return `<details open style="margin-bottom:12px"><summary class="small"><b>Records</b> <span class="muted">(the top five in the hall${H.some(mineOf) ? "; yours in green" : ""})</span></summary>
+    <div class="grid2" style="gap:12px;margin-top:8px">
+      ${board("Most goals", top(h => h.goals), h => h.goals.toLocaleString("en-GB"))}
+      ${board("Most games", top(h => h.apps), h => h.apps.toLocaleString("en-GB"))}
+      ${board("Most assists", top(h => h.ast || 0, 5, h => h.ast != null), h => (h.ast || 0).toLocaleString("en-GB"))}
+      ${board("Highest peak", top(h => h.peak * 1000 + h.apps), h => r20(h.peak))}
+      ${board("Goals per game <span class=\"muted\">(100+ games)</span>", top(gpg, 5, h => h.apps >= 100), h => gpg(h).toFixed(2))}
+      ${board("Most clubs", top(h => (h.cs || h.clubs || []).length), h => (h.cs || h.clubs || []).length)}
+    </div></details>`;
+}
 let HOF_SORT = "recent";
 function hofCard() {
   const H = G.hof || [], me = my();
   const clubsOf = h => h.cs ? h.cs.map(([n, a, g, id]) => `<span class="${id === G.club ? "good" : ""}">${esc(n)}</span> <span class="muted">${a}${a ? ` · ${g} gl` : ""}</span>`)
     : (h.clubs || []).map(s => { const x = G.clubs.find(x => x.short === s && !x.abroad) || G.clubs.find(x => x.short === s); return `<span class="${x && x.id === G.club ? "good" : ""}">${esc(x ? x.name : s)}</span>`; });
   const mineOf = h => h.mine ?? (h.clubs || []).includes(me.short);
-  const L = H.map((h, i) => ({ h, i })).filter(({ h }) => HOF_SORT !== "ours" || mineOf(h)).sort((a, b) => HOF_SORT === "best" ? b.h.peak - a.h.peak || b.h.apps - a.h.apps : b.i - a.i).map(x => x.h);
-  const tabs = [["recent", "Most recent"], ["best", "Best"], ["ours", `Played for ${esc(me.short)}`]].map(([k, l]) => `<button data-act="hofsort" data-v="${k}" aria-pressed="${HOF_SORT === k}">${l}</button>`).join("");
+  const L = H.map((h, i) => ({ h, i })).filter(({ h }) => HOF_SORT !== "ours" || mineOf(h)).sort((a, b) => HOF_SORT === "best" ? b.h.peak - a.h.peak || b.h.apps - a.h.apps : HOF_SORT === "goals" ? b.h.goals - a.h.goals : HOF_SORT === "apps" ? b.h.apps - a.h.apps : HOF_SORT === "ast" ? (b.h.ast || 0) - (a.h.ast || 0) : b.i - a.i).map(x => x.h);
+  const tabs = [["recent", "Most recent"], ["best", "Best"], ["goals", "Most goals"], ["apps", "Most games"], ["ast", "Most assists"], ["ours", `Played for ${esc(me.short)}`]].map(([k, l]) => `<button data-act="hofsort" data-v="${k}" aria-pressed="${HOF_SORT === k}">${l}</button>`).join("");
   const row = h => `<div class="hof${mineOf(h) ? " ours" : ""}"><div class="row between" style="gap:10px;align-items:flex-start">
       <div style="min-width:0"><b>${esc(h.name)}</b> <span class="pos">${h.pos}</span>${h.leg ? ' <span class="chip rival r3">LEGEND</span>' : mineOf(h) ? ' <span class="chip acad">ONE OF OURS</span>' : ""}
         <div class="small muted">${esc(NAT_NAME[h.nat] || h.nat || "")} · retired ${seasonLabel(h.y)}${h.age ? ` at ${h.age}` : ""}</div></div>
@@ -1123,6 +1139,7 @@ function hofCard() {
     <div class="small hof-clubs">${clubsOf(h).join('<span class="muted"> → </span>')}</div></div>`;
   return `<section class="card"><div class="card-h"><h3>Hall of fame</h3><span class="small muted">${H.length} player${H.length === 1 ? "" : "s"}</span></div>
     <p class="small muted" style="margin-bottom:8px">Retired greats: a peak of 17 or more, or 500+ games with a peak of 15 or more. Your own legends are in the club hall of fame.</p>
+    ${H.length ? hofRecords(H, mineOf) : ""}
     ${H.length ? `<div class="chips" style="margin-bottom:10px">${tabs}</div>${L.length ? L.slice(0, 25).map(row).join("") + (L.length > 25 ? `<details><summary class="small">${Math.min(75, L.length - 25)} more${L.length > 100 ? ` (of ${L.length - 25})` : ""}</summary>${L.slice(25, 100).map(row).join("")}</details>` : "") : `<p class="muted small">None of them played for you.</p>`}`
       : "<p class='muted small'>Great players who retire are remembered here.</p>"}</section>`;
 }
