@@ -475,11 +475,11 @@ const newBounce = (c, afterGames) => { c.bounce = 4; if (afterGames) c.bounceW =
    players, and takes the edge off the others). */
 const CRISES = ["a dressing-room revolt", "a rebuild that isn't working", "chaos in the boardroom", "a manager who has lost the players", "an injury-ravaged squad", "a cursed season: nothing goes right"];
 function clubSeasonForm(c) {
-  let sf = (c.sf || 0) * .35 + normal() * 1.2;
+  let sf = (c.sf || 0) * .35 + normal() * 1.5;
   if (c.crisis && c.crisis.left > 0) { sf += c.crisis.v; c.crisis.left--; if (!c.crisis.left) delete c.crisis; }
-  else if (R() < .06) { c.crisis = { v: -rf(3, 5), left: ri(0, 2), why: pick(CRISES), y: G.year }; sf += c.crisis.v; if (!c.crisis.left) c.crisis.last = true; }
+  else if (R() < .06) { c.crisis = { v: -rf(5, 8), left: ri(0, 2), why: pick(CRISES), y: G.year }; sf += c.crisis.v; if (!c.crisis.left) c.crisis.last = true; }
   else if (R() < .04) { sf += rf(2, 3); c.surge = G.year; }
-  c.sf = Math.round(clamp(sf, -6, 4) * 10) / 10; return c.crisis || null;
+  c.sf = Math.round(clamp(sf, -9, 4) * 10) / 10; return c.crisis || null;
 }
 const clubBoost = c => (c.bounce > 0 ? 1.5 * (c.bounceS || 1) : 0) + (c.sf || 0);
 const inEurope = c => Object.values(G.cont || {}).some(K => (K.teams || []).includes(c.id));

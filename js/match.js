@@ -178,10 +178,10 @@ function archChem(xi, style) {
   const n = {}, A = xi.map(o => ({ ...o, a: archetypeOf(o.p) })); for (const o of A) if (o.a) n[o.a[3]] = (n[o.a[3]] || 0) + 1;
   const has = (...k) => k.reduce((s, x) => s + (n[x] || 0), 0);
   let atk = 0, def = 0; const good = [], bad = [], seen = new Set(), seg = {};
-  for (const o of A) seg[o.p.id] = { tl: 0, tr: 0, st: 0, why: [] };
+  for (const o of A) seg[o.p.id] = { tl: 0, tr: 0, br: 0, st: 0, mid: ringLine(o.slot) === "mid", why: [] };
   const add = (ok, a, d, t) => { if (seen.has(t)) return; seen.add(t); atk += a; def += d; (ok ? good : bad).push(t); };
   const mark = (o, other, v, t) => { const L = ringLine(o.slot), OL = ringLine(other.slot), s = seg[o.p.id];
-    const k = OL === "mid" && L !== "mid" ? "tr" : L === "mid" ? (OL === "mid" ? "tr" : "tl") : "tl"; s[k] += Math.sign(v); s.why.push([v > 0, t]); };
+    const k = L === "mid" ? { att: "tl", mid: "tr", def: "br" }[OL] : OL === "mid" ? "tr" : "tl"; s[k] += Math.sign(v); s.why.push([v > 0, t]); };
   // pairs
   for (let x = 0; x < A.length; x++) for (let y = x + 1; y < A.length; y++) { const p = A[x], q = A[y]; if (!p.a || !q.a) continue;
     for (const r of CHEM_IX[p.a[3] + "|" + q.a[3]] || []) { if (r[5] && !r[5](n)) continue; const v = r[2] + r[3];

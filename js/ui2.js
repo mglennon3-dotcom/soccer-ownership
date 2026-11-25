@@ -470,7 +470,8 @@ function chemRing(s) {
   if (!s) return "";
   const arc = (a0, a1) => { const r = 22, p = a => [Math.cos(a * Math.PI / 180) * r, Math.sin(a * Math.PI / 180) * r].map(v => v.toFixed(2)).join(" ");
     return `M ${p(a0)} A ${r} ${r} 0 0 1 ${p(a1)}`; };
-  return `<svg class="ring" viewBox="-26 -26 52 52" aria-hidden="true"><path d="${arc(155, 265)}" stroke="${CHEM_COL(s.tl)}"/><path d="${arc(275, 385)}" stroke="${CHEM_COL(s.tr)}"/><path d="${arc(35, 145)}" stroke="${CHEM_COL(s.st)}"/></svg>`;
+  const P = s.mid ? [[185, 265, s.tl], [275, 355, s.tr], [5, 85, s.br], [95, 175, s.st]] : [[155, 265, s.tl], [275, 385, s.tr], [35, 145, s.st]];
+  return `<svg class="ring" viewBox="-26 -26 52 52" aria-hidden="true">${P.map(([a, b, v]) => `<path d="${arc(a, b)}" stroke="${CHEM_COL(v)}"/>`).join("")}</svg>`;
 }
 function tacticsShape() {
   const c = my(), M = mgr(), hired = !!staffOf("manager"), form = M.form || "4-4-2", xi = pickXI(c), st = STYLES[M.phil], fit = styleFit(xi, M.phil);
@@ -496,7 +497,7 @@ function tacticsShape() {
       <div class="pitch" style="--club:${c.color};max-width:420px;margin:0 auto">${PITCH_LINES}${slots}</div>
       ${missing > 0 ? `<p class="small bad" style="margin-top:8px">${missing} place${missing > 1 ? "s" : ""} empty: not enough fit players.</p>` : ""}
       <p class="small muted" style="margin-top:8px">The number is each player's rating in that position (out of 20). A dashed ring means he's playing out of position. Tap a player for his card.</p>
-      <p class="small muted" style="margin-top:4px"><b>The coloured ring</b> shows how each player fits: top left with the attackers (a defender's with the other defenders), top right with the midfielders, bottom with the playing style. <span style="color:${CHEM_COL(1)}">●</span> clicks · <span style="color:${CHEM_COL(0)}">●</span> fine · <span style="color:${CHEM_COL(-1)}">●</span> clashes.</p></section>
+      <p class="small muted" style="margin-top:4px"><b>The coloured ring</b> shows how each player fits: top left with the attackers (a defender's with the other defenders), top right with the midfielders, bottom with the playing style. A central or defensive midfielder's has four parts: attackers top left, midfielders top right, defenders bottom right, the playing style bottom left. <span style="color:${CHEM_COL(1)}">●</span> clicks · <span style="color:${CHEM_COL(0)}">●</span> fine · <span style="color:${CHEM_COL(-1)}">●</span> clashes.</p></section>
     <section class="card"><div class="card-h"><h3>Substitutes</h3></div>${bench.length ? bench.map(p => `<div class="row between small" style="padding:2px 0"><span><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button></span><span>${fitTxt(p)} ${rating(p.ovr)}</span></div>`).join("") : "<p class='small muted'>Nobody else is fit.</p>"}
       ${out2.length ? `<h3 style="margin:12px 0 6px">Unavailable or unsettled</h3>${out2.map(p => `<p class="small">${esc(p.name)} (${p.pos}): ${p.inj ? `injured, ${p.inj} week${p.inj > 1 ? "s" : ""}` : "unsettled, playing below his best"}</p>`).join("")}` : ""}</section>
   </div><div class="stack">
