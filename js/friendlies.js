@@ -100,6 +100,7 @@ function unhappiness(p, c) {
   // He agreed his wage: no complaint about it until he's played a season on it.
   if ((p.wage < wageAt(p.ovr, my().tier) * .6 && settledPay(p)) || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
   if (p.blocked) { s += p.blocked * 1.2; why.push("a blocked move"); }
+  if (p.mgrGrief && G.year * 100 + G.week - p.mgrGrief.t < 24 && !(p.cb && p.cb.v >= .4)) { s += 1 + p.mgrGrief.v * 2; why.push(p.mgrGrief.to != null ? "wanting to follow his old manager" : "the manager leaving"); }
   if (p.nfs && nfsGrudge(p, c)) { s += 1; why.push("being made not for sale"); }
   // The manager's system: no place for his position, or a style that doesn't suit him, matters to those who care.
   const pr = prefsOf(p, P_FACTORS), fit = systemFit(p), cares = 1 + (pr.pri.form + pr.pri.time) * 3;
@@ -185,6 +186,7 @@ function bigClubFor(x, c = my()) {
 }
 function keepTerms(p, why) {
   const c = my(), T = [], keepWage = Math.round(Math.max(p.wage * 1.1, renewTerms(p).min || demandWage(p, c)) / 100) * 100;
+  if (why.some(w => /manager/.test(w))) T.push({ k: "pay", l: `A new contract at ${pw(keepWage)}`, d: "and a promise the new manager will build around him" });
   if (why.includes("wages") || why.includes("a blocked move")) T.push({ k: "pay", l: `A new contract at ${pw(keepWage)}`, d: `what he thinks he's worth, less than his agent's ${pw(newDealWage(p))}` });
   if (why.includes("a blocked move")) T.push({ k: "promise", l: "A promise he can go if a big club bids next summer", d: "a club bigger than us: a Champions Cup side, a bigger name than ours, or one of the top four abroad; break it and he won't forgive you" });
   if (why.includes("playing time")) T.push({ k: "start", l: "A guaranteed place in the side", d: "he starts whenever he's fit (\"Insist he starts\")" });
@@ -211,7 +213,7 @@ DECIDE.treq = (m, i) => {
   if (i === 0) { p.list = true; news(`${p.name} is transfer-listed at his own request.`); return; }
   if (i === 1) {
     // Money and blocked moves are fixed by a better contract; playing time and ambition only sometimes.
-    const fixable = m.data.why.every(w => w === "wages" || w === "a blocked move") || R() < .4;
+    const fixable = m.data.why.every(w => w === "wages" || w === "a blocked move") || (m.data.why.some(w => /manager/.test(w)) && R() < .65) || R() < .4;
     newDeal(p);
     if (fixable) { p.req = 0; news(`${p.name} withdraws his transfer request.`); }
     else { p.list = true; news(`${p.name} takes the new contract but still wants to leave. He's on the transfer list.`, true); }
