@@ -1083,7 +1083,7 @@ function pgHist() {
     seasons: () => `<section class="card"><div class="card-h"><h2>Seasons</h2></div>${G.history.length ? `<div class="tbl-wrap"><table class="histtbl"><thead><tr><th>Season</th><th style="text-align:left">Division</th><th>Pos</th><th>Pts</th><th>Crowd</th><th>Season tickets</th><th>Income</th><th>Costs</th><th style="text-align:left">Manager</th></tr></thead><tbody>
     ${G.history.map(h => `<tr><td>${seasonLabel(h.y)}</td><td style="text-align:left">${G.career && G.career.length ? `<b>${esc(h.club || "")}</b> · ` : ""}${LEAGUES[h.lg].name}</td><td class="num">${ord(h.pos)}${h.up ? ' <span class="good">▲</span>' : h.down ? ' <span class="bad">▼</span>' : ""}</td><td class="num">${h.pts}</td><td class="num">${h.att.toLocaleString("en-GB")}</td><td class="num">${h.st != null ? `${h.st.toLocaleString("en-GB")}${h.stp ? `<br><span class="small muted">at ${money(h.stp)}</span>` : ""}` : "—"}</td><td class="num">${money(h.inc)}</td><td class="num">${money(h.cost)}</td><td style="text-align:left" class="small">${esc(h.mgr)}</td></tr>${(h.cups || []).length || (h.obj || []).length ? `<tr class="hist-sub"><td colspan="9"><div class="small">${(h.cups || []).length ? `<span class="muted">Cups:</span> ${h.cups.map(esc).join(" · ")}` : ""}${(h.cups || []).length && (h.obj || []).length ? "<br>" : ""}${(h.obj || []).length ? `<span class="muted">Targets:</span> ${h.obj.map(esc).join(" · ")}` : ""}</div></td></tr>` : ""}`).join("")}</tbody></table></div>` : "<p class='muted'>Your first season is under way.</p>"}</section>`,
     honours: () => `<section class="card"><div class="card-h"><h3>Honours</h3></div>${c.trophies.length ? c.trophies.map(t => `<p>🏆 ${t[0]} ${esc(t[1])}</p>`).join("") : "<p class='muted'>None yet.</p>"}</section>`,
-    clubhof: () => clubHofCard(c),
+    clubhof: () => clubRecordsHTML(c) + clubHofCard(c),
     hof: () => hofCard(),
     save: () => `<section class="card"><div class="card-h"><h3>Save</h3></div><div class="row"><button class="btn sm" data-act="export">Export save file</button><label class="btn sm">Import<input type="file" id="imp" accept=".json" hidden></label><button class="btn sm" data-act="quit">Back to start</button></div></section>`,
   };
@@ -1092,6 +1092,32 @@ function pgHist() {
 
 /* The club hall of fame: your legends, those still playing first (with their affection), then those gone, with what
    they did for you, their peak, when and how they went, and whether they made the hall of fame proper too. */
+/* The club's records: everyone who has played for the club (today's players, those who've moved on, and those who've
+   retired, from the club's own record book, the hall of fame and the legends list), ranked by what they did HERE. */
+function clubRecords(c) {
+  const byName = new Map(), add = o => { const k = o.name; const was = byName.get(k); if (!was || o.apps > was.apps) byName.set(k, { ...was, ...o }); };
+  for (const p of Object.values(G.players)) { const v = p.cs && p.cs[c.id]; if (!v || !v[0]) continue; add({ name: p.name, pos: p.pos, apps: v[0], g: v[1], a: v[2] || 0, peak: p.peak, now: p.club === c.id, id: p.id }); }
+  for (const r of (G.alum || {})[c.id] || []) add({ name: r.name, pos: r.pos, apps: r.apps, g: r.g, a: r.a, peak: r.peak, gone: true });
+  for (const l of c.legends || []) if (l.here) add({ name: l.name, pos: l.pos, apps: l.here[0], g: l.here[1], a: l.here[2] || 0, peak: l.peak, gone: true });
+  for (const h of G.hof || []) for (const [, a, g, id] of h.cs || []) if (id === c.id && a) add({ name: h.name, pos: h.pos, apps: a, g, a: byName.get(h.name)?.a ?? null, peak: h.peak, gone: true });
+  return [...byName.values()];
+}
+function clubRecordsHTML(c) {
+  const R = clubRecords(c); if (!R.length) return "";
+  const top = (f, n = 5, ok = () => true) => R.filter(ok).slice().sort((a, b) => f(b) - f(a)).slice(0, n);
+  const who = o => `${o.id != null ? `<button class="lnk" data-act="player" data-id="${o.id}">${esc(o.name)}</button>` : esc(o.name)} <span class="pos">${o.pos}</span>${o.now ? ' <span class="small good">now</span>' : ""}`;
+  const board = (title, list, val) => list.length ? `<div><p class="small" style="margin:0 0 4px"><b>${title}</b></p>${list.map((o, i) => `<div class="row between small" style="gap:8px;padding:1px 0"><span>${i + 1}. ${who(o)}</span><span class="num">${val(o)}</span></div>`).join("")}</div>` : "";
+  const gpg = o => o.g / Math.max(1, o.apps);
+  return `<section class="card"><div class="card-h"><h3>Club records</h3><span class="small muted">${R.length} players for ${esc(c.short)}</span></div>
+    <p class="small muted" style="margin-bottom:8px">What players did for ${esc(c.name)} (all competitions), the top five in each. "now" means he's still in the squad.</p>
+    <div class="grid2" style="gap:12px">
+      ${board("Most games", top(o => o.apps), o => o.apps.toLocaleString("en-GB"))}
+      ${board("Most goals", top(o => o.g), o => o.g.toLocaleString("en-GB"))}
+      ${board("Most assists", top(o => o.a || 0, 5, o => o.a != null), o => (o.a || 0).toLocaleString("en-GB"))}
+      ${board("Goals per game <span class=\"muted\">(50+ games)</span>", top(gpg, 5, o => o.apps >= 50), o => gpg(o).toFixed(2))}
+      ${board("Highest peak <span class=\"muted\">(20+ games)</span>", top(o => (o.peak || 0) * 1000 + o.apps, 5, o => o.apps >= 20 && o.peak != null), o => r20(o.peak))}
+    </div></section>`;
+}
 function clubHofCard(c) {
   const now = c.squad.map(P).filter(p => favLevel(p, c.id) === 2), past = (c.legends || []).slice().reverse(), inHof = n => (G.hof || []).some(h => h.name === n);
   const card = (o) => `<div class="hof ours"><div class="row between" style="gap:10px;align-items:flex-start">
