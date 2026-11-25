@@ -653,7 +653,7 @@ function aiSign(c, pos) {
     // At home they buy from their own division, the one above (only a player who isn't first choice there) and the two below; a seller keeps
     // at least 20 players.
     const lower = G.clubs.filter(x => !isMine(x) && x !== c && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier >= c.tier - 1 && x.tier <= c.tier + 2 && x.squad.length >= 20));
-    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && (x.abroad || x.tier >= c.tier || !xiSet(x).has(q.id) && q.ovr <= (c.lvl || 0) + 2) && q.ovr >= (c.lvl || 0) - (c.tier === 1 ? 0 : 2) && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
+    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && (x.abroad || x.tier >= c.tier || !xiSet(x).has(q.id) && q.ovr <= (c.lvl || 0) + 2) && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     const afford = pool.filter(q => canAfford(c, aiFee(q, c)) && !wont(q));
     if (afford.length) p = afford.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1])[0][0];
   }
