@@ -122,10 +122,11 @@ function foreignSeason() {
   const byPos = (cs, c) => cs.slice().sort((a, b) => (b.stand ?? b.lvl) - (a.stand ?? a.lvl)).indexOf(c);
   for (const [code, cs] of Object.entries(byC)) {
     const rows = Object.fromEntries(cs.map(c => [c.id, { id: c.id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }]));
-    const form = Object.fromEntries(cs.map(c => [c.id, c.lvl + normal() * 1.5]));  // a season's form: a good or bad year
+    const form = Object.fromEntries(cs.map(c => { const cr = seasonForm(c); return [c.id, c.lvl + normal() * .8 + c.sf * 1.6]; }));  // a season's form: a good or bad year (crises too)
     // The season's stories: money trouble and points deductions, rich takeovers, match-fixing, a star exodus, a golden
     // generation, an inspired manager.
     const ev = (G.ftab.ev[code] = []), ded = {};
+    for (const c of cs) if (c.crisis && c.crisis.y === G.year) ev.push([c.id, "exodus", `in crisis: ${c.crisis.why}`]);
     for (const c of cs) { const r = R(), big = byPos(cs, c) < 3;
       if (r < .05) { const d = ri(6, 15); ded[c.id] = (ded[c.id] || 0) + d; c.stand = (c.stand ?? 0) - 2; form[c.id] -= 1.5; ev.push([c.id, "money", `${d}-point deduction: unpaid wages and debts`]); if (R() < .35) { c.euroBan = G.year + 1; ev.push([c.id, "ban", "banned from Europe next season over its finances"]); } }
       else if (r < .08) { c.stand = (c.stand ?? 0) + ri(3, 6); c.lvl = Math.min(95, c.lvl + 2); form[c.id] += 2; ev.push([c.id, "rich", "taken over by a billionaire: spending big"]); }
