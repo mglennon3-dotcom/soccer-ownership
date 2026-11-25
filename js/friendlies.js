@@ -174,10 +174,19 @@ function requestsCheck() {
 }
 /* Asking a player what it would take to keep him: he names his terms, one for each thing he's unhappy about, and you
    pick one (or let him go, or refuse him). Each term settles him if it answers what's really bothering him. */
+// A club bigger than yours, for a player's "let me go if a big club comes in": a bigger name than you, a Champions Cup
+// side, or one of the top four (by standing) in its own country abroad.
+function bigClubFor(x, c = my()) {
+  if (!x || x.id === c.id) return false;
+  if ((x.rep || 0) > (c.rep || 0)) return true;
+  if ((((G.cont || {}).CC || {}).teams || []).includes(x.id)) return true;
+  if (x.abroad) { const same = G.clubs.filter(y => y.abroad && y.country === x.country && (G.foreign || []).includes(y.id)).sort((a, b) => (b.rep || 0) - (a.rep || 0)); return same.indexOf(x) >= 0 && same.indexOf(x) < 4; }
+  return false;
+}
 function keepTerms(p, why) {
   const c = my(), T = [], keepWage = Math.round(Math.max(p.wage * 1.1, renewTerms(p).min || demandWage(p, c)) / 100) * 100;
   if (why.includes("wages") || why.includes("a blocked move")) T.push({ k: "pay", l: `A new contract at ${pw(keepWage)}`, d: `what he thinks he's worth, less than his agent's ${pw(newDealWage(p))}` });
-  if (why.includes("a blocked move")) T.push({ k: "promise", l: "A promise he can go if a big club bids next summer", d: "a club in the top division or abroad; break it and he won't forgive you" });
+  if (why.includes("a blocked move")) T.push({ k: "promise", l: "A promise he can go if a big club bids next summer", d: "a club bigger than us: a Champions Cup side, a bigger name than ours, or one of the top four abroad; break it and he won't forgive you" });
   if (why.includes("playing time")) T.push({ k: "start", l: "A guaranteed place in the side", d: "he starts whenever he's fit (\"Insist he starts\")" });
   if (why.includes("being made not for sale")) T.push({ k: "nfs", l: "Take him off \"not for sale\"", d: "clubs can bid for him again" });
   if (why.some(w => /trophies|ambition/.test(w))) T.push({ k: "ambition", l: c.tier === 1 ? "A promise of a title challenge and Europe" : "A promise of promotion", d: "he'll judge you on it at the end of the season" });
