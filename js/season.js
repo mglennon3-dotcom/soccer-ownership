@@ -619,13 +619,14 @@ function aiSign(c, pos) {
   const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5 - (!c.cook && !c.abroad && aiBill(c) > salaryCap(c.tier) * .95 ? 5 : 0) - (c.emb ? 5 : 0));  // under an embargo: whoever will come for nothing
   let p = null;
   const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33);
-  if (fas.length) p = fas.sort((a, b) => b.ovr - a.ovr)[0];
+  const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
+  if (fas.length) p = fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0];
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     // The four professional divisions also shop abroad, from clubs no bigger than they are: imports cost a fee that leaves the country.
     const lower = G.clubs.filter(x => !isMine(x) && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier > c.tier && x.tier <= c.tier + 2));
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     const afford = pool.filter(q => canAfford(c, aiFee(q)));
-    if (afford.length) p = pick(afford);
+    if (afford.length) p = afford.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1])[0][0];
   }
   // Nobody affordable at another club: someone from outside the game (abroad, or below the pyramid) on a free.
   // In the professional divisions that player still costs a fee when the club can pay one (it leaves the game).

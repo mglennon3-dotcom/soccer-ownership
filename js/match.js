@@ -209,6 +209,42 @@ function archChem(xi, style) {
   if (!has(...SCORERS)) add(-.8, 0, "No natural goalscorer in the side");
   return { atk: clamp(atk, -2.5, 2.5), def: clamp(def, -2.5, 2.5), good, bad, seg };
 }
+/* Formations suit some styles and not others: +1 suits, -1 doesn't. A side in a formation that suits its style scores a
+   little more and concedes a little less. */
+const FORM_STYLE = {
+  "4-4-2": { possession: -1, press: 0, counter: 1, direct: 1, defensive: 1, wing: 1 },
+  "4-3-3": { possession: 1, press: 1, counter: 0, direct: -1, defensive: -1, wing: 1 },
+  "4-2-3-1": { possession: 1, press: 0, counter: 1, direct: -1, defensive: 0, wing: 0 },
+  "3-5-2": { possession: 1, press: 0, counter: 0, direct: 1, defensive: 0, wing: -1 },
+  "3-4-3": { possession: 0, press: 1, counter: -1, direct: 0, defensive: -1, wing: 1 },
+  "5-3-2": { possession: -1, press: -1, counter: 1, direct: 1, defensive: 1, wing: -1 },
+};
+const formStyle = (f, s) => (FORM_STYLE[f] || {})[s] || 0;
+// How hard each style runs its players: pressing wears them out over a season, sitting deep spares them.
+const STYLE_TIRE = { press: 1.25, wing: 1.05, direct: 1, possession: .95, counter: .95, defensive: .9 };
+/* How well a player would fit into a side: his type's pairings with the eleven (the lines he'd work with) and with the
+   style. Roughly -4 to +4. Used by AI clubs and your head of recruitment when choosing between signings. */
+const TF_XI = new Map();
+function typeFit(c, p, style) {
+  const a = archetypeOf(p); if (!a) return 0; const k = a[3], key = `${G.year}:${G.phase}:${G.week}`;
+  let e = TF_XI.get(c.id); if (!e || e.k !== key) { e = { k: key, xi: pickXI(c, true).map(o => ({ slot: o.slot, id: o.p.id, a: archetypeOf(o.p) })) }; TF_XI.set(c.id, e); if (TF_XI.size > 400) TF_XI.clear(); }
+  let s = ((CHEM_STYLE[k] || {})[style] || 0) * .8; const L = SLOT_LINE[p.pos];
+  for (const q of e.xi) { if (q.id === p.id || !q.a || q.slot === p.pos && e.xi.filter(x => x.slot === p.pos).length < 2) continue; const v = CHEM_PAIR[k + "|" + q.a[3]]; if (!v) continue;
+    const QL = SLOT_LINE[q.slot]; if (Math.abs(L - QL) > 1 && !(Math.min(L, QL) === 0 && Math.max(L, QL) === 2)) continue; s += v * pairW(p.pos, q.slot) * 2; }
+  return clamp(s, -4, 4);
+}
+/* An AI manager each summer: if his squad suits another style clearly better than his own, a good tactician is likely to
+   change to it (a poor one sticks with what he knows), and he picks a formation that suits the style. */
+function aiStyleCheck(c) {
+  if (isMine(c) || !c.coach || !c.squad || c.squad.length < 14) return;
+  const xi = pickXI(c, true), t = clamp(to20(c.coach.tac || 50), 1, 20);
+  const sc = s => styleFit(xi, s) + .12 * xi.reduce((a, o) => { const k = archetypeOf(o.p); return a + (k ? (CHEM_STYLE[k[3]] || {})[s] || 0 : 0); }, 0);
+  const cur = c.coach.style, best = Object.keys(STYLES).sort((a, b) => sc(b) - sc(a))[0];
+  if (best !== cur && sc(best) - sc(cur) > .35 && R() < t / 20) { c.coach.style = best; G._styleSw = (G._styleSw || 0) + 1;
+    if (c.lg === my().lg) news(`${c.coach.name} changes ${c.name}'s style to ${STYLES[best].l.toLowerCase()}: it suits his squad better.`); }
+  if (formStyle(c.coach.form, c.coach.style) < 0 || (formStyle(c.coach.form, c.coach.style) === 0 && R() < t / 40)) {
+    const fs = Object.keys(FORM_STYLE).filter(f => formStyle(f, c.coach.style) > 0); if (fs.length && R() < .3 + t / 30) c.coach.form = pick(fs); }
+}
 /* ---------- styles against each other ----------
    +1: the first style has the edge over the second; -1 the second does; "q": the players decide it (whichever side suits
    its own style better). The side with the edge scores more and concedes less; a squad built for its style makes more of
@@ -245,7 +281,7 @@ function matchPlan(c, opp, xi) {
 }
 function teamPower(c, xi) {
   let a = 0, m = 0, d = 0, wa = 0, wm = 0, wd = 0;
-  for (const { p, slot } of xi) { const r = roleRating(p, slot) - (p.unsettled > 0 ? 3 : 0), w = SLOT_W[slot]; a += r * w[0]; m += r * w[1]; d += r * w[2]; wa += w[0]; wm += w[1]; wd += w[2]; }
+  for (const { p, slot } of xi) { const r = roleRating(p, slot) - (p.unsettled > 0 ? 3 : 0) - Math.max(0, 85 - (p.fit ?? 100)) * .08, w = SLOT_W[slot]; a += r * w[0]; m += r * w[1]; d += r * w[2]; wa += w[0]; wm += w[1]; wd += w[2]; }
   const missing = 11 - xi.length;  // a side short of players is badly weakened
   const A = a / (wa || 1), M = m / (wm || 1), D = d / (wd || 1);
   const morale = ((isMine(c) ? c.morale : 55) - 55) / 15;  // about +-3
@@ -294,6 +330,8 @@ function playMatch(h, a, neutral, fr, kind) {
     if (e > 0) { la *= 1 - .05 * amp(fh); } else if (e < 0) { lh *= 1 - .05 * amp(fa); }
     const tp = TEMPO[[plH.st, plA.st].sort().join("|")] || 1;
     MATCH_EDGE = { e, tp, plH, plA };
+    const fH = formStyle(clubForm(H), plH.st), fA = formStyle(clubForm(A), plA.st);
+    lh *= (1 + .04 * fH) * (1 - .03 * fA); la *= (1 + .04 * fA) * (1 - .03 * fH);
     lh *= tp * (1 - plH.cost) * (e > 0 ? 1 + .08 * amp(fh) : 1); la *= tp * (1 - plA.cost) * (e < 0 ? 1 + .08 * amp(fa) : 1); }
   la *= sa.for * (1 + .08 * fa) * sh.against * (1 - .06 * fh);
   // Bad weather: fewer goals, and passing football suffers most.
@@ -337,7 +375,7 @@ function playMatch(h, a, neutral, fr, kind) {
   for (const [c, xi] of [[H, xh], [A, xa]]) {
     const { off, on: subs } = subsFor(c, xi);
     const offAt = [...off].map(() => ri(55, 80)).sort((a, b) => a - b), offMin = new Map([...off].map((id, i) => [id, offAt[i]]));
-    const ragged = pz === PSIZE.wide && clubStyle(c) === "press" ? 1.25 : 1;
+    const ragged = (pz === PSIZE.wide && clubStyle(c) === "press" ? 1.25 : 1) * (STYLE_TIRE[clubStyle(c)] || 1);
     for (const { p } of xi) { tire(p, (off.has(p.id) ? .7 : 1) * ragged, fr); if (fr) { if (R() < .5) injuryCheck(p, pq); continue; } if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.min = (p.s.min || 0) + (offMin.get(p.id) || 90); injuryCheck(p, pq); }
     for (const [i, p] of subs.entries()) { tire(p, .35, fr); if (fr) continue; p.s.min = (p.s.min || 0) + 90 - (offAt[i] || 70); if (!p.tot[0] && !p.s.app) p.debut = G.year; addStat(p, 0); p.s.sub = (p.s.sub || 0) + 1; if (p.club >= 0) { const b = scOf(p).by[p.club]; b[3] = (b[3] || 0) + 1; } if (R() < .4) injuryCheck(p, pq); }
   }

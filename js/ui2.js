@@ -504,7 +504,7 @@ function tacticsShape() {
     <section class="card"><div class="card-h"><h2>How we play</h2></div>
       <p class="lead"><b>${st.l}.</b> ${esc(st.d)}</p>
       <p class="small" style="margin:6px 0">${esc(focusTxt || "")}</p>
-      <dl class="ledger"><dt>Formation</dt><dd>${form}</dd><dt>Squad suits the style</dt><dd>${fitText(fit)}</dd>${hired ? `<dt>Tactics</dt><dd>${sr20(M.at.tac)}/20</dd><dt>Motivation</dt><dd>${sr20(M.at.mot)}/20</dd>` : ""}<dt>Team morale</dt><dd>${Math.round(c.morale)}</dd></dl>
+      <dl class="ledger"><dt>Formation</dt><dd>${form} ${formStyle(form, M.phil) > 0 ? '<span class="good small">suits the style</span>' : formStyle(form, M.phil) < 0 ? '<span class="bad small">doesn\'t suit the style</span>' : ""}</dd><dt>Squad suits the style</dt><dd>${fitText(fit)}</dd>${hired ? `<dt>Tactics</dt><dd>${sr20(M.at.tac)}/20</dd><dt>Motivation</dt><dd>${sr20(M.at.mot)}/20</dd>` : ""}<dt>Team morale</dt><dd>${Math.round(c.morale)}</dd></dl>
       <h3 style="margin:14px 0 6px">What the style needs</h3><div class="stack" style="gap:6px">${keyRows}</div></section>
     ${(() => { const ch = CH, sg = v => v > 0 ? `<span class="good">+${v.toFixed(1)}</span>` : v < 0 ? `<span class="bad">${v.toFixed(1)}</span>` : "level";
       return `<section class="card"><div class="card-h"><h3>How the side fits together</h3><span class="small muted">attack ${sg(ch.atk)} · defence ${sg(ch.def)}</span></div>

@@ -284,7 +284,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15 && failGate("adm")) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
-    { const was = c.crisis && c.crisis.y < G.year, cr = clubSeasonForm(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
+    { const was = c.crisis && c.crisis.y < G.year, cr = clubSeasonForm(c); aiStyleCheck(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
     if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); } }
     c.lvl = clubStandard(c);
   }
