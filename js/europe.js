@@ -122,7 +122,7 @@ function foreignSeason() {
   const byPos = (cs, c) => cs.slice().sort((a, b) => (b.stand ?? b.lvl) - (a.stand ?? a.lvl)).indexOf(c);
   for (const [code, cs] of Object.entries(byC)) {
     const rows = Object.fromEntries(cs.map(c => [c.id, { id: c.id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }]));
-    const form = Object.fromEntries(cs.map(c => { const cr = seasonForm(c); return [c.id, c.lvl + normal() * .8 + c.sf * 1.6]; }));  // a season's form: a good or bad year (crises too)
+    const form = Object.fromEntries(cs.map(c => { const cr = clubSeasonForm(c); return [c.id, c.lvl + normal() * .8 + c.sf * 1.6]; }));  // a season's form: a good or bad year (crises too)
     // The season's stories: money trouble and points deductions, rich takeovers, match-fixing, a star exodus, a golden
     // generation, an inspired manager.
     const ev = (G.ftab.ev[code] = []), ded = {};

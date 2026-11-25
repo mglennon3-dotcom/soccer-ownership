@@ -27,6 +27,10 @@ function startSeason() {
   for (const k of LG_KEYS) G.leagues[k].pend = [];
   for (const id of G.foreign || []) CL(id).gp = 0;
   startCups(); startContinental();
+  if (G.club != null) { const c = my(), cr = clubSeasonForm(c);
+    if (cr && cr.y === G.year) news(`Something isn't right at the club going into the season: ${cr.why}. Results may suffer${cr.left ? " for a while" : ""}.`, true);
+    else if (cr) news(`The problems from last season haven't gone away: ${cr.why}.`, true);
+    else if (c.surge === G.year) news("Pre-season has gone brilliantly: there's a buzz about the squad.", true); }
   if (typeof aiListings === "function" && G.club != null) aiListings();
   // Last season's minutes targets: how they went (the manager's report), then they're cleared.
   if (G.club != null) { const T = Object.values(G.players).filter(p => p.minT && p.club === G.club);

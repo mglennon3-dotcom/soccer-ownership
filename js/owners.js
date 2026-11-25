@@ -284,7 +284,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15 && failGate("adm")) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
-    { const was = c.crisis && c.crisis.y < G.year, cr = seasonForm(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
+    { const was = c.crisis && c.crisis.y < G.year, cr = clubSeasonForm(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
     if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); } }
     c.lvl = clubStandard(c);
   }
@@ -470,16 +470,18 @@ const newBounce = (c, afterGames) => { c.bounce = 4; if (afterGames) c.bounceW =
 /* A season's form for clubs other than yours: most years a little up or down, carrying a bit over from the last; now
    and then a crisis (a dressing-room revolt, a failed rebuild, chaos in the boardroom, a manager who's lost the
    players) that drags even a giant down the table for one to three seasons, or a surprise season when everything
-   clicks. In rating points on the match model: a crisis of 3-5 points takes a title side to mid-table. */
+   clicks. In rating points on the match model: a crisis of 3-5 points takes a title side to mid-table. Your club too:
+   however good the squad, a season can go wrong (a new manager ends a crisis that came from the last one losing the
+   players, and takes the edge off the others). */
 const CRISES = ["a dressing-room revolt", "a rebuild that isn't working", "chaos in the boardroom", "a manager who has lost the players", "an injury-ravaged squad", "a cursed season: nothing goes right"];
-function seasonForm(c) {
+function clubSeasonForm(c) {
   let sf = (c.sf || 0) * .35 + normal() * 1.2;
   if (c.crisis && c.crisis.left > 0) { sf += c.crisis.v; c.crisis.left--; if (!c.crisis.left) delete c.crisis; }
   else if (R() < .06) { c.crisis = { v: -rf(3, 5), left: ri(0, 2), why: pick(CRISES), y: G.year }; sf += c.crisis.v; if (!c.crisis.left) c.crisis.last = true; }
   else if (R() < .04) { sf += rf(2, 3); c.surge = G.year; }
   c.sf = Math.round(clamp(sf, -6, 4) * 10) / 10; return c.crisis || null;
 }
-const clubBoost = c => (c.bounce > 0 ? 1.5 * (c.bounceS || 1) : 0) + (isMine(c) ? 0 : c.sf || 0);
+const clubBoost = c => (c.bounce > 0 ? 1.5 * (c.bounceS || 1) : 0) + (c.sf || 0);
 const inEurope = c => Object.values(G.cont || {}).some(K => (K.teams || []).includes(c.id));
 // The starting XI's average age, and whether it's an ageing core.
 const xiAge = c => avg(pickXI(c).map(o => o.p.age));
