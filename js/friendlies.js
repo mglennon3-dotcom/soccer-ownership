@@ -89,7 +89,14 @@ function unhappiness(p, c) {
   const why = [], xi = pickXI(c).map(o => o.p), med = avg(xi.map(q => q.ovr)), games = ((G.leagues[c.lg].tab || {})[c.id] || {}).p || 0;
   let s = 0;
   if (games >= 10 && !xi.includes(p) && p.ovr >= med && p.s.app < games * .3) { s += 2; why.push("playing time"); }
-  if (p.ovr - TIER_LVL[c.tier] >= 10) { s += 1 + (p.ovr - TIER_LVL[c.tier] - 10) / 6; why.push("ambition"); }
+  // Ambition: a player far too good for the division wants to play higher. In the Premier Division there's nowhere
+  // higher: he only wants a club that wins things and plays in Europe, so a successful club (champions or top-four
+  // recently, in Europe, or near the top now) gives him none. Lower down, a club going up (top of the table, or just
+  // promoted) holds him a while longer.
+  { const H = G.history || [], pos = G.leagues[c.lg].tab ? table(c.lg).findIndex(r => r.id === c.id) + 1 : 0;
+    const winning = c.tier === 1 ? (inEurope(c) || H.slice(0, 2).some(h => h.club === c.name && h.tier === 1 && h.pos <= 4) || (pos && pos <= 4)) : (H[0] && H[0].up) || (pos && pos <= 2);
+    const over = p.ovr - TIER_LVL[c.tier];
+    if (c.tier === 1 ? !winning && over >= 6 : over >= 10 && !(winning && over < 16)) { s += 1 + Math.max(0, over - 10) / 6; why.push(c.tier === 1 ? "wanting to win trophies and play in Europe" : "ambition"); } }
   // He agreed his wage: no complaint about it until he's played a season on it.
   if ((p.wage < wageAt(p.ovr, my().tier) * .6 && settledPay(p)) || p.payGrudge) { s += 1 + (p.payGrudge || 0) * .5; why.push("wages"); }
   if (p.blocked) { s += p.blocked * 1.2; why.push("a blocked move"); }
