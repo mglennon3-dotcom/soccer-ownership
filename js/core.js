@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.70";
+const VERSION = "1.0.71";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -556,7 +556,8 @@ const ARCHETYPES = {
   DM: [["Ball-winner", ["tac", "sta"], "Hunts the ball and breaks up play.", "BW"], ["Deep-lying playmaker", ["pas", "vis", "cmp"], "Dictates from deep.", "DLP"],
     ["Anchor", ["mar", "str", "hea"], "Holds the position in front of the defence.", "ANC"]],
   CM: [["Box-to-box", ["sta", "tac", "fin"], "Covers every blade of grass, tackles and scores.", "B2B"], ["Playmaker", ["pas", "vis", "tec"], "Sets the tempo and finds the pass.", "PM"],
-    ["Ball carrier", ["dri", "pac", "tec"], "Drives forward with the ball at his feet.", "BC"]],
+    ["Ball carrier", ["dri", "pac", "tec"], "Drives forward with the ball at his feet.", "BC"], ["Deep-lying playmaker", ["pas", "vis", "cmp"], "Dictates from deep.", "DLP"],
+    ["Destroyer", ["tac", "pac", "sta"], "Presses hard, wins it back fast and gives it to the playmakers.", "DES"]],
   AM: [["Creator", ["vis", "pas"], "Unlocks defences with the final ball.", "CRE"], ["Shadow striker", ["fin", "cmp"], "Arrives in the box to score.", "SHS"],
     ["Dribbler", ["dri", "tec"], "Beats players in tight spaces.", "DRB"]],
   W: [["Direct winger", ["pac", "dri"], "Takes on the full-back with speed.", "DW"], ["Inside forward", ["fin", "cmp", "dri"], "Cuts inside to shoot.", "IF"],

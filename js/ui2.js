@@ -476,7 +476,7 @@ function chemRing(s) {
 function tacticsShape() {
   const c = my(), M = mgr(), hired = !!staffOf("manager"), form = M.form || "4-4-2", xi = pickXI(c), st = STYLES[M.phil], fit = styleFit(xi, M.phil);
   const pos = FORM_XY[form] || FORM_XY["4-4-2"];
-  const CH = archChem(xi, M.phil);
+  const CH = archChem(xi, M.phil);  // the usual style
   const slots = xi.map(({ p, slot, i }) => { const [x, y] = pos[i], r = r20(roleRating(p, slot)), oop = p.pos !== slot, sg = CH.seg[p.id];
     return `<button class="slot${oop ? " oop" : ""}" style="left:${x}%;top:${y}%" data-act="player" data-id="${p.id}" title="${esc(p.name)}: ${POS_NAME[slot]}${oop ? ` (normally ${POS_NAME[p.pos].toLowerCase()})` : ""}"><span class="disc">${chemRing(sg)}${r}</span><span class="nm">${esc(p.name.split(" ").slice(1).join(" ") || p.name)}</span><span class="rl">${slot} · <span style="color:${fitCol(Math.round(p.fit ?? 100))}">${Math.round(p.fit ?? 100)}%</span></span></button>`; }).join("");
   const missing = 11 - xi.length;
@@ -511,6 +511,9 @@ function tacticsShape() {
       ${ch.good.map(t => `<p class="small"><span class="good">✓</span> ${esc(t)}</p>`).join("")}${ch.bad.map(t => `<p class="small"><span class="bad">✕</span> ${esc(t)}</p>`).join("")}
       ${!ch.good.length && !ch.bad.length ? `<p class="small muted">No partnerships that stand out either way.</p>` : ""}
       <p class="small muted" style="margin-top:6px">From each player's type (shown on his card). Partnerships that click are worth a little in every game; ones that don't cost a little. Together, at most about as much as morale.</p></section>`; })()}
+    ${opp ? (() => { const os = baseStyle(opp), e = styleEdge(M.phil, os, fit, styleFit(oxi, os)), k = e > 0 ? M.phil + "|" + os : os + "|" + M.phil;
+      return `<section class="card"><div class="card-h"><h3>Next: ${esc(opp.name)}</h3><span class="small muted">they play ${esc(STYLES[os].l.toLowerCase())}</span></div>
+      <p class="small">${e > 0 ? `<span class="good">The matchup favours us</span>: ${esc(MATCHUP_WHY[k] || "")}.` : e < 0 ? `<span class="bad">The matchup favours them</span>: ${esc(MATCHUP_WHY[k] || "")}. ${hired ? `${esc(M.name)} may change the plan for the game; the better his tactics, the likelier he is to see it and get it right.` : ""}` : "An even matchup of styles."}</p></section>`; })() : ""}
     <section class="card"><div class="card-h"><h3>Strength against the division</h3></div>${line("Attack", "a")}${line("Midfield", "m")}${line("Defence", "d")}
       <p class="small muted" style="margin-top:6px">This eleven's ratings in their positions, as the match engine weighs them, against the average side in the ${LEAGUES[c.lg].name}. Morale, the manager's tactics and how well the squad suits his style come on top.</p></section>
     <section class="card"><div class="card-h"><h3>Your instructions</h3></div>

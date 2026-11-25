@@ -341,7 +341,7 @@ function contMatch(h, a, neutral, comp, label) {
     const c = my(), home = h === G.club, gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg, opp = CL(home ? a : h);
     let crowd = null; if (home) { crowd = Math.min(capacity(c), Math.round(crowdFor(c, opp) * 1.2)); earn("gate", crowd * c.prices.ticket * 1.3); const con = concessionsFor(c, crowd); earn("conc", con.net); spend("rent", ground(c).rent); spend("mdops", opsCost(c, crowd)); c._home = true; } else awayTrip(c, opp);
     c.morale = clamp(c.morale + (gf > ga ? 3 : gf < ga ? -2 : 0), 20, 95);
-    h2hAdd(opp.id, gf > ga ? "W" : gf < ga ? "L" : "D"); G.myRes.push({ w: G.week, comp, label, home, opp: opp.id, gf, ga, res: gf > ga ? "W" : gf < ga ? "L" : "D", crowd, ev: r.ev, fit: r.fit[home ? 0 : 1] });
+    h2hAdd(opp.id, gf > ga ? "W" : gf < ga ? "L" : "D"); G.myRes.push({ w: G.week, comp, label, home, opp: opp.id, gf, ga, res: gf > ga ? "W" : gf < ga ? "L" : "D", crowd, ev: r.ev, fit: r.fit[home ? 0 : 1], plan: r.plan && r.plan[home ? 0 : 1], edge: r.edge == null ? null : r.edge * (home ? 1 : -1) });
   }
   return r;
 }

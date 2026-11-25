@@ -76,7 +76,7 @@ function friendlyWeek() {
   c.morale = clamp(c.morale + (res === "W" ? 1.5 : res === "L" ? -1 : 0), 20, 95);
   if (res === "W" && x.tier < c.tier - 1) { moodHit(c, 2); news(`A pre-season win over ${x.name} has the supporters dreaming.`); }
   c.prep = (c.prep || 0) + 1;
-  G.myRes.push({ w: G.week, comp: "F", label: "Friendly", home: f.home, opp: x.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[f.home ? 0 : 1] });
+  G.myRes.push({ w: G.week, comp: "F", label: "Friendly", home: f.home, opp: x.id, gf, ga, res, crowd, ev: r.ev, fit: r.fit[f.home ? 0 : 1], plan: r.plan && r.plan[f.home ? 0 : 1], edge: r.edge == null ? null : r.edge * (f.home ? 1 : -1) });
 }
 // Rust and sharpness at the start of the season.
 const prepBonus = c => !isMine(c) || G.phase !== "season" || G.week > 5 ? 0 : (c.prep || 0) < 2 ? -1.5 : (c.prep || 0) >= 3 ? .5 : 0;
