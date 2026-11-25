@@ -502,12 +502,13 @@ function renewTerms(p) {
   const notes = [], pri = S.pr.pri, top = S.pr.top, cares = k => top.includes(k) || pri[k] >= .2;
   if (S.real != null) notes.push(S.real >= .7 ? ["good", "he's playing every week"] : S.real < .35 ? ["bad", "he isn't playing enough"] : ["", "he's in and out of the side"]);
   if (S.f.form >= .75) notes.push(["good", "the system suits him"]); else if (S.f.form < .45) notes.push(["bad", "the formation and style don't suit him"]);
+  { const sf = systemFit(p); if (sf.mates >= .4) notes.push(["good", "he clicks with the players around him"]); else if (sf.mates <= -.4) notes.push(["bad", "he doesn't click with the players around him"]); }
   if (cares("home")) notes.push(S.f.home >= 1 ? ["good", "he's at home here"] : ["bad", `he'd like to be closer to home${homeOf(p) ? ` (${homeOf(p)})` : ""}`]);
   if (cares("prest") && S.f.prest < .45) notes.push(["bad", "he thinks he's outgrowing the club"]);
   if (cares("money")) notes.push(["", "it's mostly about the money for him"]);
   if (S.love >= FAV / LEGEND) notes.push(["good", `the fans ${S.love >= 1 ? "worship" : "love"} him`]);
   notes.push(S.L >= .75 ? ["good", "he's loyal to the club"] : S.L <= .25 ? ["bad", "he's a mercenary: he'll go wherever pays most"] : S.L <= .4 ? ["", "he isn't the loyal type"] : null);
-  for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
+  for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him", "not clicking with the players around him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
   return { no: min == null, min, advice, pend, guessNo: s && advice == null, s, maxY, tries: p.rn.tries, off: p.rn.off, notes: notes.filter(Boolean), S };
 }
 function offerRenewal(p, wage, yrs) {

@@ -7,7 +7,7 @@ const P_FACTORS = [["money", "Wages"], ["time", "Playing time"], ["form", "Fits 
 const S_FACTORS = [["money", "Salary"], ["prest", "Club prestige"], ["fac", "Facilities"], ["budget", "Budgets"], ["squad", "The squad"], ["proj", "Owner's ambition"], ["auto", "Freedom to work"], ["vision", "Shared vision"]];
 const FACTOR_HELP = {
   money: "The wage on offer against what he's after.", time: "Whether he'd start: the players ahead of him at his position.",
-  form: "How many places the manager's formation has for his position, and whether his style of play suits him.", prest: "The club's standing against what he's used to.",
+  form: "How many places the manager's formation has for his position, whether the style of play suits his game and his type, and whether his type clicks with the players around him.", prest: "The club's standing against what he's used to.",
   fac: "The training ground (managers and players), the academy (youth managers) or the scouting budget (recruitment).",
   home: "Whether the club is in his part of the country. Players from abroad mind less if they're open to moving.",
   proj: "Your fortune, and whether the club is on the way up.", budget: "The budget he'd work with against what's normal in the division.",
@@ -49,13 +49,19 @@ function wageMult(p, c) {
   const home = c && homeOf(p) && homeOf(p) === c.region ? clamp(1 - pr.pri.home * .55, .8, 1) : 1;
   return greed * home;
 }
-// How well the manager's system suits him: places for his position in the formation, and the style's key attributes
-// against his own average (-1 badly, +1 well).
-function systemFit(p) {
-  const slots = FORMS[mgr().form || "4-4-2"].filter(s => s === p.pos).length;
-  if (p.pos === "GK") return { slots, style: 0 };
-  const keys = STYLES[mgr().phil] ? STYLES[mgr().phil].keys : [], all = avg(OUT_KEYS.map(k => p.at[k]));
-  return { slots, style: keys.length ? clamp((avg(keys.map(k => p.at[k])) - all) / 8, -1, 1) : 0 };
+/* How well the manager's system suits him (-1 badly, +1 well):
+   - slots: places for his position in the formation;
+   - style: the style's key attributes against his own average, and whether his type suits the style (the same
+     style grid the match engine uses);
+   - mates: whether his type clicks with the players around him in the first eleven (the same pairings grid). */
+function systemFit(p, c = my()) {
+  const slots = FORMS[mgr().form || "4-4-2"].filter(s => s === p.pos).length, phil = mgr().phil;
+  const keys = STYLES[phil] ? STYLES[phil].keys : [], all = avg(OUT_KEYS.map(k => p.at[k]));
+  const attr = p.pos === "GK" || !keys.length ? 0 : clamp((avg(keys.map(k => p.at[k])) - all) / 8, -1, 1);
+  const t = typeParts(c, p, phil) || { st: 0, mates: 0 };
+  // Most players have a pairing or two that works, so a typical one sits near 0; it takes both his game and his type
+  // against the style to make him feel it doesn't suit him.
+  return { slots, style: clamp(attr * .6 + t.st * .4, -1, 1), type: t.st, mates: clamp((t.mates - .8) / 2.5, -1, 1) };
 }
 
 /* ---------- players ---------- */
@@ -68,7 +74,7 @@ function playerFactors(p, c) {
   return {
     time: ahead < Math.max(1, slots) ? 1 : ahead < slots + 1 ? .55 : ahead < slots + 2 ? .25 : .05,
     // The manager's system: places for his position, and whether the style suits his game (for your club, your manager's).
-    form: clamp((slots >= 2 ? 1 : slots === 1 ? .65 : .1) + (isMine(c) ? systemFit(p).style * .25 : 0), 0, 1),
+    form: clamp((slots >= 2 ? 1 : slots === 1 ? .65 : .1) + (isMine(c) ? (sf => sf.style * .25 + sf.mates * .15)(systemFit(p, c)) : 0), 0, 1),
     prest: clamp(.5 + (c.rep - refRep) / 25, 0, 1),
     fac: clamp(.5 + (tl - expFac) / 6, 0, 1),
     home: p.nat === "ENG" ? (homeOf(p) === c.region ? 1 : half === c.half ? .7 : .35) : .3 + prefsOf(p, P_FACTORS).open * .5,

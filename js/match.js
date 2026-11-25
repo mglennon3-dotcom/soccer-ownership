@@ -226,13 +226,15 @@ const STYLE_TIRE = { press: 1.25, wing: 1.05, direct: 1, possession: .95, counte
 /* How well a player would fit into a side: his type's pairings with the eleven (the lines he'd work with) and with the
    style. Roughly -4 to +4. Used by AI clubs and your head of recruitment when choosing between signings. */
 const TF_XI = new Map();
-function typeFit(c, p, style) {
-  const a = archetypeOf(p); if (!a) return 0; const k = a[3], key = `${G.year}:${G.phase}:${G.week}`;
+function typeFit(c, p, style) { const t = typeParts(c, p, style); return t ? clamp(t.st * .8 + t.mates, -4, 4) : 0; }
+// The two halves of it: his type against the style (-1, 0 or +1), and his pairings with the eleven (roughly -3 to +3).
+function typeParts(c, p, style) {
+  const a = archetypeOf(p); if (!a) return null; const k = a[3], key = `${G.year}:${G.phase}:${G.week}`;
   let e = TF_XI.get(c.id); if (!e || e.k !== key) { e = { k: key, xi: pickXI(c, true).map(o => ({ slot: o.slot, id: o.p.id, a: archetypeOf(o.p) })) }; TF_XI.set(c.id, e); if (TF_XI.size > 400) TF_XI.clear(); }
-  let s = ((CHEM_STYLE[k] || {})[style] || 0) * .8; const L = SLOT_LINE[p.pos];
+  const st = (CHEM_STYLE[k] || {})[style] || 0; let s = 0; const L = SLOT_LINE[p.pos];
   for (const q of e.xi) { if (q.id === p.id || !q.a || q.slot === p.pos && e.xi.filter(x => x.slot === p.pos).length < 2) continue; const v = CHEM_PAIR[k + "|" + q.a[3]]; if (!v) continue;
     const QL = SLOT_LINE[q.slot]; if (Math.abs(L - QL) > 1 && !(Math.min(L, QL) === 0 && Math.max(L, QL) === 2)) continue; s += v * pairW(p.pos, q.slot) * 2; }
-  return clamp(s, -4, 4);
+  return { st, mates: s };
 }
 /* An AI manager each summer: if his squad suits another style clearly better than his own, a good tactician is likely to
    change to it (a poor one sticks with what he knows), and he picks a formation that suits the style. */
