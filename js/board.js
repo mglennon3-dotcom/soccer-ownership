@@ -94,26 +94,27 @@ function trustWeek(c) {
   if (G.phase === "season" && R() < .06 && !G.inbox.some(m => m.key === "trustAsk" && !m.done)) trustDemand(c);
 }
 const TRUST_ASKS = [
-  { k: "freeze", t: "Freeze ticket prices next season", d: "The match ticket price stays exactly as it is now until the end of next season." },
-  { k: "u18", t: "Half-price tickets for under-18s", d: "A little less at the gate; more young fans for the future." },
+  { k: "freeze", t: "Freeze ticket prices next season", d: "The match ticket price stays exactly as it is now until the end of next season.", cond: () => !(G.sTrust.freeze >= G.year) },
+  { k: "u18", t: "Half-price tickets for under-18s", d: "A little less at the gate; more young fans for the future.", cond: () => !G.sTrust.u18 },
   { k: "fanzone", t: "Build a fan zone", d: c => c.fac.stadium.own ? `About ${money(VENTURES.fanzone.cost(c))} to build at the ground, then ${money(ventUp(c, "fanzone"))} a year to keep up. Fans love it: more atmosphere, more spending, more turnout.` : `You rent your ground, so it would be a pop-up you hire each home game: about ${money(-fzGame(c, FAN_T[c.tier], .5) > 0 ? -fzGame(c, FAN_T[c.tier], .5) : 0)} a game net at a typical crowd, for half the effect of a permanent one.`, cond: c => !has(c, "fanzone") && !c.fac.stadium.popup },
-  { k: "accounts", t: "Publish the club's accounts", d: "Transparency. Private equity investors dislike it." },
+  { k: "accounts", t: "Publish the club's accounts", d: "Transparency: the club's books are published every year from now on. Private equity investors dislike it.", cond: () => !G.sTrust.books },
   { k: "seat", t: "A seat on the board", d: "A trust director at board meetings.", cond: () => !G.sTrust.seat },
   { k: "stake", t: "Sell the trust a 5% stake", d: c => `They'd pay about ${money(valuation(c) * .05)}. A loyal shareholder.`, cond: () => ownPct() > 56 && G.sTrust.rel >= 55 },
 ];
 function trustDemand(c) {
-  const opts = TRUST_ASKS.filter(a => !a.cond || a.cond(c)); if (!opts.length) return;
+  // Not something you've already granted, and not something you turned down in the last two seasons.
+  const no = G.sTrust.no || {}, opts = TRUST_ASKS.filter(a => (!a.cond || a.cond(c)) && !(no[a.k] != null && G.year - no[a.k] < 2) && !(a.k === "fanzone" && (has(c, "fanzone") || c.fac.stadium.popup))); if (!opts.length) return;
   const a = pick(opts);
   addChoice("trustAsk", `The supporters' trust asks: ${a.t.toLowerCase()}`, typeof a.d === "function" ? a.d(c) : a.d, ["Agree", "Refuse"], { k: a.k }, 1);
 }
 DECIDE.trustAsk = (m, i) => {
   const c = my(), k = m.data.k;
-  if (i === 1) { trustRel(-8); moodHit(c, -2); return; }
+  if (i === 1) { trustRel(-8); moodHit(c, -2); (G.sTrust.no ||= {})[k] = G.year; return; }
   trustRel(10); moodHit(c, 3);
   if (k === "freeze") { G.sTrust.freeze = G.year + 1; G.sTrust.fp = c.prices.ticket; news(`Match tickets are frozen at ${eur(c.prices.ticket)} until the end of ${seasonLabel(G.year + 1)}.`, true); }
   if (k === "u18") { G.sTrust.u18 = true; }
   if (k === "fanzone") { if (c.fac.stadium.own) buildVenture("fanzone"); else { c.fac.stadium.popup = true; news("A pop-up fan zone will run at home games."); } moodHit(c, 4); }
-  if (k === "accounts") investorMood("pe", -6);
+  if (k === "accounts") { investorMood("pe", -6); G.sTrust.books = G.year; news("The club's accounts will be published every year: the supporters can see where the money goes.", true); }
   if (k === "seat") { G.sTrust.seat = true; news("A supporters' trust director joins the board.", true); }
   if (k === "stake") { const amt = Math.round(valuation(c) * .05 / 1e4) * 1e4; sellStake({ type: "fans", pct: 5, amt, name: `${c.town} Supporters' Trust` }); }
 };

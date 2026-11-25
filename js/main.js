@@ -179,6 +179,7 @@ function upgradeSave() {
     if (G.derby) { for (const k of Object.keys(G.derby)) if (k.split("-").includes(String(c.id))) delete G.derby[k];
       for (const o of G.clubs.filter(x => !x.gone && !x.abroad && x !== c && (x.region === c.region || roadKm(c, x) <= 40))) { const l = geoDerby(c, o); if (l) G.derby[pairKey(c, o)] = l; } }
     news(`AFC Gilstow is a village club in the South West: ${LOC(c).d} It has ${catchWord(c)}, so the support grows slowly.`, true); }
+  if (!G.books1 && G.club != null && G.sTrust) { G.books1 = true; if (G.inbox.some(m => m.key === "trustAsk" && m.done && m.data && m.data.k === "accounts" && m.answer === "Agree")) G.sTrust.books = G.year; }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
