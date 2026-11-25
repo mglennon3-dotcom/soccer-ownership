@@ -205,6 +205,14 @@ function upgradeSave() {
       p.req = G.year; delete p.goPromise; delete p.ambPromise; if (p.list) p.list = false;
       addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's unhappy about a blocked move.`,
         ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["a blocked move"] }, 0); } }
+  /* 1.0.63, one-off (asked for): a clean slate for your squad: every open transfer request, terms card and pay demand
+     from your players is cleared, along with the grievances behind them (requests, unsettled mood, blocked moves, pay
+     grudges, promises). */
+  if (!G.clean63 && G.club != null) { G.clean63 = true; const c = my(), ids = new Set(c.squad);
+    const n = G.inbox.filter(m => !m.done && ["treq", "keepTerms", "raise"].includes(m.key) && m.data && ids.has(m.data.pid)).length;
+    G.inbox = G.inbox.filter(m => !(!m.done && ["treq", "keepTerms", "raise"].includes(m.key) && m.data && ids.has(m.data.pid)));
+    for (const p of c.squad.map(P)) if (p) { p.req = 0; p.unsettled = 0; p.blocked = 0; p.payGrudge = 0; delete p.goPromise; delete p.ambPromise; }
+    news(`A clean slate in the dressing room: ${n ? `${n} open request${n > 1 ? "s" : ""} cleared, and ` : ""}every player's grievances are forgotten.`, true); }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
