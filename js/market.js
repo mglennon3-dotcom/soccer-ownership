@@ -57,6 +57,8 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
    xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once. buyer: who's buying
    (you unless said otherwise; null for no one in particular). */
 const SELL_DIV = [0, 1, .9, .75, .6, .02, .005, 0];
+// The buyer's market: League One, League Two and non-league clubs pay their own level's prices whoever they buy from.
+const BUY_DIV = [0, 1, 1, .03, .8, .05, .02, .02];
 const XI_SET = new Map();
 function xiSet(c, xi) {
   if (xi) return xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id));
@@ -77,6 +79,12 @@ function askingFee(p, xi, buyer = my()) {
     if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
     f *= [1, 1.25, 1.5][derbyLevel(buyer, c)];  // selling to a rival: only at a premium (more for a fierce one)
+  }
+  if (buyer && !buyer.abroad && p.club >= 0 && !isMine(CL(p.club))) {
+    f *= BUY_DIV[buyer.tier] ?? 1;
+    // The Premier Division tax: everyone knows they can pay, so a cheaper player costs them up to six times as much
+    // (nothing extra on a €70M player and up).
+    if (buyer.tier === 1) f *= 1 + 5 * clamp(1 - f / 70e6, 0, 1);
   }
   return Math.round(f / 1000) * 1000;
 }
