@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.53";
+const VERSION = "1.0.54";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
