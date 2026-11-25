@@ -613,7 +613,7 @@ function relegationExodus(ids) {
           ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["ambition after relegation"] }, 0); } }
     else { let n = 0;
       for (const p of ps) { if (n >= 3 || p.keep || R() > .5) continue;
-        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && canAfford(x, aiFee(p)));
+        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && canAfford(x, aiFee(p, x)));
         if (!buyers.length) continue; const near = buyers.filter(x => x.tier === c.tier - 1), b = pick(near.length ? near : buyers);
         aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
@@ -650,9 +650,11 @@ function aiSign(c, pos) {
   if (fas.length) p = fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0];
   else if (R() < clamp(.5 + sp * .07, .15, .9)) {
     // The four professional divisions also shop abroad, from clubs no bigger than they are: imports cost a fee that leaves the country.
-    const lower = G.clubs.filter(x => !isMine(x) && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier > c.tier && x.tier <= c.tier + 2));
-    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
-    const afford = pool.filter(q => canAfford(c, aiFee(q)) && !wont(q));
+    // At home they buy from their own division, the one above (only a player who isn't first choice there) and the two below; a seller keeps
+    // at least 20 players.
+    const lower = G.clubs.filter(x => !isMine(x) && x !== c && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier >= c.tier - 1 && x.tier <= c.tier + 2 && x.squad.length >= 20));
+    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && (x.abroad || x.tier >= c.tier || !xiSet(x).has(q.id)) && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
+    const afford = pool.filter(q => canAfford(c, aiFee(q, c)) && !wont(q));
     if (afford.length) p = afford.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1])[0][0];
   }
   // Nobody affordable at another club: someone from outside the game (abroad, or below the pyramid) on a free.

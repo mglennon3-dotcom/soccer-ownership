@@ -414,7 +414,7 @@ function diversitySummer() {
     for (const p of stars) {
       if (R() > .3) continue;
       if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
-      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p)))));
+      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p, x)))));
       if (!to) continue;
       aiTransfer(p, to); p.wage = aiWage(p, to); p.yrs = aiYears(p, to);
       if (c.lg === my().lg || to.lg === my().lg || p.ovr >= 85) news(`${p.name} leaves champions ${c.name} for ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""}, looking for a new challenge.`);
@@ -536,8 +536,9 @@ function aiTransferBudget(c) {
 const tbOf = c => isMine(c) ? Infinity : c.emb ? 0 : c.abroad ? (c.tb ?? (c.tb = foreignBudget(c))) : (c.tb ?? (c.tb = aiTransferBudget(c)));
 const canAfford = (c, fee) => tbOf(c) >= fee;
 // Fees between clubs shrink down the pyramid: most non-league moves are free or a token payment.
-const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];
-const aiFee = p => p.club >= 0 ? Math.round(valueOf(p) * (CL(p.club).abroad ? 1 : FEE_TIER[CL(p.club).tier]) * (p.yrs <= 1 && !renewsAI(p) ? .65 : 1) / 1e3) * 1e3 : 0;
+// The fee an AI club pays another: the same asking price you'd be quoted (askingFee), with the buyer's rivalry if any.
+const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];  // (still used for imports from outside the game)
+const aiFee = (p, buyer = null) => p.club >= 0 ? askingFee(p, null, buyer) : 0;
 function payFee(buyer, seller, fee) {
   NEXT_FEE = fee || 0;  // the move that follows records it
   if (!fee) return;
@@ -548,7 +549,7 @@ function payFee(buyer, seller, fee) {
   if (seller && seller.abroad) { seller.tb = tbOf(seller) + fee * .5; seller.fsold = (seller.fsold || 0) + fee; }
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
-function aiTransfer(p, to, fee = aiFee(p)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
+function aiTransfer(p, to, fee = aiFee(p, to)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
 
 /* Clubs going under is rare: about one administration and one forced sale (an owner out of money having to sell) every
    five years across the whole game, each drawn three to seven years after the last. A club in trouble before one is
