@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.50";
+const VERSION = "1.0.51";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -455,6 +455,7 @@ function retire(p, cull) {
       clubs: [...new Set(p.hist.map(h => h[1]))],
       cs: Object.keys(cs).map(Number).filter(id => G.clubs[id]).sort((a, b) => cs[b][0] - cs[a][0]).map(id => [G.clubs[id].name, cs[id][0], cs[id][1], id]),
       mine: !!cs[G.club] || (G.club != null && p.hist.some(h => h[1] === my().short)), leg: G.club != null && typeof favLevel === "function" && favLevel(p, G.club) === 2 }); }
+  if (G.club != null && p.cs && p.cs[G.club] && p.cs[G.club][0] > 0) { const v = p.cs[G.club]; ((G.alum ||= {})[G.club] ||= []).push({ name: p.name, pos: p.pos, apps: v[0], g: v[1], a: v[2] || 0, peak: p.peak, y: G.year }); }
   leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); delete G.players[p.id];
 }
 
