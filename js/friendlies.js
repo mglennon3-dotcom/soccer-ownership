@@ -168,12 +168,37 @@ function requestsCheck() {
     if (!u || R() > clamp(u.s * .07 * stay, 0, .35 * Math.max(1, stay))) continue;
     p.req = G.year;
     addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's unhappy about ${u.why.join(" and ")}.`,
-      ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: u.why }, 0);
+      ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: u.why }, 0);
     return;  // one at a time
   }
 }
+/* Asking a player what it would take to keep him: he names his terms, one for each thing he's unhappy about, and you
+   pick one (or let him go, or refuse him). Each term settles him if it answers what's really bothering him. */
+function keepTerms(p, why) {
+  const c = my(), T = [], keepWage = Math.round(Math.max(p.wage * 1.1, renewTerms(p).min || demandWage(p, c)) / 100) * 100;
+  if (why.includes("wages") || why.includes("a blocked move")) T.push({ k: "pay", l: `A new contract at ${pw(keepWage)}`, d: `what he thinks he's worth, less than his agent's ${pw(newDealWage(p))}` });
+  if (why.includes("a blocked move")) T.push({ k: "promise", l: "A promise he can go if a big club bids next summer", d: "a club in the top division or abroad; break it and he won't forgive you" });
+  if (why.includes("playing time")) T.push({ k: "start", l: "A guaranteed place in the side", d: "he starts whenever he's fit (\"Insist he starts\")" });
+  if (why.includes("being made not for sale")) T.push({ k: "nfs", l: "Take him off \"not for sale\"", d: "clubs can bid for him again" });
+  if (why.some(w => /trophies|ambition/.test(w))) T.push({ k: "ambition", l: c.tier === 1 ? "A promise of a title challenge and Europe" : "A promise of promotion", d: "he'll judge you on it at the end of the season" });
+  if (!T.length) T.push({ k: "pay", l: `A new contract at ${pw(keepWage)}`, d: "a fresh start" });
+  addChoice("keepTerms", `${p.name}: what it would take to keep me`, `He tells you straight. ${T.map(t => `${t.l} (${t.d})`).join("; ")}.`,
+    [...T.map(t => t.l), "Let him go: put him on the transfer list", "Can't do it: refuse him"], { pid: p.id, terms: T.map(t => t.k), wage: keepWage }, T.length + 1);
+}
+DECIDE.keepTerms = (m, i) => {
+  const p = G.players[m.data.pid]; if (!p || p.club !== G.club) return; const k = m.data.terms[i];
+  const settle = why => { p.req = 0; p.unsettled = 0; p.blocked = 0; p.payGrudge = 0; news(`${p.name} withdraws his transfer request: ${why}.`, true); };
+  if (k === "pay") { const was = p.wage; p.wage = Math.max(p.wage, m.data.wage); logPay(p, was, "new deal"); p.yrs = Math.max(p.yrs, 4); p.dealY = G.year; p.expiring = false; settle(`he signs a new ${p.yrs}-year deal at ${pw(p.wage)}`); }
+  else if (k === "promise") { p.goPromise = G.year + 1; settle("you've promised he can go if a big club comes in next summer"); }
+  else if (k === "start") { p.force = true; settle("he's promised a place in the side"); }
+  else if (k === "nfs") { setNotForSale(p, false); settle("he's available again"); }
+  else if (k === "ambition") { p.ambPromise = { y: G.year, tier: my().tier }; settle("you've promised him the club is going places"); }
+  else if (i === m.data.terms.length) { p.list = true; news(`${p.name} is transfer-listed at his own request.`); }
+  else { p.unsettled = Math.max(p.unsettled || 0, 12); moodHit(my(), -1); news(`You refuse ${p.name}'s transfer request. He's unsettled.`, true); }
+};
 DECIDE.treq = (m, i) => {
   const p = G.players[m.data.pid]; if (!p || p.club !== G.club) return;
+  if (i === 3) return keepTerms(p, m.data.why || []);
   if (i === 0) { p.list = true; news(`${p.name} is transfer-listed at his own request.`); return; }
   if (i === 1) {
     // Money and blocked moves are fixed by a better contract; playing time and ambition only sometimes.

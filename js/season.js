@@ -241,6 +241,10 @@ function endSeason() {
   if (ownType().subs) { const subs = Math.round(mine.fans * .4 * ownType().subs / 100) * 100; if (subs > 0) { earn("equity", subs); news(`The trust's members renew their subscriptions: ${money(subs)} for the club.`); } }
   if (G.sTrust && G.sTrust.books) { trustRel(2); news(`The club publishes its accounts for ${seasonLabel(G.year - 1)}: income ${money(ledgerIncome(mine.finLast || mine.fin))}. The supporters' trust welcomes the openness.`); }
   for (const p of mine.squad.map(P)) if (p && p.blocked) p.blocked = Math.max(0, p.blocked - 1);  // a blocked move fades with time
+  // Promises to players: a title challenge and Europe (top four), or promotion, judged now.
+  for (const p of mine.squad.map(P)) if (p && p.ambPromise && p.ambPromise.y === G.year) { const h = G.history[0] || {}, kept = p.ambPromise.tier === 1 ? h.pos <= 4 : h.up;
+    if (kept) { p.bond = (p.bond || 0) + 1; news(`${p.name}: you kept your promise, and he's glad he stayed.`); } else { p.unsettled = Math.max(p.unsettled || 0, 16); p.payGrudge = (p.payGrudge || 0) + 1; news(`${p.name} reminds you of your promise: the club didn't deliver, and he's unsettled.`, true); }
+    delete p.ambPromise; }
   investorsSummer({ up: wentUp, down: wentDown }); fanCultureSummer(mine, wentUp, wentDown); wageClauses(mine, wentUp, wentDown);
   endLoans();
   G.meddle = (G.meddle || 0) * .6;
