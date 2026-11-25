@@ -648,13 +648,19 @@ function settleInbox() {
 /* ---------- academy players turning 18 ----------
    Each summer, for every academy player who has turned 18: offer him a professional contract or release him. Your youth
    manager says what he'd do; if you don't answer, that's what happens. */
+// Your youth manager's view of an academy player, as of now.
+function youthAdvice(p, c = my()) {
+  const y = staffOf("youth"); if (!y) return "You have no youth manager to advise you.";
+  const rates = youthRates(p, c), ready = youthReady(p);
+  return `${y.name}: ${rates ? (ready ? "rates him and thinks he's ready for a professional contract." : "rates him, though he isn't ready for the first team yet: a contract keeps him.") : "wouldn't keep him."}`;
+}
 function turn18Ask() {
   const c = my(), y = staffOf("youth");
   for (const id of (G.turn18 || []).splice(0)) {
     const p = G.players[id]; if (!p || !p.acad || p.club !== c.id) continue;
     const rates = youthRates(p, c), ready = youthReady(p), wage = Math.round(demandWage(p, c) / 100) * 100;
-    const view = y ? `${y.name}: ${rates ? (ready ? "rates him and thinks he's ready for a professional contract." : "rates him, though he isn't ready for the first team yet: a contract keeps him.") : "wouldn't keep him."}` : "You have no youth manager to advise you.";
-    addChoice("turn18", `${p.name} has turned 18: professional contract or release?`, `${POS_NAME[p.pos]}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}. ${view}`,
+    // The youth manager's view is read when the card is shown (youthAdvice), so a manager hired since still gets his say.
+    addChoice("turn18", `${p.name} has turned 18: professional contract or release?`, `${POS_NAME[p.pos]}, rated ${r20(p.ovr)}, potential ${est20(potEstimate(p))}.`,
       [`Offer a professional contract (${pw(wage)}, 2 years)`, "Release him"], { pid: p.id, wage }, rates ? 0 : 1);
   }
 }
