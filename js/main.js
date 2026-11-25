@@ -180,6 +180,14 @@ function upgradeSave() {
       for (const o of G.clubs.filter(x => !x.gone && !x.abroad && x !== c && (x.region === c.region || roadKm(c, x) <= 40))) { const l = geoDerby(c, o); if (l) G.derby[pairKey(c, o)] = l; } }
     news(`AFC Gilstow is a village club in the South West: ${LOC(c).d} It has ${catchWord(c)}, so the support grows slowly.`, true); }
   if (!G.books1 && G.club != null && G.sTrust) { G.books1 = true; if (G.inbox.some(m => m.key === "trustAsk" && m.done && m.data && m.data.k === "accounts" && m.answer === "Agree")) G.sTrust.books = G.year; }
+  // 1.0.56: breakout pay demands already in the inbox follow the new rules: withdrawn from a player who took less to
+  // join within the last two seasons; otherwise capped at a quarter over his going rate, defaulting to the middle offer.
+  if (!G.brk56 && G.club != null) { G.brk56 = true; const c = my();
+    for (const m of G.inbox.filter(m => m.key === "raise" && !m.done && m.data && m.data.threat)) { const p = G.players[m.data.pid]; if (!p || p.club !== c.id) continue;
+      if (p.keen && p.keen.club === c.id && G.year - (p.keen.y || 0) < 2) { G.inbox = G.inbox.filter(x => x !== m); news(`${p.name} withdraws his demand for a new deal: he took less to join and he's happy to honour it for now.`, true); continue; }
+      const cap = Math.round(Math.max(p.wage * 1.15, demandWage(p, c) * 1.25) / 100) * 100; if (m.data.worth <= cap) { m.dflt = 1; continue; }
+      m.data.worth = cap; m.data.half = Math.round((p.wage + cap) / 2 / 100) * 100; m.opts = [`Give him ${pw(cap)}`, `Offer ${pw(m.data.half)}`, "Refuse"]; m.dflt = 1;
+      m.body = m.body.replace(/wants €[\d,]+\/wk/, `wants ${pw(cap)}`); } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
