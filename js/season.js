@@ -397,7 +397,7 @@ function yearTurnover() {
     if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
     // A great season gets him noticed sooner: clubs a division up come in for a player only a little better than his club.
     const sf = seasonForm(p), hot = sf >= .5 && p.ovr > c.lvl + 3 && c.tier > 1;
-    if ((p.ovr > c.lvl + 7 || hot) && R() < (hot ? .4 + Math.min(.3, (sf - .5) * .4) : .5)) { const buyer = buyerFor(p, c.tier, 1, hot ? 3 : 0); if (buyer && aiAppeal(p, buyer) > -1) { aiTransfer(p, buyer); p.wage = aiWage(p, buyer); p.yrs = aiYears(p, buyer); } }
+    if ((p.ovr > c.lvl + 7 || hot) && R() < (hot ? .4 + Math.min(.3, (sf - .5) * .4) : .5)) { const buyer = buyerFor(p, c.tier, 1, hot ? 3 : 0); if (buyer) { aiTransfer(p, buyer); p.wage = offerWage(p, buyer); p.yrs = aiYears(p, buyer); } }
   }
   // Good free agents don't stay unemployed: a club at their level takes them on.
   { const fresh = G.fa.map(P).filter(p => faFresh(p) && p.age < 32 && p.ovr >= TIER_LVL[Math.min(6, my().tier + 1)]).sort((a, b) => b.ovr - a.ovr);
@@ -419,15 +419,23 @@ function wantsRenewal(p, core) {
 /* The least a club will pay a fee for: a player near its division's standard (Premier Division: about a 10; one of the
    weakest sides there, about a 9). Below that it goes for a free agent or its academy instead. */
 const feeFloor = c => c.abroad ? 0 : TIER_LVL[c.tier] - ((c.lvl || TIER_LVL[c.tier]) < TIER_LVL[c.tier] - 4 ? 8 : 6);
+/* Where a player goes is his choice. Every club that wants him (he'd be one of its better players, he's at least its
+   division's standard, it can pay the fee and his wage within the rules) offers him its own wage; he weighs the offers
+   on his own priorities (aiAppeal): most pick a club at their level, where they'd play and the standing suits them; a
+   money-motivated one may take the biggest wage, further down if need be (within the usual step-down rules). */
+const offerWage = (p, x) => !x.abroad && hugeAsk(p, x) ? hugeWage(p, x) : aiWage(p, x);
+function playerChooses(p, clubs, feeF = 1, reach = 0) {
+  // The clubs closest to his level, and any big-spending owner who wants him, make offers.
+  const wants = clubs.filter(x => x !== (p.club >= 0 ? CL(p.club) : null) && p.ovr >= (x.lvl || 0) - 2 - reach && p.ovr >= feeFloor(x));  // a hot prospect: clubs a little above him want him too
+  const near = wants.slice().sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10), rich = wants.filter(x => ownStyle(x).spend >= 3 && !near.includes(x)).slice(0, 4);
+  const offers = [...near, ...rich].filter(x => canAfford(x, aiFee(p, x) * feeF) && fitsRules(x, offerWage(p, x), aiFee(p, x) * feeF, 3) && (x.abroad || x.tier > 4 || reckless(x) || ruleRoom(x)))
+    .map(x => [x, aiAppeal(p, x, offerWage(p, x)) + normal() * .03]).filter(([, a]) => a > -1);
+  return offers.length ? offers.sort((a, b) => b[1] - a[1])[0][0] : null;
+}
 function buyerFor(p, belowTier, feeF = 1, reach = 0) {
-  // The closest few clubs by standard; a player better than every club goes to one of the strongest.
-  // Clubs bound by the spending rule don't take on more pay once their wage bill is well past what they can afford.
-  // Rivals (derby clubs, feuding owners) rarely deal with each other.
+  // Clubs in the divisions above (rivals of his club rarely deal with it); he chooses among those that want him.
   const seller = p.club >= 0 ? CL(p.club) : null;
-  const cs = G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier && !(seller && R() < [0, .7, .9][derbyLevel(seller, c)])).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10).filter(x => ruleRoom(x) && canAfford(x, aiFee(p) * feeF) && fitsRules(x, aiWage(p, x), aiFee(p) * feeF, 3)).slice(0, 6);
-  // Only clubs at his level (a hot prospect: up to a few points above it) or, for a player better than all of them, the strongest.
-  const near = cs.filter(x => (Math.abs(x.lvl - p.ovr) <= 4 + reach || p.ovr > x.lvl) && p.ovr >= feeFloor(x));
-  return near.length ? pick(near) : null;
+  return playerChooses(p, G.clubs.filter(c => !c.gone && !isMine(c) && c.tier < belowTier && !(seller && R() < [0, .7, .9][derbyLevel(seller, c)])), feeF, reach);
 }
 
 /* ---------- youth intakes ---------- */
@@ -607,7 +615,8 @@ function wageClauses(c, up, down) {
 }
 /* Relegation: players clearly too good for the division below push to leave. At your club the better ones hand in
    transfer requests (loyal players and fan favourites mostly stay; the ambitious ones most want out); at AI clubs up to
-   three are sold to clubs at their level (within a few points of him), in the division just left or the one above.
+   three leave, each choosing among the clubs that want him (playerChooses): most a club at their level, a money-minded
+   one perhaps the biggest wage, even a rich club in the new division.
    AI clubs' contracts also pay 25% less after relegation, as yours do. */
 function relegationExodus(ids) {
   const sold = [];
@@ -624,9 +633,8 @@ function relegationExodus(ids) {
           ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["ambition after relegation"] }, 0); } }
     else { let n = 0;
       for (const p of ps) { if (n >= 3 || p.keep || R() > .5) continue;
-        const buyers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && x.tier >= c.tier - 2 && p.ovr >= (x.lvl || 0) - 4 && p.ovr >= feeFloor(x) && (x.lvl || 0) >= p.ovr - 4 && canAfford(x, aiFee(p, x)) && fitsRules(x, aiWage(p, x), aiFee(p, x), 3));
-        if (!buyers.length) continue; const near = buyers.filter(x => x.tier === c.tier - 1), b = pick(near.length ? near : buyers);
-        aiTransfer(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
+        const b = playerChooses(p, G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && x.tier >= c.tier - 2)); if (!b) continue;
+        aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
   if (sold.length) news(`Relegated clubs lose their best players: ${sold.slice(0, 5).join(", ")}${sold.length > 5 ? ` and ${sold.length - 5} more` : ""}.`);
 }
