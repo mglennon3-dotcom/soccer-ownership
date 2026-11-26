@@ -526,7 +526,7 @@ function acadDropouts(c) {
     const gain = rows[rows.length - 1][2] - rows[rows.length - 2][2]; if (gain >= 3) continue;
     const [a, b] = potEstimate(p), mid = (a + b) / 2, rated = mid >= TIER_LVL[c.tier] - 6, bleak = mid < TIER_LVL[c.tier] - 12;
     if (R() > clamp(.28 + (3 - gain) * .1 + (p.age >= 18 ? .1 : 0) + (bleak ? .1 : 0) - keep, .05, .75)) continue;
-    if (rated && asked.length < 3) { asked.push(p.id); addChoice("acadLeave", `${p.name} (${p.pos}, ${p.age}) wants to leave the academy`, `He feels he's stopped improving (${gain > 0 ? `up only ${gain} in a year` : "no better than a year ago"}) and wants a fresh start elsewhere. ${y ? y.name + " still rates him" : "The coaches still rate him"}: potential ${est20([a, b])}. You can let him go, or try to talk him round.`, ["Let him go", "Talk him round"], { pid: p.id }, 0); }
+    if (rated && asked.length < 3) { asked.push(p.id); addChoice("acadLeave", `${p.name} (${p.pos}, ${p.age}) wants to leave the academy`, `Rated ${r20(p.ovr)} now. He feels he's stopped improving (${gain > 0 ? `up only ${gain} in a year` : "no better than a year ago"}) and wants a fresh start elsewhere. ${y ? y.name + " still rates him" : "The coaches still rate him"}: potential ${est20([a, b])}. You can let him go, or try to talk him round.`, ["Let him go", "Talk him round"], { pid: p.id }, 0); }
     else acadLeave(p, c);
   }
 }
