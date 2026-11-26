@@ -282,7 +282,7 @@ function endSeason() {
   for (const [id, to] of moves) { const c = CL(id); if (c.lastF && to !== "OUT") c.lastF[to ? "up" : "down"] = true; }
   relegationExodus(moves.filter(([, to]) => to === null).map(([id]) => id));
   balanceHalves("L6N", "L6S"); balanceHalves("L7N", "L7S");
-  for (const k of ["L7N", "L7S"]) while (G.leagues[k].clubs.length < LEAGUES[k].size) { const c = newClub(k, LEAGUES[k].size - 1); c.half = LEAGUES[k].half; genSquad(c); G.leagues[k].clubs.push(c.id); c.founded = G.year; }
+  for (const k of ["L7N", "L7S"]) while (G.leagues[k].clubs.length < LEAGUES[k].size) { const c = newClub(k, LEAGUES[k].size - 1); c.half = LEAGUES[k].half; squadFromFA(c); G.leagues[k].clubs.push(c.id); c.founded = G.year; }
   // Standing: reputation drifts toward the club's division, plus a little for finishing high.
   for (const k of LG_KEYS) { const ids = G.leagues[k].clubs, n = ids.length; ids.forEach(id => { const c = CL(id); const prev = table2(k, id, n); c.rep = clamp(Math.round(c.rep + (TIER_REP[c.tier] + prev - c.rep) * .3), 1, 99); }); }
   (G.repLog ||= []).push([G.year, my().rep]);  // the prestige tracker's season-by-season line
@@ -383,7 +383,7 @@ function yearTurnover() {
     if (cs.length) G.genClub = wpick(cs, x => ((isMine(x) ? x.fac.acad.lvl : x.acadLvl) + 1) * (1 + Math.max(0, youthPedigree(x)) / 3)).id; }
   // Academy graduates: AI clubs keep the good ones; yours are decided by your youth manager (or you, on the Academy page).
   for (const c of G.clubs) {
-    if (c.gone) continue;
+    if (c.gone && !c.abroad) continue;  // clubs abroad have academies too
     for (const id of c.squad.slice()) { const p = P(id); if (!p.acad || p.age < 19) continue;
       if (isMine(c)) { if (p.keep || p.ovr >= TIER_LVL[c.tier] - 8 || potEstimate(p)[0] >= TIER_LVL[c.tier] + 4) { p.acad = false; p.yrs = 2; const was = p.wage; p.wage = Math.max(p.wage, demandWage(p, c)); logPay(p, was, "first professional contract"); news(`Academy graduate ${p.name} (${p.pos}, ${r20(p.ovr)}) signs a professional contract.`, true); } else { leaveClub(p); toFreeAgent(p); news(`${p.name} is released by the academy.`); } }
       else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = aiYears(p, c); p.wage = aiWage(p, c); } else { leaveClub(p); toFreeAgent(p); } }
@@ -477,7 +477,7 @@ function youthIntake(c) {
     // A generational talent (the rare summer one is drawn, see endSeason): a ceiling of 18.5+ and already among the best (14-17 at 16).
     const gen = i === 0 && G.genClub === c.id, potG = gen ? Math.round(from20(rf(18.6, 20))) : pot;
     const wonder = gen, ovr = wonder ? clamp(Math.round(from20(Math.max(14, to20(potG) - rf(2.5, 4)))), 12, potG) : clamp(Math.round(pot * rf(.48, .6) + normal() * 3), 12, pot);
-    const nat = s.wide && R() < .3 ? pickNat("ENG") : "ENG";
+    const nat = c.abroad ? (R() < .85 ? c.country : pickNat(c.country)) : s.wide && R() < .3 ? pickNat("ENG") : "ENG";
     const p = makePlayer({ pos: pick(["GK", "CB", "CB", "FB", "DM", "CM", "AM", "W", "ST", "ST"]), ovr, age, nat, club: c.id, pot: potG, acad: true, lean: LEAN[s.phil], wage: 500 }); p.yAcad = c.id;
     p.gt = wonder ? "wonder" : undefined; p.wk2 = true; if (!wonder) growthType(p);
     if (wonder) news(`${isMine(c) ? "Your" : `${c.name}'s`} academy has produced a generational talent: ${p.name} (${p.pos}, ${p.age}) is already one of the best in the world.`, isMine(c));
@@ -584,9 +584,10 @@ DECIDE.ySign = (m, i) => {
    at lower-division level with a few better ones. */
 // Veterans without a club beyond about sixty retire, the least employable first.
 function trimVeterans() { const v = G.fa.map(P).filter(p => p && p.age >= 33).sort((a, b) => b.ovr - a.ovr); for (const p of v.slice(60)) retire(p, true); }
-// Each summer the pool is topped up from the bottom: semi-pros and part-timers, the odd one good enough for more.
-function freshFreeAgents(target = 260) {
-  trimVeterans();
+// Each summer the veterans nobody wants retire. (The pool fills from released players and academy leavers: no players
+// are invented.)
+function freshFreeAgents() {
+  trimVeterans(); return;
   const young = G.fa.map(P).filter(p => p && p.age <= 29).length;
   for (let i = young; i < target; i++) {
     const age = ri(18, 29), ovr = clamp(Math.round(rf(24, 50) + (R() < .1 ? rf(5, 12) : 0)), 20, 66);
@@ -637,6 +638,14 @@ function relegationExodus(ids) {
         aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
   if (sold.length) news(`Relegated clubs lose their best players: ${sold.slice(0, 5).join(", ")}${sold.length > 5 ? ` and ${sold.length - 5} more` : ""}.`);
+}
+// A club joining the pyramid from below signs its first squad from the free agents (no players are invented; only if
+// the pool has run dry is anyone made up).
+function squadFromFA(c) {
+  for (const [pos, n] of Object.entries(SQUAD_MIX)) for (let i = 0; i < n; i++) {
+    const q = G.fa.map(P).filter(x => x && x.pos === pos && x.age <= 33 && x.ovr <= TIER_LVL[c.tier] + 10).sort((a, b) => b.ovr - a.ovr)[0];
+    if (q) { moveTo(q, c); q.wage = aiWage(q, c); q.yrs = ri(1, 2); } }
+  if (c.squad.length < 16) genSquad(c);
 }
 function wonderWatch() { G.wonders = G.wonders.filter(w => G.players[w.id]); }
 
@@ -706,16 +715,11 @@ function aiSign(c, pos) {
   if (!p && windowOpen() && R() < .6 && aiBorrow(c, pos, target)) return;  // or a loan from a bigger club
   // A cheaper free agent, a level or two below what he wanted.
   if (!p) { const cheap = G.fa.map(P).filter(q => q && !faFresh(q) && q.pos === pos && q.ovr >= target - 14 && q.ovr < target - 5 && q.age <= 33 && !wont(q) && fits(q, 0)); if (cheap.length) p = cheap.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0]; }
-  /* Nobody at all: someone from outside the game (abroad, or below the pyramid). In the professional divisions he costs
-     what a player costs (his value plus 15%, as at home), so a club that can't pay for one at its level gets a lesser
-     one it can; only lower down does he come for nothing. */
-  if (!p) { let ovr = clamp(target, 20, 93), fee = 0; const age = ri(21, 30), pot = seniorPot(ovr, age);
-    if (c.tier <= 4) { const price = o => Math.round(valueOf({ ovr: o, age, pot: seniorPot(o, age), club: -1 }) * 1.15 / 1e4) * 1e4;
-      const ok = o => canAfford(c, price(o)) && fitsRules(c, aiWage({ ovr: o, age }, c), price(o), 3);
-      while (ovr > Math.max(target - 10, feeFloor(c)) && !ok(ovr)) ovr -= 2; fee = ok(ovr) ? price(ovr) : 0;
-      if (!fee) ovr = Math.min(ovr, target - 12); }  // nothing affordable: a trialist from below, for nothing
-    p = makePlayer({ pos, ovr, age, nat: R() < (c.tier <= 2 ? .5 : .85) ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); moveTo(p, c);
-    if (fee) payFee(c, null, fee); }
+  /* Nobody at all: the best free agent who'll come, at any level, or the gap stays open until the next window (the
+     academy and loans having been tried). No players are invented: they come from the world as it began, from
+     academies and from youth scouting. */
+  if (!p) { const any = G.fa.map(P).filter(q => q && !faFresh(q) && q.pos === pos && q.age <= 34 && !wont(q) && fits(q, 0)); if (any.length) p = any.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0]; }
+  if (!p) return;
   else aiTransfer(p, c);
   p.wage = aiWage(p, c); p.yrs = aiYears(p, c);
   if (!c.abroad && hugeAsk(p, c)) p.wage = Math.max(p.wage, Math.round(hugeWage(p, c) / 100) * 100);  // stepping down past his room: paid like it

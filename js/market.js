@@ -73,6 +73,7 @@ function askingFee(p, xi, buyer = my()) {
     const c = CL(p.club), mine = isMine(c);
     const leaving = !mine && p.yrs <= 1 && !renewsAI(p);  // he won't re-sign: better a fee now than nothing in the summer
     if (!c.abroad && !mine) f *= SELL_DIV[c.tier] ?? 1;
+    if (c.abroad) f *= fStr(c);  // a league abroad prices players at its own level
     if (!leaving && xiSet(c, xi).has(p.id)) { f *= 1.3; if (bestOf(c) === p) f *= 1.2; }
     if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
@@ -99,16 +100,16 @@ function squadNeeds(c) {
 /* ---------- the pool he searches ----------
    English clubs and free agents; with a European or worldwide brief, players abroad too (made on demand: they
    live outside the simulated leagues and are cleared when the window shuts). */
+const EURO_FOCUS = new Set(["ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "DEN", "CRO", "AUT", "SUI", "SWE", "NOR"]);
 function abroadPool(level) {
+  // Real players at the clubs abroad, around the level asked for (a European brief: the leagues nearer home).
   const s = staffOf("recruit"); if (!s || s.focus === "domestic") return [];
-  G.abroad = (G.abroad || []).filter(id => G.players[id]);
-  const want = s.focus === "world" ? 40 : 22;
-  while (G.abroad.length < want) {
-    const age = ri(18, 31), ovr = clamp(Math.round(level + normal() * 7), 8, 90);
-    const p = makePlayer({ pos: pick(POS), ovr, age, nat: s.focus === "world" ? pickNat("ENG") : pick(["ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "DEN", "CRO"]), pot: seniorPot(ovr, age) });
-    p.club = -2; p.abroad = s.focus; G.abroad.push(p.id);
-  }
-  return G.abroad.map(P);
+  const key = windowId() + ":" + s.focus + ":" + Math.round(level / 3);
+  if (!G.abroadK || G.abroadK !== key) { G.abroadK = key;
+    const ps = []; for (const id of G.foreign || []) { const c = CL(id); if (!c || (s.focus !== "world" && !EURO_FOCUS.has(c.country))) continue;
+      for (const pid of c.squad) { const p = P(pid); if (p && !p.acad && !p.loan && Math.abs(p.ovr - level) <= 9) ps.push(p.id); } }
+    G.abroadReal = shuffle(ps).slice(0, s.focus === "world" ? 40 : 22); }
+  return (G.abroadReal || []).map(id => G.players[id]).filter(p => p && p.club >= 0 && CL(p.club).abroad);
 }
 function clearAbroad() { for (const id of G.abroad || []) { const p = G.players[id]; if (p && p.club === -2) delete G.players[id]; } G.abroad = []; }
 const fromName = p => p.club >= 0 ? CL(p.club).name : p.club === -2 ? `a club in ${NAT_NAME[p.nat] || "Europe"}` : "Free agent";
@@ -714,6 +715,7 @@ function faDrain() {
     let ch = t <= 3 ? (wk > 2 ? .25 : 0) : t === 4 ? (wk > 6 ? .1 : 0) : t === 5 ? (wk > 16 ? .04 : 0) : p.ovr < 30 ? (wk > 26 ? .06 : 0) : (wk > 100 ? .02 : 0);
     // A good young player is snapped up (abroad or below) faster still; a good veteran waits longer for the right offer.
     if (t <= 4) ch *= p.age <= 27 ? 2 : p.age >= 30 ? .35 : 1;
+    if (t <= 4 && G.phase === "summer") ch = 0;  // the summer market: out-of-contract players stay available all window
     if (ch && R() < ch) retire(p, true); }
 }
 function marketWeek() {

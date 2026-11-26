@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.88";
+const VERSION = "1.0.89";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -213,6 +213,7 @@ function renewsAI(p) {
   let ch = .75;
   if (p.ovr > ref + 2) ch -= Math.min(.45, (p.ovr - ref - 2) * .06);  // too good for them: wants a bigger move
   if (p.age >= 23 && p.age <= 29 && p.ovr >= ref) ch -= .1;
+  if (p.age >= 28 && p.age <= 30) ch -= .08;  // the late-20s free transfer: one last big contract elsewhere
   if (p.age >= 31) ch += .12;
   if (p.unsettled > 0 || p.req) ch -= .3;
   if (rank > 18) ch -= .25;  // not needed: may not be offered a deal
@@ -447,7 +448,7 @@ function moveTo(p, c) { if ((G.favs || []).includes(p.id) && c.id !== G.club && 
   p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
 /* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
    below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
-function newcomerFor(p) {
+function newcomerFor(p) { return;  // no invented players: academies replace retirements
   const c = p.club >= 0 ? CL(p.club) : null, base = c && !c.abroad ? TIER_LVL[c.tier] : c ? c.lvl : Math.min(p.ovr, 58);
   const age = ri(17, 20), ovr = clamp(Math.round(base - rf(4, 12) - (20 - age) * 1.5 + normal() * 3), 22, 80);
   toFreeAgent(makePlayer({ pos: pick(POS), ovr, age, nat: c && c.abroad ? c.country : R() < .8 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }));

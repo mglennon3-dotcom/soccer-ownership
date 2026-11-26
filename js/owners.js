@@ -111,7 +111,11 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
 // Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
 // What an AI club pays: the going rate scaled by its pay level (set each summer from what it can afford). Clubs abroad
 // pay by their owner's spending.
-const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
+/* How much a league abroad pays and charges against the Premier Division's levels for the same player: the big three
+   about 60%, France half, the next tier down a little over a third, the rest a fifth to a quarter. */
+const FSTR = { ESP: .62, GER: .6, ITA: .58, FRA: .5, POR: .38, NED: .38, TUR: .38, BEL: .35, GRE: .25, DEN: .25, AUT: .25, SCO: .25, SUI: .28, CZE: .22, NOR: .22, POL: .2, CYP: .2, CRO: .2, SWE: .2, UKR: .2, HUN: .18, ROU: .18 };
+const fStr = c => (c && c.abroad && FSTR[c.country]) || 1;
+const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
    more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
@@ -171,7 +175,7 @@ function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) 
   if (c.cook) { const cap = salaryCap(c.tier); return Math.max(b, isFinite(cap) ? cap : b) * 2; }  // cooking the books: money no object (players still have to want to come)
   let w = Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier));
   // The squad cost rule (and UEFA's, in Europe): a sensible owner keeps wages plus fees inside it, with a little room.
-  if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (inEurope(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); w = Math.min(w, Math.max(tierWages(c.tier) * .5, lim * .95 - aiAmort(c))); }
+  if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (europeBound(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); w = Math.min(w, Math.max(tierWages(c.tier) * .5, lim * .88 - aiAmort(c))); }
   else if (c.tier >= 5 && !c.abroad) w = Math.min(w, nlWageCap(c) * .85);  // leaving the owner room for the odd statement signing
   return w; }
 /* The salary cap, in the Premier Division only: no AI club's wage bill there may go past twice the division's average (set again each summer
@@ -215,6 +219,8 @@ function aiAccounts(c) {
   // owner doesn't seem to be paying. It all goes on the hidden pile that gets him caught.
   if (c.cook) { c.cook.hid += Math.max(0, -net) + Math.max(0, aiBill(c) - salaryCap(c.tier)); c.psr = []; return; }
   scrJudge(c);
+  // Below the leagues: contracts the owner won't carry are sold, or the players released.
+  if (c.tier >= 5) for (let k = 0; k < 4 && aiBill(c) > nlWageCap(c) * 1.05; k++) ruleSales(c);
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
@@ -480,6 +486,8 @@ function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.
    well: 70% of revenue, no owner money; a first breach is a fine, a second within three years a ban from Europe.
    Non-league has no such rule: there it's down to the owner, who'll put in only so much a year, by his nature. */
 const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
+// In Europe now, or qualified for next season.
+const europeBound = c => inEurope(c) || !!(G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id));
 const aiSquadCost = c => aiBill(c) + aiAmort(c);
 const ownerMoney = c => aiIncome(c) * clamp(spendTarget(c), 0, 1.5);  // what the owner plans to put in a year
 const scrRevenue = c => aiIncome(c) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c) : 0);
@@ -487,16 +495,17 @@ const scrRevenue = c => aiIncome(c) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c
 const nlWageCap = c => aiIncome(c) * (.75 + clamp(lossTol(c), 0, 1.5));
 /* Room left for a new player's wage plus a year's share of his fee. Reckless owners (gamblers, book-cookers) ignore it
    and take their chances with the punishment. */
-function squadRoom(c) {
+function squadRoom(c, k = 1) {
   if (c.abroad || isMine(c)) return Infinity;
-  if (c.tier >= 5) return nlWageCap(c) - aiBill(c);
-  let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (inEurope(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c));
+  if (c.tier >= 5) return nlWageCap(c) * k - aiBill(c);
+  let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (europeBound(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); lim *= k;
   return lim - aiSquadCost(c);
 }
 // A small breach costs the right to pay fees next season; a bigger one points as well.
 const scrPen = over => over <= .08 ? 0 : over <= .2 ? 3 : 6;
 // In non-league it's the owner's own limit, so even a gambler is held to it; in the leagues a reckless owner may break the rules.
-const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : c.tier >= 5 ? wage <= squadRoom(c) : reckless(c) || !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
+// A reckless owner may break the rules, but only by half as much again: boom and bust, not limitless.
+const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : c.tier >= 5 ? wage <= squadRoom(c) : reckless(c) ? wage + fee / Math.max(1, yrs) <= squadRoom(c, 1.5) : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
 // The yearly check for an AI club (from aiAccounts): domestic squad cost rule, then UEFA's.
 // The rules come in with a season's notice: nobody is judged until the season after they're introduced.
 const scrLive = () => { if (G.scrFrom == null) { G.scrFrom = G.year + 1; news("The leagues bring in a squad cost rule from next season: spending on players (wages and transfer fees spread over contracts) capped at 85% of revenue in the Premier Division, 100% in the First, 60% in the Second and 55% in the Third, where owners' money counts. UEFA's own rule (70%) applies to clubs in Europe.", true); } return G.year >= G.scrFrom; };
@@ -556,7 +565,7 @@ function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
   for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
     const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
     const ask = Math.round(aiFee(p) * rf(.5, .8) / 1e4) * 1e4;
-    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)));
+    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)) && fitsRules(x, aiWage(p, x), ask, 3));
     const b = fits.length ? pick(fits) : null;
     if (!b) { leaveClub(p); toFreeAgent(p); sold.push(p.name + " (released: nobody would pay for him)"); continue; }
     const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4));

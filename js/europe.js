@@ -49,8 +49,9 @@ const foreignFans = lvl => Math.round(Math.max(12000 + (lvl - 70) * 2600, 12000 
 function makeForeign() {
   G.foreign = [];
   for (const code of Object.keys(FOREIGN)) makeForeignLeague(code);
-  foreignLevels(true); for (const id of G.foreign) foreignSquad(CL(id));
+  foreignLevels(true); WORLD_GEN = true; for (const id of G.foreign) foreignSquad(CL(id)); WORLD_GEN = false;
 }
+let WORLD_GEN = false;  // players are created only when the world is first made (and by academies and youth scouting)
 function makeForeignLeague(code) {
   const K = COUNTRY[code], [n, top] = FOREIGN[code], made = [];
   for (let i = 0; i < n; i++) {
@@ -104,6 +105,7 @@ function foreignSquad(c, faOnly) {
     if (foreignSignFA(c, pos)) continue;
     if (faOnly) break;
     if (R() < .5 && foreignSign(c, pos)) continue;
+    if (!WORLD_GEN) { if (foreignSign(c, pos)) continue; break; }  // after that: buy, or wait for the academy
     const age = ri(19, 33), ovr = clamp(Math.round(c.lvl + 2 - i * 3 + spreadN()), 40, 94);
     const p = makePlayer({ pos, ovr, age, nat: R() < .7 ? c.country : pickNat(c.country), club: c.id, pot: seniorPot(ovr, age) });
     p.yrs = ri(1, 4); c.squad.push(p.id); p.hist.push([G.year, c.short]);
