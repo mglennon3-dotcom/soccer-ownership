@@ -397,8 +397,22 @@ const fitBar = p => { const f = Math.round(p.fit ?? 100); return `<span class="f
 const fitTxt = p => { const f = Math.round(p.fit ?? 100); return `<span class="small ${f < 70 ? "bad" : f < 85 ? "warn" : "muted"}">${f}%</span>`; };
 function pgTactics() {
   const tab = SUB.tactics || "shape";
-  const tabs = `<div class="chips" style="margin-bottom:14px">${[["shape", "Team"], ["depth", "Depth chart"], ["retrain", "Retrains"]].map(([k, l]) => `<button data-act="sub" data-k="tactics" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>`;
-  return tabs + (tab === "depth" ? depthChart() : tab === "retrain" ? retrainList() : tacticsShape());
+  const tabs = `<div class="chips" style="margin-bottom:14px">${[["shape", "Team"], ["depth", "Depth chart"], ["youth", "Youth minutes"], ["retrain", "Retrains"]].map(([k, l]) => `<button data-act="sub" data-k="tactics" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>`;
+  return tabs + (tab === "depth" ? depthChart() : tab === "retrain" ? retrainList() : tab === "youth" ? youthMinutes() : tacticsShape());
+}
+/* Suggested youth to give minutes: players under 20 who aren't in the first eleven, with a potential (your staff's
+   estimate) at or above the average of your squad's. Playing time speeds their development. */
+function youthMinutes() {
+  const c = my(), xi = new Set(pickXI(c).map(o => o.p.id)), mid = p => { const [a, b] = potEstimate(p); return (a + b) / 2; };
+  const squad = c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.to === c.id)), avg = squad.length ? squad.reduce((s, p) => s + mid(p), 0) / squad.length : 0;
+  const ps = c.squad.map(P).filter(p => p && p.age < 20 && (!xi.has(p.id) || p.force) && !(p.loan && p.loan.to === c.id) && mid(p) >= avg).sort((a, b) => mid(b) - mid(a) || b.ovr - a.ovr);
+  const forced = c.squad.filter(id => P(id).force).length, rng = ([a, b]) => r20(a) === r20(b) ? `${r20(a)}` : `${r20(a)}–${r20(b)}`;
+  const row = p => `<div class="row between" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
+      <span class="small"><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>, ${p.age}${p.acad ? ` <span class="chip">Academy</span>` : ""} · rated ${r20(p.ovr)} · potential <b>${rng(potEstimate(p))}</b> · ${p.s.app} game${p.s.app === 1 ? "" : "s"} this season</span>
+      ${p.acad ? `<span class="small muted">Promote him to the first team (Academy page) to play him</span>` : `<button class="btn sm" data-act="forcey" data-id="${p.id}" ${!p.force && forced >= MAX_FORCED ? "disabled" : ""}>${p.force ? "Let the manager decide" : "Insist he plays"}</button>`}</div>`;
+  return `<section class="card"><div class="card-h"><h2>Youth to give minutes</h2><span class="small muted">under 20 · not in the side · potential at or above your squad's average (${r20(avg)})</span></div>
+    ${ps.length ? ps.map(row).join("") : `<p class="muted small">No one fits right now: no player under 20 outside the side has a potential at or above your squad's average.</p>`}
+    <p class="small muted" style="margin-top:8px">Young players develop faster when they play. You can insist on up to ${MAX_FORCED} players starting${forced ? ` (${forced} now)` : ""}; a loan is the other way to get them games.</p></section>`;
 }
 /* Suggested retrains: every move the manager rates a good one, best first; then neutral moves that would give a
    player a place in the formation (his position isn't used, the new one is). Same estimates as on the player card. */
