@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.99";
+const VERSION = "1.1.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -282,9 +282,31 @@ function potEstimate(p) {
   const sd = clamp((100 - judge) / 22, .4, 4), now = to20(p.ovr), est = clamp(to20(p.pot) + p.pn * sd * .6, now, 20), w = Math.max(.5, sd * 1.1);
   return [snap20(from20(Math.max(now, est - w))), snap20(from20(Math.min(20, est + w)))];
 }
+/* ---------- scouting knowledge ----------
+   What you know about a player who isn't yours depends on your scouting, 1-20: your head of recruitment's judging,
+   lifted by the scouting budget and his contacts (players in your own division are seen every week: a little more).
+   - Attributes: at 20 you get a range for every one; the lower it goes, the fewer are scouted (the ones that matter most
+     for his position first) and the wider and less reliable the ranges: a poor scout's report can simply be wrong.
+   - His type (archetype): not known below 5; below 10 the report sometimes has it wrong. */
+const knownPlayer = p => p.club === G.club || !!(p.loan && p.loan.from === G.club);
+const scoutLvl = p => { const b = staffAttr("recruit", "judge", 25) + scoutBoost(); return clamp(b / 5 + (p && p.club >= 0 && G.club != null && !CL(p.club).abroad && CL(p.club).lg === my().lg ? 4 : 0), 1, 20); };
+const hsh = (a, b) => (((a * 2654435761) ^ (b * 40503)) >>> 0) % 10000 / 10000;  // a stable 0-1 draw (the same report each time)
+function attrRead(p, k) {
+  const s = scoutLvl(p), keys = keysOf(p.pos).slice().sort((a, b) => (POS_W[p.pos][b] || 0) - (POS_W[p.pos][a] || 0)), n = Math.ceil(keys.length * clamp((s - 2) / 18, 0, 1));
+  if (keys.indexOf(k) < 0 || keys.indexOf(k) >= n) return null;
+  const t = to20(p.at[k]), seed = [...k].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7), bias = (hsh(p.id, seed) * 2 - 1) * (20 - s) * .22, w = .6 + (20 - s) * .2;
+  return [clamp(Math.round(t + bias - w), 1, 20), clamp(Math.round(t + bias + w), 1, 20)];
+}
+function archRead(p) {
+  const a = archetypeOf(p); if (!a || knownPlayer(p)) return a;
+  const s = scoutLvl(p); if (s < 5) return null;
+  if (s < 10 && hsh(p.id, 7) < (10 - s) / 10 * .5) { const alt = (ARCHETYPES[p.pos] || []).filter(x => x[0] !== a[0]); if (alt.length) return alt[Math.floor(hsh(p.id, 9) * alt.length)]; }
+  return a;
+}
 function ovrEstimate(p) {
-  if (p.club === G.club || (p.club >= 0 && CL(p.club).lg === my().lg)) return [snap20(p.ovr), snap20(p.ovr)];
-  const sd = clamp((100 - staffAttr("recruit", "judge", 25) - scoutBoost()) / 18, .5, 5), w = Math.max(1, sd);
+  if (knownPlayer(p)) return [snap20(p.ovr), snap20(p.ovr)];
+  const own = p.club >= 0 && G.club != null && !CL(p.club).abroad && CL(p.club).lg === my().lg;  // seen every week
+  const sd = clamp((100 - staffAttr("recruit", "judge", 25) - scoutBoost() - (own ? 20 : 0)) / 18, .5, 5), w = Math.max(1, sd);
   const est = p.ovr + p.pn * sd * .5;
   return [snap20(est - w), snap20(est + w)];
 }

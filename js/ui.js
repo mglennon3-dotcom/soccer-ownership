@@ -36,7 +36,7 @@ function sortTable(id, cols, rows, opt = {}) {
 }
 addEventListener("resize", () => { if (typeof freezeCols === "function") freezeCols(); });
 const SORT_UP = ["name", "pos", "club", "nat", "ask"];  // columns that start A-Z (or by position)
-const archChip = p => { const a = archetypeOf(p); return a ? `<span class="chip hg" title="${esc(a[0] + ": " + a[2])}">${a[3]}</span>` : ""; };
+const archChip = p => { const a = archRead(p); return a ? `<span class="chip hg" title="${esc(a[0] + ": " + a[2])}">${a[3]}</span>` : ""; };
 const staff20 = v => `${bar(v)}<b class="num">${s20(v)}</b>`;  // directors and preferences: straight 1-20
 const staffR20 = v => `${bar(staffEq(v))}<b class="num">${sr20(v)}</b>`;  // staff abilities: on the players' scale
 const attr20 = v => `${bar(v)}<b class="num">${r20(v)}</b>`;
@@ -451,8 +451,8 @@ function playerModal(id) {
   const p = G.players[id]; if (!p) return;
   const mine = p.club === G.club, lentOut = !!(p.loan && p.loan.from === G.club), c = p.club >= 0 ? CL(p.club) : null, est = lentOut ? [p.ovr, p.ovr] : ovrEstimate(p);
   const keys = keysOf(p.pos).slice().sort((a, b) => (POS_W[p.pos][b] || 0) - (POS_W[p.pos][a] || 0));
-  const exact = mine || lentOut || (c && c.lg === my().lg);
-  const attrs = keys.map(k => `<div class="attr-r"><span>${ATTR[k]}${POS_W[p.pos][k] ? " ★" : ""}</span>${exact ? attr20(p.at[k]) : `<span class="muted small">not scouted</span>`}</div>`).join("");
+  const exact = mine || lentOut;
+  const attrs = keys.map(k => `<div class="attr-r"><span>${ATTR[k]}${POS_W[p.pos][k] ? " ★" : ""}</span>${exact ? attr20(p.at[k]) : (r => r ? `<b class="num">${r[0] === r[1] ? r[0] : r[0] + "–" + r[1]}</b>` : `<span class="muted small">not scouted</span>`)(attrRead(p, k))}</div>`).join("");
   let acts = "";
   if (p.loan && p.loan.ai && !mine) acts = `<div class="sugg"><b class="small">On loan at ${esc(c.name)} from ${esc(CL(p.loan.from).name)} until the end of the season</b></div>`;
   else if (lentOut) acts = `<div class="sugg"><b class="small">On loan at ${esc(c.name)} until the end of the season</b><p class="small muted">${p.s.app} games there this season. You pay ${Math.round((1 - p.loan.share) * 100)}% of his wages (${pw(p.wage * (1 - p.loan.share))}).</p><div class="row" style="margin-top:6px"><button class="btn sm" data-act="recall" data-id="${p.id}">Recall him${recallFee(p) ? ` (${money(recallFee(p))})` : ""}</button></div></div>`;
@@ -488,7 +488,8 @@ function playerModal(id) {
   const PT = [["ratings", "Ratings"], [deal, deal === "contract" ? "Contract" : "Transfer"], ["stats", "Stats"], ["honours", "Honours"]];
   const PT_BAR = `<div class="chips ptabs" style="margin:12px 0">${PT.map(([k, l]) => `<button data-act="ptab" data-id="${p.id}" data-v="${k}" aria-pressed="${tab === k}">${l}</button>`).join("")}</div>`;
   const RATINGS = `${compStatsHTML(p, "season")}<div class="attr-grid">${attrs}</div>
-    ${archetypeOf(p) ? `<p><b>${esc(archetypeOf(p)[0])}.</b> <span class="muted">${esc(archetypeOf(p)[2])}</span></p>` : ""}
+    ${(a => a ? `<p><b>${esc(a[0])}.</b> <span class="muted">${esc(a[2])}</span>${knownPlayer(p) ? "" : ` <span class="small muted">(scouting report)</span>`}</p>` : knownPlayer(p) ? "" : `<p class="small muted">Type of player: not known (your scouting isn't good enough to say).</p>`)(archRead(p))}
+    ${knownPlayer(p) ? "" : `<p class="small muted">Scouting level ${Math.round(scoutLvl(p))}/20: ${scoutLvl(p) >= 16 ? "a detailed, reliable report" : scoutLvl(p) >= 10 ? "a decent report, with gaps" : scoutLvl(p) >= 5 ? "a thin report: treat it with care" : "barely a report at all"}.</p>`}
     ${(() => { const pr = prefsOf(p, P_FACTORS), wm = wageMult(p, my()), h = homeOf(p), fit = systemFit(p);
       return `<p class="small"><b>What drives him:</b> ${[...personaOf(p), loyalWord(p)].filter(Boolean).map(esc).join(" · ")}${h ? ` · from ${esc(h)}${h === my().region ? ' <span class="good">(your area)</span>' : ""}` : ""}.
         ${wm > 1.05 ? ` <span class="warn">He wants about ${Math.round((wm - 1) * 100)}% over the going rate${mine && (pr.top.includes("money") || wm > 1.1) ? ", and won't take a relegation pay cut quietly" : ""}.</span>` : wm < .95 ? ` <span class="good">He'd take about ${Math.round((1 - wm) * 100)}% less to play near home.</span>` : ""}
@@ -967,7 +968,7 @@ function pgMarket() {
   // "Fits my budget": what's left of the transfer budget, and the spare room in the wage budget (a week).
   const feeLeft = Math.max(0, c.budget.transfer - c.spentT - pendFees()), wageLeft = Math.max(0, c.budget.wages - wageBill(c) - pendWages()) / 52;  // after deals already agreed
   const feeCap = F.fee === -1 ? feeLeft : F.fee, wageCap = F.wage === -1 ? wageLeft : F.wage;
-  let pool = base.filter(p => (!F.pos || p.pos === F.pos) && p.age <= F.age && (!F.arch || (archetypeOf(p) || [])[0] === F.arch))
+  let pool = base.filter(p => (!F.pos || p.pos === F.pos) && p.age <= F.age && (!F.arch || (archRead(p) || [])[0] === F.arch))
     .map(p => ({ p, e: ovrEstimate(p) })).filter(x => r20((x.e[0] + x.e[1]) / 2) >= F.min)
     .map(x => ({ ...x, pe: potEstimate(x.p) })).filter(x => !F.pmin || r20((x.pe[0] + x.pe[1]) / 2) >= F.pmin)  // potential as your staff estimate it
     .map(x => ({ ...x, fee: askingFee(x.p, xiCache) })).filter(x => F.tab === "loans" || !F.fee || x.fee <= feeCap);
