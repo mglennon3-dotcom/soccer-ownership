@@ -630,6 +630,20 @@ function wageClauses(c, up, down) {
    three leave, each choosing among the clubs that want him (playerChooses): most a club at their level, a money-minded
    one perhaps the biggest wage, even a rich club in the new division.
    AI clubs' contracts also pay 25% less after relegation, as yours do. */
+/* A forced loan: a relegated club that can't sell a player, or must cut its wage bill to get within its limits, loans
+   him out for the season. It's forced on the club, but the player chooses where: every club that will have him (at or
+   above his new division, at about his level, not a rival, able to fit its share of his wage) makes an offer, and he
+   picks on his own priorities (playing time, standing and form, the system, home; his wage is unchanged). The borrower
+   pays a third to a half of it; his club the rest. */
+function forcedLoan(p, c) {
+  const share = Math.round(rf(.35, .5) * 20) / 20;
+  const offers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && Math.abs((x.lvl || 0) - p.ovr) <= 6 && !derbyLevel(c, x) && fitsRules(x, p.wage * share, 0, 1))
+    .map(x => [x, aiAppeal(p, x, p.wage) + normal() * .03]).filter(([, a]) => a > -1).sort((a, b) => b[1] - a[1]);
+  if (!offers.length) return false; const d = offers[0][0];
+  aiLoanMove(p, c, d, share);
+  if (storyWorthy(c) || storyWorthy(d)) story(`Relegated ${c.name} must loan out ${p.name}: he chooses ${d.name}.`, "clause", 1);
+  return true;
+}
 function relegationExodus(ids) {
   const sold = [];
   for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad) continue;
@@ -648,14 +662,15 @@ function relegationExodus(ids) {
       // Relegated clubs are stripped of their best: a player of the division above's standard almost always goes, others often.
       for (const p of ps) { if (n >= 5 || p.keep || R() > (p.ovr >= TIER_LVL[c.tier - 1] - 3 ? .92 : .5)) continue;
         const b = playerChooses(p, G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && x.tier >= c.tier - 2));
-        // Nobody can pay for him: a star far too good for the new division goes on loan for the season to a club at his level
-        // in a higher division, his own club still paying most of his wage (the borrower a third to a half).
-        if (!b) { if (p.ovr >= TIER_LVL[c.tier - 1] - 3 && R() < (r20(p.ovr) >= 16 ? 1 : .7)) {
-            const share = Math.round(rf(.3, .5) * 20) / 20, to = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && Math.abs((x.lvl || 0) - p.ovr) <= 6 && !derbyLevel(c, x) && fitsRules(x, p.wage * share, 0, 1)).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 5);
-            if (to.length) { const d = pick(to); aiLoanMove(p, c, d); p.loan.share = share; n++; if (storyWorthy(c) || storyWorthy(d)) story(`${p.name} leaves relegated ${c.name} on loan to ${d.name} for the season.`, "clause", 1); } }
-          continue; }
+        if (!b) { if (p.ovr >= TIER_LVL[c.tier - 1] - 3 && R() < (r20(p.ovr) >= 16 ? 1 : .7)) forcedLoan(p, c); continue; }
         aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
+  // Still over its limits (wage budget, squad cost rule): the club must loan out its highest earners, up to four.
+  for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad || isMine(c)) continue;
+    for (let k = 0; k < 4; k++) { const over = aiBill(c) > aiBudget(c) * 1.05 || (c.tier <= 4 && squadRoom(c) < 0); if (!over) break;
+      const p = c.squad.map(P).filter(q => q && !q.acad && !q.loan && !q.forcedTried).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
+      p.forcedTried = true; forcedLoan(p, c); }
+    for (const q of c.squad.map(P)) if (q) delete q.forcedTried; }
   if (sold.length) news(`Relegated clubs lose their best players: ${sold.slice(0, 5).join(", ")}${sold.length > 5 ? ` and ${sold.length - 5} more` : ""}.`);
 }
 // A club joining the pyramid from below signs its first squad from the free agents (no players are invented; only if

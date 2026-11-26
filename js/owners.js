@@ -147,7 +147,8 @@ function aiEstimate(x) {
 // A season's income: TV, the gate (plus bar and shop), sponsors.
 // (plus a little for cup runs, merit money and selling players).
 function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
-const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
+// The wage bill: a loanee in costs his share; a player loaned out still costs the rest (loanOutW).
+const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage * (p.loan && p.loan.ai && p.loan.to === c.id ? p.loan.share : 1) : 0; }) + (c.loanOutW || 0);
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
 // Travel, utilities, insurance and medical bills, and grading works on arriving in a new division.
 const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + (c.cap || 0) * 40 * (ageUpF(G.year - aiOpened(c)) - 1) + 4000 * (c.train || 0) + aiBill(c) * INSURE * .7 + MED[c.tier] * 4 + (c.upNow ? gradingCost(c, c.tier) : 0);

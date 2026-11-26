@@ -79,16 +79,17 @@ function endLoans() {
     if (home && isMine(home)) news(`${p.name} returns from his loan at ${at ? at.name : "his loan club"} (${p.s.app} games).`);
     p.loan = null;
   }
-  G.loanList = [];
+  G.loanList = []; for (const c of G.clubs) if (c.loanOutW) c.loanOutW = 0;
 }
 /* ---------- loans between AI clubs ----------
    Late in each window, AI clubs lend out players who need games: young players not in the first team (most of all those
    with room to grow) and older fringe players, to clubs a division or two down where they'd play. The borrowing club
    pays part of the wage. They come back at the end of the season (endLoans). A club short of a player and of money can
    also borrow one instead of signing someone cheap (aiBorrow). */
-function aiLoanMove(p, from, to) {
+function aiLoanMove(p, from, to, share = Math.round(rf(.3, 1) * 20) / 20) {
   from.squad = from.squad.filter(id => id !== p.id); to.squad.push(p.id); p.club = to.id;
-  p.loan = { from: from.id, to: to.id, share: Math.round(rf(.3, 1) * 20) / 20, ai: true }; (G.loanList ||= []).push(p.id); capSquad(to, p);
+  p.loan = { from: from.id, to: to.id, share, ai: true }; (G.loanList ||= []).push(p.id); capSquad(to, p);
+  if (!from.abroad && !isMine(from)) from.loanOutW = (from.loanOutW || 0) + (p.wage || 0) * (1 - share);  // he still pays the rest
 }
 function aiLoans() {
   const seniors = c => c.squad.reduce((n, id) => { const q = P(id); return n + (q && !q.acad ? 1 : 0); }, 0);
