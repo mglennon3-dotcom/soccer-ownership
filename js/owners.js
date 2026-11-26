@@ -117,8 +117,8 @@ const FSTR = { ESP: .62, GER: .6, ITA: .58, FRA: .5, POR: .38, NED: .38, TUR: .3
 const fStr = c => (c && c.abroad && FSTR[c.country]) || 1;
 /* The most an AI club pays any player a week, by division: what the real top earners make there (a reckless owner's
    one statement signing a season is the exception). Non-league is held by the owner's own limit. */
-const WAGE_TOP = [0, 500e3, 150e3, 40e3, 15e3, 500e3, 500e3, 500e3];
-const wageCap = c => !c || c.abroad || isMine(c) ? 500e3 * 52 : WAGE_TOP[c.tier] * 52;
+const DIV_WAGE_TOP = [0, 500e3, 150e3, 40e3, 15e3, 500e3, 500e3, 500e3];
+const wageCap = c => !c || c.abroad || isMine(c) ? 500e3 * 52 : DIV_WAGE_TOP[c.tier] * 52;
 const aiWage = (p, c) => Math.min(wageCap(c), Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
