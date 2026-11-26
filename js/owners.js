@@ -27,11 +27,18 @@ const OWNER_STYLES = {
   academy:   { l: "Youth evangelist",    d: "Believes in the academy above all. Brings players through and sells them on.", spend: -1, loss: 0, build: .3, patience: .8, debt: .01, poach: .3, media: 1, prices: .95, sells: .9, w: 1.5 },
 };
 const OWNER_CORP = ["Holdings", "Capital", "Group", "Partners", "Sports", "Investments", "Global"];
+/* A company that owns or invests in a club: lower down the pyramid it's usually a local firm (the town's builder, a
+   family business, a regional group), at the top a national or international one. */
+function companyName(c) {
+  if (c && !c.abroad && R() < (LOCAL_SPONS[c.tier] || 0)) { const town = c.town || c.name.split(" ")[0], sur = pick(NAMES.ENG[1]), r = R();
+    return r < .35 ? `${town} ${pick(["Holdings", "Group", "Developments", "Properties", "Enterprises"])}` : r < .7 ? `${sur} ${pick(["Group", "Holdings", "& Sons", "Family Holdings"])}` : `${sur} ${pick(LOCAL_TRADE)}`; }
+  return pick(BRANDS) + " " + pick(OWNER_CORP);
+}
 function newOwner(c, style) {
   style = style || wpick(Object.keys(OWNER_STYLES), k => OWNER_STYLES[k].w * (k === "sugar" || k === "celebrity" ? (c.tier <= 3 ? 2 : .7) : 1));
   const corp = ["multiclub", "stripper", "moneyball", "developer"].includes(style) && R() < .6;
   const wealth = style === "fanowned" ? 0 : Math.round(Math.pow(10, rf(5.5, 7.5) + (8 - c.tier) * .22 + (style === "sugar" ? 1.6 : style === "celebrity" ? .7 : 0)));
-  const name = corp ? pick(BRANDS) + " " + pick(OWNER_CORP) : style === "fanowned" ? `${c.town} Supporters' Society` : style === "dynasty" ? `The ${pick(NAMES.ENG[1])} family`
+  const name = corp ? companyName(c) : style === "fanowned" ? `${c.town} Supporters' Society` : style === "dynasty" ? `The ${pick(NAMES.ENG[1])} family`
     : style === "crypto" ? pick(["Coin", "Chain", "Bet", "Block", "Punt", "Token"]) + pick(["Vault", "Stake", "Hub", "X", "Max", "Rush"]) : nameFor("ENG");
   return { name, style, wealth, since: G.year, flash: R() };
 }
