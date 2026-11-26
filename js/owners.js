@@ -117,8 +117,11 @@ const FSTR = { ESP: .62, GER: .6, ITA: .58, FRA: .5, POR: .38, NED: .38, TUR: .3
 const fStr = c => (c && c.abroad && FSTR[c.country]) || 1;
 /* The most an AI club pays any player a week, by division: what the real top earners make there (a reckless owner's
    one statement signing a season is the exception). Non-league is held by the owner's own limit. */
-const DIV_WAGE_TOP = [0, 500e3, 150e3, 40e3, 15e3, 500e3, 500e3, 500e3];
+const DIV_WAGE_TOP = [0, 500e3, 150e3, 40e3, 15e3, 10e3, 4e3, 1.5e3];
+// And the most an AI club pays in a transfer fee, by division (about the real record fees there).
+const DIV_FEE_TOP = [0, Infinity, 35e6, 6e6, 2e6, 5e5, 2e5, 5e4];
 const wageCap = c => !c || c.abroad || isMine(c) ? 500e3 * 52 : DIV_WAGE_TOP[c.tier] * 52;
+const feeCap = c => !c || c.abroad || isMine(c) || reckless(c) ? Infinity : DIV_FEE_TOP[c.tier];  // a reckless owner's splash is the exception
 const aiWage = (p, c) => Math.min(wageCap(c), Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
@@ -538,10 +541,10 @@ function squadRoom(c, k = 1) {
 }
 // A small breach costs the right to pay fees next season; a bigger one points as well.
 // A breach costs the right to pay fees next season; points only for a big one (more than 15 points over), or a second in a row.
-const scrPen = (over, c) => over > .25 ? 6 : over > .15 || (c && c.scrBan === G.year) ? 3 : 0;
+const scrPen = (over, c) => over > .25 ? 6 : over > .15 || (c && c.scrBan === G.year && over > .08) ? 3 : 0;
 // In non-league it's the owner's own limit, so even a gambler is held to it; in the leagues a reckless owner may break the rules.
 // A reckless owner may push past the rules, but only a little (a fee ban, rarely points): boom and bust, not limitless.
-const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : c.tier >= 5 ? wage <= squadRoom(c) : ssrBound(c) && fee > Math.max(0, c.tnet || 0) ? false : reckless(c) ? wage + fee / Math.max(1, yrs) <= squadRoom(c, 1.05) : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
+const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : fee > feeCap(c) ? false : c.tier >= 5 ? wage <= squadRoom(c) : ssrBound(c) && fee > Math.max(0, c.tnet || 0) ? false : reckless(c) ? wage + fee / Math.max(1, yrs) <= squadRoom(c, 1.05) : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
 // The yearly check for an AI club (from aiAccounts): domestic squad cost rule, then UEFA's.
 // The rules come in with a season's notice: nobody is judged until the season after they're introduced.
 const scrLive = () => { if (G.scrFrom == null) { G.scrFrom = G.year + 1; news("The leagues bring in a squad cost rule from next season: spending on players (wages and transfer fees spread over contracts) capped at 85% of revenue in the Premier Division, 100% in the First, 60% in the Second and 55% in the Third, where owners' money counts. UEFA's own rule (70%) applies to clubs in Europe.", true); } return G.year >= G.scrFrom; };

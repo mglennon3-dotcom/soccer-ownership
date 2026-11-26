@@ -647,7 +647,9 @@ function relegationExodus(ids) {
     else { let n = 0;
       // Relegated clubs are stripped of their best: a player of the division above's standard almost always goes, others often.
       for (const p of ps) { if (n >= 5 || p.keep || R() > (p.ovr >= TIER_LVL[c.tier - 1] - 3 ? .92 : .5)) continue;
-        const b = playerChooses(p, G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && x.tier >= c.tier - 2)); if (!b) continue;
+        const b = playerChooses(p, G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && x.tier >= c.tier - 2));
+        // Nobody can pay for him: a star far too good for the new division has his contract ended by agreement and leaves as a free agent.
+        if (!b) { if (p.ovr >= TIER_LVL[c.tier - 1] - 3 && R() < (r20(p.ovr) >= 16 ? 1 : .7)) { leaveClub(p); toFreeAgent(p); n++; if (storyWorthy(c)) story(`${p.name} leaves relegated ${c.name} by mutual agreement.`, "clause", 1); } continue; }
         aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
   if (sold.length) news(`Relegated clubs lose their best players: ${sold.slice(0, 5).join(", ")}${sold.length > 5 ? ` and ${sold.length - 5} more` : ""}.`);
