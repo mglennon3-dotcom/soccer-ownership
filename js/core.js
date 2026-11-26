@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.1.8";
+const VERSION = "1.1.9";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -220,7 +220,9 @@ function renewsAI(p) {
   // How he rates the club, on his own priorities (playing time, the system, standing, how it's doing, home), and a
   // little more for form itself: a club that's winning keeps its players; a struggling one loses them.
   ch += clamp((aiAppeal(p, c) - .05) * 1.5, -.25, .2) + clubSit(c).m * .12;  // (a typical player rates his club about +.05)
-  if (r20(p.ovr) >= 17) ch = Math.max(ch, p.age < 31 ? .97 : .9);  // a world-class player: his club does whatever it takes (a free transfer is a once-a-year story)
+  // A world-class player at a club of his standard: it does whatever it takes to keep him (a free transfer is a
+  // once-a-year story). At a club far below him he wants out, and the club sells him or he runs his deal down.
+  if (r20(p.ovr) >= 17 && p.ovr <= ref + 6) ch = Math.max(ch, p.age < 31 ? .97 : .9);
   const h = ((p.id * 2654435761 + G.year * 40503) >>> 0) % 1000 / 1000;  // the same answer all season
   let ok = h < clamp(ch, .1, .95);
   /* The new deal is at his division's standard (the going rate for his rating there, capped at its top wage). A real pay
