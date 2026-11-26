@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.1.9";
+const VERSION = "1.2.0";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -454,6 +454,7 @@ function newWorld(o) {
     news: [], inbox: [], nextMsg: 1, history: [], hof: [], wonders: [], cand: null, owner: null, seed: R() };
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
+  standardWages();  // contracts at each division's standard
   makeForeign();
   for (const c of G.clubs) if (!c.gone) c.own ||= newOwner(c);
   buildDerbies();

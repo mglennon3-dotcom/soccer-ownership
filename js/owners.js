@@ -118,6 +118,18 @@ const fStr = c => (c && c.abroad && FSTR[c.country]) || 1;
 /* The most an AI club pays any player a week, by division: what the real top earners make there (a reckless owner's
    one statement signing a season is the exception). Non-league is held by the owner's own limit. */
 const DIV_WAGE_TOP = [0, 500e3, 150e3, 40e3, 15e3, 10e3, 4e3, 1.5e3];
+// Each division's typical (median) weekly wage at an AI club.
+const DIV_WAGE_MED = [0, 72e3, 19e3, 4e3, 2e3, 1e3, 400, 65];
+/* Setting every AI club's contracts at its division's standard: each player paid the going rate for his rating there
+   (aiWage), then the whole division scaled so its median matches the division's typical wage, then capped at its top
+   wage. Used when a world is made, and once on older saves whose starting contracts were on a single scale. */
+function standardWages() {
+  for (let t = 1; t <= 7; t++) {
+    const ps = []; for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || c.tier !== t) continue; for (const id of c.squad) { const p = P(id); if (p && !p.acad && !p.loan) { p.wage = aiWage(p, c); ps.push([p, c]); } } }
+    if (!ps.length) continue; const w = ps.map(([p]) => p.wage).sort((a, b) => a - b), k = DIV_WAGE_MED[t] * 52 / Math.max(1, w[w.length >> 1]);
+    for (const [p, c] of ps) p.wage = Math.min(wageCap(c), Math.max(500, Math.round(p.wage * k / 100) * 100));
+  }
+}
 // And the most an AI club pays in a transfer fee, by division (about the real record fees there).
 const DIV_FEE_TOP = [0, Infinity, 35e6, 6e6, 2e6, 5e5, 2e5, 5e4];
 const wageCap = c => !c || c.abroad || isMine(c) ? 500e3 * 52 : DIV_WAGE_TOP[c.tier] * 52;
