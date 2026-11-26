@@ -377,7 +377,7 @@ function yearTurnover() {
     if (p.acad && p.age === 18 && p.club === G.club) (G.turn18 ||= []).push(p.id);  // your academy players turning 18: you're asked (see turn18Ask)
     // AI wages drift toward what the club pays for the player's rating: about a third of the gap a year, down as he declines, up as he improves.
     if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad && !p.loan && p.stunC !== p.club) { /* a statement signing keeps his huge wage while he stays */ const go = aiWage(p, CL(p.club)); p.wage = Math.round((p.wage + (go - p.wage) * .35) / 100) * 100; }
-    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { const stays = p.age < 34 && renewsAI(p) && !(p.toMe && p.toMe.pre); p.yrs--; if (p.yrs <= 0) { if (stays) p.yrs = aiYears(p, CL(p.club)); else { leaveClub(p); toFreeAgent(p); } } }
+    if (p.club >= 0 && !isMine(CL(p.club)) && !p.acad) { const stays = p.age < 34 && renewsAI(p) && !(p.toMe && p.toMe.pre); p.yrs--; if (p.yrs <= 0) { if (stays) { p.yrs = aiYears(p, CL(p.club)); if (p.renewW) p.wage = p.renewW; delete p.renewW; } else { leaveClub(p); toFreeAgent(p); } } }
     // Veterans nobody signs hang up their boots sooner.
     const ch = p.age >= 39 ? 1 : p.club < 0 && p.age >= 33 ? Math.min(1, .4 + (p.age - 33) * .2) : p.age >= 33 ? (p.age - 32) * .14 * (p.ovr > 75 ? .7 : 1) : 0;
     if (R() < ch) { if (p.club === G.club) news(`${p.name} retires, aged ${p.age}.`); retire(p); }
@@ -660,9 +660,9 @@ function relegationExodus(ids) {
           ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["ambition after relegation"] }, 0); } }
     else { let n = 0;
       // Relegated clubs are stripped of their best: a player of the division above's standard almost always goes, others often.
-      for (const p of ps) { if (n >= 5 || p.keep || R() > (p.ovr >= TIER_LVL[c.tier - 1] - 3 ? .92 : .5)) continue;
+      for (const p of ps) { if (n >= 5 || p.keep || R() > (r20(p.ovr) >= 16 ? 1 : p.ovr >= TIER_LVL[c.tier - 1] - 3 ? .92 : .5)) continue;
         const b = playerChooses(p, G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && x.tier >= c.tier - 2));
-        if (!b) { if (p.ovr >= TIER_LVL[c.tier - 1] - 3 && R() < (r20(p.ovr) >= 16 ? 1 : .7)) forcedLoan(p, c); continue; }
+        if (!b) { if (p.ovr >= TIER_LVL[c.tier - 1] - 3 && R() < (r20(p.ovr) >= 16 ? 1 : .7)) forcedLoan(p, c); continue; }  // a world-class player always goes: sold or loaned
         aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
   // Still over its limits (wage budget, squad cost rule): the club must loan out its highest earners, up to four.

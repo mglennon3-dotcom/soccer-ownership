@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.1.7";
+const VERSION = "1.1.8";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -223,6 +223,14 @@ function renewsAI(p) {
   if (r20(p.ovr) >= 17) ch = Math.max(ch, p.age < 31 ? .97 : .9);  // a world-class player: his club does whatever it takes (a free transfer is a once-a-year story)
   const h = ((p.id * 2654435761 + G.year * 40503) >>> 0) % 1000 / 1000;  // the same answer all season
   let ok = h < clamp(ch, .1, .95);
+  /* The new deal is at his division's standard (the going rate for his rating there, capped at its top wage). A real pay
+     cut may be too much for him: the bigger it is, the likelier he says no (a money-motivated player most of all, a loyal
+     one least); then he either asks to leave (listed and sold) or runs his contract down. */
+  const offer = aiWage(p, c), cut = p.wage > 0 ? 1 - offer / p.wage : 0;
+  if (ok && cut > .1) { const pr = prefsOf(p, P_FACTORS), L = loyaltyOf(p), no = clamp(cut * 1.6 + (pr.top.includes("money") ? .25 : 0) - (L - .5) * .5, 0, .95);
+    if (((p.id * 40503 + G.year * 2654435761) >>> 0) % 1000 / 1000 < no) { ok = false;
+      if ((pr.top.includes("money") ? .7 : .5) - (p.age >= 31 ? .25 : 0) > R()) { p.list = true; p.req = G.year; } } }
+  if (ok) p.renewW = offer;
   // A young player who'd otherwise run his deal down often signs if his club puts in a release clause: a bigger club can
   // take him for a set fee (about one and a half times what he's worth), and his club gets a fee rather than nothing.
   if (!ok && p.age <= 24 && p.ovr >= ref - 1 && h < clamp(ch, .1, .95) + .45) { ok = true; giveClause(p, c); }
