@@ -478,6 +478,7 @@ const ACT = {
   retrain: async el => { const p = P(+el.dataset.id), to = el.dataset.to, V = retrainView(p, to);
     if (!await ask(`Retrain ${p.name} as a ${POS_NAME[to].toLowerCase()}? ${mgr() && mgr().name ? mgr().name : "The manager"} thinks it's ${V.verdict === "neutral" ? "neutral" : `a ${V.verdict} move`}: about ${V.ovr[0]}${V.ovr[1] !== V.ovr[0] ? "–" + V.ovr[1] : ""} now. He can only retrain once.`, "Retrain him")) return playerModal(p.id);
     retrain(p, to); playerModal(p.id); render(); saveGame(); },
+  storyy: el => { STORY_Y = +el.value; render(); },
   rnclause: el => { RENEW_CL = { id: +el.dataset.id, m: +el.value }; render(); },
   renewgo: el => { const p = P(+el.dataset.id), r = offerRenewal(p, num($("#rn-wage")) * 52, +$("#rn-yrs").value, +(($("#rn-clause") || {}).value || 0));
     RENEW_SAY = r.ok ? null : { id: p.id, t: r.t }; if (r.ok) toast(r.t); playerModal(p.id); render(); saveGame(); },

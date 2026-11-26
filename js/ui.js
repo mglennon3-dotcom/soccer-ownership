@@ -916,6 +916,14 @@ function poHTML(po, last) {
     ${po.semis.map(([h, a], i) => tie(h, a, `Semi-final ${i + 1}`)).join("")}
     ${po.final ? tie(po.final[0], po.final[1], "Final") : `<div class="row small muted" style="padding:4px 0">Final: winners of the semi-finals, at a neutral ground</div>`}</section>`;
 }
+const STORY_ICON = { deduction: "−", appeal: "⚖", admin: "!", takeover: "£", sack: "✕", uefa: "★", record: "€", clause: "⇄", statement: "€", shock: "⚡" };
+let STORY_Y = null;
+function storiesHTML() {
+  const S = G.stories || {}, ys = Object.keys(S).map(Number).sort((a, b) => b - a); if (!ys.length) return "";
+  const y = ys.includes(STORY_Y) ? STORY_Y : (S[ys[0]] || []).length < 3 && ys[1] ? ys[1] : ys[0], list = (S[y] || []).slice().reverse();
+  return `<section class="card"><div class="card-h"><h3>${y === G.year ? "This season's stories" : `Stories of ${seasonLabel(y)}`}</h3>${ys.length > 1 ? `<select data-act="storyy">${ys.map(v => `<option value="${v}" ${v === y ? "selected" : ""}>${seasonLabel(v)}</option>`).join("")}</select>` : ""}</div>
+    ${list.length ? list.map(s => `<p class="small" style="margin:4px 0"><span class="muted" style="display:inline-block;width:1.2em">${STORY_ICON[s.k] || "·"}</span>${esc(s.t)} <span class="muted">${esc(s.w || "")}</span></p>`).join("") : `<p class="small muted">Nothing yet.</p>`}</section>`;
+}
 function pgLeagueInner() {
   const k = SUB.league || my().lg;
   const opts = LG_KEYS.map(x => `<option value="${x}" ${x === k ? "selected" : ""}>${LEAGUES[x].name}</option>`).join("");
@@ -926,7 +934,7 @@ function pgLeagueInner() {
     ${tableHTML(k, table(k))}<p class="small muted" style="margin-top:8px">${LEAGUES[k].auto ? `Top ${LEAGUES[k].auto} promoted` : "Champions"}${LEAGUES[k].po ? `, ${ord(LEAGUES[k].po[0])}–${ord(LEAGUES[k].po[1])} play-offs` : ""}, bottom ${LEAGUES[k].down} ${LEAGUES[k].tier === 7 ? "drop out of the pyramid" : "relegated"}.</p></section>
     ${poHTML(po, !G.po && G.poLast && G.poLast[k] === po)}
     ${k === my().lg ? `<section class="card"><div class="card-h"><h3>Your results</h3></div>${(G.myRes || []).length ? resultsList((G.myRes || []).slice().reverse()) : "<p class='muted'>None yet.</p>"}</section>` : ""}</div>
-    <div class="stack"><section class="card"><div class="card-h"><h3>Top scorers</h3></div>${scorers.length ? scorers.map(p => `<div class="row between small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><span class="muted">${esc(CL(p.club).short)}</span><b class="num">${lg(p)}</b></div>`).join("") : "<p class='muted'>None yet.</p>"}</section></div></div>`;
+    <div class="stack">${storiesHTML()}<section class="card"><div class="card-h"><h3>Top scorers</h3></div>${scorers.length ? scorers.map(p => `<div class="row between small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button><span class="muted">${esc(CL(p.club).short)}</span><b class="num">${lg(p)}</b></div>`).join("") : "<p class='muted'>None yet.</p>"}</section></div></div>`;
 }
 const FAN_COL = { hard: "var(--loss)", loyal: "var(--win)", fair: "var(--accent)", comm: "#5b8def" };
 const fanBar = c => { const m = fanMix(c); return `<div class="fanbar">${Object.keys(FAN_KINDS).map(k => `<i style="width:${m[k]}%;background:${FAN_COL[k]}" title="${FAN_KINDS[k][0]} ${m[k]}%"></i>`).join("")}</div>`; };

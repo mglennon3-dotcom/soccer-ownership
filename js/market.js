@@ -168,6 +168,7 @@ function signYears(p, c) {
   return autoYears(p, { maxY: p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5 }, p.ovr >= (sen[17] ?? 0));
 }
 function signPlayer(p, fee, wage, byOwner, how) {
+  if (fee > (G.recFee || 0) && fee > 50e6) { G.recFee = fee; story(`A record fee: you pay ${money(fee)} for ${p.name}.`, "record", 3); }
   if (embargoed(my()) && fee > 0) { news(`The deal for ${p.name} is blocked: the club is under a transfer embargo.`, true); return false; }
   const c = my(), seller = p.club >= 0 ? CL(p.club) : null, keen = tookLess(p, c, wage);
   if (keen) p.keen = keen; else delete p.keen;
@@ -296,7 +297,7 @@ function clauseWeek(c) {
     const bs = G.clubs.filter(x => !x.gone && !isMine(x) && (x.rep || 0) >= p.clause.rep && canAfford(x, p.clause.fee) && (x.abroad ? !homeBound(p) : true) && p.ovr >= (x.lvl || 0) - 4 && acceptsMove(p, x));
     if (!bs.length) continue; const b = pick(bs);
     const m = addMsg({ type: "bid", keen: true, pid: p.id, club: b.id, amt: p.clause.fee, rec: "accept", title: `${clubLabel(b)} trigger ${p.name}'s ${money(p.clause.fee)} release clause` });
-    news(`${b.name} pay ${p.name}'s ${money(p.clause.fee)} release clause: he's going.`, true); answerBid(m, true, true); return; }
+    news(`${b.name} pay ${p.name}'s ${money(p.clause.fee)} release clause: he's going.`, true); story(`${b.name} trigger ${p.name}'s ${money(p.clause.fee)} release clause: he leaves ${c.name}.`, "clause", 3); answerBid(m, true, true); return; }
 }
 function headAdvice(p, amt) {
   const s = staffOf("recruit"), v = valueOf(p), starter = pickXI(my()).some(o => o.p === p);
@@ -765,7 +766,9 @@ function marketWeek() {
   headWeek(c); bidsWeek(c); clauseWeek(c); loanOffersWeek(c); faDrain();
   if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) aiLoans();  // late in each window
   if ((G.phase === "summer" && G.week === 2) || (G.phase === "season" && G.week === JAN[0])) aiSellExpiring();
-  if (G.phase === "season" && G.week === 1) for (const x of G.clubs) if (!x.gone && !x.abroad && x.tier === 1) plAgree(x);
+  if (G.phase === "season" && G.week === 1) { for (const x of G.clubs) if (!x.gone && !x.abroad && x.tier === 1) plAgree(x);
+    // Who's expected to finish where (by strength), for the season's shocks.
+    G.expRank = {}; for (const k of LG_KEYS) G.leagues[k].clubs.map(CL).sort((a, b) => (b.lvl || 0) - (a.lvl || 0)).forEach((c, i) => G.expRank[c.id] = i + 1); }
   if (G.phase === "season" && G.week === JAN[JAN.length - 1] + 6 && scrLive()) plMarch();  // early March
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
   faPickup(1);

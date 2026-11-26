@@ -225,7 +225,7 @@ function aiAccounts(c) {
   scrJudge(c); ssrTest(c);
   // Below the leagues: contracts the owner won't carry are sold, or the players released.
   if (c.tier >= 5) for (let k = 0; k < 4 && aiBill(c) > nlWageCap(c) * 1.05; k++) ruleSales(c);
-  { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
+  { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); charge(c, r.pen, "breaking the spending rule"); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
   if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { if (failGate("adm")) { administration(c); return; } rescue(c); }
@@ -329,6 +329,33 @@ function hostileCheck() {
   x.own = newOwner(x, "hostile"); x.own.wealth = Math.max(x.own.wealth, G.owner.wealth * rf(.8, 2)); x.own.target = c.id; x.rep = Math.min(99, x.rep + 3);
   news(`${x.own.name} buys ${x.name} and tells reporters he'll "put ${c.name} in their place". You have a hostile neighbour.`, true); bumpMedia(5);
 }
+/* ---------- this season's stories ----------
+   The year's notable events, kept season by season (the last fifteen): points deductions and appeals, administrations
+   and takeovers, record and statement signings, release clauses triggered, sackings, UEFA sanctions, and the season's
+   shocks (a big club in a relegation fight, an unfancied side challenging). Shown on the League page. */
+function story(t, kind, imp = 1) { const y = G.year, S = (G.stories ||= {}); (S[y] ||= []).push({ w: whenLabel(), t, k: kind, i: imp });
+  if (S[y].length > 60) { S[y].sort((a, b) => b.i - a.i); S[y].length = 60; } for (const k of Object.keys(S)) if (+k < y - 15) delete S[k]; }
+const storyWorthy = c => !!c && !c.abroad && (isMine(c) || c.tier <= 2 || c.lg === my().lg);
+/* A points deduction is a charge: announced, applied at once, then appealed. About three appeals in ten get it reduced
+   (Everton's 10 became 6), now and then one is overturned, most fail. Decided six to ten weeks later. You choose
+   whether to appeal yours (it costs legal fees); AI clubs always do. Administration brings no appeal. */
+const appealCost = c => Math.round(Math.max(50e3, aiIncome(c) * .005) / 1e4) * 1e4;
+function charge(c, pen, why) {
+  if (!pen || !c || c.abroad) return;
+  (G.charges ||= []).push({ id: c.id, pen, why, y: G.year, at: absWeek() + ri(6, 10), appealed: !isMine(c), done: false });
+  if (storyWorthy(c)) story(`${c.name} are docked ${pen} points for ${why}. ${isMine(c) ? "You can appeal." : "They appeal."}`, "deduction", isMine(c) || c.tier <= 2 ? 3 : 2);
+  if (isMine(c)) { moodHit(c, -Math.min(12, pen)); addChoice("appeal", `Appeal the ${pen}-point deduction?`, `The league has docked you ${pen} points for ${why}. An appeal costs about ${money(appealCost(c))} in legal fees and is decided in six to ten weeks: about three in ten get the penalty reduced, a few overturned, most fail.`, ["Appeal", "Accept it"], { cid: c.id, y: G.year }, 0); }
+}
+DECIDE.appeal = (m, i) => { const ch = (G.charges || []).find(x => x.id === m.data.cid && x.y === m.data.y && !x.done); if (!ch) return;
+  if (i === 0) { ch.appealed = true; spend("tax", appealCost(my())); news(`You lodge an appeal against the ${ch.pen}-point deduction.`); } else ch.done = true; };
+function chargesWeek() {
+  for (const ch of G.charges || []) { if (ch.done || absWeek() < ch.at) continue; ch.done = true; const c = CL(ch.id); if (!c || !ch.appealed) continue;
+    const r = R(), back = r < .28 ? Math.ceil(ch.pen * .4) : r < .34 ? ch.pen : 0;
+    if (back) { const row = c.lg && G.leagues[c.lg] && G.leagues[c.lg].tab ? G.leagues[c.lg].tab[c.id] : null; if (row && G.phase !== "summer") row.pts += back; else c.ded = Math.max(0, (c.ded || 0) - back); }
+    const t = back === ch.pen ? `${c.name} win their appeal: the ${ch.pen}-point deduction is overturned.` : back ? `${c.name}'s appeal partly succeeds: the deduction is cut from ${ch.pen} to ${ch.pen - back} points.` : `${c.name} lose their appeal: the ${ch.pen}-point deduction stands.`;
+    if (storyWorthy(c)) story(t, "appeal", 2); if (isMine(c) || c.lg === my().lg) news(t, isMine(c)); }
+  G.charges = (G.charges || []).filter(ch => !ch.done || ch.y >= G.year - 1);
+}
 function administration(c) {
   // The club is sold out of administration to a new owner who clears the debts: the embargo lasts about a season.
   c.ded = 10; c.rep = Math.max(1, c.rep - 4); c.emb = { y: G.year }; c.tb = 0; c.debt = 0;
@@ -336,11 +363,13 @@ function administration(c) {
   for (const p of best) { const b = buyerFor(p, 8, .6); if (b && b !== c) { aiTransfer(p, b, Math.round(aiFee(p) * .6 / 1e4) * 1e4); p.wage = aiWage(p, b); } }  // a fire sale
   const where = c.lg === my().lg || c.half === my().half;
   news(`${c.name} have gone into administration under ${c.own.name}. They start next season on minus ten points and have sold their best players.`, where);
+  if (c.tier <= 4 || storyWorthy(c)) story(`${c.name} go into administration: minus ten points next season, and their best players sold.`, "admin", 3);
   c.own = newOwner(c, pick(["local", "fanowned", "moneyball", "absentee"])); delete c.splash;
 }
 function takeover(c) {
   const old = c.own; c.own = newOwner(c); delete c.splash; addHoney(c, "owner");
   if (c.own.style === "sugar" || c.own.style === "celebrity") c.rep = Math.min(99, c.rep + 3);
+  if (storyWorthy(c) || c.own.style === "sugar") story(`Takeover: ${c.own.name} buy ${c.name}.`, "takeover", c.own.style === "sugar" ? 2 : 1);
   if (c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || c.own.style === "sugar")
     news(`Takeover: ${c.own.name} buy ${c.name} from ${old.name}. ${OWNER_STYLES[c.own.style].l}: ${OWNER_STYLES[c.own.style].d.split(".")[0].toLowerCase()}.`, c.lg === my().lg);
 }
@@ -353,7 +382,7 @@ function ownersCheck(w) {
   for (const k of LG_KEYS) {
     const t = table(k), n = t.length;
     t.forEach((r, i) => { const c = CL(r.id); if (!isMine(c)) c.push = i < Math.max(2, Math.round(n * .25)); if (isMine(c) || i < n * .66 || !c.own) return;
-      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); newBounce(c, true); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
+      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); newBounce(c, true); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); if (c.tier === 1 || k === my().lg) story(`${c.name} sack ${old}; ${c.coach.name} takes over.`, "sack", 1); } });
   }
 }
 /* Sponsors: a celebrity or billionaire owner nearby hoovers up local sponsorship. */
@@ -453,6 +482,7 @@ function diversitySummer() {
     if (!c.cook && aiBill(c) + wage > salaryCap(c.tier) && !startCooking(c, true)) continue;  // past the cap only by cooking the books
     if (!fitsRules(c, wage, aiFee(p, c), 3)) continue;  // the squad cost rule (or, below the leagues, what the owner will carry)
     aiTransfer(p, c); p.wage = wage; p.yrs = aiYears(p, c); p.stunY = G.year; p.stunC = c.id; c.splash = true; if (from.abroad) { if (!foreignSign(from, p.pos)) foreignSquad(from); } else aiSquadCheck(from, true);  // the seller replaces him with whoever it can afford at its own level: bought (with the fee in hand) or free  // the fee comes out of the budget, however far below zero
+    story(`${c.name} stun football: ${p.name} (rated ${r20(p.ovr)}) ${from.abroad ? "arrives from abroad" : `drops down from ${from.name}`} on ${money(wage / 52)} a week.`, "statement", 2);
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) ${from.abroad ? `joins from ${from.name} (${COUNTRY[from.country].name})` : `drops down from ${from.name}`} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
   // Going home.
@@ -525,7 +555,7 @@ function scrJudge(c) {
   // Over the line, a sensible owner sells his dearest players first to get back under it.
   if (!reckless(c) && (aiSquadCost(c) > SCR_LIMIT[T] * scrRevenue(c) || europeBound(c) && aiSquadCost(c) > UEFA_SCR * aiIncome(c))) { ruleSales(c); ruleSales(c); }
   const cost = aiSquadCost(c), r = cost / Math.max(1, scrRevenue(c)), over = r - SCR_LIMIT[T];
-  if (over > .02) { const pen = scrPen(over, c); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1; G._scr = (G._scr || 0) + 1; if (pen) G._scrPts = (G._scrPts || 0) + 1;
+  if (over > .02) { const pen = scrPen(over, c); if (pen) { c.ded = (c.ded || 0) + pen; charge(c, pen, "breaking the squad cost rule"); } c.scrBan = G.year + 1; G._scr = (G._scr || 0) + 1; if (pen) G._scrPts = (G._scrPts || 0) + 1;
     if (c.lg === my().lg || c.tier === 1) news(`${c.name} broke the squad cost rule (${Math.round(r * 100)}% of revenue spent on players, limit ${Math.round(SCR_LIMIT[T] * 100)}%): ${pen ? `docked ${pen} points, and ` : ""}no transfer fees next season.`, c.lg === my().lg); }
   if (inEurope(c) || (G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id))) uefaJudge(c, cost / Math.max(1, aiIncome(c)), aiIncome(c));
 }
@@ -533,9 +563,9 @@ function uefaJudge(c, r, inc) {
   if (r <= UEFA_SCR + .02) return; c.uefa = (c.uefa || []).filter(y => (y.y ?? y) >= G.year - 3);
   const mine = isMine(c), big = r > UEFA_SCR + .15;
   // A ban only for a second big breach (more than 15 points over) within three years; otherwise a fine.
-  if (big && c.uefa.some(x => x.big)) { c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
+  if (big && c.uefa.some(x => x.big)) { story(`UEFA ban ${c.name} from Europe for a second big breach of their squad cost rule.`, "uefa", 3); c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
     news(`UEFA ban ${mine ? "you" : c.name} from Europe next season: a second breach of its squad cost rule in three years (${Math.round(r * 100)}% of revenue on players, limit 70%).`, mine || c.lg === my().lg); }
-  else { const fine = Math.round(inc * (r - UEFA_SCR) * .5 / 1e4) * 1e4; G._uefaFine = (G._uefaFine || 0) + 1;
+  else { const fine = Math.round(inc * (r - UEFA_SCR) * .5 / 1e4) * 1e4; G._uefaFine = (G._uefaFine || 0) + 1; story(`UEFA fine ${c.name} ${money(fine)} over their squad cost.`, "uefa", 1);
     if (mine) spend("tax", fine); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - fine);
     news(`UEFA fine ${mine ? "you" : c.name} ${money(fine)} for breaking its squad cost rule (${Math.round(r * 100)}% of revenue on players, limit 70%). A second big breach within three years means a ban from Europe.`, mine || c.lg === my().lg || c.tier === 1); }
   c.uefa.push({ y: G.year, big });
@@ -546,7 +576,7 @@ function scrJudgeMine(c, f) {
   if (c.tier > 4 || c.tier === 1 || !scrLive()) return;  // the Premier Division: plMarch and plAccounts
   if (c.tierSince === G.year) return;  // a season's grace in a new division
   const inc = ledgerIncome(f), cost = (f.wages || 0) + (f.amort || 0), rev = inc + (c.tier >= 3 ? (f.equity || 0) + Math.max(0, f.invest || 0) : 0), r = cost / Math.max(1, rev), over = r - SCR_LIMIT[c.tier];
-  if (over > .02) { const pen = scrPen(over, c); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1;
+  if (over > .02) { const pen = scrPen(over, c); if (pen) { c.ded = (c.ded || 0) + pen; charge(c, pen, "breaking the squad cost rule"); } c.scrBan = G.year + 1;
     news(`You broke the squad cost rule: ${Math.round(r * 100)}% of revenue went on players (wages and transfer fees spread over contracts), past the ${Math.round(SCR_LIMIT[c.tier] * 100)}% allowed. ${pen ? `The league docks you ${pen} points for next season, and you` : "You"} may not pay a transfer fee next season.`, true); }
   if (inEurope(c)) uefaJudge(c, cost / Math.max(1, inc), inc);
 }
@@ -576,7 +606,7 @@ function plMarch() {
   for (const c of G.clubs) { if (c.gone || c.abroad || c.tier !== 1) continue;
     const r = plRatio(c); c.scrM = { y: G.year, r };
     if (r > plRed(c)) { const over = plCost(c) - plRed(c) * (plRevOf(c) + plSales(c)), pen = Math.min(15, 6 + Math.floor(Math.max(0, over) / 7.5e6));
-      const row = G.leagues[c.lg].tab[c.id]; if (row) row.pts -= pen; G._scrPts = (G._scrPts || 0) + 1; (G._plRed ||= []).push(c.name + " " + seasonLabel(G.year));
+      const row = G.leagues[c.lg].tab[c.id]; if (row) row.pts -= pen; charge(c, pen, "spending on players past the Red threshold"); G._scrPts = (G._scrPts || 0) + 1; (G._plRed ||= []).push(c.name + " " + seasonLabel(G.year));
       news(`${isMine(c) ? "You are" : c.name + " are"} docked ${pen} points: spending on players is ${Math.round(r * 100)}% of revenue, past the Red threshold of ${Math.round(plRed(c) * 100)}%.`, isMine(c) || c.lg === my().lg); } }
 }
 // The season's end: the accounts test, levies and the allowance.
@@ -697,7 +727,9 @@ function payFee(buyer, seller, fee) {
   if (seller && seller.abroad) { seller.tb = tbOf(seller) + fee * .5; seller.fsold = (seller.fsold || 0) + fee; }
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
-function aiTransfer(p, to, fee = aiFee(p, to)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
+function aiTransfer(p, to, fee = aiFee(p, to)) { const from = p.club >= 0 ? CL(p.club) : null;
+  if (!to.abroad && fee > (G.recFee || 0) && fee > 50e6) { G.recFee = fee; story(`A record fee: ${to.name} pay ${money(fee)} for ${p.name}${from ? ` (${from.name})` : ""}.`, "record", 3); }
+  if (from && !from.abroad && p.clause && fee <= p.clause.fee && storyWorthy(from)) story(`${to.name} trigger ${p.name}'s ${money(p.clause.fee)} release clause at ${from.name}.`, "clause", 2); payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
 
 /* Clubs going under is rare: about one administration and one forced sale (an owner out of money having to sell) every
    five years across the whole game, each drawn three to seven years after the last. A club in trouble before one is
