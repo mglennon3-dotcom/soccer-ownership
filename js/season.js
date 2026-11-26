@@ -648,8 +648,12 @@ function relegationExodus(ids) {
       // Relegated clubs are stripped of their best: a player of the division above's standard almost always goes, others often.
       for (const p of ps) { if (n >= 5 || p.keep || R() > (p.ovr >= TIER_LVL[c.tier - 1] - 3 ? .92 : .5)) continue;
         const b = playerChooses(p, G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && x.tier >= c.tier - 2));
-        // Nobody can pay for him: a star far too good for the new division has his contract ended by agreement and leaves as a free agent.
-        if (!b) { if (p.ovr >= TIER_LVL[c.tier - 1] - 3 && R() < (r20(p.ovr) >= 16 ? 1 : .7)) { leaveClub(p); toFreeAgent(p); n++; if (storyWorthy(c)) story(`${p.name} leaves relegated ${c.name} by mutual agreement.`, "clause", 1); } continue; }
+        // Nobody can pay for him: a star far too good for the new division goes on loan for the season to a club at his level
+        // in a higher division, his own club still paying most of his wage (the borrower a third to a half).
+        if (!b) { if (p.ovr >= TIER_LVL[c.tier - 1] - 3 && R() < (r20(p.ovr) >= 16 ? 1 : .7)) {
+            const share = Math.round(rf(.3, .5) * 20) / 20, to = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier < c.tier && Math.abs((x.lvl || 0) - p.ovr) <= 6 && !derbyLevel(c, x) && fitsRules(x, p.wage * share, 0, 1)).sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 5);
+            if (to.length) { const d = pick(to); aiLoanMove(p, c, d); p.loan.share = share; n++; if (storyWorthy(c) || storyWorthy(d)) story(`${p.name} leaves relegated ${c.name} on loan to ${d.name} for the season.`, "clause", 1); } }
+          continue; }
         aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
   if (sold.length) news(`Relegated clubs lose their best players: ${sold.slice(0, 5).join(", ")}${sold.length > 5 ? ` and ${sold.length - 5} more` : ""}.`);
