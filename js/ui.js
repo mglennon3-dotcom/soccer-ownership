@@ -1047,8 +1047,9 @@ function joinedLine(p) {
   const k = p.keen && p.keen.club === G.club ? p.keen : null;
   return `<p class="small">Joined in <b>${seasonLabel(j.y)}</b>${j.from ? ` from ${esc(j.from)}` : ""}, ${j.fee ? `for ${money(j.fee)}` : "on a free"}${j.wage ? `, on ${pw(j.wage)}` : ""}.${k ? ` <span class="good">${esc(keenLine(k).replace(/ to join: he wanted to play for you/, ": he wanted to play for you"))}</span>` : ""}</p>`;
 }
+let RENEW_CL = null;
 function renewBox(p) {
-  const T = renewTerms(p), say = RENEW_SAY && RENEW_SAY.id === p.id ? RENEW_SAY.t : "";
+  const cm = RENEW_CL && RENEW_CL.id === p.id ? RENEW_CL.m : 0, T = renewTerms(p, cm), say = RENEW_SAY && RENEW_SAY.id === p.id ? RENEW_SAY.t : "";
   const head = `<b class="small">Offer a new contract</b><p class="small muted">Now: ${pw(p.wage)}, ${p.yrs} year${p.yrs === 1 ? "" : "s"} left.</p>${T.pend ? `<p class="small warn">He's asked for ${pw(T.pend.data.worth)} (in your inbox). A new contract here has to meet him at least halfway (${pw(T.pend.data.half)}), and settles his demand.</p>` : ""}`;
   if (T.off) return `<div class="sugg">${head}<p class="small warn">His agent has ended talks until next season.</p></div>`;
   const read = T.notes.length ? `<p class="small">${T.notes.map(([k, t]) => `<span class="${k}">${esc(t[0].toUpperCase() + t.slice(1))}</span>`).join(". ")}.</p>` : "";
@@ -1058,9 +1059,11 @@ function renewBox(p) {
     : `<p class="small muted">Hire a head of recruitment for advice on what it would take to keep him.</p>`;
   return `<div class="sugg">${head}${read}${adv}
     <div class="row" style="margin-top:6px;gap:8px"><label class="small">Wage €/week <input type="text" inputmode="decimal" class="num-in" id="rn-wage" value="${fmtNum(Math.ceil(pick / 52 / 50) * 50)}"></label>
+    <label class="small">Release clause <select id="rn-clause" data-act="rnclause" data-id="${p.id}">${[[0, "None"], [2, "2× his value"], [1.5, "1.5×"], [1.25, "1.25×"], [1, "1× his value"]].map(([m, l]) => `<option value="${m}" ${m === cm ? "selected" : ""}>${l}${m ? ` (${money(Math.round(fullValue(p) * m / 1e5) * 1e5)})` : ""}</option>`).join("")}</select></label>
     <label class="small">Years <select id="rn-yrs">${Array.from({ length: T.maxY }, (_, i) => i + 1).map(y => `<option value="${y}" ${y === yDef ? "selected" : ""}>${y}</option>`).join("")}</select></label>
     <button class="btn sm" data-act="renewgo" data-id="${p.id}">Offer</button></div>
     ${short ? `<div style="margin:6px 0"><p class="small warn" style="margin-bottom:4px">At ${pw(pick)} the rise (${pw(extra)}) takes the wage budget over by ${pw(short)}.</p><button class="btn sm" data-act="fitwage" data-id="${p.id}" data-amt="${short}" data-re="card">Raise the wage budget to fit him</button></div>` : ""}
+    <p class="small muted">A release clause lets a bigger club (standing well above yours) buy him for that fee. It can tip a player who'd otherwise leave into signing, more so an ambitious one, but only if it's a level he'll accept: too high and it makes no difference to him.</p>
     ${say ? `<p class="small warn">${esc(say)}</p>` : T.tries ? `<p class="small muted">He's turned down ${T.tries} offer${T.tries > 1 ? "s" : ""} this season: ${3 - T.tries} left.</p>` : ""}</div>`;
 }
 function preModal(id) {

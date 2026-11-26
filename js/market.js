@@ -290,6 +290,14 @@ function bidsWeek(c) {
     addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
 }
+// A bigger club that wants one of your players with a release clause can simply pay it: the sale goes through.
+function clauseWeek(c) {
+  for (const p of c.squad.map(P)) { if (!p || !p.clause || p.loan || R() > .08) continue;
+    const bs = G.clubs.filter(x => !x.gone && !isMine(x) && (x.rep || 0) >= p.clause.rep && canAfford(x, p.clause.fee) && (x.abroad ? !homeBound(p) : true) && p.ovr >= (x.lvl || 0) - 4 && acceptsMove(p, x));
+    if (!bs.length) continue; const b = pick(bs);
+    const m = addMsg({ type: "bid", keen: true, pid: p.id, club: b.id, amt: p.clause.fee, rec: "accept", title: `${clubLabel(b)} trigger ${p.name}'s ${money(p.clause.fee)} release clause` });
+    news(`${b.name} pay ${p.name}'s ${money(p.clause.fee)} release clause: he's going.`, true); answerBid(m, true, true); return; }
+}
 function headAdvice(p, amt) {
   const s = staffOf("recruit"), v = valueOf(p), starter = pickXI(my()).some(o => o.p === p);
   if (p.keep || p.nfs) return "reject";  // your call: he isn't for sale (you can still accept it yourself)
@@ -509,9 +517,9 @@ function stayMin(S, floor, m) {
   let lo = floor, hi = top; for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
   return Math.ceil(hi / 100) * 100;
 }
-function renewTerms(p) {
+function renewTerms(p, cm = 0) {
   const c = my(), k = "R" + G.year; if (!p.rn || p.rn.k !== k || p.rn.m == null) p.rn = { k, tries: 0, n: normal(), m: clamp(normal(), -2, 2) * .03, off: false };
-  const s = staffOf("recruit"), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5, S = stayScore(p);
+  const s = staffOf("recruit"), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5, S0 = stayScore(p), S = cm ? { ...S0, s0: S0.s0 + clauseLift(p, cm) } : S0;
   // No pay cut mid-contract; and a new deal is paid by his loyalty: a mercenary wants up to a quarter over his going
   // rate, an average player about the going rate (95-105%), a loyal one takes as little as 75% (a little less again
   // if the fans love him, but never under 75%).
@@ -537,15 +545,16 @@ function renewTerms(p) {
   for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him", "not clicking with the players around him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
   return { no: min == null, min, advice, pend, guessNo: s && advice == null, s, maxY, tries: p.rn.tries, off: p.rn.off, notes: notes.filter(Boolean), S };
 }
-function offerRenewal(p, wage, yrs) {
-  const T = renewTerms(p); wage = Math.round(wage / 100) * 100;
+function offerRenewal(p, wage, yrs, cm = 0) {
+  const T = renewTerms(p, cm); wage = Math.round(wage / 100) * 100;
   if (T.no) { if (++p.rn.tries >= 3) p.rn.off = true; return { ok: false, t: `${p.name} doesn't want to stay, whatever the money.` }; }
   if (T.off) return { ok: false, t: `${p.name}'s agent has ended talks until next season.` };
   if (wage >= T.min) {
     const was = p.wage; p.wage = wage; p.yrs = clamp(Math.round(yrs), 1, T.maxY); logPay(p, was, "new deal");
     p.dealY = G.year; p.unsettled = 0; p.payGrudge = 0; p.expiring = false; delete p.rn;
+    if (cm) giveClause(p, my(), cm); else delete p.clause;  // a release clause, if one was agreed
     if (T.pend) { T.pend.done = true; T.pend.answer = `New contract agreed: ${pw(wage)}`; }
-    news(`${p.name} signs a new ${p.yrs}-year contract: ${pw(wage)}${was !== wage ? ` (was ${pw(was)})` : ""}.`, true);
+    news(`${p.name} signs a new ${p.yrs}-year contract: ${pw(wage)}${was !== wage ? ` (was ${pw(was)})` : ""}${cm ? `, with a ${money(p.clause.fee)} release clause for bigger clubs` : ""}.`, true);
     return { ok: true, t: `${p.name} signs: ${pw(wage)} for ${p.yrs} year${p.yrs > 1 ? "s" : ""}.` };
   }
   if (++p.rn.tries >= 3) { p.rn.off = true; return { ok: false, t: `${p.name}'s agent turns it down and ends talks until next season.` }; }
@@ -743,7 +752,7 @@ function faDrain() {
 function marketWeek() {
   const c = my();
   if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
-  headWeek(c); bidsWeek(c); loanOffersWeek(c); faDrain();
+  headWeek(c); bidsWeek(c); clauseWeek(c); loanOffersWeek(c); faDrain();
   if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) aiLoans();  // late in each window
   if ((G.phase === "summer" && G.week === 2) || (G.phase === "season" && G.week === JAN[0])) aiSellExpiring();
   if (G.phase === "season" && G.week === 1) for (const x of G.clubs) if (!x.gone && !x.abroad && x.tier === 1) plAgree(x);
