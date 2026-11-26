@@ -75,7 +75,10 @@ function endLoans() {
     if (at) p.loanedAt = { y: G.year, short: at.short };  // the season's progression row names the loan club
     if (home && isMine(home)) logMove("loanback", p, { club: at ? at.name : "" }); else if (at && isMine(at)) logMove("loanend", p, { club: home ? home.name : "" });
     if (at) at.squad = at.squad.filter(x => x !== id);
-    if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; p.loan = null; capSquad(home, p); } else toFreeAgent(p);  // foreign clubs count as still going
+    if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; p.loan = null; capSquad(home, p);
+      // Back at a club that has dropped a division while he was away: his wage comes down to its top wage too (a player who won't accept it asks to leave).
+      if (!home.abroad && !isMine(home) && p.wage > wageCap(home)) { p.wage = wageCap(home); if (prefsOf(p, P_FACTORS).top.includes("money") || R() < .4) { p.list = true; p.req = G.year; } } }
+    else toFreeAgent(p);  // foreign clubs count as still going
     if (home && isMine(home)) news(`${p.name} returns from his loan at ${at ? at.name : "his loan club"} (${p.s.app} games).`);
     p.loan = null;
   }
