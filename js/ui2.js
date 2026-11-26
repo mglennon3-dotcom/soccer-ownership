@@ -1,5 +1,14 @@
 /* Pages for the boardroom, the network, cups and rival owners, and the pieces they add to other pages. */
 "use strict";
+/* A player's season in a line: in pre-season, last season's games, goals and assists (and the club and division, if he
+   was out on loan); otherwise this season's games. */
+function seasonBit(p) {
+  if (G.phase === "summer" && p.last) { const l = p.last, lo = p.loanedAt && p.loanedAt.y === G.year - 1 ? p.loanedAt : null, pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    let where = ""; if (lo) { const c = lo.name ? null : G.clubs.find(x => x.short === lo.short), name = lo.name || (c ? c.name : lo.short), tier = lo.name ? lo.tier : c && !c.abroad ? c.tier : null, ctry = lo.name ? lo.country : c && c.abroad ? c.country : null;
+      where = ` on loan at ${esc(name)}${tier ? ` (${TIER_NAME[tier]})` : ctry && COUNTRY[ctry] ? ` (${COUNTRY[ctry].name})` : ""}`; }
+    return `last season: ${pl(l.app || 0, "game")}, ${pl(l.g || 0, "goal")}, ${pl(l.a || 0, "assist")}${where}`; }
+  return `${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season`;
+}
 
 const pctTxt = v => `${Math.round(v)}%`;
 const moodBar = v => `<span class="fbar" style="display:inline-block;width:80px;vertical-align:middle"><i style="width:${v}%;background:${v >= 60 ? "var(--win)" : v >= 35 ? "var(--accent)" : "var(--loss)"}"></i></span>`;
@@ -221,7 +230,7 @@ function myPlayerLine(p) {
   const role = o ? (o.slot === p.pos ? `<span class="good">a starter</span> (${POS_NAME[o.slot].toLowerCase()})` : `<span class="good">a starter</span>, playing out of position at ${POS_NAME[o.slot].toLowerCase()}`)
     : p.acad ? "in the academy" : p.inj ? `not starting (injured, ${p.inj} wk${p.inj > 1 ? "s" : ""})` : `<span class="muted">not in the starting side</span>`;
   const agreed = p.agreed && CL(p.agreed.club) ? ` · <span class="warn">agreed to join ${esc(CL(p.agreed.club).name)} when the window opens</span>` : "";
-  return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${acaChip(p)}: age <b>${p.age}</b>, rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>${myPlayerStatus(p)}`;
+  return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${acaChip(p)}: age <b>${p.age}</b>, rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${seasonBit(p)}</p>${myPlayerStatus(p)}`;
 }
 // A position's depth chart as the Depth chart page shows it: your order if you've set one, otherwise the manager's
 // (starters there, then everyone else in that area of the team by rating, then those starting elsewhere).
@@ -245,7 +254,7 @@ function myPlayerStatus(p) {
 function theirPlayerLine(p) {
   const e = v => { const [a, b] = v.map(r20); return a === b ? `${a}` : `${a}–${b}`; }, x = p.club >= 0 ? CL(p.club) : null;
   const role = !x ? (p.club === -1 ? "a free agent" : "abroad") : x.squad && pickXI(x).some(o => o.p === p) ? `<span class="good">a starter</span> at ${esc(x.name)}` : `<span class="muted">not starting</span> at ${esc(x.name)}`;
-  return `<p class="small"><b>${esc(p.name)}</b>, ${POS_NAME[p.pos].toLowerCase()}, ${p.age}: rated <b>${e(ovrEstimate(p))}</b>, potential <b>${e(potEstimate(p))}</b> · ${role} · ${p.s.app || 0} game${(p.s.app || 0) === 1 ? "" : "s"} this season</p>`;
+  return `<p class="small"><b>${esc(p.name)}</b>, ${POS_NAME[p.pos].toLowerCase()}, ${p.age}: rated <b>${e(ovrEstimate(p))}</b>, potential <b>${e(potEstimate(p))}</b> · ${role} · ${seasonBit(p)}</p>`;
 }
 // For a player offered to you: your weakest current starter in his position, to compare against.
 function weakestStarterLine(pid) {
@@ -408,7 +417,7 @@ function youthMinutes() {
   const ps = c.squad.map(P).filter(p => p && p.age < 20 && (!xi.has(p.id) || p.force || p.minT) && !(p.loan && p.loan.to === c.id) && mid(p) >= avg).sort((a, b) => mid(b) - mid(a) || b.ovr - a.ovr);
   const forced = c.squad.filter(id => P(id).force).length, rng = ([a, b]) => r20(a) === r20(b) ? `${r20(a)}` : `${r20(a)}–${r20(b)}`;
   const row = p => `<div class="row between" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
-      <span class="small"><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>, ${p.age}${p.acad ? ` <span class="chip">Academy</span>` : ""} · rated ${r20(p.ovr)} · potential <b>${rng(potEstimate(p))}</b> · ${p.s.app} game${p.s.app === 1 ? "" : "s"} this season</span>
+      <span class="small"><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>, ${p.age}${p.acad ? ` <span class="chip">Academy</span>` : ""} · rated ${r20(p.ovr)} · potential <b>${rng(potEstimate(p))}</b> · ${seasonBit(p)}</span>
       ${p.acad ? `<span class="small muted">Promote him to the first team (Academy page) to play him</span>` : `<button class="btn sm" data-act="forcey" data-id="${p.id}" ${!p.force && forced >= MAX_FORCED ? "disabled" : ""}>${p.force ? "Let the manager decide" : "Insist he plays"}</button>`}
       ${p.acad ? "" : `<div style="flex-basis:100%">${minTargetRow(p, true)}</div>`}</div>`;
   return `<section class="card"><div class="card-h"><h2>Youth to give minutes</h2><span class="small muted">under 20 · not in the side · potential at or above your squad's average (${r20(avg)})</span></div>
