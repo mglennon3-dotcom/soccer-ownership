@@ -129,10 +129,19 @@ function standardWages() {
     if (!ps.length) continue; const w = ps.map(([p]) => p.wage).sort((a, b) => a - b), k = DIV_WAGE_MED[t] * 52 / Math.max(1, w[w.length >> 1]);
     for (const [p, c] of ps) p.wage = Math.min(wageCap(c), Math.max(500, Math.round(p.wage * k / 100) * 100));
   }
+  // The leagues abroad, the same way: rated pay at the league's level, scaled to its typical wage, capped.
+  for (const code of Object.keys(FWAGE_MED)) {
+    const ps = []; for (const id of G.foreign || []) { const c = CL(id); if (!c || c.country !== code) continue; for (const pid of c.squad) { const p = P(pid); if (p && !p.acad && !p.loan) { p.wage = aiWage(p, c); ps.push([p, c]); } } }
+    if (!ps.length) continue; const w = ps.map(([p]) => p.wage).sort((a, b) => a - b), k = FWAGE_MED[code] * 52 / Math.max(1, w[w.length >> 1]);
+    for (const [p, c] of ps) p.wage = Math.min(wageCap(c), Math.max(500, Math.round(p.wage * k / 100) * 100));
+  }
 }
 // And the most an AI club pays in a transfer fee, by division (about the real record fees there).
 const DIV_FEE_TOP = [0, Infinity, 35e6, 6e6, 2e6, 5e5, 2e5, 5e4];
-const wageCap = c => !c || c.abroad || isMine(c) ? 500e3 * 52 : DIV_WAGE_TOP[c.tier] * 52;
+// Abroad: €500k a week scaled by the league's strength (Spain about €310k, the smaller leagues about €100k).
+const wageCap = c => !c || isMine(c) ? 500e3 * 52 : c.abroad ? Math.round(500e3 * 52 * fStr(c)) : DIV_WAGE_TOP[c.tier] * 52;
+// Each league abroad's typical (median) weekly wage.
+const FWAGE_MED = { ESP: 44e3, GER: 42e3, ITA: 40e3, FRA: 30e3, POR: 19e3, NED: 19e3, TUR: 18e3, BEL: 17e3, GRE: 6e3, DEN: 5e3, CZE: 4e3, POL: 4e3, SCA: 4e3, CYP: 4e3, SUI: 2.5e3, AUT: 2.5e3, SCO: 2.5e3, CRO: 2e3, HUN: 1.5e3, SWE: 1.5e3, ROU: 1.5e3, UKR: 1.5e3 };
 const feeCap = c => !c || c.abroad || isMine(c) || reckless(c) ? Infinity : DIV_FEE_TOP[c.tier];  // a reckless owner's splash is the exception
 const aiWage = (p, c) => Math.min(wageCap(c), Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------

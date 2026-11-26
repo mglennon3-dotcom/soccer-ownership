@@ -218,7 +218,7 @@ function upgradeSave() {
   if (!G.fwage92) { G.fwage92 = true; for (const id of G.foreign || []) { const c = CL(id); if (!c) continue; for (const pid of c.squad) { const p = P(pid); if (p && !p.acad && !p.loan) p.wage = aiWage(p, c); } } }
   // 1.2.0, one-off: AI contracts from the start of the game were on a single pay scale whatever the division (a player
   // in League One paid like one anywhere): every AI club's contracts reset to its division's standard.
-  if (!G.stdWage120 && G.club != null) { G.stdWage120 = true; standardWages(); }
+  if (!G.stdWage121 && G.club != null) { G.stdWage121 = true; standardWages(); }  // (and the leagues abroad)
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
