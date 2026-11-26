@@ -503,7 +503,8 @@ function squadRoom(c, k = 1) {
   return lim - aiSquadCost(c);
 }
 // A small breach costs the right to pay fees next season; a bigger one points as well.
-const scrPen = over => over <= .08 ? 0 : over <= .2 ? 3 : 6;
+// A breach costs the right to pay fees next season; points only for a big one (more than 15 points over), or a second in a row.
+const scrPen = (over, c) => over > .25 ? 6 : over > .15 || (c && c.scrBan === G.year) ? 3 : 0;
 // In non-league it's the owner's own limit, so even a gambler is held to it; in the leagues a reckless owner may break the rules.
 // A reckless owner may push past the rules, but only a little (a fee ban, rarely points): boom and bust, not limitless.
 const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : c.tier >= 5 ? wage <= squadRoom(c) : ssrBound(c) && fee > Math.max(0, c.tnet || 0) ? false : reckless(c) ? wage + fee / Math.max(1, yrs) <= squadRoom(c, 1.05) : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
@@ -520,7 +521,7 @@ function scrJudge(c) {
   // Over the line, a sensible owner sells his dearest players first to get back under it.
   if (!reckless(c) && (aiSquadCost(c) > SCR_LIMIT[T] * scrRevenue(c) || europeBound(c) && aiSquadCost(c) > UEFA_SCR * aiIncome(c))) { ruleSales(c); ruleSales(c); }
   const cost = aiSquadCost(c), r = cost / Math.max(1, scrRevenue(c)), over = r - SCR_LIMIT[T];
-  if (over > .02) { const pen = scrPen(over); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1; G._scr = (G._scr || 0) + 1; if (pen) G._scrPts = (G._scrPts || 0) + 1;
+  if (over > .02) { const pen = scrPen(over, c); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1; G._scr = (G._scr || 0) + 1; if (pen) G._scrPts = (G._scrPts || 0) + 1;
     if (c.lg === my().lg || c.tier === 1) news(`${c.name} broke the squad cost rule (${Math.round(r * 100)}% of revenue spent on players, limit ${Math.round(SCR_LIMIT[T] * 100)}%): ${pen ? `docked ${pen} points, and ` : ""}no transfer fees next season.`, c.lg === my().lg); }
   if (inEurope(c) || (G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id))) uefaJudge(c, cost / Math.max(1, aiIncome(c)), aiIncome(c));
 }
@@ -541,7 +542,7 @@ function scrJudgeMine(c, f) {
   if (c.tier > 4 || c.tier === 1 || !scrLive()) return;  // the Premier Division: plMarch and plAccounts
   if (c.tierSince === G.year) return;  // a season's grace in a new division
   const inc = ledgerIncome(f), cost = (f.wages || 0) + (f.amort || 0), rev = inc + (c.tier >= 3 ? (f.equity || 0) + Math.max(0, f.invest || 0) : 0), r = cost / Math.max(1, rev), over = r - SCR_LIMIT[c.tier];
-  if (over > .02) { const pen = scrPen(over); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1;
+  if (over > .02) { const pen = scrPen(over, c); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1;
     news(`You broke the squad cost rule: ${Math.round(r * 100)}% of revenue went on players (wages and transfer fees spread over contracts), past the ${Math.round(SCR_LIMIT[c.tier] * 100)}% allowed. ${pen ? `The league docks you ${pen} points for next season, and you` : "You"} may not pay a transfer fee next season.`, true); }
   if (inEurope(c)) uefaJudge(c, cost / Math.max(1, inc), inc);
 }

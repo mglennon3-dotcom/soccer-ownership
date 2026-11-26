@@ -712,10 +712,10 @@ function completeAgreed(c = my()) {
    above his club), is sold rather than lost for nothing: at the start of his final year, or in January. */
 function aiSellExpiring() {
   for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c)) continue;
-    for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.yrs > 1 || p.toMe || (p.age > 26 && p.ovr < c.lvl + 3) || renewsAI(p) || R() > .6) continue;
+    for (const p of c.squad.map(P)) { if (!p) continue; const wc = r20(p.ovr) >= 17; if (p.acad || p.loan || p.yrs > 1 || p.toMe || (p.age > 26 && p.ovr < c.lvl + 3 && !wc) || renewsAI(p) || R() > (wc ? .95 : .6)) continue;
       const b = playerChooses(p, G.clubs.filter(x => !x.gone && !isMine(x) && x !== c && (x.abroad ? !homeBound(p) : x.tier <= c.tier)), .8);
       // Nobody can afford him: a young star usually signs a new deal after all (a big rise, a release clause); only now and then does one run it down.
-      if (!b) { if (p.age <= 24 && p.ovr >= c.lvl && R() < .8) { p.renew = { y: G.year, ok: true }; p.wage = Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100); } continue; }
+      if (!b) { if ((p.age <= 24 && p.ovr >= c.lvl && R() < .8) || (wc && R() < .95)) { p.renew = { y: G.year, ok: true }; p.wage = Math.min(500e3 * 52, Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100)); } continue; }  // (nobody earns more than €500k a week)
       aiTransfer(p, b, Math.round(aiFee(p, b) * .8 / 1e3) * 1e3); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); } }
 }
 function faDrain() {
@@ -724,7 +724,7 @@ function faDrain() {
     const wk = Math.max(0, now - (p.faAt ?? 0)), t = naturalTier(p);
     let ch = t <= 3 ? (wk > 2 ? .25 : 0) : t === 4 ? (wk > 6 ? .1 : 0) : t === 5 ? (wk > 16 ? .04 : 0) : p.ovr < 30 ? (wk > 26 ? .06 : 0) : (wk > 100 ? .02 : 0);
     // A good young player is snapped up (abroad or below) faster still; a good veteran waits longer for the right offer.
-    if (t <= 4) ch *= p.age <= 27 ? 2 : p.age >= 30 ? .35 : 1;
+    if (t <= 4) ch *= p.age <= 27 ? 2 : p.age >= 30 ? .8 : 1;
     if (t <= 4 && G.phase === "summer") ch = 0;  // the summer market: out-of-contract players stay available all window
     if (ch && R() < ch) retire(p, true); }
 }
