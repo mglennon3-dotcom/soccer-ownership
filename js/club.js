@@ -296,6 +296,16 @@ const SLOTS = {
 // Sponsors' names (made up: a hundred of them), paired with a line of business (BRAND_KIND).
 const BRANDS = ["Apex", "Northwind", "Halcyon", "Brightline", "Vantage", "Crestmark", "Silverleaf", "Ironclad", "Bluewater", "Summit", "Kestrel", "Meridian", "Harbour", "Oakridge", "Redline", "Lumen", "Granite", "Fairway", "Beacon", "Sterling", "Ashgrove", "Blackthorn", "Bramblewood", "Castlegate", "Clearwater", "Coldharbour", "Copperfield", "Corrie", "Crownpoint", "Daybreak", "Deepdale", "Driftwood", "Eastgate", "Elmstead", "Emberline", "Evergreen", "Falconer", "Fenwick", "Fieldstone", "Firethorn", "Foxglove", "Frontier", "Glenmoor", "Goldcrest", "Greystone", "Hallmark", "Hartwell", "Hawthorn", "Heathfield", "Highmoor", "Hollybrook", "Horizon", "Inglewood", "Juniper", "Keystone", "Kingsmead", "Lakeside", "Larkspur", "Linden", "Lodestar", "Longbridge", "Marlowe", "Mayfield", "Millbrook", "Moorgate", "Nettlefield", "Northgate", "Oakhurst", "Old Mill", "Orchard", "Paragon", "Pennant", "Pinecrest", "Quayside", "Ravenscroft", "Redbrook", "Riverside", "Rowan", "Saltmarsh", "Sandpiper", "Seaview", "Sentinel", "Shire", "Skylark", "Southbank", "Stonebridge", "Swallowtail", "Thistle", "Thornbury", "Torchlight", "Trident", "Valewood", "Watermark", "Wayfarer", "Westbury", "Whitecliff", "Wildflower", "Willowbrook", "Windmill", "Yeoman"];
 const BRAND_KIND = ["Insurance", "Motors", "Energy", "Bank", "Telecom", "Logistics", "Brewery", "Bet", "Homes", "Foods", "Air", "Digital", "Building Society", "Tyres"];
+/* Lower down the pyramid most sponsors are local: a garage or a builder in the town, a family firm, the pub. The chance
+   a sponsor is local, by division (the Premier Division's are all national brands); kits likewise come from smaller makers. */
+const LOCAL_SPONS = [0, 0, .1, .25, .45, .65, .8, .9], LOCAL_KIT = [0, 0, 0, .1, .3, .5, .7, .8];
+const LOCAL_TRADE = ["Motors", "Builders", "Roofing", "Plumbing & Heating", "Electrical", "Carpets", "Scaffolding", "Glazing", "Landscaping", "Removals", "Taxis", "Coaches", "Butchers", "Bakery", "Fish & Chips", "Funeral Directors", "Solicitors", "Estate Agents", "Accountants", "Dental Practice", "Opticians", "Garden Centre", "Haulage", "Skip Hire", "Tyres & Exhausts", "Print & Signs", "Farm Supplies", "Building Supplies", "Driving School", "Caravan Park"];
+const PUBS = ["The Red Lion", "The Royal Oak", "The White Hart", "The Crown", "The Plough", "The Swan", "The Bell", "The King's Head", "The Black Horse", "The Queen's Arms", "The Fox & Hounds", "The Railway Tavern", "The Golden Lion", "The Wheatsheaf", "The Cricketers"];
+function localSponsor(c) {
+  const town = c.town || c.name.split(" ")[0], sur = pick(NAMES.ENG[1]), r = R();
+  return r < .35 ? `${town} ${pick(LOCAL_TRADE)}` : r < .65 ? `${sur} ${pick(["& Sons", "Bros", "& Co", "Family"])} ${pick(LOCAL_TRADE)}` : r < .85 ? `${sur}'s ${pick(LOCAL_TRADE)}` : `${pick(PUBS)}, ${town}`;
+}
+const localKit = () => pick(["Matchday Teamwear", "County Kitwear", "Touchline Sports", "Grassroots Kit Co", "Sunday League Sports", "Terrace Teamwear", "Clubhouse Kit", "Local Leisure Sports"]);
 const KIT_BRANDS = ["Strider", "Volta", "Kinetic", "Arcus", "Tempo", "Fieldcraft", "Nova Sport", "Pulse", "Sprintline", "Ridge"];
 const COMM_T = [0, 27e6, 1.75e6, 400e3, 175e3, 154e3, 80e3, 25e3];  // a typical club's commercial value by tier, per year
 // A derby: same area, same division. A grudge match counts as one too: the next game against a club whose owner you've
@@ -374,7 +384,7 @@ function makeOffers(slot) {
   if (renew && w < .5) { const yrs = ri(2, 4), amt = Math.round(base * rf(1.05, 1.15) * (1 - (yrs - 1) * .04) / 500) * 500; out.push({ slot, brand: renew, amt, yrs, bonus: Math.round(amt * rf(.15, .4) / 500) * 500, exp: 6, renew: true }); }
   for (let i = 0; i < n; i++) {
     const yrs = ri(1, 4), amt = Math.round(base * rf(.7, 1.12) * (1 - (yrs - 1) * .04) / 500) * 500;  // longer deals pay a little less a year
-    const brand = slot === "kit" ? pick(KIT_BRANDS) : pick(BRANDS) + " " + pick(BRAND_KIND);
+    const brand = slot === "kit" ? (R() < LOCAL_KIT[c.tier] ? localKit() : pick(KIT_BRANDS)) : R() < LOCAL_SPONS[c.tier] ? localSponsor(c) : pick(BRANDS) + " " + pick(BRAND_KIND);
     out.push({ slot, brand, amt, yrs, bonus: Math.round(amt * rf(.1, .4) / 500) * 500, exp: 6 });
   }
   return out.sort((a, b) => b.amt - a.amt);
