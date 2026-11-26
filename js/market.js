@@ -44,17 +44,42 @@ const willJoin = (p, c) => { if (c.abroad) return true; const d = c.tier - natur
 // What it takes: his own level's rate, 15% more per division dropped and, past his room, at least double again.
 function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier - nt), beyond = drop - joinRoom(p), over = Math.max(0, p.ovr - TIER_XI[nt]);
   return wageAt(p.ovr, nt) * wageMult(p, c) * faDiscount(p) * (1 + .15 * drop) * (beyond > 0 ? 2 + (beyond - 1) * .5 + over * .1 : 1); }
-// xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once.
-function askingFee(p, xi) {
+/* What a club asks for a player: the same rule whoever is buying, you or an AI club.
+   - His value (valueOf: rating, age, potential, years left), plus 15%.
+   - A club lower down the pyramid can't hold out for quite as much: full price in the top two divisions, 90% in the
+     Second, 80% in the Third. Non-league moves are basically free: a token 2% in the National Division, 0.5% in
+     National North/South, nothing in the Regional League. (Your own players are priced in full.)
+   - 30% more for a first-choice player, and 20% more again for the club's best player.
+   - 10% more with four or more years left on his deal.
+   - 20% less once he's on the transfer list.
+   - Selling to a rival only at a premium: 25%, or 50% for a fierce one.
+   A player in his last year who won't re-sign is already cheaper through his value, and his club gives up the premiums.
+   xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once. buyer: who's buying
+   (you unless said otherwise; null for no one in particular). */
+const SELL_DIV = [0, 1, 1, .9, .8, .02, .005, 0];
+const XI_SET = new Map();
+function xiSet(c, xi) {
+  if (xi) return xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id));
+  if (isMine(c)) return new Set(pickXI(c).map(o => o.p.id));
+  const k = `${G.year}:${G.phase}:${G.week}`; let e = XI_SET.get(c.id);
+  if (!e || e.k !== k) { e = { k, s: new Set(pickXI(c).map(o => o.p.id)) }; XI_SET.set(c.id, e); if (XI_SET.size > 400) XI_SET.clear(); }
+  return e.s;
+}
+const bestOf = c => { let b = null; for (const id of c.squad) { const q = P(id); if (q && !q.acad && !q.loan && (!b || q.ovr > b.ovr)) b = q; } return b; };
+function askingFee(p, xi, buyer = my()) {
   if (p.club === -1) return 0;
   let f = valueOf(p) * 1.15;
   if (p.club >= 0) {
-    const c = CL(p.club), starters = xi ? (xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id))) : null;
-    const leaving = !isMine(c) && p.yrs <= 1 && !renewsAI(p);  // he won't re-sign: better a fee now than nothing in the summer
-    if (!leaving && (starters ? starters.has(p.id) : pickXI(c).some(o => o.p === p))) f *= 1.3;
-    if (leaving) f *= .65;
+    const c = CL(p.club), mine = isMine(c);
+    const leaving = !mine && p.yrs <= 1 && !renewsAI(p);  // he won't re-sign: better a fee now than nothing in the summer
+    if (!c.abroad && !mine) f *= SELL_DIV[c.tier] ?? 1;
+    if (c.abroad) f *= fStr(c);  // a league abroad prices players at its own level
+    if (!leaving && xiSet(c, xi).has(p.id)) { f *= 1.3; if (bestOf(c) === p) f *= 1.2; }
+    if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
-    f *= [1, 1.25, 1.5][derbyLevel(my(), c)];  // selling to a rival: only at a premium (more for a fierce one)
+    f *= [1, 1.25, 1.5][derbyLevel(buyer, c)];  // selling to a rival: only at a premium (more for a fierce one)
+    // A release clause: a bigger club (standing well above his club's) can take him for the set fee.
+    if (p.clause && !mine && buyer && (buyer.rep || 0) >= p.clause.rep) f = Math.min(f, p.clause.fee);
   }
   return Math.round(f / 1000) * 1000;
 }
@@ -77,16 +102,16 @@ function squadNeeds(c) {
 /* ---------- the pool he searches ----------
    English clubs and free agents; with a European or worldwide brief, players abroad too (made on demand: they
    live outside the simulated leagues and are cleared when the window shuts). */
+const EURO_FOCUS = new Set(["ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "DEN", "CRO", "AUT", "SUI", "SWE", "NOR"]);
 function abroadPool(level) {
+  // Real players at the clubs abroad, around the level asked for (a European brief: the leagues nearer home).
   const s = staffOf("recruit"); if (!s || s.focus === "domestic") return [];
-  G.abroad = (G.abroad || []).filter(id => G.players[id]);
-  const want = s.focus === "world" ? 40 : 22;
-  while (G.abroad.length < want) {
-    const age = ri(18, 31), ovr = clamp(Math.round(level + normal() * 7), 8, 90);
-    const p = makePlayer({ pos: pick(POS), ovr, age, nat: s.focus === "world" ? pickNat("ENG") : pick(["ESP", "GER", "ITA", "FRA", "POR", "NED", "BEL", "DEN", "CRO"]), pot: seniorPot(ovr, age) });
-    p.club = -2; p.abroad = s.focus; G.abroad.push(p.id);
-  }
-  return G.abroad.map(P);
+  const key = windowId() + ":" + s.focus + ":" + Math.round(level / 3);
+  if (!G.abroadK || G.abroadK !== key) { G.abroadK = key;
+    const ps = []; for (const id of G.foreign || []) { const c = CL(id); if (!c || (s.focus !== "world" && !EURO_FOCUS.has(c.country))) continue;
+      for (const pid of c.squad) { const p = P(pid); if (p && !p.acad && !p.loan && Math.abs(p.ovr - level) <= 9) ps.push(p.id); } }
+    G.abroadReal = shuffle(ps).slice(0, s.focus === "world" ? 40 : 22); }
+  return (G.abroadReal || []).map(id => G.players[id]).filter(p => p && p.club >= 0 && CL(p.club).abroad);
 }
 function clearAbroad() { for (const id of G.abroad || []) { const p = G.players[id]; if (p && p.club === -2) delete G.players[id]; } G.abroad = []; }
 const fromName = p => p.club >= 0 ? CL(p.club).name : p.club === -2 ? `a club in ${NAT_NAME[p.nat] || "Europe"}` : "Free agent";
@@ -143,6 +168,7 @@ function signYears(p, c) {
   return autoYears(p, { maxY: p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5 }, p.ovr >= (sen[17] ?? 0));
 }
 function signPlayer(p, fee, wage, byOwner, how) {
+  if (fee > (G.recFee || 0) && fee > 50e6) { G.recFee = fee; story(`A record fee: you pay ${money(fee)} for ${p.name}.`, "record", 3); }
   if (embargoed(my()) && fee > 0) { news(`The deal for ${p.name} is blocked: the club is under a transfer embargo.`, true); return false; }
   const c = my(), seller = p.club >= 0 ? CL(p.club) : null, keen = tookLess(p, c, wage);
   if (keen) p.keen = keen; else delete p.keen;
@@ -264,6 +290,14 @@ function bidsWeek(c) {
     const fw = formWord(seasonForm(p)), keen = buyer.tier < c.tier || buyer.rep > c.rep + 8 || (p.list && R() < .7);
     addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
+}
+// A bigger club that wants one of your players with a release clause can simply pay it: the sale goes through.
+function clauseWeek(c) {
+  for (const p of c.squad.map(P)) { if (!p || !p.clause || p.loan || R() > .08) continue;
+    const bs = G.clubs.filter(x => !x.gone && !isMine(x) && (x.rep || 0) >= p.clause.rep && canAfford(x, p.clause.fee) && (x.abroad ? !homeBound(p) : true) && p.ovr >= (x.lvl || 0) - 4 && acceptsMove(p, x));
+    if (!bs.length) continue; const b = pick(bs);
+    const m = addMsg({ type: "bid", keen: true, pid: p.id, club: b.id, amt: p.clause.fee, rec: "accept", title: `${clubLabel(b)} trigger ${p.name}'s ${money(p.clause.fee)} release clause` });
+    news(`${b.name} pay ${p.name}'s ${money(p.clause.fee)} release clause: he's going.`, true); story(`${b.name} trigger ${p.name}'s ${money(p.clause.fee)} release clause: he leaves ${c.name}.`, "clause", 3); answerBid(m, true, true); return; }
 }
 function headAdvice(p, amt) {
   const s = staffOf("recruit"), v = valueOf(p), starter = pickXI(my()).some(o => o.p === p);
@@ -415,13 +449,15 @@ function suggView(p, c = my(), loan = false) {
     const room = c.budget.wages - wageBill(c);
     if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, need: { wages: p.wage * .5 - room }, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
     const T = playerLoanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
+    if (!p.ng || p.ng.w !== windowId()) p.ng = { w: windowId(), n: normal(), m: normal() };
+    T.min = clamp(Math.round(negGuess(T.min, p.ng.m, .25) * 10) / 10, 0, 1);  // what he reckons they want (his read)
     if (p.wage * share > room) return { ok: false, money: true, need: { wages: p.wage * share - room }, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
     return { ok: true, loan: true, share, w: `${what} on loan. ${share < T.min ? `They want us to pay ${Math.round(T.min * 100)}% of his wages; I can talk them down to ${Math.round(share * 100)}%` : `They want us to pay ${Math.round(share * 100)}% of his wages`} (${pw(p.wage * share)}). I'll borrow him this week.` };
   }
   const N = negotiate(p, c);
   if (!N) return { ok: false, w: "He isn't interested in joining us." };
   const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT - pendFees(), room = c.budget.wages - wageBill(c) - pendWages();
-  const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I can get him for about ${money(fee)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on ${pw(ask)} (his agent's asking ${pw(N.agent)})`;
+  const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I think I can get him for about ${money(N.feeG)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on about ${pw(N.wageG)} (his agent's asking ${pw(N.agent)}; ${negWord()})`;
   const need = { transfer: Math.max(0, fee - left), wages: Math.max(0, ask - room) };
   if (fee > left) return { ok: false, money: true, need, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
   if (ask > room) return { ok: false, money: true, need, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare${pendWages() ? ` once the ${incoming().length} player${incoming().length > 1 ? "s" : ""} already agreed to join (${pw(pendWages())}) are counted` : ""}.` };
@@ -431,6 +467,11 @@ function suggView(p, c = my(), loan = false) {
    and the weaker the seller's hand (a listed player, one with a year or less left, one who's asked to leave); a little
    luck either way. The wage: the agent opens a quarter above the least the player would take, and he talks it down
    toward that floor. Settled once per window, so the figures don't jump about each time you look. */
+// How well your head of recruitment reads the other side: a strong negotiator sees close to the truth, a poor one (or
+// nobody) is guessing. n is a stable draw for the deal (it doesn't change each time you look); spread the size of the miss.
+const negRead = () => { const s = staffOf("recruit"); return s ? clamp(s.at.neg / 100, 0, 1) : .1; };
+const negGuess = (v, n, spread) => v * (1 + clamp(n || 0, -2, 2) * spread * (1 - negRead()));
+const negWord = () => { const r = negRead(), s = staffOf("recruit"); return !s ? "a guess: you have no head of recruitment" : r >= .75 ? "a sharp read" : r >= .5 ? "a fair read, give or take" : "only a rough guess"; };
 function negotiate(p, c = my()) {
   const s = staffOf("recruit"), neg = s ? s.at.neg : 30, min = playerAsk(p, c); if (min == null) return null;
   const w = windowId(); if (!p.ng || p.ng.w !== w) p.ng = { w, n: normal(), m: normal() };
@@ -439,7 +480,8 @@ function negotiate(p, c = my()) {
   // His wage: the agent opens a quarter above what he'd really take; your head of recruitment talks him down to that
   // (the same figure you'd get dealing yourself). Negotiating skill shows in the fee.
   const agent = Math.round(min * 1.25 / 100) * 100, wage = Math.round(min / 100) * 100;
-  return { ask, fee, agent, wage };
+  p.ng.m2 ??= normal();
+  return { ask, fee, agent, wage, feeG: Math.round(negGuess(fee, p.ng.m, .12) / 1000) * 1000, wageG: Math.round(negGuess(wage, p.ng.m2, .1) / 100) * 100 };
 }
 function suggest(p, loan) {
   const s = staffOf("recruit"); if (!s) return;
@@ -484,9 +526,9 @@ function stayMin(S, floor, m) {
   let lo = floor, hi = top; for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (ok(mid)) hi = mid; else lo = mid; }
   return Math.ceil(hi / 100) * 100;
 }
-function renewTerms(p) {
+function renewTerms(p, cm = 0) {
   const c = my(), k = "R" + G.year; if (!p.rn || p.rn.k !== k || p.rn.m == null) p.rn = { k, tries: 0, n: normal(), m: clamp(normal(), -2, 2) * .03, off: false };
-  const s = staffOf("recruit"), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5, S = stayScore(p);
+  const s = staffOf("recruit"), maxY = p.age >= 32 ? 2 : p.age >= 30 ? 3 : 5, S0 = stayScore(p), S = cm ? { ...S0, s0: S0.s0 + clauseLift(p, cm) } : S0;
   // No pay cut mid-contract; and a new deal is paid by his loyalty: a mercenary wants up to a quarter over his going
   // rate, an average player about the going rate (95-105%), a loyal one takes as little as 75% (a little less again
   // if the fans love him, but never under 75%).
@@ -512,15 +554,18 @@ function renewTerms(p) {
   for (const g of S.gr) if (!["playing time", "having no place in the manager's system", "a style of play that doesn't suit him", "not clicking with the players around him"].includes(g)) notes.push(["bad", `he's unhappy about ${g}`]);
   return { no: min == null, min, advice, pend, guessNo: s && advice == null, s, maxY, tries: p.rn.tries, off: p.rn.off, notes: notes.filter(Boolean), S };
 }
-function offerRenewal(p, wage, yrs) {
-  const T = renewTerms(p); wage = Math.round(wage / 100) * 100;
+function offerRenewal(p, wage, yrs, cm = 0) {
+  const T = renewTerms(p, cm); wage = Math.round(wage / 100) * 100;
   if (T.no) { if (++p.rn.tries >= 3) p.rn.off = true; return { ok: false, t: `${p.name} doesn't want to stay, whatever the money.` }; }
   if (T.off) return { ok: false, t: `${p.name}'s agent has ended talks until next season.` };
+  if (clauseInsult(p, cm)) { p.unsettled = Math.max(p.unsettled || 0, 4); if (++p.rn.tries >= 3) { p.rn.off = true; return { ok: false, t: `${p.name} is offended by a ${money(Math.round(fullValue(p) * cm / 1e5) * 1e5)} release clause: his agent ends talks until next season.` }; }
+    return { ok: false, t: `${p.name} is offended by a release clause that high and turns the offer down. ${3 - p.rn.tries} more ${3 - p.rn.tries === 1 ? "try" : "tries"} this season.` }; }
   if (wage >= T.min) {
     const was = p.wage; p.wage = wage; p.yrs = clamp(Math.round(yrs), 1, T.maxY); logPay(p, was, "new deal");
     p.dealY = G.year; p.unsettled = 0; p.payGrudge = 0; p.expiring = false; delete p.rn;
+    if (cm) giveClause(p, my(), cm); else delete p.clause;  // a release clause, if one was agreed
     if (T.pend) { T.pend.done = true; T.pend.answer = `New contract agreed: ${pw(wage)}`; }
-    news(`${p.name} signs a new ${p.yrs}-year contract: ${pw(wage)}${was !== wage ? ` (was ${pw(was)})` : ""}.`, true);
+    news(`${p.name} signs a new ${p.yrs}-year contract: ${pw(wage)}${was !== wage ? ` (was ${pw(was)})` : ""}${cm ? `, with a ${money(p.clause.fee)} release clause for bigger clubs` : ""}.`, true);
     return { ok: true, t: `${p.name} signs: ${pw(wage)} for ${p.yrs} year${p.yrs > 1 ? "s" : ""}.` };
   }
   if (++p.rn.tries >= 3) { p.rn.off = true; return { ok: false, t: `${p.name}'s agent turns it down and ends talks until next season.` }; }
@@ -680,12 +725,53 @@ function completeAgreed(c = my()) {
     if (!buyer || (buyer.gone && !buyer.abroad)) { news(`${p.name}'s move to ${buyer ? buyer.name : "his new club"} falls through: the club no longer exists.`, true); continue; }
     completeSale(p, buyer, A.amt, A.auto); }
 }
+/* Free agents don't hang around at the top of the game: a player good enough for the Football League who nobody here
+   signs soon goes abroad or drops into the game below ours. The better he is, the sooner: League One standard and up
+   within a few weeks, League Two within a couple of months, the National Division within a season or so; young ones
+   faster, veterans (30+) slower, so the good free agents left are mostly older. The pool lower down stays full:
+   semi-pros and part-timers wait for a club; the weakest (released kids who never made it) give up within a year. */
+/* A player in the last year of his deal who won't sign a new one, and is good enough to fetch a fee (young, or well
+   above his club), is sold rather than lost for nothing: at the start of his final year, or in January. */
+function aiSellExpiring() {
+  for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c)) continue;
+    for (const p of c.squad.map(P)) { if (!p) continue; const wc = r20(p.ovr) >= 17; if (p.acad || p.loan || p.yrs > 1 || p.toMe || (p.age > 26 && p.ovr < c.lvl + 3 && !wc) || renewsAI(p) || R() > (wc ? .95 : .6)) continue;
+      const b = playerChooses(p, G.clubs.filter(x => !x.gone && !isMine(x) && x !== c && (x.abroad ? !homeBound(p) : x.tier <= c.tier)), .8);
+      // Nobody can afford him: a young star usually signs a new deal after all (a big rise, a release clause); only now and then does one run it down.
+      if (!b) { if ((p.age <= 24 && p.ovr >= c.lvl && R() < .8) || (wc && R() < .95)) { p.renew = { y: G.year, ok: true }; if (p.age <= 24) giveClause(p, c); p.wage = Math.min(wageCap(c), Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100)); } continue; }  // (nobody earns more than €500k a week)
+      aiTransfer(p, b, Math.round(aiFee(p, b) * .8 / 1e3) * 1e3); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); } }
+}
+/* Free agents can sign at any time, not only in the windows. Each week a club at (or a little below) a good free agent's
+   level may take him on, the better he is the likelier; the longer he's been waiting, the less he asks (down to 70% of
+   his going rate once the season starts, 60% from January: faDiscount), so more of them take the deal. */
+function faPickup(k) {
+  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 35)) {
+    if (R() > clamp(.25 + (p.ovr - 60) * .015, .2, .6) * k * (faDiscount(p) < 1 ? 1.4 : 1)) continue;
+    const b = buyerFor(p, 8); if (!b || isMine(b)) continue;
+    moveTo(p, b); p.wage = Math.round(aiWage(p, b) * faDiscount(p) / 100) * 100; p.yrs = p.age >= 31 ? 1 : aiYears(p, b); }
+}
+function faDrain() {
+  const now = absWeek();
+  for (const p of G.fa.map(P)) { if (!p || p.toMe || faFresh(p)) continue;
+    const wk = Math.max(0, now - (p.faAt ?? 0)), t = naturalTier(p);
+    let ch = t <= 3 ? (wk > 2 ? .25 : 0) : t === 4 ? (wk > 6 ? .1 : 0) : t === 5 ? (wk > 16 ? .04 : 0) : p.ovr < 30 ? (wk > 26 ? .06 : 0) : (wk > 100 ? .02 : 0);
+    // A good young player is snapped up (abroad or below) faster still; a good veteran waits longer for the right offer.
+    if (t <= 4) ch *= p.age <= 27 ? 2 : p.age >= 30 ? .35 : 1;
+    if (t <= 4 && G.phase === "season" && G.week < 8) ch = 0;  // the first weeks of the season: clubs still pick up who's left
+    if (t <= 4 && G.phase === "summer") ch = 0;  // the summer market: out-of-contract players stay available all window
+    if (ch && R() < ch) retire(p, true); }
+}
 function marketWeek() {
   const c = my();
   if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
-  headWeek(c); bidsWeek(c); loanOffersWeek(c);
+  headWeek(c); bidsWeek(c); clauseWeek(c); loanOffersWeek(c); faDrain();
+  if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) aiLoans();  // late in each window
+  if ((G.phase === "summer" && G.week === 2) || (G.phase === "season" && G.week === JAN[0])) aiSellExpiring();
+  if (G.phase === "season" && G.week === 1) { for (const x of G.clubs) if (!x.gone && !x.abroad && x.tier === 1) plAgree(x);
+    // Who's expected to finish where (by strength), for the season's shocks.
+    G.expRank = {}; for (const k of LG_KEYS) G.leagues[k].clubs.map(CL).sort((a, b) => (b.lvl || 0) - (a.lvl || 0)).forEach((c, i) => G.expRank[c.id] = i + 1); }
+  if (G.phase === "season" && G.week === JAN[JAN.length - 1] + 6 && scrLive()) plMarch();  // early March
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
-  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
+  faPickup(1);
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
   const last = (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);

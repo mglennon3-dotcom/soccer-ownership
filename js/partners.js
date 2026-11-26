@@ -75,11 +75,44 @@ function endLoans() {
     if (at) p.loanedAt = { y: G.year, short: at.short };  // the season's progression row names the loan club
     if (home && isMine(home)) logMove("loanback", p, { club: at ? at.name : "" }); else if (at && isMine(at)) logMove("loanend", p, { club: home ? home.name : "" });
     if (at) at.squad = at.squad.filter(x => x !== id);
-    if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; p.loan = null; capSquad(home, p); } else toFreeAgent(p);  // foreign clubs count as still going
+    if (home && (!home.gone || home.abroad)) { home.squad.push(id); p.club = home.id; p.loan = null; capSquad(home, p);
+      // Back at a club that has dropped a division while he was away: his wage comes down to its top wage too (a player who won't accept it asks to leave).
+      if (!home.abroad && !isMine(home) && p.wage > wageCap(home)) { p.wage = wageCap(home); if (prefsOf(p, P_FACTORS).top.includes("money") || R() < .4) { p.list = true; p.req = G.year; } } }
+    else toFreeAgent(p);  // foreign clubs count as still going
     if (home && isMine(home)) news(`${p.name} returns from his loan at ${at ? at.name : "his loan club"} (${p.s.app} games).`);
     p.loan = null;
   }
-  G.loanList = [];
+  G.loanList = []; for (const c of G.clubs) if (c.loanOutW) c.loanOutW = 0;
+}
+/* ---------- loans between AI clubs ----------
+   Late in each window, AI clubs lend out players who need games: young players not in the first team (most of all those
+   with room to grow) and older fringe players, to clubs a division or two down where they'd play. The borrowing club
+   pays part of the wage. They come back at the end of the season (endLoans). A club short of a player and of money can
+   also borrow one instead of signing someone cheap (aiBorrow). */
+function aiLoanMove(p, from, to, share = Math.round(rf(.3, 1) * 20) / 20) {
+  from.squad = from.squad.filter(id => id !== p.id); to.squad.push(p.id); p.club = to.id;
+  p.loan = { from: from.id, to: to.id, share, ai: true }; (G.loanList ||= []).push(p.id); capSquad(to, p);
+  if (!from.abroad && !isMine(from)) from.loanOutW = (from.loanOutW || 0) + (p.wage || 0) * (1 - share);  // he still pays the rest
+}
+function aiLoans() {
+  const seniors = c => c.squad.reduce((n, id) => { const q = P(id); return n + (q && !q.acad ? 1 : 0); }, 0);
+  const dests = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x.tier <= 7);
+  for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || c.emb || seniors(c) < 22) continue;
+    const xi = xiSet(c), ranked = c.squad.map(P).filter(q => q && !q.acad && !q.loan).sort((a, b) => b.ovr - a.ovr);
+    const cands = c.squad.map(P).filter(q => q && !q.loan && !xi.has(q.id) && q.inW !== windowId() && (q.acad ? q.age >= 18 && q.pot >= c.lvl - 4 : q.age <= 23 || (q.age <= 28 && ranked.indexOf(q) >= 20)));
+    let n = 0;
+    for (const p of cands.sort((a, b) => (b.pot - b.ovr) - (a.pot - a.ovr))) { if (n >= 3 || R() > (p.age <= 23 && p.pot >= p.ovr + 3 ? .6 : .3)) continue;
+      const to = dests.filter(x => x.tier > c.tier && x.tier <= c.tier + 2 && Math.abs((x.lvl || 0) - p.ovr) <= 4 && seniors(x) < AI_MAX && !derbyLevel(c, x));
+      if (!to.length) continue; const cnt = x => x.squad.reduce((k, id) => { const q = P(id); return k + (q && !q.acad && q.pos === p.pos ? 1 : 0); }, 0);
+      const d = to.sort((a, b) => cnt(a) - cnt(b)).slice(0, 4); p.acad = false; aiLoanMove(p, c, pick(d)); n++; }
+  }
+}
+// Short of a player and of money: borrow one from a club a division or two up who isn't playing there.
+function aiBorrow(c, pos, target) {
+  if (c.abroad || c.emb) return false;
+  const pool = []; for (const x of G.clubs) { if (x.gone || x.abroad || isMine(x) || x === c || x.tier >= c.tier || x.tier < c.tier - 2 || derbyLevel(c, x)) continue; const xi = xiSet(x);
+    for (const id of x.squad) { const q = P(id); if (q && !q.loan && !q.acad && q.pos === pos && !xi.has(q.id) && q.age <= 27 && q.ovr >= target - 4 && q.ovr <= target + 4 && q.inW !== windowId()) pool.push([q, x]); } }
+  if (!pool.length) return false; const [q, x] = pool.sort((a, b) => b[0].ovr - a[0].ovr)[0]; aiLoanMove(q, x, c); return true;
 }
 // Your share of wages: a loanee in costs you his share; a player out on loan still costs you the rest.
 function loanWageAdj(c) {

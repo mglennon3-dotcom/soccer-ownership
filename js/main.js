@@ -23,7 +23,7 @@ function upgradeSave() {
     st.tbase = { t: Math.round((st.trust - logged) * 10) / 10, y: (st.tlog && st.tlog.length ? Math.min(...st.tlog.map(x => x.y)) : G.year), old: true, k: `Where things stood when records began (hired ${st.since || "earlier"}; what happened before that wasn't kept)` }; }
   // 0.73.4: a one-off top-up of the free agents, for careers whose summer passed before the out-of-contract players
   // reached the market (they were all snapped up the moment their deals ended): players under 32 around your level.
-  if (!G.fa4 && G.club != null) { G.fa4 = true; const t = my().tier, mix = Object.entries(SQUAD_MIX).flatMap(([pos, n]) => Array(n).fill(pos)); let n = 0;
+  if (!G.fa4 && G.club != null && false) { G.fa4 = true; const t = my().tier, mix = Object.entries(SQUAD_MIX).flatMap(([pos, n]) => Array(n).fill(pos)); let n = 0;
     for (let i = 0; i < 40; i++) { const ovr = clamp(Math.round(TIER_XI[t] - 12 + R() * 15), 20, 92), age = ri(21, 31);
       const p = makePlayer({ pos: pick(mix), ovr, age, nat: R() < .6 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }); toFreeAgent(p); p.faAt = absWeek(); n++; }
     news(`${n} more players are out of contract and looking for clubs, around your level and under 32: see Market → Free agents. Other clubs move in after three weeks.`, true); }
@@ -213,6 +213,12 @@ function upgradeSave() {
     G.inbox = G.inbox.filter(m => !(!m.done && ["treq", "keepTerms", "raise"].includes(m.key) && m.data && ids.has(m.data.pid)));
     for (const p of c.squad.map(P)) if (p) { p.req = 0; p.unsettled = 0; p.blocked = 0; p.payGrudge = 0; delete p.goPromise; delete p.ambPromise; }
     news(`A clean slate in the dressing room: ${n ? `${n} open request${n > 1 ? "s" : ""} cleared, and ` : ""}every player's grievances are forgotten.`, true); }
+  // 1.0.92, one-off: players abroad were on English-scale contracts from the start (Norway's league was missed out of
+  // the strength table entirely): every contract abroad is reset to what his league pays.
+  if (!G.fwage92) { G.fwage92 = true; for (const id of G.foreign || []) { const c = CL(id); if (!c) continue; for (const pid of c.squad) { const p = P(pid); if (p && !p.acad && !p.loan) p.wage = aiWage(p, c); } } }
+  // 1.2.0, one-off: AI contracts from the start of the game were on a single pay scale whatever the division (a player
+  // in League One paid like one anywhere): every AI club's contracts reset to its division's standard.
+  if (!G.stdWage121 && G.club != null) { G.stdWage121 = true; standardWages(); }  // (and the leagues abroad)
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
@@ -475,7 +481,9 @@ const ACT = {
   retrain: async el => { const p = P(+el.dataset.id), to = el.dataset.to, V = retrainView(p, to);
     if (!await ask(`Retrain ${p.name} as a ${POS_NAME[to].toLowerCase()}? ${mgr() && mgr().name ? mgr().name : "The manager"} thinks it's ${V.verdict === "neutral" ? "neutral" : `a ${V.verdict} move`}: about ${V.ovr[0]}${V.ovr[1] !== V.ovr[0] ? "–" + V.ovr[1] : ""} now. He can only retrain once.`, "Retrain him")) return playerModal(p.id);
     retrain(p, to); playerModal(p.id); render(); saveGame(); },
-  renewgo: el => { const p = P(+el.dataset.id), r = offerRenewal(p, num($("#rn-wage")) * 52, +$("#rn-yrs").value);
+  storyy: el => { STORY_Y = +el.value; render(); },
+  rnclause: el => { RENEW_CL = { id: +el.dataset.id, m: +el.value }; render(); },
+  renewgo: el => { const p = P(+el.dataset.id), r = offerRenewal(p, num($("#rn-wage")) * 52, +$("#rn-yrs").value, +(($("#rn-clause") || {}).value || 0));
     RENEW_SAY = r.ok ? null : { id: p.id, t: r.t }; if (r.ok) toast(r.t); playerModal(p.id); render(); saveGame(); },
   ptab: el => { PCARD = { id: +el.dataset.id, tab: el.dataset.v }; playerModal(+el.dataset.id); },
   hofsort: el => { HOF_SORT = el.dataset.v; render(); },
@@ -543,6 +551,9 @@ const ACT = {
     await offerWageRaise(p, wage); agreePre(p, wage); closeModal(); render(); saveGame(); },
   buygo: el => {
     const p = P(+el.dataset.id), fee = num($("#b-fee")), wage = num($("#b-wage")) * 52, ask = askingFee(p);
+    if (ssrBound(my()) && fee > plSales(my())) return toast("You're on the league's spending limit (sustainability tests): no transfer fee that your sales this season don't cover.");
+    if (my().scrBan === G.year && fee > 0) return toast("You broke the squad cost rule last season: no transfer fees this season. Free agents, loans and pre-contracts only.");
+    if (p.loan && p.loan.ai) return toast(`${p.name} is on loan at ${CL(p.club).name} from ${CL(p.loan.from).name} until the end of the season: try again in the summer.`);
     if (embargoed(my()) && p.club !== -1) return toast("You're under a transfer embargo: free agents only (or a pre-contract) until the debts are cleared.");
     if (fee < ask * .95) return toast(`${p.club >= 0 ? CL(p.club).name : "His club"} turn the offer down. They want about ${money(ask)}.`);
     const a = playerAppeal(p, wage);

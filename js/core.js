@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.77";
+const VERSION = "1.2.3";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -213,17 +213,48 @@ function renewsAI(p) {
   let ch = .75;
   if (p.ovr > ref + 2) ch -= Math.min(.45, (p.ovr - ref - 2) * .06);  // too good for them: wants a bigger move
   if (p.age >= 23 && p.age <= 29 && p.ovr >= ref) ch -= .1;
+  if (p.age >= 28 && p.age <= 31) ch -= .15;  // the late-20s free transfer: one last big contract elsewhere
   if (p.age >= 31) ch += .12;
   if (p.unsettled > 0 || p.req) ch -= .3;
   if (rank > 18) ch -= .25;  // not needed: may not be offered a deal
   // How he rates the club, on his own priorities (playing time, the system, standing, how it's doing, home), and a
   // little more for form itself: a club that's winning keeps its players; a struggling one loses them.
   ch += clamp((aiAppeal(p, c) - .05) * 1.5, -.25, .2) + clubSit(c).m * .12;  // (a typical player rates his club about +.05)
+  // A world-class player at a club of his standard: it does whatever it takes to keep him (a free transfer is a
+  // once-a-year story). At a club far below him he wants out, and the club sells him or he runs his deal down.
+  if (r20(p.ovr) >= 17 && p.ovr <= ref + 6) ch = Math.max(ch, p.age < 31 ? .97 : .9);
   const h = ((p.id * 2654435761 + G.year * 40503) >>> 0) % 1000 / 1000;  // the same answer all season
-  p.renew = { y: G.year, ok: h < clamp(ch, .1, .95) }; return p.renew.ok;
+  let ok = h < clamp(ch, .1, .95);
+  /* The new deal is at his division's standard (the going rate for his rating there, capped at its top wage). A real pay
+     cut may be too much for him: the bigger it is, the likelier he says no (a money-motivated player most of all, a loyal
+     one least); then he either asks to leave (listed and sold) or runs his contract down. */
+  const offer = aiWage(p, c), cut = p.wage > 0 ? 1 - offer / p.wage : 0;
+  if (ok && cut > .1) { const pr = prefsOf(p, P_FACTORS), L = loyaltyOf(p), no = clamp(cut * 1.6 + (pr.top.includes("money") ? .25 : 0) - (L - .5) * .5, 0, .95);
+    if (((p.id * 40503 + G.year * 2654435761) >>> 0) % 1000 / 1000 < no) { ok = false;
+      if ((pr.top.includes("money") ? .7 : .5) - (p.age >= 31 ? .25 : 0) > R()) { p.list = true; p.req = G.year; } } }
+  if (ok) p.renewW = offer;
+  // A young player who'd otherwise run his deal down often signs if his club puts in a release clause: a bigger club can
+  // take him for a set fee (about one and a half times what he's worth), and his club gets a fee rather than nothing.
+  if (!ok && p.age <= 24 && p.ovr >= ref - 1 && h < clamp(ch, .1, .95) + .45) { ok = true; giveClause(p, c); }
+  p.renew = { y: G.year, ok }; return ok;
 }
+/* The going rate for players around the Premier/First Division line (rated about 8 to 12) is well above what the curve
+   alone gives: up to four and a half times for a 9-10, easing off either side (nothing extra at 7 and below; little at 13 and up). */
+function bandBump(t) {
+  if (t <= 7.2) return 1; if (t <= 8.8) return 1 + 3.5 * (t - 7.2) / 1.6; if (t <= 10.3) return 4.5;
+  if (t <= 12) return 4.5 - 3.3 * (t - 10.3) / 1.7; if (t <= 14) return 1.2 - .2 * (t - 12) / 2; return 1;
+}
+/* A release clause, as a multiple of his value: the most he'll accept depends on him. An ambitious player (one who
+   cares about the club's standing or the project) wants a low one, about his value; others will take up to about 1.3. */
+const fullValue = p => { const y = p.yrs; p.yrs = 3; const v = valueOf(p); p.yrs = y; return v; };
+const clauseCeil = p => { const pr = prefsOf(p, P_FACTORS).pri; return clamp(1.4 - ((pr.prest || 0) + (pr.proj || 0)) * 1.2, 1, 1.3); };
+function giveClause(p, c, m = clauseCeil(p)) { p.clause = { fee: Math.round(fullValue(p) * m / 1e5) * 1e5, rep: (c.rep || 0) + 5, y: G.year }; }
+// How much a clause at this multiple helps him sign: the full lift at or under his ceiling, fading to nothing a little
+// above it; well above it he takes offence (clauseInsult) and won't sign it.
+const clauseInsult = (p, m) => !!m && m > clauseCeil(p) + .15;
+const clauseLift = (p, m) => !m ? 0 : clauseInsult(p, m) ? -.15 : .12 * (1 + ((prefsOf(p, P_FACTORS).pri.prest || 0) + (prefsOf(p, P_FACTORS).pri.proj || 0)) * 2) * clamp(1 - Math.max(0, m - clauseCeil(p)) / .15, 0, 1);
 function valueOf(p) {
-  const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1);
+  const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1) * bandBump(to20(p.ovr));
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
   if (p.age > 28) v *= Math.max(.12, 1 - (p.age - 28) * .13);
   // Contract length: a player whose deal is running down is worth less, as his club can lose him for nothing. Two years
@@ -261,9 +292,31 @@ function potEstimate(p) {
   const sd = clamp((100 - judge) / 22, .4, 4), now = to20(p.ovr), est = clamp(to20(p.pot) + p.pn * sd * .6, now, 20), w = Math.max(.5, sd * 1.1);
   return [snap20(from20(Math.max(now, est - w))), snap20(from20(Math.min(20, est + w)))];
 }
+/* ---------- scouting knowledge ----------
+   What you know about a player who isn't yours depends on your scouting, 1-20: your head of recruitment's judging,
+   lifted by the scouting budget and his contacts (players in your own division are seen every week: a little more).
+   - Attributes: at 20 you get a range for every one; the lower it goes, the fewer are scouted (the ones that matter most
+     for his position first) and the wider and less reliable the ranges: a poor scout's report can simply be wrong.
+   - His type (archetype): not known below 5; below 10 the report sometimes has it wrong. */
+const knownPlayer = p => p.club === G.club || !!(p.loan && p.loan.from === G.club);
+const scoutLvl = p => { const b = staffAttr("recruit", "judge", 25) + scoutBoost(); return clamp(b / 5 + (p && p.club >= 0 && G.club != null && !CL(p.club).abroad && CL(p.club).lg === my().lg ? 4 : 0), 1, 20); };
+const hsh = (a, b) => (((a * 2654435761) ^ (b * 40503)) >>> 0) % 10000 / 10000;  // a stable 0-1 draw (the same report each time)
+function attrRead(p, k) {
+  const s = scoutLvl(p), keys = keysOf(p.pos).slice().sort((a, b) => (POS_W[p.pos][b] || 0) - (POS_W[p.pos][a] || 0)), n = Math.ceil(keys.length * clamp((s - 2) / 18, 0, 1));
+  if (keys.indexOf(k) < 0 || keys.indexOf(k) >= n) return null;
+  const t = to20(p.at[k]), seed = [...k].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7), bias = (hsh(p.id, seed) * 2 - 1) * (20 - s) * .22, w = .6 + (20 - s) * .2;
+  return [clamp(Math.round(t + bias - w), 1, 20), clamp(Math.round(t + bias + w), 1, 20)];
+}
+function archRead(p) {
+  const a = archetypeOf(p); if (!a || knownPlayer(p)) return a;
+  const s = scoutLvl(p); if (s < 5) return null;
+  if (s < 10 && hsh(p.id, 7) < (10 - s) / 10 * .5) { const alt = (ARCHETYPES[p.pos] || []).filter(x => x[0] !== a[0]); if (alt.length) return alt[Math.floor(hsh(p.id, 9) * alt.length)]; }
+  return a;
+}
 function ovrEstimate(p) {
-  if (p.club === G.club || (p.club >= 0 && CL(p.club).lg === my().lg)) return [snap20(p.ovr), snap20(p.ovr)];
-  const sd = clamp((100 - staffAttr("recruit", "judge", 25) - scoutBoost()) / 18, .5, 5), w = Math.max(1, sd);
+  if (knownPlayer(p)) return [snap20(p.ovr), snap20(p.ovr)];
+  const own = p.club >= 0 && G.club != null && !CL(p.club).abroad && CL(p.club).lg === my().lg;  // seen every week
+  const sd = clamp((100 - staffAttr("recruit", "judge", 25) - scoutBoost() - (own ? 20 : 0)) / 18, .5, 5), w = Math.max(1, sd);
   const est = p.ovr + p.pn * sd * .5;
   return [snap20(est - w), snap20(est + w)];
 }
@@ -402,6 +455,7 @@ function newWorld(o) {
   for (const k of LG_KEYS) { const ids = []; for (let i = 0; i < LEAGUES[k].size; i++) ids.push(newClub(k, i).id); G.leagues[k] = { key: k, clubs: ids }; }
   for (const c of G.clubs) genSquad(c);
   makeForeign();
+  standardWages();  // contracts at each division's (and each league abroad's) standard
   for (const c of G.clubs) if (!c.gone) c.own ||= newOwner(c);
   buildDerbies();
   // A pool of unattached players: the trialists and journeymen a new club can sign.
@@ -438,10 +492,10 @@ function moveTo(p, c) { if ((G.favs || []).includes(p.id) && c.id !== G.club && 
   // Transfer history (player card): season, window, from, to and fee. NEXT_FEE is set by whoever just paid for him.
   if (p.club !== c.id) { (p.tx ||= []).push([G.year, G.phase === "summer" ? 0 : 1, p.club, c.id, NEXT_FEE ?? 0]); if (p.tx.length > 12) p.tx.shift(); }
   NEXT_FEE = null;
-  p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
+  p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; delete p.clause; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
 /* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
    below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
-function newcomerFor(p) {
+function newcomerFor(p) { return;  // no invented players: academies replace retirements
   const c = p.club >= 0 ? CL(p.club) : null, base = c && !c.abroad ? TIER_LVL[c.tier] : c ? c.lvl : Math.min(p.ovr, 58);
   const age = ri(17, 20), ovr = clamp(Math.round(base - rf(4, 12) - (20 - age) * 1.5 + normal() * 3), 22, 80);
   toFreeAgent(makePlayer({ pos: pick(POS), ovr, age, nat: c && c.abroad ? c.country : R() < .8 ? "ENG" : pickNat("ENG"), pot: seniorPot(ovr, age) }));

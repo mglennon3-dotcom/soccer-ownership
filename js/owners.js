@@ -111,7 +111,39 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
 // Owners who spend hire better staff and pay above the going rate; tight owners hire cheaper and pay below it.
 // What an AI club pays: the going rate scaled by its pay level (set each summer from what it can afford). Clubs abroad
 // pay by their owner's spending.
-const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
+/* How much a league abroad pays and charges against the Premier Division's levels for the same player: the big three
+   about 60%, France half, the next tier down a little over a third, the rest a fifth to a quarter. */
+const FSTR = { ESP: .62, GER: .6, ITA: .58, FRA: .5, POR: .38, NED: .38, TUR: .38, BEL: .35, GRE: .25, DEN: .25, AUT: .25, SCO: .25, SUI: .28, CZE: .22, SCA: .22, POL: .2, CYP: .2, CRO: .2, SWE: .2, UKR: .2, HUN: .18, ROU: .18 };
+const fStr = c => (c && c.abroad && FSTR[c.country]) || 1;
+/* The most an AI club pays any player a week, by division: what the real top earners make there (a reckless owner's
+   one statement signing a season is the exception). Non-league is held by the owner's own limit. */
+const DIV_WAGE_TOP = [0, 500e3, 150e3, 40e3, 15e3, 10e3, 4e3, 1.5e3];
+// Each division's typical (median) weekly wage at an AI club.
+const DIV_WAGE_MED = [0, 72e3, 19e3, 4e3, 2e3, 1e3, 400, 65];
+/* Setting every AI club's contracts at its division's standard: each player paid the going rate for his rating there
+   (aiWage), then the whole division scaled so its median matches the division's typical wage, then capped at its top
+   wage. Used when a world is made, and once on older saves whose starting contracts were on a single scale. */
+function standardWages() {
+  for (let t = 1; t <= 7; t++) {
+    const ps = []; for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || c.tier !== t) continue; for (const id of c.squad) { const p = P(id); if (p && !p.acad && !p.loan) { p.wage = aiWage(p, c); ps.push([p, c]); } } }
+    if (!ps.length) continue; const w = ps.map(([p]) => p.wage).sort((a, b) => a - b), k = DIV_WAGE_MED[t] * 52 / Math.max(1, w[w.length >> 1]);
+    for (const [p, c] of ps) p.wage = Math.min(wageCap(c), Math.max(500, Math.round(p.wage * k / 100) * 100));
+  }
+  // The leagues abroad, the same way: rated pay at the league's level, scaled to its typical wage, capped.
+  for (const code of Object.keys(FWAGE_MED)) {
+    const ps = []; for (const id of G.foreign || []) { const c = CL(id); if (!c || c.country !== code) continue; for (const pid of c.squad) { const p = P(pid); if (p && !p.acad && !p.loan) { p.wage = aiWage(p, c); ps.push([p, c]); } } }
+    if (!ps.length) continue; const w = ps.map(([p]) => p.wage).sort((a, b) => a - b), k = FWAGE_MED[code] * 52 / Math.max(1, w[w.length >> 1]);
+    for (const [p, c] of ps) p.wage = Math.min(wageCap(c), Math.max(500, Math.round(p.wage * k / 100) * 100));
+  }
+}
+// And the most an AI club pays in a transfer fee, by division (about the real record fees there).
+const DIV_FEE_TOP = [0, Infinity, 35e6, 6e6, 2e6, 5e5, 2e5, 5e4];
+// Abroad: €500k a week scaled by the league's strength (Spain about €310k, the smaller leagues about €100k).
+const wageCap = c => !c || isMine(c) ? 500e3 * 52 : c.abroad ? Math.round(500e3 * 52 * fStr(c)) : DIV_WAGE_TOP[c.tier] * 52;
+// Each league abroad's typical (median) weekly wage.
+const FWAGE_MED = { ESP: 44e3, GER: 42e3, ITA: 40e3, FRA: 30e3, POR: 19e3, NED: 19e3, TUR: 18e3, BEL: 17e3, GRE: 6e3, DEN: 5e3, CZE: 4e3, POL: 4e3, SCA: 4e3, CYP: 4e3, SUI: 2.5e3, AUT: 2.5e3, SCO: 2.5e3, CRO: 2e3, HUN: 1.5e3, SWE: 1.5e3, ROU: 1.5e3, UKR: 1.5e3 };
+const feeCap = c => !c || c.abroad || isMine(c) || reckless(c) ? Infinity : DIV_FEE_TOP[c.tier];  // a reckless owner's splash is the exception
+const aiWage = (p, c) => Math.min(wageCap(c), Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
    more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
@@ -136,7 +168,8 @@ function aiEstimate(x) {
 // A season's income: TV, the gate (plus bar and shop), sponsors.
 // (plus a little for cup runs, merit money and selling players).
 function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
-const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage : 0; });
+// The wage bill: a loanee in costs his share; a player loaned out still costs the rest (loanOutW).
+const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage * (p.loan && p.loan.ai && p.loan.to === c.id ? p.loan.share : 1) : 0; }) + (c.loanOutW || 0);
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
 // Travel, utilities, insurance and medical bills, and grading works on arriving in a new division.
 const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + (c.cap || 0) * 40 * (ageUpF(G.year - aiOpened(c)) - 1) + 4000 * (c.train || 0) + aiBill(c) * INSURE * .7 + MED[c.tier] * 4 + (c.upNow ? gradingCost(c, c.tier) : 0);
@@ -144,8 +177,10 @@ const aiExtra = c => TRAVEL[c.tier] * 23 + 6000 + (c.cap || 0) * 6 + (c.cap || 0
 const aiDebtService = c => (c.debt || 0) * .1;
 // Transfer fees, spread over contracts (amortisation): about a tenth of the squad's value a year in the Premier, less further down. At the top this is
 // where much of the money goes, so clubs pay players close to the going rate rather than inflating wages.
-const AMORT = [0, .07, .04, .02, .01, 0, 0, 0];  // transfer spending matters most at the top
-const aiAmort = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad && !p.loan ? valueOf(p) : 0; }) * AMORT[c.tier];
+const AMORT = [0, .07, .04, .02, .01, 0, 0, 0];  // (older saves: a club's squad with no recorded fees is charged a share of its value)
+// Each fee the club actually paid, spread over four years from the season he joined.
+const aiAmort = c => sum(c.squad, id => { const p = G.players[id]; if (!p || p.acad || p.loan) return 0;
+  const t = (p.tx || []).filter(x => x[3] === c.id).pop(); return t && t[4] > 0 && G.year - t[0] < 4 ? t[4] / 4 : 0; });
 const aiCosts = c => aiBill(c) + aiEstimate(c).staff + tierWages(c.tier) * .12 + aiOps(c) + aiExtra(c) + aiDebtService(c) + aiAmort(c);  // wages, staff, ground and running costs
 const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.round(((OWNER_STYLES[o.style || "local"].loss || 0) + normal() * .1) * 100) / 100; return o.tol; };
 /* Every club budgets to break even: its wage budget is what its income leaves after staff, running and match-day costs.
@@ -167,7 +202,11 @@ const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l
 function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) * clamp(1 + spendTarget(c), .7, 2) * (c.cut ? .85 : 1) * (c.push ? 1 + Math.max(0, lossTol(c)) * .2 : 1);
   // The spending rule: in the professional divisions only reckless owners plan to lose more than it allows.
   if (c.cook) { const cap = salaryCap(c.tier); return Math.max(b, isFinite(cap) ? cap : b) * 2; }  // cooking the books: money no object (players still have to want to come)
-  return Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier)); }
+  let w = Math.min(c.tier <= 4 && !reckless(c) ? Math.min(b, aiAfford(c) + aiIncome(c) * (SPEND_LIMIT - .12)) : b, salaryCap(c.tier));
+  // The squad cost rule (and UEFA's, in Europe): a sensible owner keeps wages plus fees inside it, with a little room.
+  if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (europeBound(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); w = Math.min(w, Math.max(tierWages(c.tier) * .5, lim * .88 - aiAmort(c))); }
+  else if (c.tier >= 5 && !c.abroad) w = Math.min(w, nlWageCap(c) * .85);  // leaving the owner room for the odd statement signing
+  return w; }
 /* The salary cap, in the Premier Division only: no AI club's wage bill there may go past twice the division's average (set again each summer
    as wages move). Up to it, how much they spend is the owner's call; only an owner cooking the books goes beyond it. */
 const CAP_MULT = 2;
@@ -208,7 +247,10 @@ function aiAccounts(c) {
   // Cooking the books: losses are hidden (false income, deals off the books), so no spending-rule trouble, no cuts, and the
   // owner doesn't seem to be paying. It all goes on the hidden pile that gets him caught.
   if (c.cook) { c.cook.hid += Math.max(0, -net) + Math.max(0, aiBill(c) - salaryCap(c.tier)); c.psr = []; return; }
-  { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
+  scrJudge(c); ssrTest(c);
+  // Below the leagues: contracts the owner won't carry are sold, or the players released.
+  if (c.tier >= 5) for (let k = 0; k < 4 && aiBill(c) > nlWageCap(c) * 1.05; k++) ruleSales(c);
+  { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); charge(c, r.pen, "breaking the spending rule"); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
     else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
   if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { if (failGate("adm")) { administration(c); return; } rescue(c); }
@@ -312,6 +354,33 @@ function hostileCheck() {
   x.own = newOwner(x, "hostile"); x.own.wealth = Math.max(x.own.wealth, G.owner.wealth * rf(.8, 2)); x.own.target = c.id; x.rep = Math.min(99, x.rep + 3);
   news(`${x.own.name} buys ${x.name} and tells reporters he'll "put ${c.name} in their place". You have a hostile neighbour.`, true); bumpMedia(5);
 }
+/* ---------- this season's stories ----------
+   The year's notable events, kept season by season (the last fifteen): points deductions and appeals, administrations
+   and takeovers, record and statement signings, release clauses triggered, sackings, UEFA sanctions, and the season's
+   shocks (a big club in a relegation fight, an unfancied side challenging). Shown on the League page. */
+function story(t, kind, imp = 1) { if (G.club == null) return; const y = G.year, S = (G.stories ||= {}); (S[y] ||= []).push({ w: whenLabel(), t, k: kind, i: imp });
+  if (S[y].length > 60) { S[y].sort((a, b) => b.i - a.i); S[y].length = 60; } for (const k of Object.keys(S)) if (+k < y - 15) delete S[k]; }
+const storyWorthy = c => G.club != null && !!c && !c.abroad && (isMine(c) || c.tier <= 2 || c.lg === my().lg);
+/* A points deduction is a charge: announced, applied at once, then appealed. About three appeals in ten get it reduced
+   (Everton's 10 became 6), now and then one is overturned, most fail. Decided six to ten weeks later. You choose
+   whether to appeal yours (it costs legal fees); AI clubs always do. Administration brings no appeal. */
+const appealCost = c => Math.round(Math.max(50e3, aiIncome(c) * .005) / 1e4) * 1e4;
+function charge(c, pen, why) {
+  if (!pen || !c || c.abroad) return;
+  (G.charges ||= []).push({ id: c.id, pen, why, y: G.year, at: absWeek() + ri(6, 10), appealed: !isMine(c), done: false });
+  if (storyWorthy(c)) story(`${c.name} are docked ${pen} points for ${why}. ${isMine(c) ? "You can appeal." : "They appeal."}`, "deduction", isMine(c) || c.tier <= 2 ? 3 : 2);
+  if (isMine(c)) { moodHit(c, -Math.min(12, pen)); addChoice("appeal", `Appeal the ${pen}-point deduction?`, `The league has docked you ${pen} points for ${why}. An appeal costs about ${money(appealCost(c))} in legal fees and is decided in six to ten weeks: about three in ten get the penalty reduced, a few overturned, most fail.`, ["Appeal", "Accept it"], { cid: c.id, y: G.year }, 0); }
+}
+DECIDE.appeal = (m, i) => { const ch = (G.charges || []).find(x => x.id === m.data.cid && x.y === m.data.y && !x.done); if (!ch) return;
+  if (i === 0) { ch.appealed = true; spend("tax", appealCost(my())); news(`You lodge an appeal against the ${ch.pen}-point deduction.`); } else ch.done = true; };
+function chargesWeek() {
+  for (const ch of G.charges || []) { if (ch.done || absWeek() < ch.at) continue; ch.done = true; const c = CL(ch.id); if (!c || !ch.appealed) continue;
+    const r = R(), back = r < .28 ? Math.ceil(ch.pen * .4) : r < .34 ? ch.pen : 0;
+    if (back) { const row = c.lg && G.leagues[c.lg] && G.leagues[c.lg].tab ? G.leagues[c.lg].tab[c.id] : null; if (row && G.phase !== "summer") row.pts += back; else c.ded = Math.max(0, (c.ded || 0) - back); }
+    const t = back === ch.pen ? `${c.name} win their appeal: the ${ch.pen}-point deduction is overturned.` : back ? `${c.name}'s appeal partly succeeds: the deduction is cut from ${ch.pen} to ${ch.pen - back} points.` : `${c.name} lose their appeal: the ${ch.pen}-point deduction stands.`;
+    if (storyWorthy(c)) story(t, "appeal", 2); if (isMine(c) || c.lg === my().lg) news(t, isMine(c)); }
+  G.charges = (G.charges || []).filter(ch => !ch.done || ch.y >= G.year - 1);
+}
 function administration(c) {
   // The club is sold out of administration to a new owner who clears the debts: the embargo lasts about a season.
   c.ded = 10; c.rep = Math.max(1, c.rep - 4); c.emb = { y: G.year }; c.tb = 0; c.debt = 0;
@@ -319,11 +388,13 @@ function administration(c) {
   for (const p of best) { const b = buyerFor(p, 8, .6); if (b && b !== c) { aiTransfer(p, b, Math.round(aiFee(p) * .6 / 1e4) * 1e4); p.wage = aiWage(p, b); } }  // a fire sale
   const where = c.lg === my().lg || c.half === my().half;
   news(`${c.name} have gone into administration under ${c.own.name}. They start next season on minus ten points and have sold their best players.`, where);
+  if (c.tier <= 4 || storyWorthy(c)) story(`${c.name} go into administration: minus ten points next season, and their best players sold.`, "admin", 3);
   c.own = newOwner(c, pick(["local", "fanowned", "moneyball", "absentee"])); delete c.splash;
 }
 function takeover(c) {
   const old = c.own; c.own = newOwner(c); delete c.splash; addHoney(c, "owner");
   if (c.own.style === "sugar" || c.own.style === "celebrity") c.rep = Math.min(99, c.rep + 3);
+  if (storyWorthy(c) || c.own.style === "sugar") story(`Takeover: ${c.own.name} buy ${c.name}.`, "takeover", c.own.style === "sugar" ? 2 : 1);
   if (c.lg === my().lg || (c.half === my().half && Math.abs(c.tier - my().tier) <= 1) || c.own.style === "sugar")
     news(`Takeover: ${c.own.name} buy ${c.name} from ${old.name}. ${OWNER_STYLES[c.own.style].l}: ${OWNER_STYLES[c.own.style].d.split(".")[0].toLowerCase()}.`, c.lg === my().lg);
 }
@@ -336,7 +407,7 @@ function ownersCheck(w) {
   for (const k of LG_KEYS) {
     const t = table(k), n = t.length;
     t.forEach((r, i) => { const c = CL(r.id); if (!isMine(c)) c.push = i < Math.max(2, Math.round(n * .25)); if (isMine(c) || i < n * .66 || !c.own) return;
-      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); newBounce(c, true); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); } });
+      if (R() > ownStyle(c).patience * (1.25 - handsOn(c.own) / 200)) { const old = c.coach.name; c.coach = coachFor(c); newBounce(c, true); if (k === my().lg) news(`${c.name} sack ${old}. ${c.coach.name} takes over.`); if (c.tier === 1 || k === my().lg) story(`${c.name} sack ${old}; ${c.coach.name} takes over.`, "sack", 1); } });
   }
 }
 /* Sponsors: a celebrity or billionaire owner nearby hoovers up local sponsorship. */
@@ -414,7 +485,7 @@ function diversitySummer() {
     for (const p of stars) {
       if (R() > .3) continue;
       if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
-      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p)))));
+      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 && !homeBound(p) && acceptsMove(p, x) : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p, x)))));
       if (!to) continue;
       aiTransfer(p, to); p.wage = aiWage(p, to); p.yrs = aiYears(p, to);
       if (c.lg === my().lg || to.lg === my().lg || p.ovr >= 85) news(`${p.name} leaves champions ${c.name} for ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""}, looking for a new challenge.`);
@@ -432,9 +503,11 @@ function diversitySummer() {
     if (!pool.length) continue;
     // There are far more stars abroad than at home: draw from England 60% of the time when both have one.
     { const home = pool.filter(p => !CL(p.club).abroad), away = pool.filter(p => CL(p.club).abroad); if (home.length && away.length) pool = R() < .6 ? home : away; }
-    const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(500e3 * 52, Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages top out at €500k a week */, why = affinity(p, c);
+    const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(reckless(c) ? 500e3 * 52 : wageCap(c), Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages: a reckless owner's top out at €500k a week, anyone else's at the division's top wage */, why = affinity(p, c);
     if (!c.cook && aiBill(c) + wage > salaryCap(c.tier) && !startCooking(c, true)) continue;  // past the cap only by cooking the books
+    if (!fitsRules(c, wage, aiFee(p, c), 3)) continue;  // the squad cost rule (or, below the leagues, what the owner will carry)
     aiTransfer(p, c); p.wage = wage; p.yrs = aiYears(p, c); p.stunY = G.year; p.stunC = c.id; c.splash = true; if (from.abroad) { if (!foreignSign(from, p.pos)) foreignSquad(from); } else aiSquadCheck(from, true);  // the seller replaces him with whoever it can afford at its own level: bought (with the fee in hand) or free  // the fee comes out of the budget, however far below zero
+    story(`${c.name} stun football: ${p.name} (rated ${r20(p.ovr)}) ${from.abroad ? "arrives from abroad" : `drops down from ${from.name}`} on ${money(wage / 52)} a week.`, "statement", 2);
     if (c.lg === my().lg || from.lg === my().lg || c.tier <= 2) news(`${c.name} stun football: ${p.name} (${p.pos}, ${p.age}, rated ${r20(p.ovr)}) ${from.abroad ? `joins from ${from.name} (${COUNTRY[from.country].name})` : `drops down from ${from.name}`} on ${money(wage / 52)} a week${why ? `. He ${why}` : ""}.`, c.lg === my().lg);
   }
   // Going home.
@@ -458,12 +531,148 @@ function diversitySummer() {
    (stadium, training ground and academy spending don't count). Breaking it costs points next season: 4 for losses up to
    half of income, 8 up to three-quarters, 12 beyond. */
 const SPEND_LIMIT = .35;
-const spendPenalty = (tier, net, inc) => { if (tier > 4 || net >= 0 || inc <= 0) return 0; const r = -net / inc; return r <= SPEND_LIMIT ? 0 : r <= .5 ? 4 : r <= .75 ? 8 : 12; };
+const spendPenalty = (tier, net, inc) => { if (tier > 4 || tier === 1 || net >= 0 || inc <= 0) return 0; /* the Premier Division has SCR instead */ const r = -net / inc; return r <= SPEND_LIMIT ? 0 : r <= .5 ? 4 : r <= .75 ? 8 : 12; };
 // Judged over the last three seasons together (as real rules are), so one bad year after relegation isn't fatal.
 const spendRolling = (c, net, inc) => { const h = (c.psr || []).slice(-2).concat([[net, inc]]), N = h.reduce((s, x) => s + x[0], 0), I = h.reduce((s, x) => s + x[1], 0); return { N, I, ratio: I > 0 ? Math.max(0, -N / I) : 0 }; };
 function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.psr || []).length >= 2 ? spendPenalty(c.tier, r.N, r.I) : 0;  // judged once three seasons are on record
   c.psr = pen ? [] : (c.psr || []).concat([[Math.round(net), Math.round(inc)]]).slice(-3);  // a punished club starts afresh
   return { pen, ratio: r.ratio }; }
+/* ---------- squad cost rules ----------
+   Alongside the three-season loss rule, every professional club's spending on players (wages plus transfer fees spread
+   over contracts) may not pass a share of its revenue: 85% in the Premier Division, 100% in the First (where the
+   three-season loss rule does most of the work, as in the real Championship), 60% in the Second and 55% in the Third, where the owner's own money counts as revenue too (as in the real lower leagues). Break it and
+   the club may not pay a fee next season; break it by more than 8 points and it's docked points too (3, or 6 past 20). Clubs in Europe answer to UEFA as
+   well: 70% of revenue, no owner money; a breach is a fine; a second big one (more than 15 points over) within three years a settlement (a much bigger fine); a third a ban.
+   Non-league has no such rule: there it's down to the owner, who'll put in only so much a year, by his nature. */
+const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
+// In Europe now, or qualified for next season.
+const europeBound = c => inEurope(c) || !!(G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id));
+const aiSquadCost = c => aiBill(c) + aiAmort(c);
+const ownerMoney = c => aiIncome(c) * clamp(spendTarget(c), 0, 1.5);  // what the owner plans to put in a year
+const scrRevenue = c => aiIncome(c) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c) : 0);
+// Non-league: the wage bill an owner will carry, his nature times the club's size (a benefactor about two and a half times income).
+const nlWageCap = c => aiIncome(c) * (.75 + clamp(lossTol(c), 0, 1.5));
+/* Room left for a new player's wage plus a year's share of his fee. Reckless owners (gamblers, book-cookers) ignore it
+   and take their chances with the punishment. */
+function squadRoom(c, k = 1) {
+  if (c.abroad || isMine(c)) return Infinity;
+  if (c.tier >= 5) return nlWageCap(c) * k - aiBill(c);
+  let lim = c.tier === 1 ? (PL_GREEN + (reckless(c) ? plAllow(c) * .9 : ownStyle(c).spend >= 3 ? plAllow(c) * .4 : 0)) * (plRevOf(c) + plSales(c)) : SCR_LIMIT[c.tier] * scrRevenue(c);
+  if (europeBound(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); if (c.tier !== 1) lim *= k;
+  return lim - aiSquadCost(c);
+}
+// A small breach costs the right to pay fees next season; a bigger one points as well.
+// A breach costs the right to pay fees next season; points only for a big one (more than 15 points over), or a second in a row.
+const scrPen = (over, c) => over > .25 ? 6 : over > .15 || (c && c.scrBan === G.year && over > .08) ? 3 : 0;
+// In non-league it's the owner's own limit, so even a gambler is held to it; in the leagues a reckless owner may break the rules.
+// A reckless owner may push past the rules, but only a little (a fee ban, rarely points): boom and bust, not limitless.
+const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : fee > feeCap(c) ? false : c.tier >= 5 ? wage <= squadRoom(c) : ssrBound(c) && fee > Math.max(0, c.tnet || 0) ? false : reckless(c) ? wage + fee / Math.max(1, yrs) <= squadRoom(c, 1.05) : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
+// The yearly check for an AI club (from aiAccounts): domestic squad cost rule, then UEFA's.
+// The rules come in with a season's notice: nobody is judged until the season after they're introduced.
+const scrLive = () => { if (G.scrFrom == null) { G.scrFrom = G.year + 1; news("The leagues bring in a squad cost rule from next season: spending on players (wages and transfer fees spread over contracts) capped at 85% of revenue in the Premier Division, 100% in the First, 60% in the Second and 55% in the Third, where owners' money counts. UEFA's own rule (70%) applies to clubs in Europe.", true); } return G.year >= G.scrFrom; };
+function scrJudge(c) {
+  if (c.abroad || !scrLive()) return;
+  // Judged on the division the season was played in; a club in its first season in a division has a season's grace.
+  const T = c.lastF && c.lastF.y >= G.year - 1 ? c.lastF.tier : c.tier;
+  if (T === 1) { if (europeBound(c)) { if (!reckless(c) && aiSquadCost(c) > UEFA_SCR * aiIncome(c)) ruleSales(c); uefaJudge(c, aiSquadCost(c) / Math.max(1, aiIncome(c)), aiIncome(c)); } return; }  // domestic: plMarch and plAccounts
+  if (T > 4) return;
+  if (c.tierSince != null && c.lastF && c.tierSince === c.lastF.y) return;
+  // Over the line, a sensible owner sells his dearest players first to get back under it.
+  if (!reckless(c) && (aiSquadCost(c) > SCR_LIMIT[T] * scrRevenue(c) || europeBound(c) && aiSquadCost(c) > UEFA_SCR * aiIncome(c))) { ruleSales(c); ruleSales(c); }
+  const cost = aiSquadCost(c), r = cost / Math.max(1, scrRevenue(c)), over = r - SCR_LIMIT[T];
+  if (over > .02) { const pen = scrPen(over, c); if (pen) { c.ded = (c.ded || 0) + pen; charge(c, pen, "breaking the squad cost rule"); } c.scrBan = G.year + 1; G._scr = (G._scr || 0) + 1; if (pen) G._scrPts = (G._scrPts || 0) + 1;
+    if (c.lg === my().lg || c.tier === 1) news(`${c.name} broke the squad cost rule (${Math.round(r * 100)}% of revenue spent on players, limit ${Math.round(SCR_LIMIT[T] * 100)}%): ${pen ? `docked ${pen} points, and ` : ""}no transfer fees next season.`, c.lg === my().lg); }
+  if (inEurope(c) || (G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id))) uefaJudge(c, cost / Math.max(1, aiIncome(c)), aiIncome(c));
+}
+function uefaJudge(c, r, inc) {
+  if (r <= UEFA_SCR + .02) return; c.uefa = (c.uefa || []).filter(y => (y.y ?? y) >= G.year - 3);
+  const mine = isMine(c), big = r > UEFA_SCR + .15;
+  // A fine for any breach; a second big one (more than 15 points over) in three years a settlement: a much bigger fine,
+  // on a warning; only a third brings a ban.
+  const bigs = c.uefa.filter(x => x.big).length;
+  if (big && bigs === 1) { const fine = Math.round(inc * (r - UEFA_SCR) * 1.2 / 1e4) * 1e4; if (mine) spend("tax", fine); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - fine);
+    G._uefaFine = (G._uefaFine || 0) + 1; story(`${c.name} agree a settlement with UEFA: a ${money(fine)} fine, on a warning.`, "uefa", 2);
+    news(`${mine ? "You agree" : c.name + " agree"} a settlement with UEFA over a second big squad cost breach: a ${money(fine)} fine. A third within three years means a ban.`, mine || c.lg === my().lg);
+    c.uefa.push({ y: G.year, big }); return; }
+  if (big && bigs >= 2) { story(`UEFA ban ${c.name} from Europe for a third big breach of their squad cost rule.`, "uefa", 3); c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
+    news(`UEFA ban ${mine ? "you" : c.name} from Europe next season: a third big breach of its squad cost rule in three years (${Math.round(r * 100)}% of revenue on players, limit 70%).`, mine || c.lg === my().lg); }
+  else { const fine = Math.round(inc * (r - UEFA_SCR) * .5 / 1e4) * 1e4; G._uefaFine = (G._uefaFine || 0) + 1; story(`UEFA fine ${c.name} ${money(fine)} over their squad cost.`, "uefa", 1);
+    if (mine) spend("tax", fine); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - fine);
+    news(`UEFA fine ${mine ? "you" : c.name} ${money(fine)} for breaking its squad cost rule (${Math.round(r * 100)}% of revenue on players, limit 70%). A second big breach within three years means a ban from Europe.`, mine || c.lg === my().lg || c.tier === 1); }
+  c.uefa.push({ y: G.year, big });
+}
+// Your club, judged at the season's end on your own accounts.
+function scrJudgeMine(c, f) {
+  if (c.tier === 1 && scrLive() && inEurope(c)) { const inc = ledgerIncome(f); uefaJudge(c, ((f.wages || 0) + (f.amort || 0)) / Math.max(1, inc), inc); }
+  if (c.tier > 4 || c.tier === 1 || !scrLive()) return;  // the Premier Division: plMarch and plAccounts
+  if (c.tierSince === G.year) return;  // a season's grace in a new division
+  const inc = ledgerIncome(f), cost = (f.wages || 0) + (f.amort || 0), rev = inc + (c.tier >= 3 ? (f.equity || 0) + Math.max(0, f.invest || 0) : 0), r = cost / Math.max(1, rev), over = r - SCR_LIMIT[c.tier];
+  if (over > .02) { const pen = scrPen(over, c); if (pen) { c.ded = (c.ded || 0) + pen; charge(c, pen, "breaking the squad cost rule"); } c.scrBan = G.year + 1;
+    news(`You broke the squad cost rule: ${Math.round(r * 100)}% of revenue went on players (wages and transfer fees spread over contracts), past the ${Math.round(SCR_LIMIT[c.tier] * 100)}% allowed. ${pen ? `The league docks you ${pen} points for next season, and you` : "You"} may not pay a transfer fee next season.`, true); }
+  if (inEurope(c)) uefaJudge(c, cost / Math.max(1, inc), inc);
+}
+/* ---------- the Premier Division's rules: Squad Cost Ratio (SCR) and Sustainability and Systemic Resilience (SSR) ----------
+   They replace the three-season loss rule at the top (it still applies below). SCR: spending on players (wages plus
+   transfer fees spread over contracts) against football revenue (agreed in the summer, so a bad run doesn't move the
+   line) plus net income from player sales.
+   - Green threshold 85%. Red threshold 85% plus the club's allowance, which starts at 30% (so 115%).
+   - Tested in March, after the January window. Above Red: 6 points off at once, and one more for every €7.5M over.
+   - Between Green and Red: checked again on the season's accounts; still above 85% and the club pays a levy (the
+     overspend times the percentage over 85%), less any relief earned by two seasons under 85% (once every three
+     seasons), and its allowance shrinks by the size of the breach. A compliant season wins back 10%, up to 30%.
+   SSR, each July: enough cash to see a season through (about €14.5M), enough liquidity to absorb a relegation-sized
+   shock (about €100M, counting 40% of the squad's value), and debts no more than 80% of assets (squad and ground). A
+   club that fails is put on a spending limit: no fee it can't cover from sales until it passes again.
+   A relegated club is judged on its Premier Division season under these rules, then moves to the First Division's. */
+const PL_GREEN = .85, PL_ALLOW = .30;
+const plAllow = c => c.scrA ?? PL_ALLOW, plRed = c => PL_GREEN + plAllow(c);
+// The agreed revenue: what the club made last season, or (promoted) what the Premier Division brings, whichever is more.
+function plAgree(c) { c.scrRev = Math.round(Math.max(aiIncome(c), isMine(c) && c.finLast ? ledgerIncome(c.finLast) - (c.finLast.sales || 0) : 0)); c.scrY = G.year; }
+const plRevOf = c => (c.scrY === G.year && c.scrRev) || aiIncome(c);
+const plSales = c => isMine(c) ? Math.max(0, (c.fin.sales || 0) - (c.fin.writeoff || 0)) : Math.max(0, c.tnet || 0);
+const plCost = c => isMine(c) ? wageBill(c) + sum(c.squad, id => { const p = P(id); return p && p.am ? p.am.book / Math.max(1, p.yrs || 1) : 0; }) : aiSquadCost(c);
+const plRatio = (c, rev) => plCost(c) / Math.max(1, (rev ?? plRevOf(c)) + plSales(c));
+// March: the in-season test. Above Red, points off now.
+function plMarch() {
+  for (const c of G.clubs) { if (c.gone || c.abroad || c.tier !== 1) continue;
+    const r = plRatio(c); c.scrM = { y: G.year, r };
+    if (r > plRed(c)) { const over = plCost(c) - plRed(c) * (plRevOf(c) + plSales(c)), pen = Math.min(15, 6 + Math.floor(Math.max(0, over) / 7.5e6));
+      const row = G.leagues[c.lg].tab[c.id]; if (row) row.pts -= pen; charge(c, pen, "spending on players past the Red threshold"); G._scrPts = (G._scrPts || 0) + 1; (G._plRed ||= []).push(c.name + " " + seasonLabel(G.year));
+      news(`${isMine(c) ? "You are" : c.name + " are"} docked ${pen} points: spending on players is ${Math.round(r * 100)}% of revenue, past the Red threshold of ${Math.round(plRed(c) * 100)}%.`, isMine(c) || c.lg === my().lg); } }
+}
+// The season's end: the accounts test, levies and the allowance.
+function plAccounts() {
+  for (const c of G.clubs) { if (c.gone || c.abroad || c.tier !== 1) continue;
+    const act = isMine(c) ? ledgerIncome(c.fin) - (c.fin.sales || 0) : aiIncome(c), r = plRatio(c, act), m = c.scrM && c.scrM.y === G.year ? c.scrM.r : r;
+    c.scrH = (c.scrH || []).concat([Math.round(r * 1000) / 1000]).slice(-3);
+    if (m > PL_GREEN && r > PL_GREEN) {
+      let pct = r - PL_GREEN; const prev = c.scrH.slice(-3, -1);
+      if (prev.length === 2 && prev.every(x => x <= PL_GREEN) && !(c.scrRelief >= G.year - 2)) { pct = Math.max(0, pct - Math.min(.1, prev.reduce((s, x) => s + PL_GREEN - x, 0))); c.scrRelief = G.year; }
+      const over = Math.max(0, plCost(c) - PL_GREEN * (act + plSales(c))), levy = Math.round(over * pct / 1e4) * 1e4;
+      if (levy > 0) { if (isMine(c)) spend("tax", levy); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - levy); G._levy = (G._levy || 0) + 1;
+        news(`${isMine(c) ? "You pay" : c.name + " pay"} a ${money(levy)} squad cost levy: ${Math.round(r * 100)}% of revenue went on players (above 85%).`, isMine(c) || c.lg === my().lg); }
+      c.scrA = Math.max(0, plAllow(c) - (r - PL_GREEN));
+    } else if (r <= PL_GREEN && plAllow(c) < PL_ALLOW) c.scrA = Math.min(PL_ALLOW, plAllow(c) + .1);
+  }
+}
+// SSR, each July (the start of the summer).
+const ssrSquadValue = c => sum(c.squad, id => { const p = P(id); return p && !p.acad && !p.loan ? valueOf(p) : 0; });
+function ssrTest(c) {
+  if (c.abroad || c.gone || c.tier !== 1) return;
+  const debt = isMine(c) ? debtOf() + Math.max(0, -c.cash) : (c.debt || 0), sv = ssrSquadValue(c), ground = (isMine(c) ? capacity(c) : c.cap || 0) * 2500;
+  // Cash plus what qualifies as working capital: money due in (television and prize instalments, about an eighth of a
+  // season's income) and, for an owner who stands behind the club, his facility.
+  const cash = (isMine(c) ? c.cash : Math.max(0, tbOf(c))) + aiIncome(c) * .12 + (isMine(c) ? 0 : c.own && lossTol(c) > 0 ? Math.min(c.own.wealth * .02, 60e6) : 0);
+  const fails = [];
+  if (cash < 14.5e6) fails.push("not enough cash to see the season through");
+  if (cash + sv * .4 - debt * .25 - 100e6 < 0) fails.push("not enough to absorb a relegation-sized shock");
+  if (debt / Math.max(1, sv + ground) > .8) fails.push("debts above 80% of the club's assets");
+  for (const x of fails) (G._ssrWhy ||= {})[x] = ((G._ssrWhy || {})[x] || 0) + 1;
+  if (!fails.length) { c.ssrF = 0; return; }
+  c.ssrF = (c.ssrF || 0) + 1; c.ssrLim = G.year + (isMine(c) ? 0 : 1); G._ssr = (G._ssr || 0) + 1;
+  if (isMine(c) || c.lg === my().lg) news(`${isMine(c) ? "You fail" : c.name + " fail"} the league's sustainability tests (${fails.join("; ")}): a spending limit until ${isMine(c) ? "you pass" : "they pass"} again, with no transfer fee that sales don't cover.`, isMine(c));
+}
+const ssrBound = c => c.ssrLim != null && c.ssrLim >= G.year;
 // A new manager's first four weeks: usually a lift, but about one time in four the players take against him and it's a dip.
 const newBounce = (c, afterGames) => { c.bounce = 4; if (afterGames) c.bounceW = true;  // appointed after this week's games: the count starts next week
   c.bounceS = R() < .25 ? -1 : 1; };
@@ -493,7 +702,7 @@ function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
   for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
     const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
     const ask = Math.round(aiFee(p) * rf(.5, .8) / 1e4) * 1e4;
-    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)));
+    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)) && fitsRules(x, aiWage(p, x), ask, 3) && !(x.abroad && homeBound(p)) && acceptsMove(p, x));  // he has to want to go there
     const b = fits.length ? pick(fits) : null;
     if (!b) { leaveClub(p); toFreeAgent(p); sold.push(p.name + " (released: nobody would pay for him)"); continue; }
     const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4));
@@ -536,8 +745,9 @@ function aiTransferBudget(c) {
 const tbOf = c => isMine(c) ? Infinity : c.emb ? 0 : c.abroad ? (c.tb ?? (c.tb = foreignBudget(c))) : (c.tb ?? (c.tb = aiTransferBudget(c)));
 const canAfford = (c, fee) => tbOf(c) >= fee;
 // Fees between clubs shrink down the pyramid: most non-league moves are free or a token payment.
-const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];
-const aiFee = p => p.club >= 0 ? Math.round(valueOf(p) * (CL(p.club).abroad ? 1 : FEE_TIER[CL(p.club).tier]) * (p.yrs <= 1 && !renewsAI(p) ? .65 : 1) / 1e3) * 1e3 : 0;
+// The fee an AI club pays another: the same asking price you'd be quoted (askingFee), with the buyer's rivalry if any.
+const FEE_TIER = [0, 1, .85, .6, .4, .2, .1, .05];  // (still used for imports from outside the game)
+const aiFee = (p, buyer = null) => p.club >= 0 ? askingFee(p, null, buyer) : 0;
 function payFee(buyer, seller, fee) {
   NEXT_FEE = fee || 0;  // the move that follows records it
   if (!fee) return;
@@ -548,7 +758,9 @@ function payFee(buyer, seller, fee) {
   if (seller && seller.abroad) { seller.tb = tbOf(seller) + fee * .5; seller.fsold = (seller.fsold || 0) + fee; }
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
-function aiTransfer(p, to, fee = aiFee(p)) { const from = p.club >= 0 ? CL(p.club) : null; payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
+function aiTransfer(p, to, fee = aiFee(p, to)) { const from = p.club >= 0 ? CL(p.club) : null;
+  if (!to.abroad && fee > (G.recFee || 0) && fee > 50e6) { G.recFee = fee; story(`A record fee: ${to.name} pay ${money(fee)} for ${p.name}${from ? ` (${from.name})` : ""}.`, "record", 3); }
+  if (from && !from.abroad && p.clause && fee <= p.clause.fee && storyWorthy(from)) story(`${to.name} trigger ${p.name}'s ${money(p.clause.fee)} release clause at ${from.name}.`, "clause", 2); payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
 
 /* Clubs going under is rare: about one administration and one forced sale (an owner out of money having to sell) every
    five years across the whole game, each drawn three to seven years after the last. A club in trouble before one is
