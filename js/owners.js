@@ -427,7 +427,7 @@ function diversitySummer() {
     for (const p of stars) {
       if (R() > .3) continue;
       if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
-      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p, x)))));
+      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 && !homeBound(p) : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p, x)))));
       if (!to) continue;
       aiTransfer(p, to); p.wage = aiWage(p, to); p.yrs = aiYears(p, to);
       if (c.lg === my().lg || to.lg === my().lg || p.ovr >= 85) news(`${p.name} leaves champions ${c.name} for ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""}, looking for a new challenge.`);
@@ -483,7 +483,7 @@ function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.
    over contracts) may not pass a share of its revenue: 85% in the Premier Division, 100% in the First (where the
    three-season loss rule does most of the work, as in the real Championship), 60% in the Second and 55% in the Third, where the owner's own money counts as revenue too (as in the real lower leagues). Break it and
    the club may not pay a fee next season; break it by more than 8 points and it's docked points too (3, or 6 past 20). Clubs in Europe answer to UEFA as
-   well: 70% of revenue, no owner money; a first breach is a fine, a second within three years a ban from Europe.
+   well: 70% of revenue, no owner money; a breach is a fine; a second big one (more than 15 points over) within three years a ban from Europe.
    Non-league has no such rule: there it's down to the owner, who'll put in only so much a year, by his nature. */
 const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
 // In Europe now, or qualified for next season.
@@ -504,29 +504,30 @@ function squadRoom(c, k = 1) {
 // A small breach costs the right to pay fees next season; a bigger one points as well.
 const scrPen = over => over <= .08 ? 0 : over <= .2 ? 3 : 6;
 // In non-league it's the owner's own limit, so even a gambler is held to it; in the leagues a reckless owner may break the rules.
-// A reckless owner may break the rules, but only by half as much again: boom and bust, not limitless.
-const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : c.tier >= 5 ? wage <= squadRoom(c) : reckless(c) ? wage + fee / Math.max(1, yrs) <= squadRoom(c, 1.5) : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
+// A reckless owner may push past the rules, but only a little (a fee ban, rarely points): boom and bust, not limitless.
+const fitsRules = (c, wage, fee = 0, yrs = 3) => c.abroad || isMine(c) ? true : c.tier >= 5 ? wage <= squadRoom(c) : reckless(c) ? wage + fee / Math.max(1, yrs) <= squadRoom(c, 1.05) : !(c.scrBan === G.year && fee > 0) && wage + fee / Math.max(1, yrs) <= squadRoom(c);
 // The yearly check for an AI club (from aiAccounts): domestic squad cost rule, then UEFA's.
 // The rules come in with a season's notice: nobody is judged until the season after they're introduced.
 const scrLive = () => { if (G.scrFrom == null) { G.scrFrom = G.year + 1; news("The leagues bring in a squad cost rule from next season: spending on players (wages and transfer fees spread over contracts) capped at 85% of revenue in the Premier Division, 100% in the First, 60% in the Second and 55% in the Third, where owners' money counts. UEFA's own rule (70%) applies to clubs in Europe.", true); } return G.year >= G.scrFrom; };
 function scrJudge(c) {
   if (c.abroad || c.tier > 4 || !scrLive()) return;
   // Over the line, a sensible owner sells his dearest players first to get back under it.
-  if (!reckless(c) && aiSquadCost(c) > SCR_LIMIT[c.tier] * scrRevenue(c)) ruleSales(c);
+  if (!reckless(c) && (aiSquadCost(c) > SCR_LIMIT[c.tier] * scrRevenue(c) || europeBound(c) && aiSquadCost(c) > UEFA_SCR * aiIncome(c))) { ruleSales(c); ruleSales(c); }
   const cost = aiSquadCost(c), r = cost / Math.max(1, scrRevenue(c)), over = r - SCR_LIMIT[c.tier];
   if (over > .02) { const pen = scrPen(over); if (pen) c.ded = (c.ded || 0) + pen; c.scrBan = G.year + 1; G._scr = (G._scr || 0) + 1; if (pen) G._scrPts = (G._scrPts || 0) + 1;
     if (c.lg === my().lg || c.tier === 1) news(`${c.name} broke the squad cost rule (${Math.round(r * 100)}% of revenue spent on players, limit ${Math.round(SCR_LIMIT[c.tier] * 100)}%): ${pen ? `docked ${pen} points, and ` : ""}no transfer fees next season.`, c.lg === my().lg); }
   if (inEurope(c) || (G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id))) uefaJudge(c, cost / Math.max(1, aiIncome(c)), aiIncome(c));
 }
 function uefaJudge(c, r, inc) {
-  if (r <= UEFA_SCR + .02) return; c.uefa = (c.uefa || []).filter(y => y >= G.year - 3);
-  const mine = isMine(c);
-  if (c.uefa.length) { c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
+  if (r <= UEFA_SCR + .02) return; c.uefa = (c.uefa || []).filter(y => (y.y ?? y) >= G.year - 3);
+  const mine = isMine(c), big = r > UEFA_SCR + .15;
+  // A ban only for a second big breach (more than 15 points over) within three years; otherwise a fine.
+  if (big && c.uefa.some(x => x.big)) { c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
     news(`UEFA ban ${mine ? "you" : c.name} from Europe next season: a second breach of its squad cost rule in three years (${Math.round(r * 100)}% of revenue on players, limit 70%).`, mine || c.lg === my().lg); }
   else { const fine = Math.round(inc * (r - UEFA_SCR) * .5 / 1e4) * 1e4; G._uefaFine = (G._uefaFine || 0) + 1;
     if (mine) spend("tax", fine); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - fine);
-    news(`UEFA fine ${mine ? "you" : c.name} ${money(fine)} for breaking its squad cost rule (${Math.round(r * 100)}% of revenue on players, limit 70%). A second breach within three years means a ban from Europe.`, mine || c.lg === my().lg || c.tier === 1); }
-  c.uefa.push(G.year);
+    news(`UEFA fine ${mine ? "you" : c.name} ${money(fine)} for breaking its squad cost rule (${Math.round(r * 100)}% of revenue on players, limit 70%). A second big breach within three years means a ban from Europe.`, mine || c.lg === my().lg || c.tier === 1); }
+  c.uefa.push({ y: G.year, big });
 }
 // Your club, judged at the season's end on your own accounts.
 function scrJudgeMine(c, f) {

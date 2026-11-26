@@ -708,6 +708,14 @@ function completeAgreed(c = my()) {
    within a few weeks, League Two within a couple of months, the National Division within a season or so; young ones
    faster, veterans (30+) slower, so the good free agents left are mostly older. The pool lower down stays full:
    semi-pros and part-timers wait for a club; the weakest (released kids who never made it) give up within a year. */
+/* A player in the last year of his deal who won't sign a new one, and is good enough to fetch a fee (young, or well
+   above his club), is sold rather than lost for nothing: at the start of his final year, or in January. */
+function aiSellExpiring() {
+  for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c)) continue;
+    for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.yrs > 1 || p.toMe || (p.age > 26 && p.ovr < c.lvl + 3) || renewsAI(p) || R() > .6) continue;
+      const b = playerChooses(p, G.clubs.filter(x => !x.gone && !isMine(x) && x !== c && (x.abroad ? !homeBound(p) : x.tier <= c.tier)), .8); if (!b) continue;
+      aiTransfer(p, b, Math.round(aiFee(p, b) * .8 / 1e3) * 1e3); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); } }
+}
 function faDrain() {
   const now = absWeek();
   for (const p of G.fa.map(P)) { if (!p || p.toMe || faFresh(p)) continue;
@@ -723,6 +731,7 @@ function marketWeek() {
   if ((G.phase === "summer" && G.week === 0) || (G.phase === "season" && G.week === JAN[0])) { completeAgreed(c); completeIncoming(); }
   headWeek(c); bidsWeek(c); loanOffersWeek(c); faDrain();
   if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) aiLoans();  // late in each window
+  if ((G.phase === "summer" && G.week === 2) || (G.phase === "season" && G.week === JAN[0])) aiSellExpiring();
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
   for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
