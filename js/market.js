@@ -448,13 +448,15 @@ function suggView(p, c = my(), loan = false) {
     const room = c.budget.wages - wageBill(c);
     if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, need: { wages: p.wage * .5 - room }, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
     const T = playerLoanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
+    if (!p.ng || p.ng.w !== windowId()) p.ng = { w: windowId(), n: normal(), m: normal() };
+    T.min = clamp(Math.round(negGuess(T.min, p.ng.m, .25) * 10) / 10, 0, 1);  // what he reckons they want (his read)
     if (p.wage * share > room) return { ok: false, money: true, need: { wages: p.wage * share - room }, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
     return { ok: true, loan: true, share, w: `${what} on loan. ${share < T.min ? `They want us to pay ${Math.round(T.min * 100)}% of his wages; I can talk them down to ${Math.round(share * 100)}%` : `They want us to pay ${Math.round(share * 100)}% of his wages`} (${pw(p.wage * share)}). I'll borrow him this week.` };
   }
   const N = negotiate(p, c);
   if (!N) return { ok: false, w: "He isn't interested in joining us." };
   const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT - pendFees(), room = c.budget.wages - wageBill(c) - pendWages();
-  const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I can get him for about ${money(fee)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on ${pw(ask)} (his agent's asking ${pw(N.agent)})`;
+  const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I think I can get him for about ${money(N.feeG)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on about ${pw(N.wageG)} (his agent's asking ${pw(N.agent)}; ${negWord()})`;
   const need = { transfer: Math.max(0, fee - left), wages: Math.max(0, ask - room) };
   if (fee > left) return { ok: false, money: true, need, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
   if (ask > room) return { ok: false, money: true, need, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare${pendWages() ? ` once the ${incoming().length} player${incoming().length > 1 ? "s" : ""} already agreed to join (${pw(pendWages())}) are counted` : ""}.` };
@@ -464,6 +466,11 @@ function suggView(p, c = my(), loan = false) {
    and the weaker the seller's hand (a listed player, one with a year or less left, one who's asked to leave); a little
    luck either way. The wage: the agent opens a quarter above the least the player would take, and he talks it down
    toward that floor. Settled once per window, so the figures don't jump about each time you look. */
+// How well your head of recruitment reads the other side: a strong negotiator sees close to the truth, a poor one (or
+// nobody) is guessing. n is a stable draw for the deal (it doesn't change each time you look); spread the size of the miss.
+const negRead = () => { const s = staffOf("recruit"); return s ? clamp(s.at.neg / 100, 0, 1) : .1; };
+const negGuess = (v, n, spread) => v * (1 + clamp(n || 0, -2, 2) * spread * (1 - negRead()));
+const negWord = () => { const r = negRead(), s = staffOf("recruit"); return !s ? "a guess: you have no head of recruitment" : r >= .75 ? "a sharp read" : r >= .5 ? "a fair read, give or take" : "only a rough guess"; };
 function negotiate(p, c = my()) {
   const s = staffOf("recruit"), neg = s ? s.at.neg : 30, min = playerAsk(p, c); if (min == null) return null;
   const w = windowId(); if (!p.ng || p.ng.w !== w) p.ng = { w, n: normal(), m: normal() };
@@ -472,7 +479,8 @@ function negotiate(p, c = my()) {
   // His wage: the agent opens a quarter above what he'd really take; your head of recruitment talks him down to that
   // (the same figure you'd get dealing yourself). Negotiating skill shows in the fee.
   const agent = Math.round(min * 1.25 / 100) * 100, wage = Math.round(min / 100) * 100;
-  return { ask, fee, agent, wage };
+  p.ng.m2 ??= normal();
+  return { ask, fee, agent, wage, feeG: Math.round(negGuess(fee, p.ng.m, .12) / 1000) * 1000, wageG: Math.round(negGuess(wage, p.ng.m2, .1) / 100) * 100 };
 }
 function suggest(p, loan) {
   const s = staffOf("recruit"); if (!s) return;

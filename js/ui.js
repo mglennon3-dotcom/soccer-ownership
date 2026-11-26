@@ -275,6 +275,7 @@ function inboxCard(urgent) {
     if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
       return `<div class="decision"><div><b>${posHead(p)}${esc(x.title)}</b></div>${myPlayerLine(p)}${x.pre ? `<p class="small warn">The window is shut: accept and he stays with you until it opens, then joins them.</p>` : ""}<p class="small">${POS_NAME[p.pos]}, ${p.age}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? pr(s, "he") : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ""}</p>
+        ${s && !x.final ? `<p class="small muted" style="margin-top:4px">${esc(s.name)} reckons they'd go to about ${money(feeRound(negGuess(bidMax(x), x.rd ??= normal(), .2)))} (${negWord()}).</p>` : ""}
         <div class="row" style="margin-top:6px;flex-wrap:nowrap"><span class="money-in"><span>€</span><input type="text" inputmode="decimal" class="num-in" id="ctr${x.id}" value="${fmtNum(Math.round(Math.max(x.amt * 1.25, valueOf(p)) / 1000) * 1000)}" aria-label="Counter-offer"></span><button class="btn sm" data-act="bidctr" data-id="${x.id}" ${x.final ? "disabled" : ""}>Counter</button></div>
         ${BID_SAY && BID_SAY.id === x.id ? `<p class="small warn" style="margin-top:4px">${esc(BID_SAY.t)}</p>` : x.final ? `<p class="small muted" style="margin-top:4px">They say this is their final offer.</p>` : ""}
         <div class="row" style="margin-top:6px"><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="1">Accept</button><button class="btn sm" data-act="bid" data-id="${x.id}" data-v="0">Reject</button>${x.keen && p.dealY !== G.year ? `<button class="btn sm" data-act="bid" data-id="${x.id}" data-v="2">Reject and offer a new deal (${pw(newDealWage(p))})</button>` : ""}<button class="btn sm" data-act="player" data-id="${p.id}">View player</button></div></div>`; }
@@ -1077,10 +1078,14 @@ function preModal(id) {
     <div class="row"><button class="btn primary" data-act="prego" data-id="${p.id}">Offer the pre-contract</button></div></div>`);
 }
 function buyModal(id) {
-  const p = G.players[id], fee = askingFee(p), wage = playerAsk(p) || demandWage(p, my()), s = staffOf("recruit");
+  const p = G.players[id], s = staffOf("recruit");
+  if (!p.ng || p.ng.w !== windowId()) p.ng = { w: windowId(), n: normal(), m: normal() }; p.ng.m2 ??= normal();
+  // Your head of recruitment's read of their price and his wage: close for a good negotiator, a guess otherwise.
+  const fee = Math.round(negGuess(askingFee(p), p.ng.m, .15) / 1000) * 1000, wage = Math.round(negGuess(playerAsk(p) || demandWage(p, my()), p.ng.m2, .12) / 100) * 100;
   modal(`<div class="modal-h"><div><p class="eyebrow">Your offer</p><h2>${esc(p.name)}</h2><p class="small muted">${esc(fromName(p))}</p></div><button class="btn modal-x" data-act="close">✕</button></div>
     <div class="modal-b">${theirPlayerLine(p)}${weakestStarterLine(p.id)}${p.club >= 0 && isDerby(my(), CL(p.club)) ? `<p class="small warn">${esc(CL(p.club).name)} are your ${derbyLevel(my(), CL(p.club)) === 2 ? "fierce" : "local"} rivals: they don't like selling to you, and the price reflects it (about ${derbyLevel(my(), CL(p.club)) === 2 ? 50 : 25}% more).</p>` : ""}<p>The selling club wants about <b>${fee ? money(fee) : "nothing"}</b>. He wants about <b>${pw(wage)}</b>.</p>
     <div class="row"><label class="small">Fee € <input type="text" inputmode="decimal" class="num-in" id="b-fee" value="${fmtNum(fee)}"></label><label class="small">Wage €/week <input type="text" inputmode="decimal" class="num-in" id="b-wage" value="${fmtNum(Math.round(wage / 52))}"></label></div>
+    <p class="small muted">The figures filled in are ${s ? `${esc(s.name)}'s read of their price and his wage: ${negWord()}` : "a guess (you have no head of recruitment to read the other side)"}.</p>
     ${factorBars(playerAppeal(p, wage), P_FACTORS)}
     <p class="small muted">Paid from club cash (${money(my().cash)}), outside the budgets you've set. ${s ? `${esc(s.name)} won't like being bypassed.` : ""}</p>
     ${!windowOpen() && p.club >= 0 ? `<p class="small">The window is closed: if they accept, the deal is agreed now and he joins when it next opens (the fee is paid then).</p>` : ""}
