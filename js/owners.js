@@ -337,9 +337,9 @@ function hostileCheck() {
    The year's notable events, kept season by season (the last fifteen): points deductions and appeals, administrations
    and takeovers, record and statement signings, release clauses triggered, sackings, UEFA sanctions, and the season's
    shocks (a big club in a relegation fight, an unfancied side challenging). Shown on the League page. */
-function story(t, kind, imp = 1) { const y = G.year, S = (G.stories ||= {}); (S[y] ||= []).push({ w: whenLabel(), t, k: kind, i: imp });
+function story(t, kind, imp = 1) { if (G.club == null) return; const y = G.year, S = (G.stories ||= {}); (S[y] ||= []).push({ w: whenLabel(), t, k: kind, i: imp });
   if (S[y].length > 60) { S[y].sort((a, b) => b.i - a.i); S[y].length = 60; } for (const k of Object.keys(S)) if (+k < y - 15) delete S[k]; }
-const storyWorthy = c => !!c && !c.abroad && (isMine(c) || c.tier <= 2 || c.lg === my().lg);
+const storyWorthy = c => G.club != null && !!c && !c.abroad && (isMine(c) || c.tier <= 2 || c.lg === my().lg);
 /* A points deduction is a charge: announced, applied at once, then appealed. About three appeals in ten get it reduced
    (Everton's 10 became 6), now and then one is overturned, most fail. Decided six to ten weeks later. You choose
    whether to appeal yours (it costs legal fees); AI clubs always do. Administration brings no appeal. */
