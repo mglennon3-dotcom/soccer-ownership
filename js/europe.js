@@ -96,8 +96,8 @@ const foreignBudget = c => Math.round(40e6 * Math.pow(1.12, c.lvl - 82) * fStr(c
    earns now, playing time, the club's standing and form, home), it beats staying put. A First Division regular won't
    take a fifth of his wage in a smaller league; a player going home, or a step up to a big club, will. */
 const acceptsMove = (p, c) => aiAppeal(p, c, aiWage(p, c)) + normal() * .03 > 0;
-// English players very rarely move abroad: about one in ten would even consider it, and then only now and then.
-const homeBound = p => p.nat === "ENG" && (p.abroadOk ??= R() < .1 ? 1 : 0) === 0 || p.nat === "ENG" && R() < .5;
+// English players very rarely move abroad: about one in twenty-five would even consider it, and then only now and then.
+const homeBound = p => p.nat === "ENG" && (p.abroadOk2 ??= R() < .04 ? 1 : 0) === 0 || p.nat === "ENG" && R() < .7;
 function foreignSignFA(c, pos) {
   const fits = G.fa.map(P).filter(p => p && !faFresh(p) && p.pos === pos && p.age <= 32 && p.ovr >= c.lvl - 7 && p.ovr <= c.lvl + 4 && !homeBound(p) && acceptsMove(p, c));
   if (!fits.length) return false;
