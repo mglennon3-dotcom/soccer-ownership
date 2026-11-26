@@ -542,7 +542,7 @@ function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.
    over contracts) may not pass a share of its revenue: 85% in the Premier Division, 100% in the First (where the
    three-season loss rule does most of the work, as in the real Championship), 60% in the Second and 55% in the Third, where the owner's own money counts as revenue too (as in the real lower leagues). Break it and
    the club may not pay a fee next season; break it by more than 8 points and it's docked points too (3, or 6 past 20). Clubs in Europe answer to UEFA as
-   well: 70% of revenue, no owner money; a breach is a fine; a second big one (more than 15 points over) within three years a ban from Europe.
+   well: 70% of revenue, no owner money; a breach is a fine; a second big one (more than 15 points over) within three years a settlement (a much bigger fine); a third a ban.
    Non-league has no such rule: there it's down to the owner, who'll put in only so much a year, by his nature. */
 const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
 // In Europe now, or qualified for next season.
@@ -587,9 +587,15 @@ function scrJudge(c) {
 function uefaJudge(c, r, inc) {
   if (r <= UEFA_SCR + .02) return; c.uefa = (c.uefa || []).filter(y => (y.y ?? y) >= G.year - 3);
   const mine = isMine(c), big = r > UEFA_SCR + .15;
-  // A ban only for a second big breach (more than 15 points over) within three years; otherwise a fine.
-  if (big && c.uefa.some(x => x.big)) { story(`UEFA ban ${c.name} from Europe for a second big breach of their squad cost rule.`, "uefa", 3); c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
-    news(`UEFA ban ${mine ? "you" : c.name} from Europe next season: a second breach of its squad cost rule in three years (${Math.round(r * 100)}% of revenue on players, limit 70%).`, mine || c.lg === my().lg); }
+  // A fine for any breach; a second big one (more than 15 points over) in three years a settlement: a much bigger fine,
+  // on a warning; only a third brings a ban.
+  const bigs = c.uefa.filter(x => x.big).length;
+  if (big && bigs === 1) { const fine = Math.round(inc * (r - UEFA_SCR) * 1.2 / 1e4) * 1e4; if (mine) spend("tax", fine); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - fine);
+    G._uefaFine = (G._uefaFine || 0) + 1; story(`${c.name} agree a settlement with UEFA: a ${money(fine)} fine, on a warning.`, "uefa", 2);
+    news(`${mine ? "You agree" : c.name + " agree"} a settlement with UEFA over a second big squad cost breach: a ${money(fine)} fine. A third within three years means a ban.`, mine || c.lg === my().lg);
+    c.uefa.push({ y: G.year, big }); return; }
+  if (big && bigs >= 2) { story(`UEFA ban ${c.name} from Europe for a third big breach of their squad cost rule.`, "uefa", 3); c.euroBan = G.year + 1; G._uefaBan = (G._uefaBan || 0) + 1; if (G.qual) for (const k of ["CC", "CS"]) G.qual[k] = (G.qual[k] || []).filter(id => id !== c.id);
+    news(`UEFA ban ${mine ? "you" : c.name} from Europe next season: a third big breach of its squad cost rule in three years (${Math.round(r * 100)}% of revenue on players, limit 70%).`, mine || c.lg === my().lg); }
   else { const fine = Math.round(inc * (r - UEFA_SCR) * .5 / 1e4) * 1e4; G._uefaFine = (G._uefaFine || 0) + 1; story(`UEFA fine ${c.name} ${money(fine)} over their squad cost.`, "uefa", 1);
     if (mine) spend("tax", fine); else if (c.own) c.own.wealth = Math.max(0, c.own.wealth - fine);
     news(`UEFA fine ${mine ? "you" : c.name} ${money(fine)} for breaking its squad cost rule (${Math.round(r * 100)}% of revenue on players, limit 70%). A second big breach within three years means a ban from Europe.`, mine || c.lg === my().lg || c.tier === 1); }

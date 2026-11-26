@@ -649,7 +649,9 @@ function relegationExodus(ids) {
   for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad) continue;
     // Relegation clauses at AI clubs too: every contract pays 25% less in the division below (yours: wageClauses), and a
     // wage far above the new division's level (a Premier contract in the First Division) 40% less.
-    if (!isMine(c)) for (const q of c.squad.map(P)) if (q && !q.acad && !q.loan && q.wage) q.wage = Math.round(q.wage * (q.wage > wageAt(q.ovr, c.tier) * 1.5 ? .6 : 1 - CLAUSE) / 100) * 100;
+    // Anything still above the new division's top wage is cut to it; a player who won't accept that asks to leave.
+    if (!isMine(c)) for (const q of c.squad.map(P)) if (q && !q.acad && !q.loan && q.wage) { q.wage = Math.round(q.wage * (q.wage > wageAt(q.ovr, c.tier) * 1.5 ? .6 : 1 - CLAUSE) / 100) * 100;
+      if (q.wage > wageCap(c)) { q.wage = wageCap(c); if (prefsOf(q, P_FACTORS).top.includes("money") || R() < .4) { q.list = true; q.req = G.year; } } }
     const ps = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.age <= 33 && p.ovr >= TIER_LVL[c.tier] + 8).sort((a, b) => b.ovr - a.ovr);
     if (isMine(c)) { let n = 0;
       for (const p of ps) { if (n >= 3 || p.req || p.keep) continue;
@@ -666,7 +668,7 @@ function relegationExodus(ids) {
         aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
   // Still over its limits (wage budget, squad cost rule): the club must loan out its highest earners, up to four.
-  for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad || isMine(c)) continue;
+  for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad || isMine(c) || c.tier > 5) continue;  // Football League clubs (relegated as far as the National Division)
     for (let k = 0; k < 4; k++) { const over = aiBill(c) > aiBudget(c) * 1.05 || (c.tier <= 4 && squadRoom(c) < 0); if (!over) break;
       const p = c.squad.map(P).filter(q => q && !q.acad && !q.loan && !q.forcedTried).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
       p.forcedTried = true; forcedLoan(p, c); }
