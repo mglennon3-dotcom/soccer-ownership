@@ -546,6 +546,7 @@ const ACT = {
     await offerWageRaise(p, wage); agreePre(p, wage); closeModal(); render(); saveGame(); },
   buygo: el => {
     const p = P(+el.dataset.id), fee = num($("#b-fee")), wage = num($("#b-wage")) * 52, ask = askingFee(p);
+    if (ssrBound(my()) && fee > plSales(my())) return toast("You're on the league's spending limit (sustainability tests): no transfer fee that your sales this season don't cover.");
     if (my().scrBan === G.year && fee > 0) return toast("You broke the squad cost rule last season: no transfer fees this season. Free agents, loans and pre-contracts only.");
     if (p.loan && p.loan.ai) return toast(`${p.name} is on loan at ${CL(p.club).name} from ${CL(p.loan.from).name} until the end of the season: try again in the summer.`);
     if (embargoed(my()) && p.club !== -1) return toast("You're under a transfer embargo: free agents only (or a pre-contract) until the debts are cleared.");

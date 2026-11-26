@@ -713,7 +713,9 @@ function completeAgreed(c = my()) {
 function aiSellExpiring() {
   for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c)) continue;
     for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.yrs > 1 || p.toMe || (p.age > 26 && p.ovr < c.lvl + 3) || renewsAI(p) || R() > .6) continue;
-      const b = playerChooses(p, G.clubs.filter(x => !x.gone && !isMine(x) && x !== c && (x.abroad ? !homeBound(p) : x.tier <= c.tier)), .8); if (!b) continue;
+      const b = playerChooses(p, G.clubs.filter(x => !x.gone && !isMine(x) && x !== c && (x.abroad ? !homeBound(p) : x.tier <= c.tier)), .8);
+      // Nobody can afford him: a young star usually signs a new deal after all (a big rise, a release clause); only now and then does one run it down.
+      if (!b) { if (p.age <= 24 && p.ovr >= c.lvl && R() < .8) { p.renew = { y: G.year, ok: true }; p.wage = Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100); } continue; }
       aiTransfer(p, b, Math.round(aiFee(p, b) * .8 / 1e3) * 1e3); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); } }
 }
 function faDrain() {
@@ -732,6 +734,8 @@ function marketWeek() {
   headWeek(c); bidsWeek(c); loanOffersWeek(c); faDrain();
   if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) aiLoans();  // late in each window
   if ((G.phase === "summer" && G.week === 2) || (G.phase === "season" && G.week === JAN[0])) aiSellExpiring();
+  if (G.phase === "season" && G.week === 1) for (const x of G.clubs) if (!x.gone && !x.abroad && x.tier === 1) plAgree(x);
+  if (G.phase === "season" && G.week === JAN[JAN.length - 1] + 6 && scrLive()) plMarch();  // early March
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
   for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);

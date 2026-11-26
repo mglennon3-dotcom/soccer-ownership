@@ -235,7 +235,7 @@ function endSeason() {
   if (G.goodwill) G.goodwill = Math.round(G.goodwill * .7 * 100) / 100;  // and goodwill from honoured deals fades
   dealsSeasonEnd(mine);
   { const f0 = mine.fin, inc = ledgerIncome(f0), net = inc - (ledgerCosts(f0) - f0.build - f0.acad), r = spendRule(mine, net, inc);
-    mine.ded = r.pen; scrJudgeMine(mine, f0); if (r.pen) news(`The league docks you ${r.pen} points for next season: over three seasons you lost ${Math.round(r.ratio * 100)}% of your income, past the 35% the spending rule allows.`, true); }
+    mine.ded = r.pen; scrJudgeMine(mine, f0); if (scrLive()) ssrTest(mine); if (r.pen) news(`The league docks you ${r.pen} points for next season: over three seasons you lost ${Math.round(r.ratio * 100)}% of your income, past the 35% the spending rule allows.`, true); }
   // History
   const f = mine.fin;
   G.history.unshift({ club: mine.name, obj: (G.objRes || []).map(o => (o.met ? "✓ " : "✗ ") + o.t), cups: [...Object.entries(G.cups || {}).map(([k, K]) => { if (K.win === G.club) return CUP_DEF[k].name + ": winners"; const last = K.log.filter(x => x.h === G.club || x.a === G.club).pop(); return last ? `${CUP_DEF[k].name}: ${last.r.toLowerCase()}` : null; }),
@@ -260,6 +260,7 @@ function endSeason() {
   addMsg({ type: "info", title: "Pre-season: arrange your friendlies", body: "Each of the eight pre-season weeks can have a friendly. Away games earn a fee from the host, home games a gate; with fewer than two, the side starts the season rusty for its first four league games, and three or more gives it a small edge.", go: "league", goL: "Arrange friendlies" });
   // Parachute payments move on a season; a club that has had them all stops getting them.
   for (const c of G.clubs) if (c.para && ++c.para.i >= c.para.n) delete c.para;
+  if (scrLive()) plAccounts();  // the Premier Division's accounts test, on the season just played there
   // Apply the moves
   for (const [id, to] of moves) {
     const c = CL(id), from = c.lg;
@@ -389,9 +390,10 @@ function yearTurnover() {
       else if (p.ovr >= c.lvl - 12 || p.pot >= c.lvl + 3) { p.acad = false; p.yrs = aiYears(p, c); p.wage = aiWage(p, c); } else { leaveClub(p); toFreeAgent(p); } }
     youthIntake(c);
   }
-  // The free-agent pool is kept to a sensible size: the least employable drift out of the game.
-  // (under-24s are never dropped just to keep the pool to size: they still have a chance to make it)
-  if (G.fa.length > 600) { const old = G.fa.map(P).filter(p => p && p.age >= 24).sort((a, b) => b.ovr - a.ovr), room = Math.max(0, 600 - (G.fa.length - old.length)); for (const p of old.slice(room)) retire(p, true); }
+  // The free-agent pool is kept to a sensible size: the least employable drift out of the game. Only players 24 and
+  // over below the National Division's standard are trimmed (the best 600 of them stay); anyone better stays on the
+  // market through the summer (faDrain moves them on once the window shuts), and under-24s still have a chance to make it.
+  { const weak = G.fa.map(P).filter(p => p && p.age >= 24 && naturalTier(p) >= 6).sort((a, b) => b.ovr - a.ovr); for (const p of weak.slice(600)) retire(p, true); }
   // Talent moves up: players far better than their club are bought by a club at their level.
   for (const p of Object.values(G.players)) {
     if (p.club < 0 || p.acad || p.age > 30 || p.loan) continue; const c = CL(p.club); if (isMine(c)) continue;
