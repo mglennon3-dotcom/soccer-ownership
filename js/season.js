@@ -425,8 +425,10 @@ const feeFloor = c => c.abroad ? 0 : TIER_LVL[c.tier] - ((c.lvl || TIER_LVL[c.ti
    division's standard, it can pay the fee and his wage within the rules) offers him its own wage; he weighs the offers
    on his own priorities (aiAppeal): most pick a club at their level, where they'd play and the standing suits them; a
    money-motivated one may take the biggest wage, further down if need be (within the usual step-down rules). */
-const offerWage = (p, x) => !x.abroad && hugeAsk(p, x) ? hugeWage(p, x) : aiWage(p, x);
+const offerWage = (p, x) => Math.min(wageCap(x), !x.abroad && hugeAsk(p, x) ? hugeWage(p, x) : aiWage(p, x));
 function playerChooses(p, clubs, feeF = 1, reach = 0) {
+  // A club whose top wage is well below what he's worth at his own level isn't in the running.
+  clubs = clubs.filter(x => x.abroad || wageCap(x) >= wageAt(p.ovr, naturalTier(p)) * .6);
   // The clubs closest to his level, and any big-spending owner who wants him, make offers.
   const wants = clubs.filter(x => x !== (p.club >= 0 ? CL(p.club) : null) && p.ovr >= (x.lvl || 0) - 2 - reach && p.ovr >= feeFloor(x));  // a hot prospect: clubs a little above him want him too
   const near = wants.slice().sort((a, b) => Math.abs(a.lvl - p.ovr) - Math.abs(b.lvl - p.ovr)).slice(0, 10), rich = wants.filter(x => ownStyle(x).spend >= 3 && !near.includes(x)).slice(0, 4);
@@ -624,9 +626,10 @@ function wageClauses(c, up, down) {
 function relegationExodus(ids) {
   const sold = [];
   for (const id of ids) { const c = CL(id); if (!c || c.gone || c.abroad) continue;
-    // Relegation clauses at AI clubs too: every contract pays 25% less in the division below (yours: wageClauses).
-    if (!isMine(c)) for (const q of c.squad.map(P)) if (q && !q.acad && !q.loan && q.wage) q.wage = Math.round(q.wage * (1 - CLAUSE) / 100) * 100;
-    const ps = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.age <= 31 && p.ovr >= TIER_LVL[c.tier] + 8).sort((a, b) => b.ovr - a.ovr);
+    // Relegation clauses at AI clubs too: every contract pays 25% less in the division below (yours: wageClauses), and a
+    // wage far above the new division's level (a Premier contract in the First Division) 40% less.
+    if (!isMine(c)) for (const q of c.squad.map(P)) if (q && !q.acad && !q.loan && q.wage) q.wage = Math.round(q.wage * (q.wage > wageAt(q.ovr, c.tier) * 1.5 ? .6 : 1 - CLAUSE) / 100) * 100;
+    const ps = c.squad.map(P).filter(p => p && !p.acad && !p.loan && p.age <= 33 && p.ovr >= TIER_LVL[c.tier] + 8).sort((a, b) => b.ovr - a.ovr);
     if (isMine(c)) { let n = 0;
       for (const p of ps) { if (n >= 3 || p.req || p.keep) continue;
         const L = loyaltyOf(p), love = Math.min(1, loveOf(p, c.id) / LEGEND), pr = prefsOf(p, P_FACTORS);
@@ -635,7 +638,8 @@ function relegationExodus(ids) {
         addChoice("treq", `${p.name} hands in a transfer request`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He doesn't want to play in the ${LEAGUES[c.lg].name}: he's unhappy about ambition after relegation.`,
           ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse", "Ask what it would take to keep him"], { pid: p.id, why: ["ambition after relegation"] }, 0); } }
     else { let n = 0;
-      for (const p of ps) { if (n >= 3 || p.keep || R() > .5) continue;
+      // Relegated clubs are stripped of their best: a player of the division above's standard almost always goes, others often.
+      for (const p of ps) { if (n >= 5 || p.keep || R() > (p.ovr >= TIER_LVL[c.tier - 1] - 3 ? .92 : .5)) continue;
         const b = playerChooses(p, G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && x.tier >= c.tier - 2)); if (!b) continue;
         aiTransfer(p, b); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); n++; if (c.lg === my().lg || b.lg === my().lg || c.tier <= 2) sold.push(`${p.name} (${c.name} to ${b.name})`); } }
   }
@@ -691,9 +695,10 @@ function aiSign(c, pos) {
   let p = null;
   // Players choose too: one who rates the club below what he wants (playing time, the system, standing, how it's
   // doing, home, on his own priorities) may turn it down, so a struggling club finds the better players harder to get.
-  const wont = q => { const a = aiAppeal(q, c); return a <= -1 || a < 0 && R() < clamp(-a * 5, 0, .8); };
+  const wont = q => { if (!c.abroad && wageCap(c) < wageAt(q.ovr, naturalTier(q)) * .6) return true;  // can't pay him near his worth
+    const a = aiAppeal(q, c); return a <= -1 || a < 0 && R() < clamp(-a * 5, 0, .8); };
   // The rules (squad cost, UEFA, a non-league owner's limit): his wage plus a year's share of the fee must fit.
-  const estW = q => !c.abroad && hugeAsk(q, c) ? hugeWage(q, c) : aiWage(q, c), fits = (q, fee) => fitsRules(c, estW(q), fee, 3);
+  const estW = q => offerWage(q, c), fits = (q, fee) => fitsRules(c, estW(q), fee, 3);
   const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33 && !wont(q) && fits(q, 0));
   const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
   // The best free agent and the best player he could buy: he takes the free agent unless the other is clearly better.
@@ -724,7 +729,7 @@ function aiSign(c, pos) {
   if (!p) return;
   else aiTransfer(p, c);
   p.wage = aiWage(p, c); p.yrs = aiYears(p, c);
-  if (!c.abroad && hugeAsk(p, c)) p.wage = Math.max(p.wage, Math.round(hugeWage(p, c) / 100) * 100);  // stepping down past his room: paid like it
+  if (!c.abroad && hugeAsk(p, c)) p.wage = Math.min(wageCap(c), Math.max(p.wage, Math.round(hugeWage(p, c) / 100) * 100));  // stepping down past his room: paid like it (within the division's top wage)
 }
 
 /* ---------- inbox ---------- */

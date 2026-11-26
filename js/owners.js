@@ -115,7 +115,11 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
    about 60%, France half, the next tier down a little over a third, the rest a fifth to a quarter. */
 const FSTR = { ESP: .62, GER: .6, ITA: .58, FRA: .5, POR: .38, NED: .38, TUR: .38, BEL: .35, GRE: .25, DEN: .25, AUT: .25, SCO: .25, SUI: .28, CZE: .22, SCA: .22, POL: .2, CYP: .2, CRO: .2, SWE: .2, UKR: .2, HUN: .18, ROU: .18 };
 const fStr = c => (c && c.abroad && FSTR[c.country]) || 1;
-const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
+/* The most an AI club pays any player a week, by division: what the real top earners make there (a reckless owner's
+   one statement signing a season is the exception). Non-league is held by the owner's own limit. */
+const WAGE_TOP = [0, 500e3, 150e3, 40e3, 15e3, 500e3, 500e3, 500e3];
+const wageCap = c => !c || c.abroad || isMine(c) ? 500e3 * 52 : WAGE_TOP[c.tier] * 52;
+const aiWage = (p, c) => Math.min(wageCap(c), Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------
    Every AI club has a wage budget: on average what a club like yours spends in that division, less under a tight owner,
    more under a spender, and more again while promotion is in reach. The owner covers any loss from his own fortune, up to
@@ -445,7 +449,7 @@ function diversitySummer() {
     if (!pool.length) continue;
     // There are far more stars abroad than at home: draw from England 60% of the time when both have one.
     { const home = pool.filter(p => !CL(p.club).abroad), away = pool.filter(p => CL(p.club).abroad); if (home.length && away.length) pool = R() < .6 ? home : away; }
-    const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(500e3 * 52, Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages top out at €500k a week */, why = affinity(p, c);
+    const p = pool.sort((a, b) => b.ovr - a.ovr)[ri(0, Math.min(4, pool.length - 1))], from = CL(p.club), wage = Math.min(reckless(c) ? 500e3 * 52 : wageCap(c), Math.round(hugeWage(p, c) / 100) * 100)  /* statement wages: a reckless owner's top out at €500k a week, anyone else's at the division's top wage */, why = affinity(p, c);
     if (!c.cook && aiBill(c) + wage > salaryCap(c.tier) && !startCooking(c, true)) continue;  // past the cap only by cooking the books
     if (!fitsRules(c, wage, aiFee(p, c), 3)) continue;  // the squad cost rule (or, below the leagues, what the owner will carry)
     aiTransfer(p, c); p.wage = wage; p.yrs = aiYears(p, c); p.stunY = G.year; p.stunC = c.id; c.splash = true; if (from.abroad) { if (!foreignSign(from, p.pos)) foreignSquad(from); } else aiSquadCheck(from, true);  // the seller replaces him with whoever it can afford at its own level: bought (with the fee in hand) or free  // the fee comes out of the budget, however far below zero

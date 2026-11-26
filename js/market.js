@@ -736,7 +736,7 @@ function aiSellExpiring() {
     for (const p of c.squad.map(P)) { if (!p) continue; const wc = r20(p.ovr) >= 17; if (p.acad || p.loan || p.yrs > 1 || p.toMe || (p.age > 26 && p.ovr < c.lvl + 3 && !wc) || renewsAI(p) || R() > (wc ? .95 : .6)) continue;
       const b = playerChooses(p, G.clubs.filter(x => !x.gone && !isMine(x) && x !== c && (x.abroad ? !homeBound(p) : x.tier <= c.tier)), .8);
       // Nobody can afford him: a young star usually signs a new deal after all (a big rise, a release clause); only now and then does one run it down.
-      if (!b) { if ((p.age <= 24 && p.ovr >= c.lvl && R() < .8) || (wc && R() < .95)) { p.renew = { y: G.year, ok: true }; if (p.age <= 24) giveClause(p, c); p.wage = Math.min(500e3 * 52, Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100)); } continue; }  // (nobody earns more than €500k a week)
+      if (!b) { if ((p.age <= 24 && p.ovr >= c.lvl && R() < .8) || (wc && R() < .95)) { p.renew = { y: G.year, ok: true }; if (p.age <= 24) giveClause(p, c); p.wage = Math.min(wageCap(c), Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100)); } continue; }  // (nobody earns more than €500k a week)
       aiTransfer(p, b, Math.round(aiFee(p, b) * .8 / 1e3) * 1e3); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); } }
 }
 /* Free agents can sign at any time, not only in the windows. Each week a club at (or a little below) a good free agent's
