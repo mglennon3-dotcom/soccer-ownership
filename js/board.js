@@ -27,7 +27,7 @@ function investmentOffers() {
   const v = valuation(), room = ownPct() - 51; if (room < 5) return [];
   return ["silent", "local", "pe", "celebrity"].sort(() => R() - .5).slice(0, 3).map(type => {
     const pct = Math.min(room, ri(5, 49));  // anything from 5% up to 49% (you always keep control)
-    return { type, pct, amt: Math.round(v * pct / 100 * INVESTOR[type].prem * rf(.9, 1.1) / 1e4) * 1e4, name: type === "celebrity" ? nameFor(pick(ALL_NATS)) : pick(BRANDS) + " " + pick(OWNER_CORP) };
+    return { type, pct, amt: Math.round(v * pct / 100 * INVESTOR[type].prem * rf(.9, 1.1) / 1e4) * 1e4, name: type === "celebrity" ? nameFor(pick(ALL_NATS)) : companyName(my()) };
   });
 }
 function sellStake(o) {
