@@ -427,7 +427,7 @@ function diversitySummer() {
     for (const p of stars) {
       if (R() > .3) continue;
       if (isMine(c)) { if (!G.inbox.some(m => m.key === "treq" && !m.done)) addChoice("treq", `${p.name} wants a new challenge`, `${POS_NAME[p.pos]}, ${p.age}, rated ${r20(p.ovr)}. He's won it all here and wants to prove himself somewhere new.`, ["Accept: put him on the transfer list", `Offer a new deal (${pw(newDealWage(p))})`, "Refuse"], { pid: p.id, why: ["a new challenge"] }, 0); continue; }
-      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 && !homeBound(p) : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p, x)))));
+      const to = pick(G.clubs.filter(x => (!x.gone || x.abroad) && x !== c && !isMine(x) && (x.abroad ? x.lvl >= p.ovr - 8 && !homeBound(p) && acceptsMove(p, x) : x.tier === 1 && titlesRecent(x) < 2 && canAfford(x, aiFee(p, x)))));
       if (!to) continue;
       aiTransfer(p, to); p.wage = aiWage(p, to); p.yrs = aiYears(p, to);
       if (c.lg === my().lg || to.lg === my().lg || p.ovr >= 85) news(`${p.name} leaves champions ${c.name} for ${to.name}${to.abroad ? ` in ${COUNTRY[to.country].name}` : ""}, looking for a new challenge.`);
@@ -566,7 +566,7 @@ function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
   for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
     const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
     const ask = Math.round(aiFee(p) * rf(.5, .8) / 1e4) * 1e4;
-    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)) && fitsRules(x, aiWage(p, x), ask, 3));
+    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)) && fitsRules(x, aiWage(p, x), ask, 3) && acceptsMove(p, x));  // he has to want to go there
     const b = fits.length ? pick(fits) : null;
     if (!b) { leaveClub(p); toFreeAgent(p); sold.push(p.name + " (released: nobody would pay for him)"); continue; }
     const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4));
