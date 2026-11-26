@@ -325,12 +325,12 @@ function pgSquadPage() {
 }
 const LOAN_TABS = ["sugloan", "ll", "out", "inl"];
 // The minutes target on a player card: set it, and see how he's doing against the pace so far.
-function minTargetRow(p) {
+function minTargetRow(p, stay) {
   if (p.acad && p.age < 16) return "";
   const got = (p.s && p.s.min) || 0, b = minBehind(p), pace = Math.round(p.minT * seasonFrac());
-  const st = !p.minT ? "Tell the manager how many minutes he should get this season, starts and sub appearances together." : got >= p.minT ? '<span class="good">target reached</span>'
+  const st = !p.minT ? (stay ? "" : "Tell the manager how many minutes he should get this season, starts and sub appearances together.") : got >= p.minT ? '<span class="good">target reached</span>'
     : b >= 90 ? `<span class="warn">${Math.round(b)} minutes behind pace (${pace.toLocaleString("en-GB")} by now): he'll start until he catches up</span>` : b > 0 ? `<span class="muted">just behind pace: first off the bench</span>` : '<span class="good">on pace</span>';
-  return `<div class="row" style="margin-bottom:6px"><label class="small"><b>Minutes target</b> <select data-act="mintgt" data-id="${p.id}">${MIN_TARGETS.map(n => `<option value="${n}" ${n === (p.minT || 0) ? "selected" : ""}>${n ? `${n.toLocaleString("en-GB")} (about ${Math.round(n / 90)} full games)` : "None"}</option>`).join("")}</select></label><span class="small muted">${p.minT ? `${got.toLocaleString("en-GB")} of ${p.minT.toLocaleString("en-GB")} minutes · ` : ""}${st}</span></div>`;
+  return `<div class="row" style="margin-bottom:6px"><label class="small"><b>Minutes target</b> <select data-act="mintgt" data-id="${p.id}"${stay ? ' data-stay="1"' : ""}>${MIN_TARGETS.map(n => `<option value="${n}" ${n === (p.minT || 0) ? "selected" : ""}>${n ? `${n.toLocaleString("en-GB")} (about ${Math.round(n / 90)} full games)` : "None"}</option>`).join("")}</select></label><span class="small muted">${p.minT ? `${got.toLocaleString("en-GB")} of ${p.minT.toLocaleString("en-GB")} minutes · ` : ""}${st}</span></div>`;
 }
 function pgSquad(loans) {  // loans: the Loans view (suggested, loan-listed, lent out, borrowed); otherwise the players' lists
   const c = my(), tab = loans ? (LOAN_TABS.includes(SUB.loans) ? SUB.loans : "sugloan") : (SUB.squad && SUB.squad !== "stats" && !LOAN_TABS.includes(SUB.squad) ? SUB.squad : "first"), xi = new Set(pickXI(c).map(o => o.p.id));
