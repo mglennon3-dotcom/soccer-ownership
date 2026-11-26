@@ -78,6 +78,8 @@ function askingFee(p, xi, buyer = my()) {
     if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
     f *= [1, 1.25, 1.5][derbyLevel(buyer, c)];  // selling to a rival: only at a premium (more for a fierce one)
+    // A release clause: a bigger club (standing well above his club's) can take him for the set fee.
+    if (p.clause && !mine && buyer && (buyer.rep || 0) >= p.clause.rep) f = Math.min(f, p.clause.fee);
   }
   return Math.round(f / 1000) * 1000;
 }
@@ -715,8 +717,17 @@ function aiSellExpiring() {
     for (const p of c.squad.map(P)) { if (!p) continue; const wc = r20(p.ovr) >= 17; if (p.acad || p.loan || p.yrs > 1 || p.toMe || (p.age > 26 && p.ovr < c.lvl + 3 && !wc) || renewsAI(p) || R() > (wc ? .95 : .6)) continue;
       const b = playerChooses(p, G.clubs.filter(x => !x.gone && !isMine(x) && x !== c && (x.abroad ? !homeBound(p) : x.tier <= c.tier)), .8);
       // Nobody can afford him: a young star usually signs a new deal after all (a big rise, a release clause); only now and then does one run it down.
-      if (!b) { if ((p.age <= 24 && p.ovr >= c.lvl && R() < .8) || (wc && R() < .95)) { p.renew = { y: G.year, ok: true }; p.wage = Math.min(500e3 * 52, Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100)); } continue; }  // (nobody earns more than €500k a week)
+      if (!b) { if ((p.age <= 24 && p.ovr >= c.lvl && R() < .8) || (wc && R() < .95)) { p.renew = { y: G.year, ok: true }; if (p.age <= 24) giveClause(p, c); p.wage = Math.min(500e3 * 52, Math.max(p.wage, Math.round(aiWage(p, c) * 1.3 / 100) * 100)); } continue; }  // (nobody earns more than €500k a week)
       aiTransfer(p, b, Math.round(aiFee(p, b) * .8 / 1e3) * 1e3); p.wage = offerWage(p, b); p.yrs = aiYears(p, b); } }
+}
+/* Free agents can sign at any time, not only in the windows. Each week a club at (or a little below) a good free agent's
+   level may take him on, the better he is the likelier; the longer he's been waiting, the less he asks (down to 70% of
+   his going rate once the season starts, 60% from January: faDiscount), so more of them take the deal. */
+function faPickup(k) {
+  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 35)) {
+    if (R() > clamp(.25 + (p.ovr - 60) * .015, .2, .6) * k * (faDiscount(p) < 1 ? 1.4 : 1)) continue;
+    const b = buyerFor(p, 8); if (!b || isMine(b)) continue;
+    moveTo(p, b); p.wage = Math.round(aiWage(p, b) * faDiscount(p) / 100) * 100; p.yrs = p.age >= 31 ? 1 : aiYears(p, b); }
 }
 function faDrain() {
   const now = absWeek();
@@ -724,7 +735,8 @@ function faDrain() {
     const wk = Math.max(0, now - (p.faAt ?? 0)), t = naturalTier(p);
     let ch = t <= 3 ? (wk > 2 ? .25 : 0) : t === 4 ? (wk > 6 ? .1 : 0) : t === 5 ? (wk > 16 ? .04 : 0) : p.ovr < 30 ? (wk > 26 ? .06 : 0) : (wk > 100 ? .02 : 0);
     // A good young player is snapped up (abroad or below) faster still; a good veteran waits longer for the right offer.
-    if (t <= 4) ch *= p.age <= 27 ? 2 : p.age >= 30 ? .8 : 1;
+    if (t <= 4) ch *= p.age <= 27 ? 2 : p.age >= 30 ? .35 : 1;
+    if (t <= 4 && G.phase === "season" && G.week < 8) ch = 0;  // the first weeks of the season: clubs still pick up who's left
     if (t <= 4 && G.phase === "summer") ch = 0;  // the summer market: out-of-contract players stay available all window
     if (ch && R() < ch) retire(p, true); }
 }
@@ -737,7 +749,7 @@ function marketWeek() {
   if (G.phase === "season" && G.week === 1) for (const x of G.clubs) if (!x.gone && !x.abroad && x.tier === 1) plAgree(x);
   if (G.phase === "season" && G.week === JAN[JAN.length - 1] + 6 && scrLive()) plMarch();  // early March
   // Free agents whose three weeks are up: each week of a window a club at their level may take one on (the better he is, the sooner).
-  for (const p of G.fa.map(P).filter(p => p && !faFresh(p) && !p.toMe && p.ovr >= 55 && p.age <= 33)) if (R() < clamp(.25 + (p.ovr - 60) * .015, .2, .6)) { const b = buyerFor(p, 8); if (b && !isMine(b)) { moveTo(p, b); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); } }
+  faPickup(1);
   for (const x of G.clubs) if (!x.gone && !isMine(x) && R() < .25) aiSquadCheck(x, true);
   foreignJanuary();  // foreign clubs look at the free agents every week of a window, as English clubs do
   const last = (G.phase === "summer" && G.week === SUMMER_WEEKS - 1) || (G.phase === "season" && G.week === JAN[JAN.length - 1]);

@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.94";
+const VERSION = "1.0.95";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -222,7 +222,11 @@ function renewsAI(p) {
   ch += clamp((aiAppeal(p, c) - .05) * 1.5, -.25, .2) + clubSit(c).m * .12;  // (a typical player rates his club about +.05)
   if (r20(p.ovr) >= 17) ch = Math.max(ch, .9);  // a world-class player: his club does whatever it takes (a free transfer is a once-a-year story)
   const h = ((p.id * 2654435761 + G.year * 40503) >>> 0) % 1000 / 1000;  // the same answer all season
-  p.renew = { y: G.year, ok: h < clamp(ch, .1, .95) }; return p.renew.ok;
+  let ok = h < clamp(ch, .1, .95);
+  // A young player who'd otherwise run his deal down often signs if his club puts in a release clause: a bigger club can
+  // take him for a set fee (about one and a half times what he's worth), and his club gets a fee rather than nothing.
+  if (!ok && p.age <= 24 && p.ovr >= ref - 1 && h < clamp(ch, .1, .95) + .45) { ok = true; giveClause(p, c); }
+  p.renew = { y: G.year, ok }; return ok;
 }
 /* The going rate for players around the Premier/First Division line (rated about 8 to 12) is well above what the curve
    alone gives: up to four and a half times for a 9-10, easing off either side (nothing extra at 7 and below; little at 13 and up). */
@@ -230,6 +234,7 @@ function bandBump(t) {
   if (t <= 7.2) return 1; if (t <= 8.8) return 1 + 3.5 * (t - 7.2) / 1.6; if (t <= 10.3) return 4.5;
   if (t <= 12) return 4.5 - 3.3 * (t - 10.3) / 1.7; if (t <= 14) return 1.2 - .2 * (t - 12) / 2; return 1;
 }
+function giveClause(p, c) { const y = p.yrs; p.yrs = 3; const v = valueOf(p); p.yrs = y; p.clause = { fee: Math.round(v * 1.5 / 1e5) * 1e5, rep: (c.rep || 0) + 5, y: G.year }; }
 function valueOf(p) {
   const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1) * bandBump(to20(p.ovr));
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
@@ -446,7 +451,7 @@ function moveTo(p, c) { if ((G.favs || []).includes(p.id) && c.id !== G.club && 
   // Transfer history (player card): season, window, from, to and fee. NEXT_FEE is set by whoever just paid for him.
   if (p.club !== c.id) { (p.tx ||= []).push([G.year, G.phase === "summer" ? 0 : 1, p.club, c.id, NEXT_FEE ?? 0]); if (p.tx.length > 12) p.tx.shift(); }
   NEXT_FEE = null;
-  p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
+  p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; delete p.clause; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
 /* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
    below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
 function newcomerFor(p) { return;  // no invented players: academies replace retirements
