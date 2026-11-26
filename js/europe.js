@@ -115,7 +115,7 @@ function foreignSquad(c, faOnly) {
     if (!WORLD_GEN) { if (foreignSign(c, pos)) continue; break; }  // after that: buy, or wait for the academy
     const age = ri(19, 33), ovr = clamp(Math.round(c.lvl + 2 - i * 3 + spreadN()), 40, 94);
     const p = makePlayer({ pos, ovr, age, nat: R() < .7 ? c.country : pickNat(c.country), club: c.id, pot: seniorPot(ovr, age) });
-    p.yrs = ri(1, 4); c.squad.push(p.id); p.hist.push([G.year, c.short]);
+    p.yrs = ri(1, 4); c.squad.push(p.id); p.hist.push([G.year, c.short]); p.wage = aiWage(p, c);  // paid at his league's level
   }
   const sq = c.squad.map(P).filter(p => !p.acad).sort((a, b) => b.ovr - a.ovr);
   for (const p of sq.slice(27)) toFreeAgent(p);  // surplus players look for clubs (some end up in England)

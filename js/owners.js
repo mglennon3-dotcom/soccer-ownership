@@ -113,7 +113,7 @@ function clubStandard(c) { const S = ownStyle(c), rich = clamp(Math.log10(Math.m
 // pay by their owner's spending.
 /* How much a league abroad pays and charges against the Premier Division's levels for the same player: the big three
    about 60%, France half, the next tier down a little over a third, the rest a fifth to a quarter. */
-const FSTR = { ESP: .62, GER: .6, ITA: .58, FRA: .5, POR: .38, NED: .38, TUR: .38, BEL: .35, GRE: .25, DEN: .25, AUT: .25, SCO: .25, SUI: .28, CZE: .22, NOR: .22, POL: .2, CYP: .2, CRO: .2, SWE: .2, UKR: .2, HUN: .18, ROU: .18 };
+const FSTR = { ESP: .62, GER: .6, ITA: .58, FRA: .5, POR: .38, NED: .38, TUR: .38, BEL: .35, GRE: .25, DEN: .25, AUT: .25, SCO: .25, SUI: .28, CZE: .22, SCA: .22, POL: .2, CYP: .2, CRO: .2, SWE: .2, UKR: .2, HUN: .18, ROU: .18 };
 const fStr = c => (c && c.abroad && FSTR[c.country]) || 1;
 const aiWage = (p, c) => Math.min(500e3 * 52, Math.round(wageAt(p.ovr, c.abroad ? 1 : c.tier) * (c.abroad ? clamp(1 + ownStyle(c).spend * .05, .78, 1.3) * fStr(c) : (c.pay ?? 1) * ((G.wInf || [])[c.tier] || 1)) / 100) * 100);  // nobody earns more than €500k a week
 /* ---------- AI club money ----------

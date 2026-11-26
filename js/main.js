@@ -213,6 +213,9 @@ function upgradeSave() {
     G.inbox = G.inbox.filter(m => !(!m.done && ["treq", "keepTerms", "raise"].includes(m.key) && m.data && ids.has(m.data.pid)));
     for (const p of c.squad.map(P)) if (p) { p.req = 0; p.unsettled = 0; p.blocked = 0; p.payGrudge = 0; delete p.goPromise; delete p.ambPromise; }
     news(`A clean slate in the dressing room: ${n ? `${n} open request${n > 1 ? "s" : ""} cleared, and ` : ""}every player's grievances are forgotten.`, true); }
+  // 1.0.92, one-off: players abroad were on English-scale contracts from the start (Norway's league was missed out of
+  // the strength table entirely): every contract abroad is reset to what his league pays.
+  if (!G.fwage92) { G.fwage92 = true; for (const id of G.foreign || []) { const c = CL(id); if (!c) continue; for (const pid of c.squad) { const p = P(pid); if (p && !p.acad && !p.loan) p.wage = aiWage(p, c); } } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
