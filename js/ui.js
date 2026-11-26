@@ -1063,7 +1063,7 @@ function renewBox(p) {
     <label class="small">Years <select id="rn-yrs">${Array.from({ length: T.maxY }, (_, i) => i + 1).map(y => `<option value="${y}" ${y === yDef ? "selected" : ""}>${y}</option>`).join("")}</select></label>
     <button class="btn sm" data-act="renewgo" data-id="${p.id}">Offer</button></div>
     ${short ? `<div style="margin:6px 0"><p class="small warn" style="margin-bottom:4px">At ${pw(pick)} the rise (${pw(extra)}) takes the wage budget over by ${pw(short)}.</p><button class="btn sm" data-act="fitwage" data-id="${p.id}" data-amt="${short}" data-re="card">Raise the wage budget to fit him</button></div>` : ""}
-    <p class="small muted">A release clause lets a bigger club (standing well above yours) buy him for that fee. It can tip a player who'd otherwise leave into signing, more so an ambitious one, but only if it's a level he'll accept: too high and it makes no difference to him.</p>
+    <p class="small muted">A release clause lets a bigger club (standing well above yours) buy him for that fee. It can tip a player who'd otherwise leave into signing, more so an ambitious one, but only at a level he'll accept: a little too high and it does nothing for him, well too high and he's offended and turns the offer down.${T.s ? ` ${esc(T.s.name.split(" ")[0])} thinks he'd accept up to about ${(Math.round(clauseCeil(p) * 20) / 20).toFixed(2)}× his value.` : ""}</p>
     ${say ? `<p class="small warn">${esc(say)}</p>` : T.tries ? `<p class="small muted">He's turned down ${T.tries} offer${T.tries > 1 ? "s" : ""} this season: ${3 - T.tries} left.</p>` : ""}</div>`;
 }
 function preModal(id) {

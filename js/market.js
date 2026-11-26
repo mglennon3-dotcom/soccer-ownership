@@ -549,6 +549,8 @@ function offerRenewal(p, wage, yrs, cm = 0) {
   const T = renewTerms(p, cm); wage = Math.round(wage / 100) * 100;
   if (T.no) { if (++p.rn.tries >= 3) p.rn.off = true; return { ok: false, t: `${p.name} doesn't want to stay, whatever the money.` }; }
   if (T.off) return { ok: false, t: `${p.name}'s agent has ended talks until next season.` };
+  if (clauseInsult(p, cm)) { p.unsettled = Math.max(p.unsettled || 0, 4); if (++p.rn.tries >= 3) { p.rn.off = true; return { ok: false, t: `${p.name} is offended by a ${money(Math.round(fullValue(p) * cm / 1e5) * 1e5)} release clause: his agent ends talks until next season.` }; }
+    return { ok: false, t: `${p.name} is offended by a release clause that high and turns the offer down. ${3 - p.rn.tries} more ${3 - p.rn.tries === 1 ? "try" : "tries"} this season.` }; }
   if (wage >= T.min) {
     const was = p.wage; p.wage = wage; p.yrs = clamp(Math.round(yrs), 1, T.maxY); logPay(p, was, "new deal");
     p.dealY = G.year; p.unsettled = 0; p.payGrudge = 0; p.expiring = false; delete p.rn;

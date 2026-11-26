@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.0.96";
+const VERSION = "1.0.97";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -239,8 +239,10 @@ function bandBump(t) {
 const fullValue = p => { const y = p.yrs; p.yrs = 3; const v = valueOf(p); p.yrs = y; return v; };
 const clauseCeil = p => { const pr = prefsOf(p, P_FACTORS).pri; return clamp(1.4 - ((pr.prest || 0) + (pr.proj || 0)) * 1.2, 1, 1.3); };
 function giveClause(p, c, m = clauseCeil(p)) { p.clause = { fee: Math.round(fullValue(p) * m / 1e5) * 1e5, rep: (c.rep || 0) + 5, y: G.year }; }
-// How much a clause at this multiple helps him sign: the full lift at or under his ceiling, nothing half a value above it.
-const clauseLift = (p, m) => !m ? 0 : .12 * (1 + ((prefsOf(p, P_FACTORS).pri.prest || 0) + (prefsOf(p, P_FACTORS).pri.proj || 0)) * 2) * clamp(1 - (m - clauseCeil(p)) / .5, 0, 1);
+// How much a clause at this multiple helps him sign: the full lift at or under his ceiling, fading to nothing a little
+// above it; well above it he takes offence (clauseInsult) and won't sign it.
+const clauseInsult = (p, m) => !!m && m > clauseCeil(p) + .15;
+const clauseLift = (p, m) => !m ? 0 : clauseInsult(p, m) ? -.15 : .12 * (1 + ((prefsOf(p, P_FACTORS).pri.prest || 0) + (prefsOf(p, P_FACTORS).pri.proj || 0)) * 2) * clamp(1 - Math.max(0, m - clauseCeil(p)) / .15, 0, 1);
 function valueOf(p) {
   const o = oldEq(p.ovr); let v = valueBase(o) * 3 * Math.pow(1.025, o - 50) * clamp((o - 35) / 25, .2, 1) * bandBump(to20(p.ovr));
   if (p.age < 24) v *= 1 + Math.max(0, p.pot - p.ovr) * .04;
