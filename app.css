@@ -575,3 +575,5 @@ details.depth-card[open] > summary{margin-bottom:8px}
 details.depth-card:not([open]){padding-bottom:14px}
 
 .chip.aca{border:1px solid var(--win);color:var(--win);background:transparent}
+/* Small phones: the tactics pitch is narrow, so the player markers shrink a little to keep from overlapping */
+@media (max-width: 360px) { .pitch:not(.live) .slot { transform: translate(-50%, -50%) scale(.8) } }
