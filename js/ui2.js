@@ -294,6 +294,9 @@ function loansCard() {
 }
 function endScreen() {
   const e = G.ended, c = my();
+  if (e.kind === "out") return `<div class="wrap gut"><div class="hero"><p class="eyebrow">${seasonLabel(e.y)}</p><h1><span>${esc(c.name)}</span> drop out of the league</h1>
+    <p>${ord(e.pos)} of ${e.n} in the ${esc(LEAGUES[e.lg].name)}: in the relegation places at the very bottom of the pyramid. The club drops out of the league system, and your time as its owner is over. You founded it in ${c.founded}; it leaves with ${c.fans.toLocaleString("en-GB")} supporters and ${c.trophies.length} troph${c.trophies.length === 1 ? "y" : "ies"}. You put in ${money(G.owner.invested)}; your fortune is now ${money(G.owner.wealth)}.</p></div>
+    <div class="row"><button class="btn primary" data-act="quit">Back to the start</button></div></div>`;
   return `<div class="wrap gut"><div class="hero"><p class="eyebrow">${seasonLabel(e.y)}</p><h1>You sold <span>${esc(c.name)}</span></h1>
     <p>For ${money(e.amt)} to a ${OWNER_STYLES[e.style].l.toLowerCase()}. You founded the club in ${c.founded} with nothing; you leave it in the ${LEAGUES[c.lg].name}, with ${c.fans.toLocaleString("en-GB")} supporters and ${c.trophies.length} trophies. You put in ${money(G.owner.invested)}; your fortune is now ${money(G.owner.wealth)}.</p></div>
     <div class="row"><button class="btn primary" data-act="quit">Back to the start</button></div></div>`;

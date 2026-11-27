@@ -123,6 +123,9 @@ function seasonWeek() {
   if (w === JAN[0]) { partnerWindow(); aiListings(); levelSample(); }
   if (w === JAN[0] || w === JAN[2]) foreignLoans();
   chargesWeek();
+  // In the Regional League's relegation places: a warning (dropping out of the pyramid ends the game).
+  if (G.phase === "season" && my().tier === 7 && [30, 38, 43].includes(G.week)) { const L = LEAGUES[my().lg], ids = table(my().lg).map(r => r.id), pos = ids.indexOf(G.club) + 1;
+    if (L.down && pos > ids.length - L.down - 1) news(`Danger: ${ord(pos)} in the ${L.name}. Finish in the bottom ${L.down} and the club drops out of the league system altogether: that's the end of your time as owner.`, true); }
   if (JAN.includes(w)) marketWeek(); else { offWindowBids(); headOffWindow(my()); faPickup(.6); faDrain(); }  // free agents sign any time
   awayHelpWeek();
   youthScoutWeek();
@@ -221,7 +224,9 @@ function endSeason() {
       for (const id of final) { addHoney(CL(id), "promo"); moves.push([id, ABOVE[k]]); for (const p of accSquad(CL(id), 10)) accAdd(p, "promo", `Promoted from the ${L.name} ${seasonLabel(G.year)}${ids[0] === id ? "" : G.po[k] && G.po[k].win === id ? " (play-offs)" : ""}`); }
     }
     if (L.down && L.tier < 7) for (const id of ids.slice(-L.down)) moves.push([id, null]);
-    if (L.tier === 7) { const drop = ids.filter(id => id !== G.club).slice(-L.down); for (const id of drop) moves.push([id, "OUT"]); }
+    // The bottom of the Regional League drops out of the pyramid. If that's your club, it's the end: game over.
+    if (L.tier === 7) { if (ids.slice(-L.down).includes(G.club) && !G.noGameOver) G.ended = { y: G.year, kind: "out", pos: ids.indexOf(G.club) + 1, lg: k, n: ids.length };
+      const drop = ids.filter(id => id !== G.club).slice(-L.down); for (const id of drop) moves.push([id, "OUT"]); }
     if (ids.includes(G.club)) { report.lg = k; report.pos = ids.indexOf(G.club) + 1; report.pts = t[report.pos - 1].pts; report.size = ids.length; report.tier = L.tier; }
   }
   // Merit money and sponsor bonuses
