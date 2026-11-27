@@ -275,7 +275,7 @@ function bidsWeek(c) {
     }
     if (p.list) {
       // Listed means you'll sell, not that he's cheap: what he fetches depends on demand (listDemand). An ordinary player
-      // draws bids of half to all of his value; one coming off a big season, good for the level, draws more bids, from
+      // draws bids from a bit over half his value to a little above it; one coming off a big season, good for the level, draws more bids, from
       // bigger clubs, at or above his value, and several clubs may chase him at once.
       const d = listDemand(p, c), form = Math.max(0, seasonForm(p));
       if (R() > .35 + d * .45) continue;
@@ -283,7 +283,7 @@ function bidsWeek(c) {
       if (!want.length) continue;
       const n = 1 + (d > .35 && R() < d ? 1 : 0) + (d > .65 && R() < d - .3 ? 1 : 0), seen = new Set(), offers = [];
       for (let i = 0; i < n * 2 && offers.length < n; i++) { const b = wpick(want, x => bidWeight(x, p, c)); if (!b || seen.has(b.id)) continue; seen.add(b.id);
-        const a = Math.max(1000, feeRound(valueOf(p) * rf(.5 + d * .45, 1 + d * .4))); if (canAfford(b, a)) offers.push([b, a]); }
+        const a = Math.max(1000, feeRound(valueOf(p) * rf(.6 + d * .4, 1.1 + d * .35))); if (canAfford(b, a)) offers.push([b, a]); }
       if (!offers.length) continue;
       if (askMet(p, offers, 0)) continue;  // your asking price: met, and he's sold
       offers.sort((x, y) => y[1] - x[1]); [buyer, amt] = offers[0];  // competition: the best bid is the one you see
@@ -757,7 +757,7 @@ function offWindowBids(c = my()) {
   for (const p of c.squad.map(P)) {
     if (!p.list || p.acad || p.loan || p.agreed || !canSell(p) || p.age > 33 || R() > .08 || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
     const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9); if (!want.length) continue;
-    const d = listDemand(p, c), buyer = wpick(want, x => bidWeight(x, p, c)), amt = Math.max(1000, feeRound(valueOf(p) * rf(.5 + d * .45, 1 + d * .4)));
+    const d = listDemand(p, c), buyer = wpick(want, x => bidWeight(x, p, c)), amt = Math.max(1000, feeRound(valueOf(p) * rf(.6 + d * .4, 1.1 + d * .35)));
     if (!canAfford(buyer, amt) || askMet(p, buyer, amt, true)) continue;
     addMsg({ type: "bid", pre: true, keen: R() < .7, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name} (listed): he'd join when the window opens` });
   }
