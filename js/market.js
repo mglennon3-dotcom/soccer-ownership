@@ -274,11 +274,20 @@ function bidsWeek(c) {
       continue;
     }
     if (p.list) {
-      if (R() > .35) continue;
-      const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 && p.age <= 33);
+      // Listed means you'll sell, not that he's cheap: what he fetches depends on demand (listDemand). An ordinary player
+      // draws bids of half to all of his value; one coming off a big season, good for the level, draws more bids, from
+      // bigger clubs, at or above his value, and several clubs may chase him at once.
+      const d = listDemand(p, c), form = Math.max(0, seasonForm(p));
+      if (R() > .35 + d * .45) continue;
+      const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 + form * 4 && p.age <= 33);
       if (!want.length) continue;
-      buyer = wpick(want, x => bidWeight(x, p, c)); amt = Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000;
-      if (askMet(p, buyer, amt)) continue;  // your asking price: met, and he's sold
+      const n = 1 + (d > .35 && R() < d ? 1 : 0) + (d > .65 && R() < d - .3 ? 1 : 0), seen = new Set(), offers = [];
+      for (let i = 0; i < n * 2 && offers.length < n; i++) { const b = wpick(want, x => bidWeight(x, p, c)); if (!b || seen.has(b.id)) continue; seen.add(b.id);
+        const a = Math.max(1000, feeRound(valueOf(p) * rf(.5 + d * .45, 1 + d * .4))); if (canAfford(b, a)) offers.push([b, a]); }
+      if (!offers.length) continue;
+      if (askMet(p, offers, 0)) continue;  // your asking price: met, and he's sold
+      offers.sort((x, y) => y[1] - x[1]); [buyer, amt] = offers[0];  // competition: the best bid is the one you see
+      if (offers.length > 1 && p.chaseW !== windowId()) p.chaseW = windowId(), news(`${offers.length} clubs are chasing ${p.name}: ${clubLabel(buyer)} lead the way with ${money(amt)}.`);
     } else {
       // Unlisted players draw bids too: anyone who'd be a regular somewhere, more often the better he is for your
       // level, and at or above his value, since the club has to tempt you.
@@ -302,11 +311,26 @@ function bidsWeek(c) {
 /* Your asking price for a listed player (1.2.20). A bidder goes as high as it would in talks (a little above its opening
    bid, more for a player it really wants); if that reaches your asking price, it pays exactly that and the sale goes
    through (in a closed window, it's agreed and he joins when it opens). Bids below it still arrive for you to answer. */
-function askMet(p, buyer, amt, pre) {
-  if (!p.askP || !buyer) return false;
-  const most = Math.min(tbOf(buyer), amt * rf(1.04, 1.25) * (buyer.tier < my().tier || buyer.abroad ? rf(1, 1.25) : 1));
-  if (most < p.askP || !canAfford(buyer, p.askP)) return false;
-  const m = addMsg({ type: "bid", pre: !!pre, keen: true, pid: p.id, club: buyer.id, amt: p.askP, rec: "accept", title: `${clubLabel(buyer)} meet your ${money(p.askP)} asking price for ${p.name}` });
+/* How much clubs want a listed player, 0-1: his season (the big one), how good he is for your level, his age and
+   potential. His contract is already in his value. */
+function listDemand(p, c = my()) {
+  const form = Math.max(0, seasonForm(p)), above = p.ovr - TIER_LVL[c.tier];
+  let d = form * .55 + clamp(above * .04, -.2, .35) + (starAtLevel(p, c) ? .15 : 0) + (p.age <= 23 && p.pot > p.ovr + 5 ? .1 : 0);
+  if (p.age >= 31) d -= (p.age - 30) * .1;
+  return clamp(d, 0, 1);
+}
+// The most a club will go to for him (in talks, or to meet an asking price): more for a player in demand, and more
+// from a bigger club.
+const bidTop = (p, buyer, amt) => Math.min(tbOf(buyer), amt * rf(1.04 + listDemand(p) * .1, 1.25 + listDemand(p) * .25) * (buyer.tier < my().tier || buyer.abroad ? rf(1, 1.25) : 1) * (1 + Math.max(0, seasonForm(p)) * .1));
+function askMet(p, bids, amt, pre) {
+  if (!p.askP) return false;
+  if (!Array.isArray(bids)) bids = bids ? [[bids, amt]] : [];
+  const can = bids.map(([b, a]) => [b, bidTop(p, b, a)]).filter(([b, top]) => top >= p.askP && canAfford(b, p.askP)).sort((x, y) => y[1] - x[1]);
+  if (!can.length) return false;
+  // Two or more clubs at your price: a bidding war. The keenest pays a little over the next best, up to its own limit.
+  const [buyer, top] = can[0], fee = can.length > 1 ? Math.min(top, feeRound(p.askP + (can[1][1] - p.askP) * rf(.2, .4))) : p.askP;
+  const m = addMsg({ type: "bid", pre: !!pre, keen: true, pid: p.id, club: buyer.id, amt: fee, rec: "accept", title: fee > p.askP ? `${clubLabel(buyer)} win the race for ${p.name}: ${money(fee)}, above your ${money(p.askP)} asking price` : `${clubLabel(buyer)} meet your ${money(p.askP)} asking price for ${p.name}` });
+  if (can.length > 1) news(`${can.length} clubs met your asking price for ${p.name}; ${buyer.name} went highest, ${money(fee)}.`, true);
   answerBid(m, true, "ask"); return true;
 }
 // A bigger club that wants one of your players with a release clause can simply pay it: the sale goes through.
@@ -323,7 +347,7 @@ function headAdvice(p, amt) {
   if (my().squad.filter(id => !P(id).acad).length <= 16) return "reject";  // the squad is too thin to sell
   if (!coverOK(my(), p)) return "reject";  // it would leave his position short
   if (p.list && p.askP) return amt >= p.askP ? "accept" : "reject";  // your asking price
-  if (p.list) return amt >= v * (s && s.phil === "value" ? .75 : .6) ? "accept" : "reject";  // he wants him gone, at a fair price
+  if (p.list) return amt >= v * ((s && s.phil === "value" ? .75 : .6) + listDemand(p) * .45) ? "accept" : "reject";  // in demand: he holds out for more  // he wants him gone, at a fair price
   if (!s) return amt >= v * 1.4 ? "accept" : "reject";
   const r = { value: amt >= v * 1.15, potential: p.age >= 24 ? amt >= v : amt >= v * 1.6, proven: starter ? amt >= v * 1.8 : amt >= v, fit: amt >= v * 1.3 }[s.phil];
   return r ? "accept" : "reject";
@@ -376,7 +400,7 @@ function completeSale(p, buyer, amt, auto) {
 const feeRound = v => { const st = v < 10e3 ? 100 : v < 100e3 ? 500 : v < 1e6 ? 5000 : 50000; return Math.round(v / st) * st; };
 function bidMax(m) {
   const p = G.players[m.pid];
-  return m.max ??= Math.max(m.amt, Math.min(tbOf(CL(m.club)), feeRound(m.amt * (p && p.list ? rf(1.04, 1.25) : rf(1.1, 1.5)) * (1 + Math.max(0, seasonForm(p || {})) * .1))));
+  return m.max ??= Math.max(m.amt, Math.min(tbOf(CL(m.club)), feeRound(m.amt * (p && p.list ? rf(1.04 + listDemand(p) * .1, 1.25 + listDemand(p) * .25) : rf(1.1, 1.5)) * (1 + Math.max(0, seasonForm(p || {})) * .1))));
 }
 function counterBid(m, ask) {
   const p = G.players[m.pid], buyer = CL(m.club), max = bidMax(m);
@@ -733,7 +757,7 @@ function offWindowBids(c = my()) {
   for (const p of c.squad.map(P)) {
     if (!p.list || p.acad || p.loan || p.agreed || !canSell(p) || p.age > 33 || R() > .08 || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
     const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9); if (!want.length) continue;
-    const buyer = wpick(want, x => bidWeight(x, p, c)), amt = Math.max(1000, Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000);
+    const d = listDemand(p, c), buyer = wpick(want, x => bidWeight(x, p, c)), amt = Math.max(1000, feeRound(valueOf(p) * rf(.5 + d * .45, 1 + d * .4)));
     if (!canAfford(buyer, amt) || askMet(p, buyer, amt, true)) continue;
     addMsg({ type: "bid", pre: true, keen: R() < .7, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name} (listed): he'd join when the window opens` });
   }
