@@ -278,6 +278,7 @@ function bidsWeek(c) {
       const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 && p.age <= 33);
       if (!want.length) continue;
       buyer = wpick(want, x => bidWeight(x, p, c)); amt = Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000;
+      if (askMet(p, buyer, amt)) continue;  // your asking price: met, and he's sold
     } else {
       // Unlisted players draw bids too: anyone who'd be a regular somewhere, more often the better he is for your
       // level, and at or above his value, since the club has to tempt you.
@@ -298,6 +299,16 @@ function bidsWeek(c) {
     addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
 }
+/* Your asking price for a listed player (1.2.20). A bidder goes as high as it would in talks (a little above its opening
+   bid, more for a player it really wants); if that reaches your asking price, it pays exactly that and the sale goes
+   through (in a closed window, it's agreed and he joins when it opens). Bids below it still arrive for you to answer. */
+function askMet(p, buyer, amt, pre) {
+  if (!p.askP || !buyer) return false;
+  const most = Math.min(tbOf(buyer), amt * rf(1.04, 1.25) * (buyer.tier < my().tier || buyer.abroad ? rf(1, 1.25) : 1));
+  if (most < p.askP || !canAfford(buyer, p.askP)) return false;
+  const m = addMsg({ type: "bid", pre: !!pre, keen: true, pid: p.id, club: buyer.id, amt: p.askP, rec: "accept", title: `${clubLabel(buyer)} meet your ${money(p.askP)} asking price for ${p.name}` });
+  answerBid(m, true, "ask"); return true;
+}
 // A bigger club that wants one of your players with a release clause can simply pay it: the sale goes through.
 function clauseWeek(c) {
   for (const p of c.squad.map(P)) { if (!p || !p.clause || p.loan || R() > .08) continue;
@@ -311,6 +322,7 @@ function headAdvice(p, amt) {
   if (p.keep || p.nfs) return "reject";  // your call: he isn't for sale (you can still accept it yourself)
   if (my().squad.filter(id => !P(id).acad).length <= 16) return "reject";  // the squad is too thin to sell
   if (!coverOK(my(), p)) return "reject";  // it would leave his position short
+  if (p.list && p.askP) return amt >= p.askP ? "accept" : "reject";  // your asking price
   if (p.list) return amt >= v * (s && s.phil === "value" ? .75 : .6) ? "accept" : "reject";  // he wants him gone, at a fair price
   if (!s) return amt >= v * 1.4 ? "accept" : "reject";
   const r = { value: amt >= v * 1.15, potential: p.age >= 24 ? amt >= v : amt >= v * 1.6, proven: starter ? amt >= v * 1.8 : amt >= v, fit: amt >= v * 1.3 }[s.phil];
@@ -341,7 +353,7 @@ function answerBid(m, accept, auto) {
   if (accept && m.pre) {
     // Agreed out of the window: he joins them when the next one opens.
     p.agreed = { club: buyer.id, amt: m.amt, auto: !!auto }; m.answer = "agreed: he joins when the window opens";
-    news(`${p.name} will join ${clubLabel(buyer)} for ${money(m.amt)} when the transfer window opens${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}. Until then he stays and plays for you.`, true);
+    news(`${p.name} will join ${clubLabel(buyer)} for ${money(m.amt)} when the transfer window opens${auto === "ask" ? " (your asking price)" : auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}. Until then he stays and plays for you.`, true);
     return;
   }
   if (accept) {
@@ -351,9 +363,9 @@ function answerBid(m, accept, auto) {
 }
 function completeSale(p, buyer, amt, auto) {
   if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`, "Selling first-choice players");
-  logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto ? "recruit" : "you" });
+  logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto && auto !== "ask" ? "recruit" : "you" });
   leaveClub(p); payFee(buyer, null, amt); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", amt);
-  news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
+  news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto === "ask" ? ", meeting your asking price" : auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
 }
 
 /* ---------- negotiating a bid ----------
@@ -699,7 +711,7 @@ function setNotForSale(p, on) {
   if (nfsGrudge(p, my())) { p.unsettled = Math.max(p.unsettled || 0, 4); news(`${p.name} isn't happy about being made not for sale: he thinks he deserves ${p.wage < wageAt(p.ovr, my().tier) * .8 ? "more money" : "a bigger club"}.`, true); }
 }
 function ownerList(p) {
-  p.list = !p.list; if (p.list) p.nfs = false;
+  p.list = !p.list; if (p.list) p.nfs = false; else delete p.askP;
   if (!p.list) return news(`${p.name} is taken off the transfer list.`);
   // Deciding who's for sale is the owner's call: your head of recruitment just handles the offers. Only listing one of
   // the manager's first-choice players annoys anyone.
@@ -722,7 +734,7 @@ function offWindowBids(c = my()) {
     if (!p.list || p.acad || p.loan || p.agreed || !canSell(p) || p.age > 33 || R() > .08 || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
     const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9); if (!want.length) continue;
     const buyer = wpick(want, x => bidWeight(x, p, c)), amt = Math.max(1000, Math.round(valueOf(p) * rf(.5, 1.0) / 1000) * 1000);
-    if (!canAfford(buyer, amt)) continue;
+    if (!canAfford(buyer, amt) || askMet(p, buyer, amt, true)) continue;
     addMsg({ type: "bid", pre: true, keen: R() < .7, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name} (listed): he'd join when the window opens` });
   }
 }
