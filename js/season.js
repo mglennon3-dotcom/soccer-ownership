@@ -296,6 +296,9 @@ function endSeason() {
   }
   for (const [id, to] of moves) { const c = CL(id); if (c.lastF && to !== "OUT") c.lastF[to ? "up" : "down"] = true; }
   try { relegationExodus(moves.filter(([, to]) => to === null).map(([id]) => id)); } catch (e) { console.error("relegation sales", e); }
+  // Full-time or part-time: a club promoted out of National North/South goes full-time, one relegated into it part-time.
+  for (const [id, to] of moves) { if (to === "OUT") continue; const c = CL(id); if (!c || c.gone) continue; const was = to ? c.tier + 1 : c.tier - 1;
+    if ((was >= 6) !== (c.tier >= 6)) try { contractSwitch(c, c.tier < 6); } catch (e) { console.error("contract switch", e); } }
   balanceHalves("L6N", "L6S"); balanceHalves("L7N", "L7S");
   for (const k of ["L7N", "L7S"]) while (G.leagues[k].clubs.length < LEAGUES[k].size) { const c = newClub(k, LEAGUES[k].size - 1); c.half = LEAGUES[k].half; squadFromFA(c); G.leagues[k].clubs.push(c.id); c.founded = G.year; }
   // Standing: reputation drifts toward the club's division, plus a little for finishing high.
@@ -616,6 +619,26 @@ function freshFreeAgents() {
    relegation (loanees are paid by their own clubs; academy players are on youth terms). Money-motivated players don't
    take a cut quietly: the greedier they are, the likelier they hand in a transfer request, and the rest grumble. */
 const CLAUSE = .25;
+/* Full-time and part-time contracts (1.2.19). A club promoted into the National Division turns professional: every
+   contract becomes full-time, and anyone paid below the division's standard for his rating is raised to it. A club
+   relegated into National North/South goes part-time: contracts drop to part-time terms, cut to the standard there if
+   paid above it (after any relegation clause). A money-minded player may not stand for the cut and asks to leave.
+   Loanees count with the club that holds their contract. */
+function contractSwitch(c, ft) {
+  const ref = isMine(c) ? { tier: c.tier, id: -9 } : c, ps = c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.to === c.id));
+  for (const q of G.clubs.length ? Object.values(G.players) : []) if (q && q.loan && q.loan.from === c.id && q.club !== c.id && !ps.includes(q)) ps.push(q);
+  const before = isMine(c) ? wageBill(c) : 0, quit = []; let n = 0;
+  for (const p of ps) {
+    const std = aiWage(p, ref), was = p.wage;
+    if (ft ? p.wage < std : p.wage > std) { p.wage = std; n++; logPay(p, was, ft ? "full-time contract" : "part-time contract"); }
+    if (!ft && was > std * 1.15 && !p.keep && !p.req) { const pr = prefsOf(p, P_FACTORS), cut = 1 - std / was;
+      if (R() < clamp(cut * 1.2 + (pr.top.includes("money") ? .25 : 0) - (loyaltyOf(p) - .5) * .5, 0, .85)) { p.req = G.year; p.list = true; if (isMine(c)) { p.unsettled = Math.max(p.unsettled || 0, 6); quit.push(p.name); } } }
+  }
+  if (!isMine(c)) return;
+  news(ft ? `Full-time football: every contract at ${c.name} becomes full-time.${n ? ` ${n} player${n === 1 ? " is" : "s are"} raised to the ${TIER_NAME[c.tier]} standard for their rating (the wage bill goes from ${money(before)} to ${money(wageBill(c))} a year).` : ""}`
+    : `Part-time football: every contract at ${c.name} goes part-time.${n ? ` ${n} player${n === 1 ? " drops" : "s drop"} to the ${TIER_NAME[c.tier]} standard for their rating (the wage bill goes from ${money(before)} to ${money(wageBill(c))} a year).` : ""}${quit.length ? ` ${quit.join(", ")} won't accept part-time money and ${quit.length === 1 ? "asks" : "ask"} to leave.` : ""}`, true);
+}
+const contractType = p => { const c = p.loan ? CL(p.loan.from) : p.club >= 0 ? CL(p.club) : null; return !c || c.abroad ? "" : c.tier >= 6 ? "part-time" : "full-time"; };
 function wageClauses(c, up, down) {
   if (!up && !down) return;
   const ps = c.squad.map(P).filter(p => p && !p.acad && !(p.loan && p.loan.to === c.id)), before = wageBill(c), quit = [];
