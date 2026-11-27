@@ -240,5 +240,5 @@ const relFightNo = (p, c) => c.tier < 7 && clubSit(c).fight && p.ovr >= TIER_LVL
 function refusalReason(a, factors, who) {
   if (factors === P_FACTORS && !who && a.p && a.p.club !== G.club && relFightNo(a.p, my())) return "He's ambitious and won't join a club in a relegation fight: ask again once it's settled.";
   const name = Object.fromEntries(factors), worst = Object.entries(a.f).filter(([k]) => a.pr.pri[k] > .14).sort((x, y) => x[1] - y[1])[0];
-  return `${who ? pr(who, "He") : "He"} cares most about ${name[a.pr.top[0]].toLowerCase()} and ${name[a.pr.top[1]].toLowerCase()}${worst && worst[1] < .45 ? `, and isn't convinced by the ${name[worst[0]].toLowerCase()}` : ""}.`;
+  return `${who ? pr(who, "He") : "He"} cares most about ${name[a.pr.top[0]].toLowerCase()} and ${name[a.pr.top[1]].toLowerCase()}${worst && worst[1] < .45 ? `, and isn't convinced by ${name[worst[0]].toLowerCase().replace(/^(?!the )/, "the ")}` : ""}.`;
 }
