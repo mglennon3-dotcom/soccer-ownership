@@ -461,12 +461,13 @@ const ACT = {
   depthresetall: async () => { const n = Object.keys(G.depth || {}).length, f = my().squad.map(P).filter(p => p && p.force).length; if (!n) return;
     if (!await ask(`Put all ${n} position${n > 1 ? "s" : ""} you've ordered back into the manager's order?${f ? ` (${f} "insist he starts" pick${f > 1 ? "s stay" : " stays"}: clear ${f > 1 ? "them" : "it"} on the player's card.)` : ""}`)) return;
     G.depth = {}; toast("Every position is back in the manager's order."); render(); saveGame(); },
-  bestxi: async () => { const c = my(), xi = bestXI(c); if (!xi.length) return;
-    const roles = [...new Set(xi.map(x => x.slot))];
-    if (!await ask(`Make your best-fitting XI the starters? ${xi.map(x => `${x.p.name.split(" ").slice(-1)[0]} (${x.slot})`).join(", ")}. Each position's depth chart puts them first; the rest follow as they are.`)) return;
+  bestxi: async el => { const c = my(), chem = !!el.dataset.chem, xi = chem ? chemXI(c) : bestXI(c); if (!xi.length) return;
+    const roles = [...new Set(xi.map(x => x.slot))], now = pickXI(c), sum = x => x.reduce((t, o) => t + roleRating(o.p, o.slot), 0) / 10, fmt = v => (v >= 0 ? "+" : "") + v.toFixed(1);
+    const extra = ` Chemistry ${fmt(chemScore(now, c))} now, ${fmt(chemScore(xi, c))} with this side; combined rating ${(sum(xi) - sum(now) >= 0 ? "+" : "") + (sum(xi) - sum(now)).toFixed(1)} on the current XI.`;
+    if (!await ask(`Make your ${chem ? "best-chemistry" : "best-fitting"} XI the starters? ${xi.map(x => `${x.p.name.split(" ").slice(-1)[0]} (${x.slot})`).join(", ")}.${extra} Each position's depth chart puts them first; the rest follow as they are.`)) return;
     G.depth ||= {}; for (const role of roles) { const top = xi.filter(x => x.slot === role).sort((a, b) => roleRating(b.p, role) - roleRating(a.p, role)).map(x => x.p.id);
       const rest = depthOrder(c, role).filter(id => !top.includes(id)); G.depth[role] = [...top, ...rest]; (G.depthX ||= {}); for (const id of top) if (!depthLine(P(id), role)) (G.depthX[role] ||= []).includes(id) || G.depthX[role].push(id); }
-    toast("Your best-fitting XI are now the starters."); render(); saveGame(); },
+    toast(`Your ${chem ? "best-chemistry" : "best-fitting"} XI are now the starters.`); render(); saveGame(); },
   depthreset: el => { if (G.depth) delete G.depth[el.dataset.role]; render(); saveGame(); },
   praise: el => { praiseDo(+el.dataset.id, el.dataset.t, el.dataset.how); render(); saveGame(); },
   optprice: el => { const c = my(), ks = el.dataset.k === "all" ? ["ticket", "st", "conc", "shirt", ...(c.fac.stadium.own && c.fac.stadium.suites ? ["suite"] : [])] : [el.dataset.k], done = [];
