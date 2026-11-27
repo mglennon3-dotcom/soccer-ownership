@@ -576,6 +576,7 @@ const ACT = {
   promote: el => { const p = P(+el.dataset.id), c = my(), was = p.wage; overruleYouth("promote", [p]); p.acad = false; p.yrs = 2; p.wage = Math.max(p.wage, Math.round(demandWage(p, c) / 100) * 100); logPay(p, was, "first professional contract"); news(`${p.name} is promoted from the academy on a professional contract.`, true); closeModal(); render(); },
   askp: el => { const p = P(+el.dataset.id), v = el.dataset.clear ? 0 : Math.round(num($("#askp" + p.id))); if (v > 0) p.askP = v; else delete p.askP;
     toast(v > 0 ? `${p.name}: asking ${money(v)}. A club that pays it buys him.` : `${p.name}: no asking price.`); playerModal(p.id); render(); saveGame(); },
+  fweek2: el => { SUB.fw = +el.dataset.v; render(); const s = document.querySelector('[data-act="fweek"]'); if (s) s.scrollIntoView({ block: "center" }); },
   list: el => { const p = P(+el.dataset.id); ownerList(p); playerModal(p.id); render(); saveGame(); },
   release: async el => { const p = P(+el.dataset.id); if (!await ask(`Release ${p.name}?${p.acad ? "" : ` It costs ${money(releaseCost(p))}.`}`)) return; if (p.acad) { overruleYouth("release", [p]); leaveClub(p); toFreeAgent(p); news(`${p.name} is released from the academy.`); } else ownerRelease(p); closeModal(); render(); saveGame(); },
   buy: el => buyModal(+el.dataset.id),
