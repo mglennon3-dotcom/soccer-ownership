@@ -763,7 +763,10 @@ function aiSign(c, pos) {
   const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
   // The best free agent and the best player he could buy: he takes the free agent unless the other is clearly better.
   let fa = fas.length ? fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0] : null;
-  if (R() < clamp(.55 + sp * .07, .2, .92)) {
+  // Part-time clubs (National North/South, Regional League) live on free agents: buying a part-timer from another club
+  // costs a fee, so they only shop now and then (a spender more often), and only for a player clearly better (1.2.26).
+  const pt = partTimeClub(c);
+  if (R() < (pt ? clamp(.12 + sp * .04, .05, .3) : clamp(.55 + sp * .07, .2, .92))) {
     // The four professional divisions also shop abroad, from clubs no bigger than they are: imports cost a fee that leaves the country.
     // At home they buy from their own division, the one above (only a player who isn't first choice there) and the two below; a seller keeps
     // at least 20 players.
@@ -775,7 +778,7 @@ function aiSign(c, pos) {
     // The one he really wants is beyond the budget: the owner may find the money.
     const dream = scored[0] && !canAfford(c, aiFee(scored[0][0], c)) && (!best || scored[0][1] > best[1] + 2) && ownerTopUp(c, aiFee(scored[0][0], c)) ? scored[0] : null;
     const pickd = dream || best;
-    if (pickd && (!fa || pickd[1] > fa.ovr + tf(fa) + 1)) p = pickd[0];
+    if (pickd && (!fa || pickd[1] > fa.ovr + tf(fa) + (pt ? 4 : 1))) p = pickd[0];
   }
   if (!p && fa) p = fa;
   if (!p && promoteAcad(c, pos, target)) return;  // an academy player gets his chance
