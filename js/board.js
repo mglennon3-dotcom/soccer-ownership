@@ -397,7 +397,7 @@ function staffSeasonVerdict(list, d) {
     const parts = list.filter(t => t.role === role).map(t => t.met ? LVL_SCORE[t.lv] : LVL_SCORE[t.got] * .5 - .35 * (t.lv - t.got));
     if (role === "manager" && d != null) parts.push(clamp(d / 6, -1, 1));
     if (!parts.length) continue;
-    const score = clamp(avg(parts), -1, 1); if (Math.abs(score) < .15) { (G.sVerdict ||= {})[role] = `an ordinary season: rating ${sr20(staffAvg(s))}, potential ${staffPot20(s)}, unchanged`; continue; }
+    const score = clamp(avg(parts), -1, 1); if (Math.abs(score) < .15) { (G.sVerdict ||= {})[role] = `an ordinary season: rating ${staffAvg20(s)}, potential ${staffPot20(s)}, unchanged`; continue; }
     const pot0 = staffPot20(s);
     const shift = Math.sign(score) * Math.pow(Math.abs(score), 1.4) * 1.5;  // up to about 2 points on the shown 20 scale
     const before = staffAvg(s);
