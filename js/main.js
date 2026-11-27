@@ -235,6 +235,23 @@ function upgradeSave() {
     for (const p of Object.values(G.players)) if (Array.isArray(p.acc)) { const seen = new Set(); p.acc = p.acc.filter(a => { const k = a.join("|"); if (seen.has(k)) return false; seen.add(k); return true; }); }
     const H = (G.history || []).length; for (const n of [10, 25, 50]) if (G.achs && G.achs["yrs" + n] && H < n) { delete G.achs["yrs" + n]; G.inbox = (G.inbox || []).filter(m => !(m.type === "ach" && m.title && m.title.includes(`${n} seasons under your ownership`))); fix++; }
     if (fix) news(`Records tidied: a season's end that had to be retried had been counted more than once (${fix} duplicate records removed).`); }
+  /* Supporters (1.2.16): one-off. Your supporter count jumped several-fold in one go (Montclair: about 150 to over 1,100), which sent the
+     typical ticket to the top of its range. Put it back to the last level before the jump, using the season history. */
+  if (!G.fansFix1216 && G.club != null) {
+    G.fansFix1216 = true;
+    try {
+      const mine = CL(G.club), hist = (G.history || []).filter(h => h.club === mine.name && h.fans > 0);
+      const seq = [mine.fans, ...hist.map(h => h.fans)];
+      for (let i = 0; i < seq.length - 1; i++) {
+        if (seq[i] > 2.5 * seq[i + 1] && seq[i] - seq[i + 1] > 200) {
+          const back = seq[i + 1];
+          mine.fans = back;
+          for (let j = 0; j < i; j++) hist[j].fans = back;
+          break;
+        }
+      }
+    } catch (e) { console.warn("fansFix1216", e); }
+  }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
