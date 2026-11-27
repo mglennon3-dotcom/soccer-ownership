@@ -66,6 +66,9 @@ function xiSet(c, xi) {
   return e.s;
 }
 const bestOf = c => { let b = null; for (const id of c.squad) { const q = P(id); if (q && !q.acad && !q.loan && (!b || q.ovr > b.ovr)) b = q; } return b; };
+const partTimeClub = c => !!c && !c.abroad && c.tier >= 6;
+// A professional club signing a part-timer can do it at any time, not only in a window.
+const proSigning = (p, buyer = my()) => p.club >= 0 && partTimeClub(CL(p.club)) && !partTimeClub(buyer);
 function askingFee(p, xi, buyer = my()) {
   if (p.club === -1) return 0;
   let f = valueOf(p) * 1.15;
@@ -78,6 +81,10 @@ function askingFee(p, xi, buyer = my()) {
     if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
     f *= [1, 1.25, 1.5][derbyLevel(buyer, c)];  // selling to a rival: only at a premium (more for a fierce one)
+    // Part-time football (National North/South and the Regional League): a player under contract at a part-time club
+    // costs another part-time club a fee (about half a year's wage: €1k to €10k); a club offering him a professional
+    // contract (the National Division and up) can take him at any time, paying his club compensation (a year's wage: €2k to €50k).
+    if (!c.abroad && partTimeClub(c) && buyer && !buyer.abroad) f = Math.max(f, partTimeClub(buyer) ? clamp(p.wage * .5, 1000, 10000) : clamp(p.wage, 2000, 50000));
     // A release clause: a bigger club (standing well above his club's) can take him for the set fee.
     if (p.clause && !mine && buyer && (buyer.rep || 0) >= p.clause.rep) f = Math.min(f, p.clause.fee);
   }
@@ -461,7 +468,7 @@ function suggView(p, c = my(), loan = false) {
   const need = { transfer: Math.max(0, fee - left), wages: Math.max(0, ask - room) };
   if (fee > left) return { ok: false, money: true, need, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
   if (ask > room) return { ok: false, money: true, need, w: `I'd take him, but even talked down to ${pw(ask)} his wages are more than the ${pw(Math.max(0, room))} the wage budget has to spare${pendWages() ? ` once the ${incoming().length} player${incoming().length > 1 ? "s" : ""} already agreed to join (${pw(pendWages())}) are counted` : ""}.` };
-  return { ok: true, fee, ask, N, w: `${what}. ${deal}. ${windowOpen() ? "I'll go after him this week." : p.club >= 0 ? "I'll agree a deal now, and he'll join when the window opens." : "I'll sign him this week."}` };
+  return { ok: true, fee, ask, N, w: `${what}. ${deal}. ${windowOpen() || proSigning(p) ? "I'll go after him this week." : p.club >= 0 ? "I'll agree a deal now, and he'll join when the window opens." : "I'll sign him this week."}` };
 }
 /* His negotiation on a deal you suggested. The fee: he talks the asking price down, more the better a negotiator he is
    and the weaker the seller's hand (a listed player, one with a year or less left, one who's asked to leave); a little
