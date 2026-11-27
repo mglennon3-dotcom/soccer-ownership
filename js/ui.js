@@ -1100,8 +1100,9 @@ function buyModal(id) {
     <p class="small muted">The figures filled in are ${s ? `${esc(s.name)}'s read of their price and his wage: ${negWord()}` : "a guess (you have no head of recruitment to read the other side)"}.</p>
     ${factorBars(playerAppeal(p, wage), P_FACTORS)}
     <p class="small muted">Paid from club cash (${money(my().cash)}), outside the budgets you've set. ${s ? `${esc(s.name)} won't like being bypassed.` : ""}</p>
-    ${!windowOpen() && p.club >= 0 ? `<p class="small">The window is closed: if they accept, the deal is agreed now and he joins when it next opens (the fee is paid then).</p>` : ""}
-    <div class="row"><button class="btn primary" data-act="buygo" data-id="${p.id}">${!windowOpen() && p.club >= 0 ? "Agree the deal" : "Make the offer"}</button></div></div>`);
+    ${p.club >= 0 && partTimeClub(CL(p.club)) ? `<p class="small">${proSigning(p) ? `He's part-time at ${esc(CL(p.club).name)}: you're offering him a professional contract, so he can join now, window or not, and they get compensation (part of the fee).` : `He's under contract at ${esc(CL(p.club).name)}: a part-time club has to pay a fee for him.`}</p>` : ""}
+    ${!windowOpen() && p.club >= 0 && !proSigning(p) ? `<p class="small">The window is closed: if they accept, the deal is agreed now and he joins when it next opens (the fee is paid then).</p>` : ""}
+    <div class="row"><button class="btn primary" data-act="buygo" data-id="${p.id}">${!windowOpen() && p.club >= 0 && !proSigning(p) ? "Agree the deal" : "Make the offer"}</button></div></div>`);
 }
 
 /* ---------- History ---------- */
