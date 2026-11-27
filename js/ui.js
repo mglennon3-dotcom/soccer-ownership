@@ -972,7 +972,7 @@ function pgMarket() {
   let base = F.tab === "sugg" ? suggPlayers() : F.tab === "favs" ? favPlayers() : F.tab === "fa" ? G.fa.map(P).filter(Boolean) : Object.values(G.players).filter(p => p.club >= 0 && p.club !== c.id && !p.acad && !p.loan && (!CL(p.club).gone || CL(p.club).abroad));
   // Part-timers: under contract at a part-time club (National North/South, Regional League). Not free agents: their club is owed a fee.
   if (F.tab === "pt") base = base.filter(p => partTimeClub(CL(p.club)));
-  else if (F.tab === "all") base = base.filter(p => !partTimeClub(CL(p.club)));
+  else if (F.tab === "all") base = base.concat(G.fa.map(P).filter(Boolean));  // everyone: contracted, part-timers and free agents
   if (F.tab === "listed") base = base.filter(p => p.list || p.req);
   if (F.tab === "loans") base = base.filter(p => loanable(p) && lendsTo(p) && !(xiCache[p.club] ||= new Set(pickXI(CL(p.club)).map(o => o.p.id))).has(p.id));
   if (off.size) base = base.filter(p => !off.has(playerCountry(p)));
