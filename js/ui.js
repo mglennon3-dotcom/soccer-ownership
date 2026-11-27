@@ -512,7 +512,7 @@ function playerModal(id) {
 
 /* ---------- Staff ---------- */
 // A staff member's rating (his average, 1-20) beside his name, with his potential when he still has room to grow.
-const staffBadge = s => { const a = sr20(staffAvg(s)), hi = sr20(staffPotRange(s)[1]), pt = staffPot20(s); return `<span class="srate" title="Rating ${a}${hi > a ? `, potential ${pt}` : ""}">${a}${hi > a ? `<small> → ${pt}</small>` : ""}</span>`; };
+const staffBadge = s => { const a = staffAvg20(s), hi = sr20(staffPotRange(s)[1]), pt = staffPot20(s); return `<span class="srate" title="Rating ${a}${hi > a ? `, potential ${pt}` : ""}">${a}${hi > a ? `<small> → ${pt}</small>` : ""}</span>`; };
 /* How a member of staff feels and why: the causes behind the trust figure, this season and last, and ways to put it
    right when the mood has soured. */
 function staffMoodHTML(role, s) {
@@ -590,7 +590,7 @@ function pgHire() {
   const rows = all.map(s => ({ s, ask: staffAsk(s), vm: visionMatch(s), avg: staffAvg(s) }));
   const yes = rows.filter(x => x.ask != null).length;
   let pool = F.who === "yes" ? rows.filter(x => x.ask != null) : rows;
-  pool = pool.filter(x => (!F.phil || x.s.phil === F.phil) && (!F.focus || x.s.focus === F.focus) && (!F.form || x.s.form === F.form) && sr20(x.avg) >= F.min && x.s.age <= F.age
+  pool = pool.filter(x => (!F.phil || x.s.phil === F.phil) && (!F.focus || x.s.focus === F.focus) && (!F.form || x.s.form === F.form) && staffAvg20(x.s) >= F.min && x.s.age <= F.age
     && (!F.wage || (x.ask != null && x.ask <= F.wage)) && (!F.vis || (F.vis === "full" ? x.vm >= .75 : x.vm >= .5))
     && (!F.st || (F.st === "free" ? x.s.emp == null : x.s.emp != null)));
   const sel = (k, opts) => `<select data-act="hf" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(F[k]) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
@@ -599,7 +599,7 @@ function pgHire() {
   return `<div class="stack"><section class="card"><div class="card-h"><h2>Find staff</h2><button class="lnk small" data-act="page" data-p="staff">← Staff</button></div>
     <div class="chips" style="margin-bottom:12px">${Object.entries(ROLES_STAFF).map(([k, r]) => `<button data-act="hrole" data-k="${k}" aria-pressed="${role === k}">${r.l}</button>`).join("")}</div>
     <p class="small muted" style="margin:-4px 0 10px">Going rate for a ${R0.l.toLowerCase()} at your club: <b>${pw(jobRate(role))}</b>. Better candidates ask up to about 2.5× that; anyone working at a higher-division club wants at least what they earn now.</p>
-    <p class="small" style="margin-bottom:10px">${cur ? `Now: <b>${esc(cur.name)}</b>, ${esc(R0.phil[cur.phil].l)} · average ${sr20(staffAvg(cur))} · ${pw(cur.wage)}` : `<span class="warn">Vacant</span>`}</p>
+    <p class="small" style="margin-bottom:10px">${cur ? `Now: <b>${esc(cur.name)}</b>, ${esc(R0.phil[cur.phil].l)} · average ${staffAvg20(cur)} · ${pw(cur.wage)}` : `<span class="warn">Vacant</span>`}</p>
     ${staffLevelsCard(role)}
     <div class="chips" style="margin-bottom:12px">${[["yes", `Would come (${yes})`], ["all", `Everyone (${all.length})`]].map(([k, l]) => `<button data-act="hf" data-k="who" data-v="${k}" aria-pressed="${F.who === k}">${l}</button>`).join("")}</div>
     <div class="filters">
@@ -616,7 +616,7 @@ function pgHire() {
       { k: "name", l: "Name", left: true, v: x => x.s.name, f: x => `<button class="lnk" data-act="cand" data-r="${role}" data-n="${all.indexOf(x.s)}">${esc(x.s.name)}</button>${x.s.ex ? ' <span class="chip acad">EX-PRO</span>' : ""}<br><span class="small muted">${esc(R0.phil[x.s.phil].l)}${x.s.form ? " · " + x.s.form : ""}</span>` },
       { k: "age", l: "Age", r: true, v: x => x.s.age, f: x => x.s.age },
       { k: "rep", l: "Rep", r: true, v: x => x.s.rep, f: x => x.s.rep },
-      { k: "avg", l: "Avg", r: true, v: x => x.avg, f: x => `<b class="num">${sr20(x.avg)}</b>` },
+      { k: "avg", l: "Avg", r: true, v: x => staffAvg20(x.s) * 1000 + x.avg, f: x => `<b class="num">${staffAvg20(x.s)}</b>` },
       { k: "pot", l: "Pot.", r: true, v: x => { const [a, b] = staffPotRange(x.s); return a + b; }, f: x => `<b class="num">${staffPot20(x.s)}</b>` },
       ...attrCols,
       { k: "tol", l: "Hands-on", r: true, v: x => tolOf(x.s), f: x => `<span class="num ${tolWord(x.s)[1]}">${s20(tolOf(x.s))}</span>` },

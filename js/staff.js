@@ -77,6 +77,8 @@ function genStaff(role, rep) {
 const staffOf = role => my() && my().staff[role];
 const staffAttr = (role, k, dflt) => { const s = G && G.club != null ? staffOf(role) : null; return s ? s.at[k] : dflt; };
 const staffAvg = s => Math.round(avg(Object.values(s.at)));
+// The average as shown: of the 1-20 numbers you see, so it always matches them.
+const staffAvg20 = s => clamp(Math.round(avg(Object.values(s.at).map(sr20))), 1, 20);
 
 /* How attractive the job is: the club's standing, its facilities, and an owner with deep pockets. Staff with a bigger
    reputation than this want paying more to come, and the very best won't drop down at all. */
