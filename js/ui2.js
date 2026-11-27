@@ -232,6 +232,25 @@ function myPlayerLine(p) {
   const agreed = p.agreed && CL(p.agreed.club) ? ` · <span class="warn">agreed to join ${esc(CL(p.agreed.club).name)} when the window opens</span>` : "";
   return `<p class="small"><button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>${acaChip(p)}: age <b>${p.age}</b>, rated <b>${r20(p.ovr)}</b>, potential <b>${pot}</b> · ${role}${agreed} · ${seasonBit(p)}</p>${myPlayerStatus(p)}`;
 }
+/* The best-fitting XI (1.2.33): the eleven fit, registered players whose ratings in the formation's positions add up
+   highest (greedy, then swaps until no swap improves it). Ratings only: not the manager's youth focus, minutes targets
+   or rotation. */
+function bestXI(c = my()) {
+  const slots = FORMS[clubForm(c)], pool = c.squad.map(P).filter(p => avail(p) && isReg(p, c) && !(p.loan && p.loan.from === c.id) && (!p.acad || acadOK(p, c)));
+  const fits = (p, s) => (s === "GK") === (p.pos === "GK"), val = (p, s) => fits(p, s) ? roleRating(p, s) : -999;
+  const pick = new Array(slots.length).fill(null), used = new Set();
+  const pairs = []; slots.forEach((s, i) => pool.forEach(p => pairs.push([val(p, s), i, p]))); pairs.sort((a, b) => b[0] - a[0]);
+  for (const [v, i, p] of pairs) if (!pick[i] && !used.has(p.id) && v > -999) { pick[i] = p; used.add(p.id); }
+  for (let pass = 0, better = true; better && pass < 20; pass++) { better = false;
+    for (let i = 0; i < slots.length; i++) {
+      for (let j = i + 1; j < slots.length; j++) { const a = pick[i], b = pick[j]; if (!a || !b) continue;  // swap two starters' positions
+        if (val(b, slots[i]) + val(a, slots[j]) > val(a, slots[i]) + val(b, slots[j]) + 1e-9) { pick[i] = b; pick[j] = a; better = true; } }
+      for (const q of pool) { if (used.has(q.id)) continue; const a = pick[i];  // bring in someone from the bench
+        if (val(q, slots[i]) > (a ? val(a, slots[i]) : -999) + 1e-9) { if (a) used.delete(a.id); pick[i] = q; used.add(q.id); better = true; } }
+    }
+  }
+  return slots.map((s, i) => ({ slot: s, p: pick[i] })).filter(x => x.p);
+}
 // A position's depth chart as the Depth chart page shows it: your order if you've set one, otherwise the manager's
 // (starters there, then everyone else in that area of the team by rating, then those starting elsewhere).
 function depthOrder(c, role) {
@@ -490,7 +509,7 @@ function depthChart() {
     return `<details class="card depth-card" data-dcard="${role}"${open ? " open" : ""}><summary class="card-h" style="cursor:pointer"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${starters.length ? `<b>${starters.join(", ")}</b> · ` : ""}${ranked.length} in the list${thin ? ' · <span class="warn">thin</span>' : ""}${mineL ? " · your order" : ""}</span></summary>
       <p class="small muted" style="margin:0 0 6px">${n} in the ${form}${mineL ? ` · <b>your order</b> · <button class="lnk" data-act="depthreset" data-role="${role}">let the manager pick</button>` : ""}</p><table class="tbl depth"><tbody>${rows.slice(0, cut).join("")}</tbody></table>${rows.length > cut ? `<details${G.depthOpen && G.depthOpen[role] ? " open" : ""} data-act="depthfold" data-role="${role}"><summary class="small muted">More players (${rows.length - cut})</summary><table class="tbl depth"><tbody>${rows.slice(cut).join("")}</tbody></table></details>` : ""}${thin}${also}${away}${opts}</details>`;
   }).join("");
-  return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">${G.depth && Object.keys(G.depth).length ? `<button class="btn sm primary" data-act="depthresetall">Manager's order everywhere</button>` : `<span class="small muted" style="align-self:center">Every position is in the manager's order.</span>`}<button class="btn sm" data-act="dcardall" data-v="1">Open all</button><button class="btn sm" data-act="dcardall" data-v="0">Close all</button></div><div class="grid2 depth-grid">${cards}</div>`;
+  return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">${G.depth && Object.keys(G.depth).length ? `<button class="btn sm primary" data-act="depthresetall">Manager's order everywhere</button>` : `<span class="small muted" style="align-self:center">Every position is in the manager's order.</span>`}<button class="btn sm" data-act="bestxi">Best XI as starters</button><button class="btn sm" data-act="dcardall" data-v="1">Open all</button><button class="btn sm" data-act="dcardall" data-v="0">Close all</button></div><div class="grid2 depth-grid">${cards}</div>`;
 }
 /* The ring round a player on the tactics board: top left, how he fits with the attackers (his own line for a defender
    or keeper); top right, with the midfielders; bottom, with the playing style. Green clicks, amber is fine, red clashes. */
