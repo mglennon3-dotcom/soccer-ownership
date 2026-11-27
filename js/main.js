@@ -219,6 +219,14 @@ function upgradeSave() {
   // 1.2.0, one-off: AI contracts from the start of the game were on a single pay scale whatever the division (a player
   // in League One paid like one anywhere): every AI club's contracts reset to its division's standard.
   if (!G.stdWage121 && G.club != null) { G.stdWage121 = true; standardWages(); }  // (and the leagues abroad)
+  // 1.2.11: a save left half-way through the end of a season (some clubs already promoted or relegated, some with no
+  // division at all) is put back as the season's tables have it, so the season can end properly.
+  if (G.phase !== "summer" && G.leagues && G.clubs.some(c => !c.gone && !c.abroad && (!c.lg || !LEAGUES[c.lg] || !(G.leagues[c.lg].tab || {})[c.id]))) {
+    let n = 0; for (const k of LG_KEYS) { const ids = Object.keys(G.leagues[k].tab || {}).map(Number); if (!ids.length) continue;
+      for (const id of ids) { const c = G.clubs[id]; if (!c) continue; if (c.lg !== k || c.tier !== LEAGUES[k].tier) { n++; c.lg = k; c.tier = LEAGUES[k].tier; if (LEAGUES[k].half) c.half = LEAGUES[k].half; } if (c.tierSince === G.year + 1) c.tierSince = G.year; }
+      G.leagues[k].clubs = ids; }
+    for (const c of G.clubs) if (!c.gone && !c.abroad && (!c.lg || !LEAGUES[c.lg])) { c.gone = true; for (const pid of c.squad.slice()) toFreeAgent(P(pid)); c.squad = []; }
+    if (n) news(`The season's final table has been restored: ${n} clubs put back where they finished, so the season can end.`); }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];

@@ -261,7 +261,7 @@ function endSeason() {
   addMsg({ type: "info", title: "Pre-season: arrange your friendlies", body: "Each of the eight pre-season weeks can have a friendly. Away games earn a fee from the host, home games a gate; with fewer than two, the side starts the season rusty for its first four league games, and three or more gives it a small edge.", go: "league", goL: "Arrange friendlies" });
   // Parachute payments move on a season; a club that has had them all stops getting them.
   for (const c of G.clubs) if (c.para && ++c.para.i >= c.para.n) delete c.para;
-  if (scrLive()) plAccounts();  // the Premier Division's accounts test, on the season just played there
+  try { if (scrLive()) plAccounts(); } catch (e) { console.error("accounts test", e); }  // the Premier Division's accounts test, on the season just played there
   // The season's shocks, in the top two divisions and yours.
   for (const k of LG_KEYS) { const L = LEAGUES[k]; if (L.tier > 2 && k !== mine.lg) continue; const ids = table(k).map(r => r.id), n = ids.length;
     ids.forEach((id, i) => { const c = CL(id), e = (G.expRank || {})[id]; if (!e) return; const pos = i + 1;
@@ -271,6 +271,7 @@ function endSeason() {
   // Apply the moves
   for (const [id, to] of moves) {
     const c = CL(id), from = c.lg;
+    if (!from || !LEAGUES[from] || (to !== "OUT" && !LEAGUES[to || leagueFor(LEAGUES[from].tier + 1, c.half)])) continue;  // (a club already moved, or with nowhere to go)
     if (to !== "OUT") { const ft = LEAGUES[from].tier;
       if (to) delete c.para;  // promoted: the parachute stops
       else if (PARA[ft]) { const up = G.year - (c.tierSince ?? -99) + 1, n = ft === 1 && up < 2 ? 2 : PARA[ft].length, np = { from: ft, i: 0, n };
@@ -288,7 +289,7 @@ function endSeason() {
     }
   }
   for (const [id, to] of moves) { const c = CL(id); if (c.lastF && to !== "OUT") c.lastF[to ? "up" : "down"] = true; }
-  relegationExodus(moves.filter(([, to]) => to === null).map(([id]) => id));
+  try { relegationExodus(moves.filter(([, to]) => to === null).map(([id]) => id)); } catch (e) { console.error("relegation sales", e); }
   balanceHalves("L6N", "L6S"); balanceHalves("L7N", "L7S");
   for (const k of ["L7N", "L7S"]) while (G.leagues[k].clubs.length < LEAGUES[k].size) { const c = newClub(k, LEAGUES[k].size - 1); c.half = LEAGUES[k].half; squadFromFA(c); G.leagues[k].clubs.push(c.id); c.founded = G.year; }
   // Standing: reputation drifts toward the club's division, plus a little for finishing high.
