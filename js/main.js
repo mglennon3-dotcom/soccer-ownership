@@ -227,6 +227,14 @@ function upgradeSave() {
       G.leagues[k].clubs = ids; }
     for (const c of G.clubs) if (!c.gone && !c.abroad && (!c.lg || !LEAGUES[c.lg])) { c.gone = true; for (const pid of c.squad.slice()) toFreeAgent(P(pid)); c.squad = []; }
     if (n) news(`The season's final table has been restored: ${n} clubs put back where they finished, so the season can end.`); }
+  // 1.2.14: clean up after a season's end that crashed and was retried: each retry wrote the season's records again
+  // (history, trophies, honours), which made, for example, "50 seasons under your ownership" fire. Keep one of each.
+  if (!G.dedup1214 && G.club != null) { G.dedup1214 = true; let fix = 0;
+    if (Array.isArray(G.history)) { const seen = new Set(), h = []; for (const x of G.history) { const k = x.y + "|" + x.club; if (x.y != null && seen.has(k)) { fix++; continue; } seen.add(k); h.push(x); } G.history = h; }
+    for (const c of G.clubs) if (Array.isArray(c.trophies)) { const seen = new Set(); c.trophies = c.trophies.filter(t => { const k = t[0] + "|" + t[1]; if (seen.has(k)) { fix++; return false; } seen.add(k); return true; }); }
+    for (const p of Object.values(G.players)) if (Array.isArray(p.acc)) { const seen = new Set(); p.acc = p.acc.filter(a => { const k = a.join("|"); if (seen.has(k)) return false; seen.add(k); return true; }); }
+    const H = (G.history || []).length; for (const n of [10, 25, 50]) if (G.achs && G.achs["yrs" + n] && H < n) { delete G.achs["yrs" + n]; G.inbox = (G.inbox || []).filter(m => !(m.type === "ach" && m.title && m.title.includes(`${n} seasons under your ownership`))); fix++; }
+    if (fix) news(`Records tidied: a season's end that had to be retried had been counted more than once (${fix} duplicate records removed).`); }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];
