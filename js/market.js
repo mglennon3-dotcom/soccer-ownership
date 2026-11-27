@@ -261,7 +261,7 @@ const clubLabel = x => x.abroad ? `${x.name} (${COUNTRY[x.country].name})` : x.n
 /* ---------- offers for your players ----------
    Real offers only, and only in a window. Clubs bid for players you've transfer-listed (usually below their value:
    everyone knows you want to sell), and the bigger clubs come in for your stars whether they're listed or not. */
-const NFS_MIN = 2.5;  // a bid for a not-for-sale player below this multiple of his value is rejected automatically
+const NFS_MIN = 3;  // a bid for a not-for-sale player at or below this multiple of his value is rejected automatically
 function bidsWeek(c) {
   for (const p of c.squad.map(P)) {
     if (p.acad || p.loan || p.agreed || !canSell(p) || G.inbox.some(m => m.type === "bid" && !m.done && m.pid === p.id)) continue;
@@ -278,9 +278,9 @@ function bidsWeek(c) {
       buyer = wpick(want, x => bidWeight(x, p, c)); amt = feeRound(valueOf(p) * rf(2, 5) * (1 + form * .1));
       if (!canAfford(buyer, amt)) continue;  // they can't raise it
       const m = addMsg({ type: "bid", keen: buyer.tier < c.tier || buyer.rep > c.rep + 8 || buyer.abroad, nfs: true, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}, though he's not for sale` });
-      // Not for sale means it (1.2.29): anything under two and a half times his value is turned down at once. Only a bid
+      // Not for sale means it (1.2.29): anything up to three times his value is turned down at once. Only a bid
       // above that reaches you to decide.
-      if (amt < valueOf(p) * NFS_MIN) { answerBid(m, false, true); m.answer = `turned down: he's not for sale (under ${NFS_MIN}x his value)`; }
+      if (amt <= valueOf(p) * NFS_MIN) { answerBid(m, false, true); m.answer = `turned down: he's not for sale (${NFS_MIN}x his value or less)`; }
       continue;
     }
     if (p.list) {
@@ -393,7 +393,7 @@ function answerBid(m, accept, auto) {
   if (accept) {
     if (!auto && maybeWar(m, p, buyer)) return;  // word gets out and other clubs come in
     completeSale(p, buyer, m.amt, auto);
-  } else if (auto) news(`A ${money(m.amt)} bid from ${buyer.name} for ${p.name} is turned down${m.nfs && m.amt < valueOf(p) * NFS_MIN ? `: he's not for sale, and it's under ${NFS_MIN} times his value` : ""}.`);
+  } else if (auto) news(`A ${money(m.amt)} bid from ${buyer.name} for ${p.name} is turned down${m.nfs && m.amt <= valueOf(p) * NFS_MIN ? `: he's not for sale, and it's no more than ${NFS_MIN} times his value` : ""}.`);
 }
 function completeSale(p, buyer, amt, auto) {
   if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`, "Selling first-choice players");
