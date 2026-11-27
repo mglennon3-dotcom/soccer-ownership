@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.2.19";
+const VERSION = "1.2.20";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -492,7 +492,7 @@ function moveTo(p, c) { if ((G.favs || []).includes(p.id) && c.id !== G.club && 
   // Transfer history (player card): season, window, from, to and fee. NEXT_FEE is set by whoever just paid for him.
   if (p.club !== c.id) { (p.tx ||= []).push([G.year, G.phase === "summer" ? 0 : 1, p.club, c.id, NEXT_FEE ?? 0]); if (p.tx.length > 12) p.tx.shift(); }
   NEXT_FEE = null;
-  p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; delete p.clause; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
+  p.inW = windowId(); p.req = 0; p.blocked = 0; p.unsettled = 0; delete p.clause; leaveClub(p); G.fa = G.fa.filter(id => id !== p.id); p.club = c.id; p.list = false; delete p.askP; p.keep = false; p.nfs = false; p.force = false; p.acad = false; c.squad.push(p.id); p.hist.push([G.year, c.short]);  if (!isMine(c)) capSquad(c, p); }
 /* A retirement makes room for a newcomer: one young player (17-20) joins the free agents for each who retires, a little
    below the level the veteran played at. Clearing out the pool (cull) brings nobody in. */
 function newcomerFor(p) { return;  // no invented players: academies replace retirements
