@@ -251,6 +251,27 @@ function bestXI(c = my()) {
   }
   return slots.map((s, i) => ({ slot: s, p: pick[i] })).filter(x => x.p);
 }
+/* The best-chemistry XI (1.2.34): starting from the best XI, swaps and changes that raise the side's chemistry (player
+   pairings, the playing style, the side's balance), using only players within three points (shown scale) of the best
+   rating available for that position, so it never fields someone far weaker. */
+const chemScore = (xi, c = my()) => { const ch = archChem(xi.map((o, i) => ({ ...o, i })), clubStyle(c)); return ch.atk + ch.def; };
+function chemXI(c = my()) {
+  const base = bestXI(c); if (base.length < 11) return base;
+  const pool = c.squad.map(P).filter(p => avail(p) && isReg(p, c) && !(p.loan && p.loan.from === c.id) && (!p.acad || acadOK(p, c)));
+  const fits = (p, s) => (s === "GK") === (p.pos === "GK"), top = {}; for (const o of base) top[o.slot] = Math.max(top[o.slot] || 0, ...pool.filter(p => fits(p, o.slot)).map(p => roleRating(p, o.slot)));
+  const ok = (p, s) => fits(p, s) && r20(roleRating(p, s)) >= r20(top[s]) - 3;
+  const score = xi => chemScore(xi, c) + xi.reduce((t, o) => t + roleRating(o.p, o.slot), 0) * .002;  // rating only breaks ties
+  let cur = base.slice(), best = score(cur);
+  for (let pass = 0, better = true; better && pass < 12; pass++) { better = false;
+    for (let i = 0; i < cur.length; i++) {
+      for (let j = i + 1; j < cur.length; j++) { const a = cur[i], b = cur[j]; if (!ok(b.p, a.slot) || !ok(a.p, b.slot)) continue;
+        const t = cur.slice(); t[i] = { slot: a.slot, p: b.p }; t[j] = { slot: b.slot, p: a.p }; const v = score(t); if (v > best + 1e-9) { cur = t; best = v; better = true; } }
+      for (const q of pool) { if (cur.some(o => o.p === q) || !ok(q, cur[i].slot)) continue;
+        const t = cur.slice(); t[i] = { slot: cur[i].slot, p: q }; const v = score(t); if (v > best + 1e-9) { cur = t; best = v; better = true; } }
+    }
+  }
+  return cur;
+}
 // A position's depth chart as the Depth chart page shows it: your order if you've set one, otherwise the manager's
 // (starters there, then everyone else in that area of the team by rating, then those starting elsewhere).
 function depthOrder(c, role) {
@@ -509,7 +530,7 @@ function depthChart() {
     return `<details class="card depth-card" data-dcard="${role}"${open ? " open" : ""}><summary class="card-h" style="cursor:pointer"><h3>${esc(POS_NAME[role])}</h3><span class="small muted">${starters.length ? `<b>${starters.join(", ")}</b> · ` : ""}${ranked.length} in the list${thin ? ' · <span class="warn">thin</span>' : ""}${mineL ? " · your order" : ""}</span></summary>
       <p class="small muted" style="margin:0 0 6px">${n} in the ${form}${mineL ? ` · <b>your order</b> · <button class="lnk" data-act="depthreset" data-role="${role}">let the manager pick</button>` : ""}</p><table class="tbl depth"><tbody>${rows.slice(0, cut).join("")}</tbody></table>${rows.length > cut ? `<details${G.depthOpen && G.depthOpen[role] ? " open" : ""} data-act="depthfold" data-role="${role}"><summary class="small muted">More players (${rows.length - cut})</summary><table class="tbl depth"><tbody>${rows.slice(cut).join("")}</tbody></table></details>` : ""}${thin}${also}${away}${opts}</details>`;
   }).join("");
-  return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">${G.depth && Object.keys(G.depth).length ? `<button class="btn sm primary" data-act="depthresetall">Manager's order everywhere</button>` : `<span class="small muted" style="align-self:center">Every position is in the manager's order.</span>`}<button class="btn sm" data-act="bestxi">Best XI as starters</button><button class="btn sm" data-act="dcardall" data-v="1">Open all</button><button class="btn sm" data-act="dcardall" data-v="0">Close all</button></div><div class="grid2 depth-grid">${cards}</div>`;
+  return `<p class="small muted" style="margin-bottom:10px">Every position in the ${form}, with your squad ranked by their rating there (out of 20, as the manager picks). A position badge means he'd be playing out of position. Injured players are greyed. Use ▲ ▼ to set your own order: the top players start there (when fit and registered), the next come in first. \"Insist he starts\" on a player's card still comes first.</p><div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">${G.depth && Object.keys(G.depth).length ? `<button class="btn sm primary" data-act="depthresetall">Manager's order everywhere</button>` : `<span class="small muted" style="align-self:center">Every position is in the manager's order.</span>`}<button class="btn sm" data-act="bestxi">Best XI as starters</button><button class="btn sm" data-act="bestxi" data-chem="1">Best chemistry XI</button><button class="btn sm" data-act="dcardall" data-v="1">Open all</button><button class="btn sm" data-act="dcardall" data-v="0">Close all</button></div><div class="grid2 depth-grid">${cards}</div>`;
 }
 /* The ring round a player on the tactics board: top left, how he fits with the attackers (his own line for a defender
    or keeper); top right, with the midfielders; bottom, with the playing style. Green clicks, amber is fine, red clashes. */
