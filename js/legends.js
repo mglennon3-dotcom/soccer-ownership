@@ -83,7 +83,10 @@ function becomeStaff(p) {
 function exProCands(role) {
   const a = attraction(), own = [], others = [];
   for (const x of G.exPros || []) { if (x.s.role !== role) continue; (x.s.ex.favOf.includes(G.club) ? own : others).push(x.s); }
-  return [...own, ...others.filter(s => Math.abs(s.rep - a) < 25).sort(() => R() - .5).slice(0, 3)];
+  // Which three of the others are about this week: fixed for the week (not reshuffled every time the list is drawn,
+  // which made the list jump about when sorting and could open the wrong person's card).
+  const wk = G.year * 100 + (G.phase === "summer" ? G.week : 10 + G.week), h = s => { let x = wk; for (const ch of s.name) x = (x * 31 + ch.charCodeAt(0)) >>> 0; return x; };
+  return [...own, ...others.filter(s => Math.abs(s.rep - a) < 25).sort((x, y) => h(x) - h(y)).slice(0, 3)];
 }
 function hiredExPro(s) {
   G.exPros = (G.exPros || []).filter(x => x.s !== s);
