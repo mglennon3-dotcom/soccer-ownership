@@ -458,6 +458,9 @@ const ACT = {
     if (i < 0 || j < 0 || j >= L.length) return; [L[i], L[j]] = [L[j], L[i]]; (G.depth ||= {})[role] = L; render(); saveGame(); },
   depthadd: el => { const role = el.dataset.role, id = +el.dataset.id, X = ((G.depthX ||= {})[role] ||= []); if (!X.includes(id)) X.push(id); render(); saveGame(); },
   depthdrop: el => { const role = el.dataset.role, id = +el.dataset.id; if (G.depthX && G.depthX[role]) G.depthX[role] = G.depthX[role].filter(i => i !== id); if (G.depth && G.depth[role]) G.depth[role] = G.depth[role].filter(i => i !== id); render(); saveGame(); },
+  depthresetall: async () => { const n = Object.keys(G.depth || {}).length, f = my().squad.map(P).filter(p => p && p.force).length; if (!n) return;
+    if (!await ask(`Put all ${n} position${n > 1 ? "s" : ""} you've ordered back into the manager's order?${f ? ` (${f} "insist he starts" pick${f > 1 ? "s stay" : " stays"}: clear ${f > 1 ? "them" : "it"} on the player's card.)` : ""}`)) return;
+    G.depth = {}; toast("Every position is back in the manager's order."); render(); saveGame(); },
   depthreset: el => { if (G.depth) delete G.depth[el.dataset.role]; render(); saveGame(); },
   praise: el => { praiseDo(+el.dataset.id, el.dataset.t, el.dataset.how); render(); saveGame(); },
   optprice: el => { const c = my(), ks = el.dataset.k === "all" ? ["ticket", "st", "conc", "shirt", ...(c.fac.stadium.own && c.fac.stadium.suites ? ["suite"] : [])] : [el.dataset.k], done = [];
