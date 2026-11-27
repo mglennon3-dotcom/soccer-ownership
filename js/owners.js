@@ -705,14 +705,17 @@ const xiAge = c => avg(pickXI(c).map(o => o.p.age));
 /* Selling to cut the wage bill: the dearest players go, but only to a club that wants him and can pay. A seller who has
    to sell takes what he can get: well under his value, down to whatever the buyer has left, and if nobody will pay
    anything he's released (the wages are saved, nothing comes in). */
-function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [];
-  for (let i = 0; i < 3; i++) { if (aiBill(c) <= bud) break;
-    const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
+/* Selling to get back within a spending rule (1.2.26): the biggest earners go first, to a club of his level (its own
+   level, so the top clubs can take a world-class player). A valuable player nobody can take isn't thrown away: the club
+   keeps him and sells the next earner instead. Only a player with no real value (rated below 12) is released. */
+function ruleSales(c) { const bud = aiBudget(c) * 1.15, sold = [], kept = new Set();
+  for (let i = 0, n = 0; i < 8 && n < 3; i++) { if (aiBill(c) <= bud) break;
+    const p = c.squad.map(P).filter(p => p && !p.acad && !p.loan && !kept.has(p.id)).sort((a, b) => b.wage - a.wage)[0]; if (!p) break;
     const ask = Math.round(aiFee(p) * rf(.5, .8) / 1e4) * 1e4;
-    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && Math.abs((x.abroad ? x.lvl : TIER_XI[x.tier]) - p.ovr) < 8 && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)) && fitsRules(x, aiWage(p, x), ask, 3) && !(x.abroad && homeBound(p)) && acceptsMove(p, x));  // he has to want to go there
+    const fits = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad || !x.gone) && !(R() < [0, .7, .9][derbyLevel(c, x)]) && (L => p.ovr - L < 10 && L - p.ovr < 8)(x.lvl || TIER_XI[x.tier] || 0) && tbOf(x) > ask * .3 && (x.abroad || aiBill(x) + aiWage(p, x) <= salaryCap(x.tier)) && fitsRules(x, aiWage(p, x), ask, 3) && !(x.abroad && homeBound(p)) && acceptsMove(p, x));  // he has to want to go there
     const b = fits.length ? pick(fits) : null;
-    if (!b) { leaveClub(p); toFreeAgent(p); sold.push(p.name + " (released: nobody would pay for him)"); continue; }
-    const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4));
+    if (!b) { if (r20(p.ovr) >= 12) { kept.add(p.id); continue; } leaveClub(p); toFreeAgent(p); n++; sold.push(p.name + " (released: nobody would pay for him)"); continue; }
+    const fee = Math.min(ask, Math.max(0, Math.round(tbOf(b) / 1e4) * 1e4)); n++;
     aiTransfer(p, b, fee); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); sold.push(`${p.name} to ${b.name}${b.abroad ? ` (${COUNTRY[b.country].name})` : ""}${fee ? ` for ${money(fee)}` : " for nothing"}`); }
   if (sold.length && (c.lg === my().lg || c.tier === 1)) news(`${c.name} sell to stay within the spending rule: ${sold.join(", ")}.`); }
 const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBudget(c) * 1.2;
