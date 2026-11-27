@@ -141,7 +141,7 @@ function scoutScore(p, need, c, phil) {
 // him back on her own. (You can still suggest him or buy him yourself.)
 const leftUs = p => (G.tlog || []).some(m => m.id === p.id && ["out", "release", "expired"].includes(m.kind) && m.y >= G.year - 1);
 function shortlist(c, need, max = 6) {
-  const s = staffOf("recruit"), left = c.budget.transfer - c.spentT - pendFees(), wageRoom = c.budget.wages - wageBill(c) - pendWages();
+  const H = isMine(c) ? suggHold() : { t: 0, w: 0 }, s = staffOf("recruit"), left = c.budget.transfer - c.spentT - pendFees() - H.t, wageRoom = c.budget.wages - wageBill(c) - pendWages() - H.w;
   const reach = s ? s.at.net : 0, phil = s ? s.phil : "proven";
   // Contacts and scouting budget decide how much of the market he actually sees.
   const seeTier = c.tier - 1 - Math.floor((reach + scoutBoost() * 3) / 35);
@@ -203,19 +203,25 @@ function coverOK(c, p) {
 function headWeek(c) {
   const s = staffOf("recruit");
   if (!s) return;
-  let signed = 0;
-  const lim = G.phase === "summer" ? (c.squad.filter(id => !P(id).acad).length < 18 ? 4 : 2) : 1;
+  let signed = 0, waitFor = null;
+  let lim = G.phase === "summer" ? (c.squad.filter(id => !P(id).acad).length < 18 ? 4 : 2) : 1;
   // Your suggestions come first, and don't count against his own list (he'll still only take ones he agrees with).
   for (const x of sugg().slice()) {
     const p = G.players[x.id]; x.wait = false;  // the window's open: no more waiting
     if (!p || p.club === c.id) { G.sugg = sugg().filter(y => y !== x); continue; }
-    const v = suggView(p, c, x.loan); if (!v.ok) continue;
+    const v = suggView(p, c, x.loan);
+    if (!v.ok) { if (v.money && x.raised && !waitFor) waitFor = { p, v, x }; continue; }
     if (embargoed(c) && (x.loan || v.fee > 0)) continue;  // the embargo: he can't do it (it waits)
     if (x.loan) loanIn(p, CL(p.club), v.share, "suggestion");
     else { const fromClub = fromName(p); signPlayer(p, v.fee, v.ask, false, "suggestion"); news(`${s.name} negotiated the deal for ${p.name}: ${v.N.ask ? (v.fee < v.N.ask ? `${fromClub} asked ${money(v.N.ask)}, ${pr(s, "he")} paid ${money(v.fee)}` : `${fromClub} wouldn't move from ${money(v.N.ask)}`) : "a free transfer"}; the agent wanted ${pw(v.N.agent)}, ${pr(s, "he")} agreed ${pw(v.ask)}.`); }
     G.sugg = sugg().filter(y => y !== x);
     news(`${p.name} was your suggestion: ${s.name} thanks you for the tip.`); trust("recruit", 2, null, "Your tips");
   }
+  // You raised a budget for a suggestion and it's still a little short (his read of the price moved): he doesn't spend
+  // that money on anyone else. He tells you once a window what it needs, and waits.
+  if (waitFor) { const { p, v, x } = waitFor; if (x.toldW !== windowId()) { x.toldW = windowId(); const f = budgetFit(p, x.loan);
+      news(`${s.name}: "${p.name} is still just out of reach${f ? `: it needs ${budgetFitText(f)} more` : ""}. I'm holding the budget for him and not signing anyone else meanwhile."`, true); }
+    lim = 0; }
   for (const need of squadNeeds(c)) {
     if (signed >= lim) break;
     const best = shortlist(c, need, 1)[0];
@@ -464,6 +470,11 @@ function warKeep(w) {
    thinks; while a window is open he goes after the ones he agrees with before his own list. Asking isn't overruling:
    he doesn't mind being asked, and he's pleased when a tip comes off. */
 const sugg = () => (G.sugg ||= []);
+/* Money held for your suggestions (1.2.23): once your head of recruitment has said he can do a deal you suggested (or you
+   raised a budget to make it possible), its fee and wages are set aside, and his own shopping list can't spend them.
+   Released when the deal is done or the suggestion is withdrawn. */
+const suggHold = (except = -1) => { let t = 0, w = 0; for (const x of sugg()) { const p = G.players[x.id]; if (!x.hold || x.id === except || !p || p.club === G.club) continue; t += x.hold.t || 0; w += x.hold.w || 0; } return { t, w }; };
+function setHold(p, loan) { const x = sugg().find(y => y.id === p.id); if (!x) return; const v = suggView(p, my(), loan); x.hold = v.ok ? { t: v.fee || 0, w: v.loan ? p.wage * (v.share || 0) : v.ask || 0 } : x.hold || null; }
 const suggested = (p, loan) => sugg().find(x => x.id === p.id && (loan == null || !!x.loan === !!loan));
 function suggView(p, c = my(), loan = false) {
   const s = staffOf("recruit");
@@ -489,7 +500,7 @@ function suggView(p, c = my(), loan = false) {
   const what = starter ? "He'd go straight into the side" : prospect ? "A real prospect" : "Good cover";
   if (loan) {
     // He pays what the lending club has in mind, less a little if he's a good negotiator; outside a window he can only guess.
-    const room = c.budget.wages - wageBill(c);
+    const room = c.budget.wages - wageBill(c) - suggHold(p.id).w;
     if (!windowOpen()) return p.wage * .5 > room ? { ok: false, money: true, need: { wages: p.wage * .5 - room }, w: `A loan would cost about ${pw(p.wage * .5)} and the wage budget only has ${pw(Math.max(0, room))} to spare.` } : { ok: false, wait: true, w: `${what} on loan. I'll ask about him when the window opens.` };
     const T = playerLoanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
     if (!p.ng || p.ng.w !== windowId()) p.ng = { w: windowId(), n: normal(), m: normal() };
@@ -499,7 +510,7 @@ function suggView(p, c = my(), loan = false) {
   }
   const N = negotiate(p, c);
   if (!N) return { ok: false, w: "He isn't interested in joining us." };
-  const fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT - pendFees(), room = c.budget.wages - wageBill(c) - pendWages();
+  const H = suggHold(p.id), fee = N.fee, ask = N.wage, left = c.budget.transfer - c.spentT - pendFees() - H.t, room = c.budget.wages - wageBill(c) - pendWages() - H.w;
   const deal = `${N.ask ? (fee < N.ask ? `They want ${money(N.ask)}; I think I can get him for about ${money(N.feeG)}` : `They want ${money(N.ask)} and I don't think they'll take less`) : "He's a free agent"}, on about ${pw(N.wageG)} (his agent's asking ${pw(N.agent)}; ${negWord()})`;
   const need = { transfer: Math.max(0, fee - left), wages: Math.max(0, ask - room) };
   if (fee > left) return { ok: false, money: true, need, w: `I'd take him, but even talked down to about ${money(fee)} his fee is more than the ${money(Math.max(0, left))} left in the transfer budget.` };
@@ -530,7 +541,7 @@ function suggest(p, loan) {
   const s = staffOf("recruit"); if (!s) return;
   if (suggested(p, loan)) { G.sugg = sugg().filter(x => x.id !== p.id); return news(`You withdraw your suggestion of ${p.name}.`); }
   G.sugg = sugg().filter(x => x.id !== p.id);  // a player is suggested as a signing or a loan, not both
-  sugg().push({ id: p.id, y: G.year, w: G.week, loan: !!loan });
+  sugg().push({ id: p.id, y: G.year, w: G.week, loan: !!loan }); setHold(p, loan);
   news(`You suggest ${loan ? "borrowing" : "signing"} ${p.name} to ${s.name}: "${suggView(p, my(), loan).w}"`);
 }
 

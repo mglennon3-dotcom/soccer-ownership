@@ -526,7 +526,7 @@ const ACT = {
     const on = suggested(p), also = !on || !!on.loan !== loan;
     if (!await ask(`Raise ${budgetFitText(f)} so ${s.name} can ${loan ? "borrow" : "sign"} ${p.name}?${also ? ` You'll also suggest ${loan ? "borrowing" : "signing"} him.` : ""}`)) return;
     c.budget.transfer += f.transfer; c.budget.wages += f.wages; news(`You raise ${budgetFitText(f)} to make room for ${p.name}.`);
-    if (also) suggest(p, loan); playerModal(p.id); render(); saveGame(); },
+    if (also) suggest(p, loan); else setHold(p, loan); { const x = sugg().find(y => y.id === p.id); if (x) x.raised = true; } playerModal(p.id); render(); saveGame(); },
   suggest: el => { const p = P(+el.dataset.id); suggest(p, !!el.dataset.loan); if (document.querySelector(".modal")) playerModal(p.id); render(); saveGame(); },
   nfs: el => { const p = P(+el.dataset.id); setNotForSale(p, !p.nfs); toast(p.nfs ? `${p.name} is not for sale: no club will bid for him.` : `${p.name} is available again.`); playerModal(p.id); render(); saveGame(); },
   sugloan: el => { const p = P(+el.dataset.id); loanListToggle(p); render(); saveGame(); },
