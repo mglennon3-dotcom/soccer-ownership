@@ -1089,22 +1089,24 @@ function pgMarket() {
 function fitBtn(p, loan) { const f = budgetFit(p, loan); return f ? `<div class="row" style="margin:4px 0 6px"><button class="btn sm" style="white-space:nowrap" data-act="fitbudget" data-id="${p.id}"${loan ? ' data-loan="1"' : ""}>Raise the budget to fit him</button><span class="small muted">${budgetFitText(f).replace(/^t/, "T")}</span></div>` : ""; }
 // On your own player's card: retrain his type within his position, once (1.2.64).
 function restyleBox(p) {
-  if (p.restyled) return `<p class="small muted">Retrained from a ${esc(p.restyled.from.toLowerCase())} in ${seasonLabel(p.restyled.y)}: his type can't be changed again.</p>`;
+  if (p.restyled) return `<p class="small muted">Retrained from a ${esc(p.restyled.from.toLowerCase())} in ${seasonLabel(p.restyled.y)}: his type can't be changed again, and he can't retrain to a new position.</p>`;
+  if (p.retrained) return "";  // he's retrained to a new position: no type change as well
   if (!restyleOK(p)) return ""; const cur = archetypeOf(p); if (!cur) return "";
-  return `<details class="sugg"><summary class="small"><b>Retrain his type</b> <span class="muted">(once only)</span></summary>
+  return `<details class="sugg"><summary class="small"><b>Retrain his type</b> <span class="muted">(once only, and then no position change)</span></summary>
     <p class="small muted" style="margin:6px 0">Now a ${esc(cur[0].toLowerCase())}, rated ${r20(p.ovr)}. He works on the new type's key attributes and lets his current type's ones slip, just far enough to change.</p>
     ${(ARCHETYPES[p.pos] || []).filter(a => a[3] !== cur[3]).map(a => { const O = restyleOutcome(p, a[3]); return O ? `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(a[0])}</b> <span class="muted">(${a[3]})</span>: ${esc(a[2])}<br><span class="${r20(O.ovr) > r20(p.ovr) ? "good" : r20(O.ovr) < r20(p.ovr) ? "warn" : "muted"}">Rated ${r20(O.ovr)} afterwards</span></span><button class="btn sm" data-act="restyle" data-id="${p.id}" data-to="${a[3]}">Retrain</button></div>` : ""; }).join("")}
     <p class="small muted">It takes effect now.</p></details>`;
 }
 // On your own player's card: retrain him to a neighbouring position, once, with the manager's estimate.
 function retrainBox(p) {
-  if (p.retrained) return `<p class="small muted">Retrained from ${esc(POS_NAME[p.retrained.from].toLowerCase())} in ${seasonLabel(p.retrained.y)}: he can't retrain again.</p>`;
+  if (p.retrained) return `<p class="small muted">Retrained from ${esc(POS_NAME[p.retrained.from].toLowerCase())} in ${seasonLabel(p.retrained.y)}: he can't retrain again, or change his type.</p>`;
+  if (p.restyled) return "";  // he's retrained his type: no position change as well
   if (!retrainOK(p)) return "";
   const m = mgr(), cls = { good: "good", bad: "bad", neutral: "" }, word = { good: "Good move", bad: "Bad move", neutral: "Neutral" };
   const rng = ([a, b]) => a === b ? `${a}` : `${a}–${b}`;
-  return `<details class="sugg"><summary class="small"><b>Retrain to a new position</b> <span class="muted">(once only)</span></summary>
+  return `<details class="sugg"><summary class="small"><b>Retrain to a new position</b> <span class="muted">(once only, and then no type change)</span></summary>
     <p class="small muted" style="margin:6px 0">Now: ${esc(POS_NAME[p.pos])}, rated ${r20(p.ovr)}, potential ${range(potEstimate(p))}. ${m && m.name ? `${esc(m.name)}'s estimate (player development ${s20(m.at.dev)}: ${retrainView(p, RETRAIN[p.pos][0]).sure}):` : "The caretaker's guess:"}</p>
-    ${RETRAIN[p.pos].map(to => { const V = retrainView(p, to); return `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(POS_NAME[to])}</b> · <span class="${cls[V.verdict]}">${word[V.verdict]}</span><br><span class="muted">About ${rng(V.ovr)} now, potential ${rng(V.pot)}</span></span><button class="btn sm" data-act="retrain" data-id="${p.id}" data-to="${to}">Retrain</button></div>`; }).join("")}
+    ${RETRAIN[p.pos].map(to => { const V = retrainView(p, to), ty = retrainType(p, to); return `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(POS_NAME[to])}</b>${ty ? ` as a ${esc(ty[0].toLowerCase())} <span class="muted">(${ty[3]})</span>` : ""} · <span class="${cls[V.verdict]}">${word[V.verdict]}</span><br><span class="muted">About ${rng(V.ovr)} now, potential ${rng(V.pot)}</span></span><button class="btn sm" data-act="retrain" data-id="${p.id}" data-to="${to}">Retrain</button></div>`; }).join("")}
     <p class="small muted">It takes effect now. How well he takes to it can surprise anyone.</p></details>`;
 }
 // On your own player's card: offer him a new contract, with your head of recruitment's advice on the wage.

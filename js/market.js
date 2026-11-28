@@ -658,7 +658,7 @@ function offerRenewal(p, wage, yrs, cm = 0) {
    nobody can see for sure, moves the new position's key attributes up or down. His potential moves with his rating; a young player's aptitude counts again as he grows into
    the role. The manager estimates the outcome, the better his player development the closer. */
 const RETRAIN = { CB: ["FB", "DM"], FB: ["CB", "W", "DM"], DM: ["CB", "CM", "FB"], CM: ["DM", "AM"], AM: ["CM", "W", "ST"], W: ["FB", "AM", "ST"], ST: ["W", "AM"], GK: [] };
-const retrainOK = p => p.club === G.club && p.pos !== "GK" && !p.retrained && !(p.loan && p.loan.to === G.club);
+const retrainOK = p => p.club === G.club && p.pos !== "GK" && !p.retrained && !p.restyled && !(p.loan && p.loan.to === G.club);  // one or the other: a new position or a new type (1.2.65)
 const aptOf = (p, to) => ((p.apt ||= {})[to] ??= Math.round(clamp(normal(), -2.5, 2.5) * 4 * 10) / 10);
 // What retraining would do: his new rating and potential (raw), from his attributes and his aptitude.
 function retrainOutcome(p, to, apt = aptOf(p, to)) {
@@ -682,7 +682,7 @@ function retrainView(p, to) {
 /* Retraining his type (1.2.64), once: he works on the new type's key attributes and lets his old type's ones slip by the
    same total, just far enough that he becomes the new type. His rating moves a little either way (positions value some
    attributes more than others). Within his position; academy players and loanees can't. */
-const restyleOK = p => p.club === G.club && !p.restyled && !p.acad && !(p.loan && p.loan.to === G.club) && (ARCHETYPES[p.pos] || []).length > 1;
+const restyleOK = p => p.club === G.club && !p.restyled && !p.retrained && !p.acad && !(p.loan && p.loan.to === G.club) && (ARCHETYPES[p.pos] || []).length > 1;
 function restyleOutcome(p, code) {
   const list = ARCHETYPES[p.pos] || [], to = list.find(a => a[3] === code), cur = archetypeOf(p); if (!to || !cur || cur[3] === code) return null;
   const at = { ...p.at }, up = to[1].filter(k => !cur[1].includes(k)), down = cur[1].filter(k => !to[1].includes(k)), q = { ...p, at };
@@ -695,6 +695,8 @@ function restyle(p, code) {
   p.at = O.at; setOvr(p); p.pot = Math.max(p.ovr, p.pot + (p.ovr - was)); p.restyled = { from, y: G.year };
   news(`${p.name} retrains as a ${O.name.toLowerCase()} (was a ${from.toLowerCase()}): now rated ${r20(p.ovr)}${r20(p.ovr) !== r20(was) ? ` (was ${r20(was)})` : ""}.`, true);
 }
+// The type he'd be in the new position: his attributes as retraining leaves them (on an average aptitude).
+function retrainType(p, to) { const O = retrainOutcome(p, to, 0), q = { ...p, pos: to, at: { ...p.at } }, lift = O.ovr - rawRole(q, to); for (const k of Object.keys(POS_W[to])) q.at[k] = clamp(rh(q.at[k] + lift), 1, 100); return archetypeOf(q); }
 function retrain(p, to) {
   if (!retrainOK(p) || !RETRAIN[p.pos].includes(to)) return;
   const from = p.pos, was = p.ovr, wasPot = p.pot, apt = aptOf(p, to), O = retrainOutcome(p, to, apt);
