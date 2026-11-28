@@ -195,7 +195,10 @@ const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.ro
    chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
    as income, so they show up here. */
 // Transfer profit helps, but only so far: wages are a commitment for years, and a big sale isn't repeated every season.
-const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.min(Math.max(0, c.feeAvg || 0), aiIncome(c) * .12) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
+/* (1.2.39) Selling clubs in the Second and Third Divisions live on it: sales money up to 40% of income goes back into the
+   squad (elsewhere 12%), and the squad cost rule counts it as income, as the EFL's rule counts profit on player sales. */
+const feeReinvest = c => c.tier >= 3 && c.tier <= 4 ? .4 : .12;
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.min(Math.max(0, c.feeAvg || 0), aiIncome(c) * feeReinvest(c)) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
 /* What he aims for. Like real football, most clubs spend beyond their means and the owner covers the gap: the planned
    loss (a share of income) is deepest in the First Division, where everyone gambles on promotion, and smallest at the
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
@@ -556,7 +559,7 @@ const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
 const europeBound = c => inEurope(c) || !!(G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id));
 const aiSquadCost = c => aiBill(c) + aiAmort(c);
 const ownerMoney = c => aiIncome(c) * clamp(spendTarget(c), 0, 1.5);  // what the owner plans to put in a year
-const scrRevenue = c => aiIncome(c) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c) : 0);
+const scrRevenue = c => aiIncome(c) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c) + Math.max(0, c.feeAvg || 0) : 0);
 // Non-league: the wage bill an owner will carry, his nature times the club's size (a benefactor about two and a half times income).
 const nlWageCap = c => aiIncome(c) * (.75 + clamp(lossTol(c), 0, 1.5));
 /* Room left for a new player's wage plus a year's share of his fee. Reckless owners (gamblers, book-cookers) ignore it
