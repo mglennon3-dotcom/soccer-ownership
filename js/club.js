@@ -67,7 +67,7 @@ function amenQuote(c) { const l = c.fac.stadium.amen; return l >= 5 ? null : { l
 /* Old grounds cost more to keep up: each stand's upkeep rises after 20 years, about doubling by 100 (repairs, safety
    work, worn concrete and roofs). Rebuilding a stand resets it. */
 const ageUpF = yrs => clamp(1 + Math.max(0, yrs - 20) * .012, 1, 2);
-const standUpkeepF = S => { const st = Object.entries(standsOf(S)), t = sum(st, ([, x]) => x.cap) || 1; return sum(st, ([k, x]) => x.cap * ageUpF(G.year - standYr(S, k))) / t; };
+const standUpkeepF = S => { const st = Object.entries(standsOf(S)), t = sum(st, ([, x]) => x.cap) || 1; return sum(st, ([k, x]) => x.cap * ageUpF((G.year - standYr(S, k)) * stStyle(x).age)) / t; };
 const stadiumUpkeep = c => { const S = c.fac.stadium; return S.own ? Math.round((S.cap * 22 + S.amen * S.cap * 8) * standUpkeepF(S) + (S.suites || 0) * boxUpkeep(c) + corpSeats(c) * corpUpkeep(c)) : 0; };
 
 /* Training ground and academy: levels 0-10. Level 0 means hired council pitches / no academy at all. */
@@ -93,16 +93,17 @@ function buildWeek(c) {
   if (S.build && S.build.type === "reground" && !S.rebuilding && S.build.total - S.build.left >= (S.build.plan || 0)) { S.rebuilding = true; S.away = S.build.host ?? tempHost(c); c.cap = capacity(c); news(`Planning is approved and ${S.name} closes for rebuilding. Home games move to ${HOSTS[S.away].name}.`, true); }
   if (S.build && --S.build.left <= 0) {
     const b = S.build, top = G.news[0]; S.build = null;
-    if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = clamp(b.amen || 2, 1, 5); if (b.heat) S.heat = true; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = b.suites || 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
+    if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); S.shape = b.shape || "classic"; S.feat = { ...(b.feat || {}) }; syncCap(S); S.amen = clamp(b.amen || 2, 1, 5); if (b.heat) S.heat = true; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = b.suites || 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
     if (b.type === "new" || b.type === "move" || b.type === "reground") { setHoney(c); moodHit(c, 5); news("The new ground is open: supporters are queuing for tickets, and the excitement should last a couple of seasons.", true); }
     if (b.type === "new") { openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = Math.max(S.site, S.cap + usedSpace(S)); if (has(c, "fanzone")) S.popup = false; }
     else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; st[side].ext = G.year; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
-    else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, yr: G.year, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
+    else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, style: b.style || "std", yr: G.year, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "move") moveIn(c, b);
-    else if (b.type === "reground") { closeGround(S); S.stands = JSON.parse(JSON.stringify(b.stands)); openGround(S); if (b.amen) S.amen = clamp(b.amen, 1, 5); if (b.heat) S.heat = true; S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
+    else if (b.type === "reground") { closeGround(S); S.stands = JSON.parse(JSON.stringify(b.stands)); S.shape = b.shape || "classic"; S.feat = { ...(S.feat || {}), ...(b.feat || {}) }; openGround(S); if (b.amen) S.amen = clamp(b.amen, 1, 5); if (b.heat) S.heat = true; S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
     else if (b.type === "roof") { standsOf(S)[b.side].roof = true; news(`The ${SIDES[b.side]} has a roof: supporters there stay dry.`, true); }
     else if (b.type === "convert") { standsOf(S)[b.side].type = b.to; news(`The ${SIDES[b.side]} is now ${b.to === "seat" ? "all-seated" : "a terrace"}.`, true); }
     else if (b.type === "corp") { const W = standsOf(S).W; W.corp = (W.corp || 0) + b.add; news(`${b.add} corporate seats are ready in the Main stand (${W.corp} in all).`, true); }
+    else if (b.type === "feat") { (S.feat ||= {})[b.k] = true; if (b.k === "landmark") { moodHit(c, 6); addHoney(c, "ground", .4); } if (b.k === "safe") moodHit(c, 3); news(`${FEATURES[b.k].l} is finished at ${S.name}: ${FEATURES[b.k].d.charAt(0).toLowerCase() + FEATURES[b.k].d.slice(1)}`, true); }
     else if (b.type === "heat") { S.heat = true; news("Undersoil heating is installed: frost and snow won't stop games at home any more.", true); }
     else if (b.type === "suites") { S.suites = (S.suites || 0) + b.add; news(`${b.add} new executive suites are ready (${S.suites} in all).`, true); }
     else if (b.type === "amen") { S.amen = b.lvl; news(`Stadium facilities upgraded to level ${b.lvl}.`, true); }
@@ -164,7 +165,7 @@ const drawWord = c => { const d = drawOf(c); return d >= 1.8 ? ["Huge following 
    (and the more supporters, the more shirts). */
 function clubPop(c) {
   const media = isMine(c) ? ((c.media ?? 10) - 10) / 150 : (((OWNER_STYLES[(c.own || {}).style] || {}).media) || 0) * .02;
-  return clamp(1 + (c.rep - TIER_REP[c.tier]) / 80, .7, 1.5) * (1 + media);
+  return clamp(1 + (c.rep - TIER_REP[c.tier]) / 80, .7, 1.5) * (1 + media) * (isMine(c) && hasFeat(c, "landmark") ? 1.05 : 1);
 }
 const topFan = c => { const m = fanMix(c); return Object.keys(m).sort((a, b) => m[b] - m[a])[0]; };
 /* Supporters (1.2.42): a club gains supporters by earning them, not by sitting in a division. Each summer, for every
@@ -295,7 +296,7 @@ const kidShare = c => { const comm = fanShare(c, "comm") || 0, fam = c.fac && fa
 const ticketYield = c => { if (!c || c.abroad || c.tier < 6) return 1; const k = kidShare(c); return 1 - k.u12 - k.teen * .5; };
 function concessionsFor(c, crowd, price = c.prices.conc) {
   const am = ground(c).amen, buy = clamp(1.6 * Math.pow(REF_CONC[c.tier] / Math.max(.3, price), 1.4), 0, 2.6) * (.65 + am * .12);
-  const lc = atHome(c) ? LOC(c).conc : 1, gross = crowd * buy * price * lc, cut = atHome(c) ? 1 : .5;  // a landlord keeps half the bar takings
+  const lc = (atHome(c) ? LOC(c).conc : 1) * (c.fac && c.fac.stadium.own && atHome(c) ? 1 + sum(Object.values(standsOf(c.fac.stadium)), x => (x.cap || 0) * (stStyle(x).spend || 0)) / Math.max(1, c.fac.stadium.cap) : 1), gross = crowd * buy * price * lc, cut = atHome(c) ? 1 : .5;  // a landlord keeps half the bar takings
   // Stock and staff cost about 30% of the going rate an item: very cheap food and drink sells out at a loss.
   return { gross, net: crowd * buy * lc * (price - REF_CONC[c.tier] * .3) * cut };
 }
@@ -622,7 +623,7 @@ const VENTURES = {
   conf:  { l: "Conference & events centre", d: "Weddings, dinners, business events. Better with suites and good facilities.", need: c => c.fac.stadium.amen >= 2, cost: c => 400000 + c.fac.stadium.cap * 20, upkeep: 90000,
     week: c => (2500 + (c.fac.stadium.suites || 0) * 450) * (.6 + c.fac.stadium.amen * .2) * (1 + (8 - c.tier) * .04) },
   tours: { l: "Stadium tours & museum", d: "Visitors pay to see the ground. Better with more fans and more history.", need: c => c.fac.stadium.cap >= 5000, cost: c => 250000 + c.fac.stadium.cap * 8, upkeep: 60000,
-    week: c => c.fans * .012 * 15 * (1 + c.trophies.length * .08) },
+    week: c => c.fans * .012 * 15 * (1 + c.trophies.length * .08) * (hasFeat(c, "landmark") ? 1.3 : 1) },
   hotel: { l: "Stadium hotel", d: "A hotel built into a stand. Expensive, but steady money all year.", need: c => c.fac.stadium.cap >= 15000, cost: c => 18e6 + c.fac.stadium.cap * 150, upkeep: 1.2e6,
     week: c => (120 + c.fac.stadium.cap / 300) * 7 * 95 * (.55 + c.rep / 200) },
   fanzone: { l: "Fan zone", d: "Food, drink, music and big screens outside the ground before kick-off. Fans arrive earlier and spend more (it runs at a small loss at tiny crowds); louder support at home, a little more turnout, more hardcore and family fans, happier supporters, and a naming-rights slot for sponsors.",
@@ -764,6 +765,43 @@ function concertWeek(c) {
 const SIDES = { W: "Main stand", E: "East stand", N: "North stand", S: "South stand" };
 const ALL_SEATER = 2;  // the Premier and First Divisions
 const TYPE_F = { seat: 1, terrace: .55 }, roofF = r => r ? 1.2 : 1;
+/* Architecture (1.2.57). Each stand has a style, and the ground a shape; grounds built before keep "Standard" stands and
+   a "Classic" shape (no change). cost: per place; age: how fast it dates; atmos: home advantage per share of the
+   ground (a whole ground of steep single-tier stands adds about as much as all terraces); land: site space per place. */
+const STAND_STYLES = {
+  std:    { l: "Standard", s: "Plain", d: "A plain modern stand.", cost: 1, age: 1, atmos: 0, land: 1 },
+  trad:   { l: "Traditional brick", s: "Brick", d: "Cheaper, full of character and noise, but it dates faster.", cost: .85, age: 1.3, atmos: .3, land: 1 },
+  modern: { l: "Modern steel and glass", s: "Modern", d: "Dearer, dates slowly, and better concourses: fans spend a little more.", cost: 1.25, age: .6, atmos: 0, land: 1, spend: .05 },
+  wall:   { l: "Steep single-tier wall", s: "Wall", d: "One huge, steep bank of fans: the loudest end in football.", cost: 1.05, age: 1, atmos: 1, land: 1 },
+  tier2:  { l: "Two-tier", s: "2-tier", d: "A second tier: more places on the same land.", cost: 1.2, age: 1, atmos: 0, land: .75 },
+  tier3:  { l: "Three-tier", s: "3-tier", d: "The most places on the land, but quieter up in the gods.", cost: 1.45, age: 1, atmos: -.3, land: .6 },
+};
+const stStyle = x => STAND_STYLES[x && x.style] || STAND_STYLES.std;
+const GROUND_SHAPES = {
+  classic: { l: "Classic: four separate stands", d: "The traditional English ground, gaps in the corners.", cost: 1, cap: 1, atmos: 0 },
+  bowl:    { l: "Enclosed bowl", d: "Stands wrap round in one unbroken bowl: the corners filled (about 8% more places) and the noise kept in.", cost: 1.15, cap: 1.08, atmos: .3 },
+  oval:    { l: "Oval with a running track", d: "Cheaper to build, but the crowd is far from the pitch: much less atmosphere.", cost: .85, cap: 1, atmos: -.8 },
+  box:     { l: "Compact box", d: "Tight, steep and right on top of the pitch: the most intimidating shape, up to 30,000.", cost: 1.05, cap: 1, atmos: .6, max: 30000 },
+};
+const shapeOf = S => GROUND_SHAPES[S && S.shape] || GROUND_SHAPES.classic;
+/* Signature features: a retractable roof (no weather at home games), a landmark design (prestige: shirt sales, tours,
+   the supporters' pride) and safe standing (rail seats in part of the ground: terrace noise even where all-seater rules
+   apply). Built with a new ground, or added to yours later (dearer: retrofitting). */
+const FEATURES = {
+  retroof:  { l: "Retractable roof", d: "Closes over the whole ground: weather never affects a home game.", cost: cap => 8e6 + cap * 900 },
+  landmark: { l: "Landmark design", d: "An instantly recognisable ground: more shirt sales, tour visitors and supporters' pride.", cost: cap => 1.5e6 + cap * 60 },
+  safe:     { l: "Safe standing", d: "Rail seats in a quarter of the ground: terrace noise, even in the all-seater divisions.", cost: cap => 50000 + cap * .25 * 180 },
+};
+// The site space after rebuilding one stand to a new size and style.
+const rebuildFoot = (S, side, r) => footprint({ ...standsOf(S), [side]: { cap: r.cap, style: r.style || standsOf(S)[side].style } }, S.shape) + usedSpace(S);
+const hasFeat = (c, k) => !!(c && c.fac && c.fac.stadium.own && atHome(c) && (c.fac.stadium.feat || {})[k]);
+// Site space the stands take (two- and three-tier stands take less a place; a bowl's corners take their share).
+const footprint = (stands, shape) => Math.round(sum(Object.values(stands || {}), x => (x.cap || 0) * stStyle(x).land) * (GROUND_SHAPES[shape] || GROUND_SHAPES.classic).cap);
+// The architecture's effect on home advantage (your ground): stand styles by their share, the shape, safe standing.
+function archAtmos(c) {
+  if (!c.fac || !c.fac.stadium.own || !atHome(c)) return 0; const S = c.fac.stadium;
+  return standShare(c, () => true) && sum(Object.values(standsOf(S)), x => (x.cap || 0) * stStyle(x).atmos) / Math.max(1, sum(Object.values(standsOf(S)), x => x.cap || 0)) + shapeOf(S).atmos + (hasFeat(c, "safe") ? .3 : 0);
+}
 function standsOf(S) {  // a ground from before stands: four seated, covered stands sharing its capacity
   if (!S.stands && S.own) {
     const f = { W: .35, E: .25, N: .2, S: .2 }; S.stands = {};
@@ -772,14 +810,14 @@ function standsOf(S) {  // a ground from before stands: four seated, covered sta
   }
   return S.stands || {};
 }
-const syncCap = S => { S.cap = sum(Object.values(standsOf(S)), x => x.cap); };
+const syncCap = S => { S.cap = Math.round(sum(Object.values(standsOf(S)), x => x.cap) * shapeOf(S).cap); };
 /* Building work closes the stand it's on (an extension, roof, conversion or rebuild) until it's finished. */
 const closedSide = S => S.build && S.build.side && ["expand", "roof", "convert", "rebuild"].includes(S.build.type) ? S.build.side : null;
-const groundCap = c => { const S = c.fac.stadium, shut = closedSide(S); return sum(Object.entries(standsOf(S)), ([k, x]) => k === shut || (x.type === "terrace" && c.tier <= ALL_SEATER) ? 0 : x.cap); };
+const groundCap = c => { const S = c.fac.stadium, shut = closedSide(S); return Math.round(sum(Object.entries(standsOf(S)), ([k, x]) => k === shut || (x.type === "terrace" && c.tier <= ALL_SEATER) ? 0 : x.cap) * shapeOf(S).cap); };
 const closedTerraces = c => c.tier <= ALL_SEATER ? sum(Object.values(standsOf(c.fac.stadium)), x => x.type === "terrace" ? x.cap : 0) : 0;
 const standShare = (c, f) => { const l = Object.values(standsOf(c.fac.stadium)), t = sum(l, x => x.cap) || 1; return sum(l.filter(f), x => x.cap) / t; };
 const terraceShare = c => atHome(c) && c.fac.stadium.own && c.tier > ALL_SEATER ? standShare(c, x => x.type === "terrace") : 0;
-const openShare = c => atHome(c) && c.fac.stadium.own ? standShare(c, x => !x.roof) : .5;
+const openShare = c => atHome(c) && c.fac.stadium.own ? (hasFeat(c, "retroof") ? 0 : standShare(c, x => !x.roof)) : .5;
 const familyOn = c => atHome(c) && c.fac.stadium.own && Object.values(standsOf(c.fac.stadium)).some(x => x.family);
 const corpSeats = c => atHome(c) && c.fac.stadium.own && closedSide(c.fac.stadium) !== "W" ? (standsOf(c.fac.stadium).W || {}).corp || 0 : 0;
 /* Hospitality quietens a ground: corporate seats and boxes (about a dozen guests each) take places that would have
@@ -804,12 +842,13 @@ const designAmenCost = (tot, lvl, base = 2) => { let t = 0; for (let l = base; l
 const designHeatCost = tot => Math.round((150000 + tot * 18) * .85 / 1e4) * 1e4;
 function groundQuote(d) {
   const st = Object.values(d.stands), tot = sum(st, x => x.cap || 0);
-  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * corpCost(my()) * .85 + (d.suites || 0) * boxCost(my(), tot) * .85 + (d.family ? 25000 : 0) + designAmenCost(tot, d.amen, amenBase(d)) + (d.heat && !(rebuildDraft(d) && my().fac.stadium.heat) ? designHeatCost(tot) : 0);
-  return { cap: tot, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, amen: clamp(d.amen || amenBase(d), 1, 5), heat: !!d.heat, weeks: groundWeeks(tot) + planWeeks(tot), plan: planWeeks(tot), space: tot + designSpace(d, tot), vent: (d.vent || []).slice() };
+  const sh = GROUND_SHAPES[d.shape] || GROUND_SHAPES.classic, capT = Math.round(tot * sh.cap);
+  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof) * stStyle(x).cost) * sh.cost + sum(Object.keys(d.feat || {}).filter(k => d.feat[k] && FEATURES[k]), k => FEATURES[k].cost(capT) * .85) + (d.corp || 0) * corpCost(my()) * .85 + (d.suites || 0) * boxCost(my(), tot) * .85 + (d.family ? 25000 : 0) + designAmenCost(tot, d.amen, amenBase(d)) + (d.heat && !(rebuildDraft(d) && my().fac.stadium.heat) ? designHeatCost(tot) : 0);
+  return { cap: capT, over: sh.max && capT > sh.max ? sh.max : 0, shape: d.shape || "classic", feat: { ...(d.feat || {}) }, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, amen: clamp(d.amen || amenBase(d), 1, 5), heat: !!d.heat, weeks: groundWeeks(tot) + planWeeks(tot), plan: planWeeks(tot), space: footprint(d.stands, d.shape) + designSpace(d, tot), vent: (d.vent || []).slice() };
 }
 function standQuote(c, side, add) {
   const x = standsOf(c.fac.stadium)[side], to = c.fac.stadium.cap + add;
-  return { side, add, cost: Math.round(add * perSeat(to) * TYPE_F[x.type] * roofF(x.roof) * 1.1 / 1e4) * 1e4, weeks: Math.round(20 + add / 300) };
+  return { side, add, cost: Math.round(add * perSeat(to) * TYPE_F[x.type] * roofF(x.roof) * stStyle(x).cost * 1.1 / 1e4) * 1e4, weeks: Math.round(20 + add / 300) };
 }
 /* The site: how big a ground the land will take (access, neighbours, planning), set when the ground is first built
    with room to grow, never more than 90,000. Extensions and rebuilds have to fit on it. */
@@ -825,7 +864,7 @@ function buildNeeds(S) {
   return 0;
 }
 const siteCap = S => S.site ??= Math.max(S.cap, newSite(S.cap));
-const siteRoom = S => Math.max(0, siteCap(S) - S.cap - usedSpace(S));
+const siteRoom = S => Math.max(0, siteCap(S) - footprint(standsOf(S), S.shape) - usedSpace(S));
 /* ---------- ground ages ----------
    Every ground has an opening year (and, for yours, each stand its own build year). Your club keeps a history of its
    grounds. AI grounds age too: an old ground is out of date, and its club is likelier to move. */
@@ -1030,7 +1069,7 @@ function moveAnnounced(c, km, site) {
 function moveIn(c, b) {
   const S = c.fac.stadium, old = S.name, sell = b.sold ? b.sell : oldGroundValue(c); closeGround(S);
   if (b.kind) { const was = LOC(c).l; c.loc = locForMove(c, b.kind); if (LOC(c).l !== was) news(`The new ground's setting: ${LOC(c).l.toLowerCase()}. ${LOC(c).d}`, true); }
-  S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
+  S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); S.shape = b.shape || "classic"; S.feat = { ...(b.feat || {}) }; if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
   syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); if (b.amen) S.amen = clamp(b.amen, 1, 5); S.heat = !!b.heat; openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = b.site; S.rebuilding = false; S.soldOld = false; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
   const pf = b.kind ? sitePref(c, { k: b.kind, km: b.km, site: b.site }) : { mood: moveMood(c, b.km) };
   if (!b.sold) earn("oldground", sell); moodHit(c, pf.mood);
@@ -1041,14 +1080,15 @@ function moveIn(c, b) {
   else news(`The club moves into ${S.name}${b.km > 3 ? `, ${b.km} km from ${old}` : ""}. ${S.cap.toLocaleString("en-GB")} capacity.${b.sold ? "" : ` ${old} is sold for ${money(sell)}.`}`, true);
 }
 // Demolish a stand and build a new one in its place: clearing the old one, then the new stand at the going rate.
-function rebuildQuote(c, side, cap, type, roof) {
-  const S = c.fac.stadium, x = standsOf(S)[side], to = S.cap - x.cap + cap, demo = 20000 + x.cap * 40;
-  return { side, cap, to: type, roof, demo: Math.round(demo / 1e3) * 1e3, cost: Math.round((demo + cap * perSeat(to) * TYPE_F[type] * roofF(roof) * 1.15) / 1e4) * 1e4, weeks: Math.round(26 + cap / 300) };
+function rebuildQuote(c, side, cap, type, roof, style) {
+  const S = c.fac.stadium, x = standsOf(S)[side], to = S.cap - x.cap + cap, demo = 20000 + x.cap * 40, sty = STAND_STYLES[style] ? style : x.style || "std";
+  return { side, cap, to: type, roof, style: sty, demo: Math.round(demo / 1e3) * 1e3, cost: Math.round((demo + cap * perSeat(to) * TYPE_F[type] * roofF(roof) * 1.15 * stStyle({ style: sty }).cost) / 1e4) * 1e4, weeks: Math.round(26 + cap / 300) };
 }
 // Knock the whole ground down and build a new one on the site; the club plays at a rented ground meanwhile.
 function regroundQuote(c, d) { const q = groundQuote(d), demo = 100000 + c.fac.stadium.cap * 30; return { ...q, demo: Math.round(demo / 1e4) * 1e4, cost: Math.round((q.cost + demo) / 1e4) * 1e4, weeks: q.weeks + 6 }; }
 // Where you'd play meanwhile: the smallest rented ground that holds most of your crowd.
 const tempHost = c => { const need = Math.min(c.fac.stadium.cap * .6, 30000); const i = HOSTS.findIndex(h => h.cap >= need); return i < 0 ? HOSTS.length - 1 : i; };
+const featQuote = (c, k) => ({ k, cost: Math.round(FEATURES[k].cost(c.fac.stadium.cap) * 1.15 / 1e4) * 1e4, weeks: k === "retroof" ? 40 : k === "landmark" ? 30 : 8 });
 const roofQuote = (c, side) => { const n = standsOf(c.fac.stadium)[side].cap; return { side, cost: Math.round((50000 + n * 260) / 1e4) * 1e4, weeks: Math.round(12 + n / 1500) }; };
 const convertQuote = (c, side) => { const x = standsOf(c.fac.stadium)[side], to = x.type === "terrace" ? "seat" : "terrace"; return { side, to, cost: Math.round((40000 + x.cap * (to === "seat" ? 320 : 120)) / 1e4) * 1e4, weeks: Math.round(8 + x.cap / 2500) }; };
 const corpQuote = (c, n) => ({ add: n, cost: Math.round(n * corpCost(c) / 1000) * 1000, weeks: 6 + Math.round(n / 100) });

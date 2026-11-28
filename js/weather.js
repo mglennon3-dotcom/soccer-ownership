@@ -29,7 +29,7 @@ function weatherWeek() {
   G.wxNext = { N: rollWeather("N", G.week + 1), S: rollWeather("S", G.week + 1) };
 }
 const wxAt = c => WX[(G.wx || {})[c.half] || "clear"];
-const hasHeating = c => isMine(c) ? !!c.fac.stadium.heat : c.tier <= 3 || c.cap >= 15000;
+const hasHeating = c => isMine(c) ? !!c.fac.stadium.heat || hasFeat(c, "retroof") : c.tier <= 3 || c.cap >= 15000;
 /* Is this game off? Frost or snow at a ground without undersoil heating, by chance. */
 function postponed(h) { const c = CL(h), w = wxAt(c); return !!w.off && !hasHeating(c) && R() < w.off; }
 const heatQuote = c => ({ cost: Math.round((150000 + c.fac.stadium.cap * 18) / 1e4) * 1e4, weeks: 6, upkeep: 20000 + c.fac.stadium.cap * 2 });
