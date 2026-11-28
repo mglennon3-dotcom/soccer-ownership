@@ -658,12 +658,28 @@ function offerRenewal(p, wage, yrs, cm = 0) {
    nobody can see for sure, moves the new position's key attributes up or down. His potential moves with his rating; a young player's aptitude counts again as he grows into
    the role. The manager estimates the outcome, the better his player development the closer. */
 const RETRAIN = { CB: ["FB", "DM"], FB: ["CB", "W", "DM"], DM: ["CB", "CM", "FB"], CM: ["DM", "AM"], AM: ["CM", "W", "ST"], W: ["FB", "AM", "ST"], ST: ["W", "AM"], GK: [] };
+/* Natural moves (1.2.66): the roles a type already half-plays. An inside forward is nearly a shadow striker or a poacher,
+   a workhorse winger an overlapping full-back, a stopper an anchor. He takes to a natural move far more readily (most of
+   the gap closes, little left to luck) and plays as that type there. Any position can be natural, not just a neighbour. */
+const NATURAL = {
+  STP: [["DM", "ANC"]], AER: [["ST", "TM"]], BPD: [["DM", "DLP"]], COV: [["FB", "DFB"]],
+  OFB: [["W", "WW"]], DFB: [["CB", "COV"]], IFB: [["DM", "DLP"], ["CM", "PM"]],
+  BW: [["CM", "B2B"]], DLP: [["CM", "PM"]], ANC: [["CB", "STP"]],
+  B2B: [["DM", "BW"], ["AM", "SHS"]], PM: [["AM", "CRE"], ["DM", "DLP"]], BC: [["W", "DW"], ["AM", "DRB"]], DES: [["DM", "BW"]],
+  CRE: [["CM", "PM"]], SHS: [["ST", "POA"]], DRB: [["W", "IF"]],
+  DW: [["FB", "OFB"], ["ST", "RIB"]], IF: [["AM", "SHS"], ["ST", "POA"]], WPM: [["AM", "CRE"], ["CM", "PM"]], WW: [["FB", "OFB"], ["CM", "B2B"]],
+  POA: [["AM", "SHS"]], TM: [["CB", "AER"]], RIB: [["W", "DW"]], DLF: [["AM", "CRE"]],
+};
+const naturalTo = (p, to) => { const a = archetypeOf(p); return a ? (NATURAL[a[3]] || []).find(x => x[0] === to) : null; };
+// Where he can retrain: the neighbouring positions, and his type's natural moves.
+const retrainTargets = p => { const a = archetypeOf(p), nat = a ? (NATURAL[a[3]] || []).map(x => x[0]) : []; return [...new Set([...nat, ...(RETRAIN[p.pos] || [])])].filter(t => t !== p.pos && t !== "GK"); };
 const retrainOK = p => p.club === G.club && p.pos !== "GK" && !p.retrained && !p.restyled && !(p.loan && p.loan.to === G.club);  // one or the other: a new position or a new type (1.2.65)
 const aptOf = (p, to) => ((p.apt ||= {})[to] ??= Math.round(clamp(normal(), -2.5, 2.5) * 4 * 10) / 10);
 // What retraining would do: his new rating and potential (raw), from his attributes and his aptitude.
 function retrainOutcome(p, to, apt = aptOf(p, to)) {
   // He learns the role: about half the gap between his attributes there and his rating now closes, then his aptitude.
-  const raw = rawRole({ ...p, pos: to }, to), now = p.ovr + (raw - p.ovr) * .5 + apt, ovr = clamp(Math.round(now), 1, 100), d = ovr - p.ovr;
+  // A natural move for his type: three-quarters of it closes, and his aptitude counts for half as much (and helps a little).
+  const nat = naturalTo(p, to), raw = rawRole({ ...p, pos: to }, to), now = p.ovr + (raw - p.ovr) * (nat ? .75 : .5) + (nat ? apt * .5 + 1 : apt), ovr = clamp(Math.round(now), 1, 100), d = ovr - p.ovr;
   const pot = Math.max(ovr, Math.round(p.pot + d + (p.age <= 21 ? apt * .5 : 0)));
   return { ovr, pot };
 }
@@ -696,11 +712,17 @@ function restyle(p, code) {
   news(`${p.name} retrains as a ${O.name.toLowerCase()} (was a ${from.toLowerCase()}): now rated ${r20(p.ovr)}${r20(p.ovr) !== r20(was) ? ` (was ${r20(was)})` : ""}.`, true);
 }
 // The type he'd be in the new position: his attributes as retraining leaves them (on an average aptitude).
-function retrainType(p, to) { const O = retrainOutcome(p, to, 0), q = { ...p, pos: to, at: { ...p.at } }, lift = O.ovr - rawRole(q, to); for (const k of Object.keys(POS_W[to])) q.at[k] = clamp(rh(q.at[k] + lift), 1, 100); return archetypeOf(q); }
+function retrainType(p, to) { const nat = naturalTo(p, to); if (nat) return (ARCHETYPES[to] || []).find(a => a[3] === nat[1]) || null;
+  const O = retrainOutcome(p, to, 0), q = { ...p, pos: to, at: { ...p.at } }, lift = O.ovr - rawRole(q, to); for (const k of Object.keys(POS_W[to])) q.at[k] = clamp(rh(q.at[k] + lift), 1, 100); return archetypeOf(q); }
 function retrain(p, to) {
-  if (!retrainOK(p) || !RETRAIN[p.pos].includes(to)) return;
-  const from = p.pos, was = p.ovr, wasPot = p.pot, apt = aptOf(p, to), O = retrainOutcome(p, to, apt);
+  if (!retrainOK(p) || !retrainTargets(p).includes(to)) return;
+  const from = p.pos, was = p.ovr, wasPot = p.pot, apt = aptOf(p, to), O = retrainOutcome(p, to, apt), nat = naturalTo(p, to);
   p.pos = to; const lift = O.ovr - rawRole(p, to); for (const k of Object.keys(POS_W[to])) p.at[k] = clamp(rh(p.at[k] + lift), 1, 100);  // the new role's skills, learned well or badly
+  // A natural move: he plays as that type there (his attributes settle into its shape, his rating held where it landed).
+  if (nat) { const keep = rawRole(p, to); for (let i = 0; i < 6 && archetypeOf(p) && archetypeOf(p)[3] !== nat[1]; i++) { const S = restyleOutcome(p, nat[1]); if (!S) break; p.at = S.at; const d = keep - rawRole(p, to);
+    // hold his rating where it landed, on the attributes his new type doesn't rest on (so the shape holds)
+    const sig = new Set(((ARCHETYPES[to] || []).find(a => a[3] === nat[1]) || [0, []])[1]), ks = Object.keys(POS_W[to]).filter(k => !sig.has(k)), wsum = sum(ks, k => POS_W[to][k]) || 1;
+    for (const k of ks) p.at[k] = clamp(rh(p.at[k] + d / wsum), 1, 100); } }
   setOvr(p); p.pot = Math.max(p.ovr, O.pot + (p.ovr - O.ovr)); delete p.dvb; p.retrained = { from, y: G.year };
   // Your depth charts re-slot him by his new ratings (he'd otherwise keep the place he had in his old position).
   for (const role in G.depth || {}) G.depth[role] = G.depth[role].filter(id => id !== p.id);

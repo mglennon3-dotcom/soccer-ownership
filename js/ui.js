@@ -1106,8 +1106,8 @@ function retrainBox(p) {
   const rng = ([a, b]) => a === b ? `${a}` : `${a}–${b}`;
   return `<details class="sugg"><summary class="small"><b>Retrain to a new position</b> <span class="muted">(once only, and then no type change)</span></summary>
     <p class="small muted" style="margin:6px 0">Now: ${esc(POS_NAME[p.pos])}, rated ${r20(p.ovr)}, potential ${range(potEstimate(p))}. ${m && m.name ? `${esc(m.name)}'s estimate (player development ${s20(m.at.dev)}: ${retrainView(p, RETRAIN[p.pos][0]).sure}):` : "The caretaker's guess:"}</p>
-    ${RETRAIN[p.pos].map(to => { const V = retrainView(p, to), ty = retrainType(p, to); return `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(POS_NAME[to])}</b>${ty ? ` as a ${esc(ty[0].toLowerCase())} <span class="muted">(${ty[3]})</span>` : ""} · <span class="${cls[V.verdict]}">${word[V.verdict]}</span><br><span class="muted">About ${rng(V.ovr)} now, potential ${rng(V.pot)}</span></span><button class="btn sm" data-act="retrain" data-id="${p.id}" data-to="${to}">Retrain</button></div>`; }).join("")}
-    <p class="small muted">It takes effect now. How well he takes to it can surprise anyone.</p></details>`;
+    ${retrainTargets(p).map(to => { const V = retrainView(p, to), ty = retrainType(p, to), nat = naturalTo(p, to); return `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(POS_NAME[to])}</b>${ty ? ` as a ${esc(ty[0].toLowerCase())} <span class="muted">(${ty[3]})</span>` : ""}${nat ? ' <span class="chip xi">NATURAL MOVE</span>' : ""} · <span class="${cls[V.verdict]}">${word[V.verdict]}</span><br><span class="muted">About ${rng(V.ovr)} now, potential ${rng(V.pot)}</span></span><button class="btn sm" data-act="retrain" data-id="${p.id}" data-to="${to}">Retrain</button></div>`; }).join("")}
+    <p class="small muted">It takes effect now. A natural move suits the type of player he is: he takes to it far more readily. Otherwise how well he takes to it can surprise anyone.</p></details>`;
 }
 // On your own player's card: offer him a new contract, with your head of recruitment's advice on the wage.
 let RENEW_SAY = null;
