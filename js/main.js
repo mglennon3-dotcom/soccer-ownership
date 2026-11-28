@@ -258,6 +258,8 @@ function upgradeSave() {
   if (!G.fansFix1242) { G.fansFix1242 = true;
     try { let n = 0; for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || !(c.fans > 0)) continue; const cap = natFans(c) * 1.5; if (c.fans > cap) { c.fans = Math.round(cap + (c.fans - cap) * .5); n++; } }
       if (n && G.club != null) news(`Across the game, ${n} clubs' support settles back toward what their size can hold. From now on supporters are won by promotions, titles, cups and star signings, and lost by relegation, bad seasons and selling the fans' favourites.`); } catch (e) { console.warn("fansFix1242", e); } }
+  // (1.2.52) A press question about your plans for the ground, asked while a new one was already going up: withdrawn.
+  if (G.club != null && my().fac.stadium.build && ["new", "move", "reground"].includes(my().fac.stadium.build.type)) G.inbox = (G.inbox || []).filter(m => !(m.key === "pressGround" && !m.done));
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];

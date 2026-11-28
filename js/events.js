@@ -28,7 +28,10 @@ function pickQuestion(c) {
   if (c.prices.ticket > ticketRef(c) * 1.2) qs.push({ key: "pressPrice", q: "Supporters say tickets are too expensive", opts: ["Cut prices to the going rate", "Prices reflect our ambition", "No comment"] });
   const star = c.squad.map(P).find(p => G.inbox.some(x => x.type === "bid" && x.pid === p.id && x.age < 6));
   if (star) qs.push({ key: "pressStar", q: `Will ${star.name} be sold?`, opts: ["He's not for sale", "We'll reward him with a new deal", "Everyone has a price", "No comment"], data: { pid: star.id } });
-  if (!c.fac.stadium.own || c.fac.stadium.cap < STADIUM_T[c.tier] * .5) qs.push({ key: "pressGround", q: "What are your plans for the ground?", opts: ["Big plans: watch this space", "We're looking at our options", "Not a priority", "No comment"] });
+  // (1.2.52) A new ground already going up (your first, a move, or a rebuild): they ask about that instead of your plans.
+  const gb = c.fac.stadium.build && ["new", "move", "reground"].includes(c.fac.stadium.build.type) ? c.fac.stadium.build : null;
+  if (gb) { if (gb.left > 4 && R() < .5) qs.push({ key: "pressNewGround", q: "How is the new ground coming along?", body: `About ${gb.left} weeks of work left on ${gb.name || "the new ground"}.`, opts: ["On schedule: it'll be worth the wait", "There's a lot still to do", "No comment"] }); }
+  else if (!c.fac.stadium.own || c.fac.stadium.cap < STADIUM_T[c.tier] * .5) qs.push({ key: "pressGround", q: "What are your plans for the ground?", opts: ["Big plans: watch this space", "We're looking at our options", "Not a priority", "No comment"] });
   if (c.media > 25 && !G.docu) qs.push({ key: "pressDocu", q: "A streaming service wants to film a documentary", body: "Cameras everywhere for a season. Great for the club's profile; managers tend to hate it.", opts: ["Let them film", "Decline"] });
   // Ambition: asked once a season early on, worded for where the club is.
   if (G.week < 6) qs.push(c.tier === 1 ? { key: "pressAmb", q: "Where will the club be in five years?", opts: ["Champions, and a force in Europe", "Established among the top clubs", "No comment"] }
@@ -77,6 +80,7 @@ DECIDE.pressUp = (m, i) => { if (i === 0) { moodHit(my(), 4); G.hype = (G.hype |
 DECIDE.pressPrice = (m, i) => { const c = my(); if (i === 0) { c.prices.ticket = ticketRef(c); moodHit(c, 5); } if (i === 1) { moodHit(c, -3); investorMood("pe", 3); } };
 DECIDE.pressStar = (m, i) => { const p = G.players[m.data.pid]; if (!p) return; if (i === 0) { p.keep = true; moodHit(my(), 2); } else if (i === 1) { moodHit(my(), 1); p.bond = (p.bond || 0) + 1; p.unsettled = Math.max(0, (p.unsettled || 0) - 2); } else if (i === 2) { moodHit(my(), -3); investorMood(null, 1); } };
 DECIDE.pressGround = (m, i) => { if (i === 0) { moodHit(my(), 2); bumpMedia(2); G.promise = { kind: "ground", y: G.year }; } else if (i === 1) moodHit(my(), 1); else if (i === 2) moodHit(my(), -1); };
+DECIDE.pressNewGround = (m, i) => { if (i === 0) { moodHit(my(), 2); bumpMedia(1); } };
 DECIDE.pressDocu = (m, i) => { if (i === 0) { G.docu = G.year; bumpMedia(18); trust("manager", -4, "isn't keen on the cameras.", "The documentary cameras"); news("A documentary crew will follow the club all season.", true); } };
 DECIDE.pressAmb = (m, i) => { if (i === 0) { bumpMedia(5); moodHit(my(), 3); investorMood(null, 2); G.hype = (G.hype || 0) + 1; } };
 // Your head of recruitment asked about a suggested player while the window was shut.
