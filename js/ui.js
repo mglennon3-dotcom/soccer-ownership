@@ -1092,9 +1092,10 @@ function restyleBox(p) {
   if (p.restyled) return `<p class="small muted">Retrained from a ${esc(p.restyled.from.toLowerCase())} in ${seasonLabel(p.restyled.y)}: his type can't be changed again, and he can't retrain to a new position.</p>`;
   if (p.retrained) return "";  // he's retrained to a new position: no type change as well
   if (!restyleOK(p)) return ""; const cur = archetypeOf(p); if (!cur) return "";
+  const opts = (ARCHETYPES[p.pos] || []).filter(a => a[3] !== cur[3] && restyleOutcome(p, a[3]));
   return `<details class="sugg"><summary class="small"><b>Retrain his type</b> <span class="muted">(once only, and then no position change)</span></summary>
-    <p class="small muted" style="margin:6px 0">Now a ${esc(cur[0].toLowerCase())}, rated ${r20(p.ovr)}. He works on the new type's key attributes and lets his current type's ones slip, just far enough to change.</p>
-    ${(ARCHETYPES[p.pos] || []).filter(a => a[3] !== cur[3]).map(a => { const O = restyleOutcome(p, a[3]); return O ? `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(a[0])}</b> <span class="muted">(${a[3]})</span>: ${esc(a[2])}<br><span class="${r20(O.ovr) > r20(p.ovr) ? "good" : r20(O.ovr) < r20(p.ovr) ? "warn" : "muted"}">Rated ${r20(O.ovr)} afterwards</span></span><button class="btn sm" data-act="restyle" data-id="${p.id}" data-to="${a[3]}">Retrain</button></div>` : ""; }).join("")}
+    <p class="small muted" style="margin:6px 0">Now ${/^[AEIOU]/.test(cur[0]) ? "an" : "a"} ${esc(cur[0].toLowerCase())}. A new type changes how he's asked to play, not his attributes or his rating, so only the types his attributes are already close to are open to him.</p>
+    ${opts.length ? opts.map(a => `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(a[0])}</b> <span class="muted">(${a[3]})</span>: ${esc(a[2])}</span><button class="btn sm" data-act="restyle" data-id="${p.id}" data-to="${a[3]}">Retrain</button></div>`).join("") : `<p class="small muted">None: his attributes don't come close to any other type.</p>`}
     <p class="small muted">It takes effect now.</p></details>`;
 }
 // On your own player's card: retrain him to a neighbouring position, once, with the manager's estimate.

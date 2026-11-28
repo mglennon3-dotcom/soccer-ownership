@@ -701,11 +701,21 @@ function retrainView(p, to) {
   const [pa, pb] = potEstimate(p), dP = E.pot - p.pot, pot = [Math.max(1, Math.round(to20(pa + dP - spread))), Math.min(20, Math.round(to20(pb + dP + spread)))];
   return { verdict, ovr: r(E.ovr), pot, sure: acc >= .7 ? "confident" : acc >= .45 ? "fairly sure" : "guessing" };
 }
-/* Retraining his type (1.2.64), once: he works on the new type's key attributes and lets his old type's ones slip by the
-   same total, just far enough that he becomes the new type. His rating moves a little either way (positions value some
-   attributes more than others). Within his position; academy players and loanees can't. */
+// Retraining his type, once, within his position; academy players and loanees can't.
 const restyleOK = p => p.club === G.club && !p.restyled && !p.retrained && !p.acad && !(p.loan && p.loan.to === G.club) && (ARCHETYPES[p.pos] || []).length > 1;
+/* Retraining his type (1.2.72): his attributes and rating don't change, only how he's asked to play. Open to the types
+   his attributes are already close to: on average within TYPE_REACH of the type they suit best (about a point out of
+   20), and none of the new type's key attributes more than KEY_REACH short (about two points). A workhorse winger who
+   can't dribble doesn't become a tricky winger. */
+const TYPE_REACH = 5, KEY_REACH = 10;
 function restyleOutcome(p, code) {
+  const list = ARCHETYPES[p.pos] || [], to = list.find(a => a[3] === code), cur = archetypeOf(p); if (!to || !cur || cur[3] === code) return null;
+  const W = POS_W[p.pos] || {}, best = Math.max(...list.map(a => typeScore(p, a[3]))); if (best - typeScore(p, code) > TYPE_REACH) return null;
+  if (to[1].some(k => best - ((p.at[k] ?? 0) - (W[k] ? 3 : -11)) > KEY_REACH)) return null;
+  return { at: p.at, ovr: p.ovr, name: to[0], d: to[2] };
+}
+// Reshape his attributes into a type (used when a natural position move settles him into his new type).
+function reshapeTo(p, code) {
   const list = ARCHETYPES[p.pos] || [], to = list.find(a => a[3] === code), cur = archetypeOf(p); if (!to || !cur || cur[3] === code) return null;
   const at = { ...p.at }, up = to[1].filter(k => !cur[1].includes(k)), down = cur[1].filter(k => !to[1].includes(k)), q = { ...p, at };
   for (let step = 0; step < 40 && archetypeOf(q)[3] !== code; step++) { for (const k of up) at[k] = Math.min(100, at[k] + 1); const per = up.length / Math.max(1, down.length); for (const k of down) at[k] = Math.max(1, at[k] - per); }
@@ -713,9 +723,9 @@ function restyleOutcome(p, code) {
   return { at, ovr: clamp(rh(rawRole(q, p.pos)), 1, 100), name: to[0], d: to[2] };
 }
 function restyle(p, code) {
-  if (!restyleOK(p)) return; const O = restyleOutcome(p, code); if (!O) return; const was = p.ovr, from = archetypeOf(p)[0];
-  p.at = O.at; setOvr(p); p.pot = Math.max(p.ovr, p.pot + (p.ovr - was)); p.restyled = { from, y: G.year };
-  news(`${p.name} retrains as a ${O.name.toLowerCase()} (was a ${from.toLowerCase()}): now rated ${r20(p.ovr)}${r20(p.ovr) !== r20(was) ? ` (was ${r20(was)})` : ""}.`, true);
+  if (!restyleOK(p)) return; const O = restyleOutcome(p, code); if (!O) return; const from = archetypeOf(p)[0];
+  p.style = code; p.restyled = { from, y: G.year };
+  news(`${p.name} retrains as ${/^[AEIOU]/.test(O.name) ? "an" : "a"} ${O.name.toLowerCase()} (was ${/^[AEIOU]/.test(from) ? "an" : "a"} ${from.toLowerCase()}).`, true);
 }
 // The type he'd be in the new position: his attributes as retraining leaves them (on an average aptitude).
 function retrainType(p, to) { const nat = naturalTo(p, to); if (nat) return (ARCHETYPES[to] || []).find(a => a[3] === nat[1]) || null;
@@ -725,7 +735,7 @@ function retrain(p, to) {
   const from = p.pos, was = p.ovr, wasPot = p.pot, apt = aptOf(p, to), O = retrainOutcome(p, to, apt), nat = naturalTo(p, to);
   p.pos = to; const lift = O.ovr - rawRole(p, to); for (const k of Object.keys(POS_W[to])) p.at[k] = clamp(rh(p.at[k] + lift), 1, 100);  // the new role's skills, learned well or badly
   // A natural move: he plays as that type there (his attributes settle into its shape, his rating held where it landed).
-  if (nat) { const keep = rawRole(p, to); for (let i = 0; i < 6 && archetypeOf(p) && archetypeOf(p)[3] !== nat[1]; i++) { const S = restyleOutcome(p, nat[1]); if (!S) break; p.at = S.at; const d = keep - rawRole(p, to);
+  if (nat) { const keep = rawRole(p, to); for (let i = 0; i < 6 && archetypeOf(p) && archetypeOf(p)[3] !== nat[1]; i++) { const S = reshapeTo(p, nat[1]); if (!S) break; p.at = S.at; const d = keep - rawRole(p, to);
     // hold his rating where it landed, on the attributes his new type doesn't rest on (so the shape holds)
     const sig = new Set(((ARCHETYPES[to] || []).find(a => a[3] === nat[1]) || [0, []])[1]), ks = Object.keys(POS_W[to]).filter(k => !sig.has(k)), wsum = sum(ks, k => POS_W[to][k]) || 1;
     for (const k of ks) p.at[k] = clamp(rh(p.at[k] + d / wsum), 1, 100); } }

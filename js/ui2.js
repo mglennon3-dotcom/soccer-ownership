@@ -476,19 +476,21 @@ function youthMinutes() {
    player a place in the formation (his position isn't used, the new one is). Same estimates as on the player card. */
 // The Retrains tab's two lists: a new position, or a new type in his own position. One or the other per player.
 const rtSwitch = () => `<div class="chips" style="margin-bottom:10px">${[["pos", "Position"], ["type", "Type"]].map(([k, l]) => `<button data-act="sub" data-k="rtview" data-v="${k}" aria-pressed="${(SUB.rtview || "pos") === k}">${l}</button>`).join("")}</div>`;
-/* Suggested type changes: any that would raise his rating, best first; then ones that keep his rating and make the
-   side fit together better (starters only, judged on the eleven the manager picks, in the usual style). */
+/* Type changes open to each player (the types his attributes are already close to; his attributes and rating don't
+   change): the ones that would make the eleven fit together better first, then the rest. */
 function restyleList() {
   const c = my(), m = mgr(), xi = pickXI(c), at = new Map(xi.map((o, i) => [o.p.id, i])), base = chemScore(xi, c);
   const rows = c.squad.map(P).filter(p => p && restyleOK(p)).flatMap(p => { const cur = archetypeOf(p); if (!cur) return [];
     return (ARCHETYPES[p.pos] || []).filter(a => a[3] !== cur[3]).map(a => { const O = restyleOutcome(p, a[3]); if (!O) return null;
-      const d = r20(O.ovr) - r20(p.ovr), i = at.get(p.id), ch = i == null ? 0 : chemScore(xi.map((o, j) => j === i ? { ...o, p: { ...p, at: O.at, ovr: O.ovr } } : o), c) - base;
-      return { p, cur, a, O, d, ch }; }).filter(r => r && (r.d > 0 || (r.d === 0 && r.ch > .05))); })
-    .sort((x, y) => y.d - x.d || y.ch - x.ch);
-  const row = r => `<div class="row between" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span class="small"><span class="pos">${r.p.pos}</span> <button class="lnk" data-act="player" data-id="${r.p.id}">${esc(r.p.name)}</button>, ${r.p.age} · ${esc(r.cur[0].toLowerCase())} <span class="muted">(${r.cur[3]})</span> → <b>${esc(r.a[0].toLowerCase())}</b> <span class="muted">(${r.a[3]})</span><br><span class="${r.d > 0 ? "good" : "muted"}">Rated ${r20(r.O.ovr)} afterwards${r.d > 0 ? ` (up from ${r20(r.p.ovr)})` : " (no change)"}</span>${r.ch > .05 ? ' <span class="good">· the side fits together better</span>' : r.ch < -.05 ? ' <span class="warn">· the side fits together worse</span>' : ""}</span><button class="btn sm" data-act="restyle" data-id="${r.p.id}" data-to="${r.a[3]}">Retrain</button></div>`;
+      const i = at.get(p.id), ch = i == null ? 0 : chemScore(xi.map((o, j) => j === i ? { ...o, p: { ...p, style: a[3] } } : o), c) - base;
+      return { p, cur, a, ch, xi: i != null }; }).filter(Boolean); })
+    .sort((x, y) => y.ch - x.ch || y.xi - x.xi);
+  const row = r => `<div class="row between" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span class="small"><span class="pos">${r.p.pos}</span> <button class="lnk" data-act="player" data-id="${r.p.id}">${esc(r.p.name)}</button>, ${r.p.age} · ${esc(r.cur[0].toLowerCase())} <span class="muted">(${r.cur[3]})</span> → <b>${esc(r.a[0].toLowerCase())}</b> <span class="muted">(${r.a[3]})</span><br>${r.ch > .05 ? '<span class="good">The side fits together better</span>' : r.ch < -.05 ? '<span class="warn">The side fits together worse</span>' : `<span class="muted">${r.xi ? "No change to how the side fits together" : "Not in the side now"}</span>`}</span><button class="btn sm" data-act="restyle" data-id="${r.p.id}" data-to="${r.a[3]}">Retrain</button></div>`;
   return `<section class="card"><div class="card-h"><h2>Suggested type changes</h2><span class="small muted">${esc(m.name || "The manager")} · player development ${s20(m.at.dev)}</span></div>${rtSwitch()}
-    <p class="small muted" style="margin-bottom:8px">New types in a player's own position: ones that would raise his rating, best first, then ones that keep it and help the eleven fit together. He works on the new type's key attributes and lets his current type's slip. Each player can change his type or his position once, not both, and it takes effect now.</p>
-    ${rows.length ? rows.map(row).join("") : `<p class="muted">No type changes worth making right now.</p>`}</section>`;
+    <p class="small muted" style="margin-bottom:8px">New types in a player's own position, open only where his attributes are already close to the type. His attributes and rating don't change, only how he's asked to play. The ones that help the eleven fit together come first. Each player can change his type or his position once, not both, and it takes effect now.</p>
+    ${(() => { const top = rows.filter(r => r.ch > .05), rest = rows.filter(r => r.ch <= .05);
+      return !rows.length ? `<p class="muted">No player is close enough to another type right now.</p>` : (top.length ? top.map(row).join("") : `<p class="small muted">None would make the eleven fit together better right now.</p>`)
+        + (rest.length ? `<details class="sugg" style="margin-top:8px"><summary class="small"><b>Other type changes open</b> <span class="muted">(${rest.length})</span></summary>${rest.map(row).join("")}</details>` : ""); })()}</section>`;
 }
 function retrainList() {
   const c = my(), m = mgr(), used = new Set(FORMS[m.form || "4-4-2"] || FORMS["4-4-2"]);

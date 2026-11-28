@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.2.71";
+const VERSION = "1.2.72";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -638,8 +638,11 @@ const ARCHETYPES = {
 /* (1.2.61) Played out of position he plays as that position's type his attributes suit best: a strong, aerial
    centre-back at defensive midfield is an Anchor, not a Stopper. In his own position, his own type. */
 function archetypeAt(p, pos) { return !pos || pos === p.pos || (pos === "GK") !== (p.pos === "GK") ? archetypeOf(p) : archetypeOf(p, pos); }
+// How well his attributes fit a type in a position (the same measure his type is picked by).
+const typeScore = (p, code, pos = p.pos) => { const a = (ARCHETYPES[pos] || []).find(x => x[3] === code), W = POS_W[pos] || {}; return a ? avg(a[1].map(k => (p.at[k] ?? 0) - (W[k] ? 3 : -11))) : -1e9; };
 function archetypeOf(p, pos = p.pos) {
   const list = ARCHETYPES[pos]; if (!list || !p.at) return null;
+  if (p.style && pos === p.pos) { const s = list.find(a => a[3] === p.style); if (s) return s; }  // a type he's retrained to (1.2.72): it's how he plays, whatever the numbers say
   const W = POS_W[pos], off = k => W[k] ? 3 : -11;  // the shape every player in this position is generated with
   let best = null, bs = -1e9;
   for (const a of list) { const s = avg(a[1].map(k => (p.at[k] ?? 0) - off(k))); if (s > bs) { bs = s; best = a; } }
