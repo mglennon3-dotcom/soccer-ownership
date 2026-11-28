@@ -174,7 +174,9 @@ function aiEstimate(x) {
 }
 // A season's income: TV, the gate (plus bar and shop), sponsors.
 // (plus a little for cup runs, merit money and selling players).
-function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
+// (1.2.41) The gate counts children's cheaper tickets (ticketYield); the bar and food are what's left after stock and
+// staff, about a quarter of ticket money (was 35% before costs).
+function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * (ticketYield(c) + .25) + e.comm + e.merch) * 1.08; }
 // The wage bill: a loanee in costs his share; a player loaned out still costs the rest (loanOutW).
 const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage * (p.loan && p.loan.ai && p.loan.to === c.id ? p.loan.share : 1) : 0; }) + (c.loanOutW || 0);
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations

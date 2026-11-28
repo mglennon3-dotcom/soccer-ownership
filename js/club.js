@@ -250,6 +250,11 @@ function crowdFor(c, opp, price = c.prices.ticket) {
   const loc = atHome(c) ? LOC(c).att * (locOf(c) === "rural" && has(c, "park") ? 1.05 : 1) : 1;  // the setting: transport links (a car park makes up for open country)
   return Math.min(capacity(c), Math.round((c.fans * turn + c.fans * .35 * pf * draw + away) * wx * protest * derby * loc));
 }
+/* Children (1.2.41): under-12s get in free, 12-18s pay half, on match tickets and season tickets alike. How many come
+   depends on the support: about 7% of a crowd under 12 and 8% aged 12-18, more with a community following, more again
+   with a family stand. ticketYield is what an average head in the crowd pays, as a share of the adult price. */
+const kidShare = c => { const comm = fanShare(c, "comm") || 0, fam = c.fac && familyOn(c) ? 1 : 0; return { u12: .07 + comm * .06 + fam * .04, teen: .08 + comm * .04 + fam * .02 }; };
+const ticketYield = c => { const k = kidShare(c); return 1 - k.u12 - k.teen * .5; };
 function concessionsFor(c, crowd, price = c.prices.conc) {
   const am = ground(c).amen, buy = clamp(1.6 * Math.pow(REF_CONC[c.tier] / Math.max(.3, price), 1.4), 0, 2.6) * (.65 + am * .12);
   const lc = atHome(c) ? LOC(c).conc : 1, gross = crowd * buy * price * lc, cut = atHome(c) ? 1 : .5;  // a landlord keeps half the bar takings
@@ -276,7 +281,7 @@ function stDemand(c, price = stPrice(c)) {
 }
 function sellSeasonTickets(c) {
   const n = stDemand(c), price = stPrice(c); c.st = { y: G.year, n, price };
-  if (n) { earn("stix", n * price); news(`Season tickets: ${n.toLocaleString("en-GB")} sold at ${money(price)}, ${money(n * price)} up front (${Math.round(n / capacity(c) * 100)}% of the ground).`, true); }
+  if (n) { const yld = ticketYield(c); earn("stix", n * price * yld); news(`Season tickets: ${n.toLocaleString("en-GB")} sold at ${money(price)} (children under 12 free, 12-18s half), ${money(n * price * yld)} up front (${Math.round(n / capacity(c) * 100)}% of the ground).`, true); }
   const r = price / Math.max(1, stRef(c)); if (r < .8) moodHit(c, 2); else if (r > 1.3) moodHit(c, -3);
 }
 // Holders at a league game: most of them turn up.
@@ -284,7 +289,7 @@ const stHolders = c => c.st && c.st.y === G.year ? c.st.n : 0;
 function matchdayForecast(c, t = c.prices.ticket, k = c.prices.conc) {
   const avgOpp = { rep: c.rep, fans: FAN_T[c.tier], half: "" }, hold = Math.round((G.phase === "summer" ? stDemand(c) : stHolders(c)) * .92);
   const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, avgOpp, t)), con = concessionsFor(c, crowd, k);
-  return { crowd, gate: Math.max(0, crowd - hold) * t * (1 - .2 * terraceShare(c)), conc: con.net, rent: ground(c).rent + (atHome(c) ? c.fac.stadium.lease || 0 : 0), ops: opsCost(c, crowd), hold };
+  return { crowd, gate: Math.max(0, crowd - hold) * t * (1 - .2 * terraceShare(c)) * ticketYield(c), conc: con.net, rent: ground(c).rent + (atHome(c) ? c.fac.stadium.lease || 0 : 0), ops: opsCost(c, crowd), hold };
 }
 
 /* ---------- sponsors ---------- */
@@ -460,7 +465,7 @@ function weeklyAccounts(c) {
 function homeGameMoney(c, opp, league) {
   const hold = league ? Math.round(stHolders(c) * .92) : 0;  // season-ticket holders at a league game: already paid
   const crowd = Math.max(Math.min(capacity(c), hold), crowdFor(c, opp)), con = concessionsFor(c, crowd), paying = Math.max(0, crowd - hold);
-  const tp = c.prices.ticket * (1 - .2 * terraceShare(c));  // terrace tickets sell a fifth cheaper
+  const tp = c.prices.ticket * (1 - .2 * terraceShare(c)) * ticketYield(c);  // terrace tickets sell a fifth cheaper; children pay less
   if (terraceShare(c)) moodHit(c, terraceShare(c) * .15);
   const pop = fzK(c) === .5 ? fzGame(c, crowd, .5) : 0;
   earn("gate", paying * tp); earn("conc", con.net); earn("events", ventureGame(c, crowd) + pop); spend("rent", ground(c).rent + (atHome(c) ? c.fac.stadium.lease || 0 : 0)); spend("mdops", opsCost(c, crowd));
