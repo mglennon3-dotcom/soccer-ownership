@@ -263,7 +263,10 @@ function aiAccounts(c) {
   // Below the leagues: contracts the owner won't carry are sold, or the players released.
   if (c.tier >= 5) for (let k = 0; k < 4 && aiBill(c) > nlWageCap(c) * 1.05; k++) ruleSales(c);
   { const r = spendRule(c, net, inc); if (r.pen) { c.ded = Math.max(c.ded || 0, r.pen); charge(c, r.pen, "breaking the spending rule"); if (c.lg === my().lg || c.tier === 1) news(`${c.name} are docked ${r.pen} points for breaking the spending rule (losses of ${Math.round(r.ratio * 100)}% of income over three seasons).`, c.lg === my().lg); }
-    else if ((r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.15) && c.tier <= 4 && !reckless(c)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); } }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
+    // (1.2.45) A club drifting past its budget cuts back first (no new signings, wages come down as contracts end); it only
+    // has to sell when it's actually close to breaking the spending rule, or its wages are far past what it can afford.
+    else if (c.tier <= 4 && !reckless(c) && (r.ratio > SPEND_LIMIT - .05 || aiBill(c) > aiBudget(c) * 1.35)) { c.cut = Math.max(c.cut || 0, 1); ruleSales(c); }
+    else if (c.tier <= 4 && !reckless(c) && (r.ratio > SPEND_LIMIT - .15 || aiBill(c) > aiBudget(c) * 1.1)) c.cut = Math.max(c.cut || 0, 1); }  // near the limit, or wages well past what the club can afford  // the principal comes down a little each year
   // Heavy debt: two years' income or more puts the club at risk of administration.
   if (c.debt > inc * 2 && R() < Math.min(.25, (c.debt / inc - 2) * .05)) { if (failGate("adm")) { administration(c); return; } rescue(c); }
   if (!fan) o.wealth = Math.round(o.wealth + (net < 0 ? net : net * (o.style === "stripper" ? 1 : .25)));
@@ -339,7 +342,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15 && failGate("adm")) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     { const was = c.crisis && c.crisis.y < G.year, cr = clubSeasonForm(c); aiStyleCheck(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
-    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); aiPayReviews(c); } }
+    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); aiPayReviews(c); aiOutgrown(c); } }
     c.lvl = clubStandard(c);
   }
   cookSummer();
@@ -729,6 +732,17 @@ const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBu
 // administration, or running out of money and having to sell the club.
 const reckless = c => !!c.cook || ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || !!c.splash;
 
+/* Outgrowing the club (1.2.45): a player who has become clearly too good for his club (three points or more above its
+   standard, 29 or under) usually asks to move up as soon as it happens, so he's sold on while still rising rather than
+   staying until he's worth a fortune at that level. A loyal one, or one at a club going up, may stay a while. Not in the
+   Premier Division (there's nowhere higher at home). */
+function aiOutgrown(c) {
+  if (c.abroad || c.gone || isMine(c) || c.tier === 1) return;
+  for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.age > 29 || p.list || p.keep || p.nfs) continue;
+    const gap = r20(p.ovr) - r20(c.lvl || p.ovr); if (gap < 3) continue;
+    if (R() < clamp(.55 + (gap - 3) * .15 - loyaltyOf(p) * .3 - (c.chase ? .2 : 0), .15, .9)) { p.req = G.year; p.list = true; }
+  }
+}
 /* Pay reviews at AI clubs (1.2.39), as at yours, each summer: a player coming off a big season wants paying like it (up
    to about a quarter over the going rate at his club), and one paid well under the going rate for his rating asks to be
    brought up to it. The club agrees if its wage budget has room (or meets him halfway); if not, a breakout player who
@@ -741,7 +755,7 @@ function aiPayReviews(c) {
     const ask = Math.round(Math.min(wageCap(c), star ? Math.min(Math.max(p.wage * 1.15, std * (1.1 + form * .1)), Math.max(p.wage * 1.15, std * 1.25)) : std) / 100) * 100;
     if (star ? !(p.wage < ask / 1.15 && R() < .5) : !(p.wage < std * .8 && R() < .35)) continue;
     p.payY = G.year; n++;
-    const room = aiBudget(c) - aiBill(c), half = Math.round((p.wage + ask) / 2 / 100) * 100;
+    const room = aiBudget(c) * .95 - aiBill(c), half = Math.round((p.wage + ask) / 2 / 100) * 100;  // a rise has to fit the budget, with room to spare
     if (room >= ask - p.wage) { p.wage = ask; p.dealY = G.year; p.yrs = Math.max(p.yrs, star ? 4 : 3); }
     else if (room >= half - p.wage && !(star && R() < .4)) { p.wage = half; p.dealY = G.year; p.yrs = Math.max(p.yrs, 3); }
     else if (star && R() < .5) { p.req = G.year; p.list = true; p.unsettled = Math.max(p.unsettled || 0, 10); }
