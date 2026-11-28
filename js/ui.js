@@ -327,6 +327,8 @@ function pgStats() {  // the squad's season (your club's games only): its own pa
   return `<section class="card"><div class="card-h"><h2>Season stats</h2><span class="small muted">${esc(c.name)} games only</span></div>${ps.length ? squadStats(c, ps, xi) : `<p class="muted">No games yet.</p>`}</section>`;
 }
 // The Squad page: two views, like the Office's tabs: the players (with their lists) and the season's stats.
+// The youth coach's promotion picks (Squad > Academy): what he said when you asked.
+let YPICK_SAY = "";
 function pgSquadPage() {
   if (PAGE === "stats") { PAGE = "squad"; SUB.sqview = "stats"; }
   const v = SUB.sqview || "players", T = [["players", "Players"], ["stats", "Stats"], ["loans", "Loans"]];
@@ -361,7 +363,9 @@ function pgSquad(loans) {  // loans: the Loans view (suggested, loan-listed, len
       return `<div class="bulk"><button class="btn sm" data-act="fselall">${n && n === own.length ? "Clear all" : "Select all"}</button><span class="small muted">${n ? `${n} selected` : "Tick players to protect or list several at once."}</span>
         ${n ? `<span class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-act="fbulk" data-v="keep">Protect</button><button class="btn sm" data-act="fbulk" data-v="unkeep">Unprotect</button><button class="btn sm" data-act="fbulk" data-v="ll">Loan list</button><button class="btn sm" data-act="fbulk" data-v="unll">Off loan list</button><button class="btn sm" data-act="fbulk" data-v="tl">Transfer list</button><button class="btn sm" data-act="fbulk" data-v="untl">Off transfer list</button><button class="btn sm" data-act="fbulk" data-v="nfs">Not for sale</button><button class="btn sm" data-act="fbulk" data-v="unnfs">Available</button></span>` : ""}</div>`; })() : ""}
     ${tab === "acad" && ps.length ? (() => { for (const id of [...ASEL]) if (!ps.some(p => p.id === id)) ASEL.delete(id); const n = ASEL.size;
-      return `<div class="bulk"><button class="btn sm" data-act="aselall">${n === ps.length ? "Clear all" : "Select all"}</button><span class="small muted">${n ? `${n} selected` : "Tick players to act on several at once."}</span>
+      const yc = staffOf("youth"), picks = ps.filter(p => p.acad && p.age >= 16 && youthReady(p, c));
+      return `<div class="bulk"><button class="btn sm" data-act="aselall">${n === ps.length ? "Clear all" : "Select all"}</button>${yc ? `<button class="btn sm" data-act="ypick">${esc(yc.name.split(" ").slice(-1)[0])}'s picks (${picks.length})</button>` : ""}<span class="small muted">${n ? `${n} selected` : "Tick players to act on several at once."}</span>
+        ${YPICK_SAY ? `<p class="small" style="flex-basis:100%;margin:4px 0">${YPICK_SAY}</p>` : ""}
         ${n ? `<span class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-act="abulk" data-v="keep">Keep</button><button class="btn sm" data-act="abulk" data-v="unkeep">Don't keep</button><button class="btn sm" data-act="abulk" data-v="promote">Pro contract</button><button class="btn sm danger" data-act="abulk" data-v="release">Release</button></span>` : ""}</div>`; })() : ""}
     ${ps.length && tab === "sugloan" ? loanSuggestTable(c, ps, LS) : tab === "sugloan" ? `<p class="muted">No young player with that kind of potential is short of games right now.</p>` : ps.length && tab === "stats" ? squadStats(c, ps, xi) : ps.length ? `${sortTable("squad-" + tab, [
       // Final year: tick to keep him and offer a new deal when his contract ends.

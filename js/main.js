@@ -568,7 +568,13 @@ const ACT = {
     toast(n ? `${n} player${n > 1 ? "s" : ""} ${what}.` : `Nothing to change: ${{ keep: "they were all protected already", unkeep: "none of them was protected", ll: "they were all on the loan list already", unll: "none of them was on the loan list", tl: "they were all on the transfer list already", untl: "none of them was on the transfer list", nfs: "they were all not for sale already", unnfs: "none of them was marked not for sale" }[v]}.`);
     FSEL.clear(); render(); saveGame(); },
   aselall: () => { const ids = my().squad.filter(id => P(id).acad); if (ASEL.size === ids.length) ASEL.clear(); else ids.forEach(id => ASEL.add(id)); render(); },
-  abulk: async el => {
+  // (1.2.56) The youth coach picks who's ready for a professional contract: they're ticked, and he says why.
+  ypick: () => { const c = my(), yc = staffOf("youth"); if (!yc) return; const ps = c.squad.map(P).filter(p => p && p.acad && p.age >= 16), picks = ps.filter(p => youthReady(p, c)), T = TIER_LVL[c.tier];
+    ASEL.clear(); for (const p of picks) ASEL.add(p.id);
+    YPICK_SAY = picks.length ? `<b>${esc(yc.name)}:</b> "${picks.length === 1 ? "He's" : "They're"} ready for a professional contract: ${picks.map(p => `${esc(p.name)} (${p.age}, ${p.ovr >= T - 8 ? `rated ${r20(p.ovr)}, good enough now` : `potential ${est20(potEstimate(p))}`})`).join(", ")}." Tap Pro contract to promote ${picks.length === 1 ? "him" : "them"}, or untick anyone first.`
+      : `<b>${esc(yc.name)}:</b> "Nobody's ready yet. I'd give them another season." ${ps.length ? "" : "(No academy players are 16 or over.)"}`;
+    render(); },
+  abulk: async el => { YPICK_SAY = "";
     const c = my(), v = el.dataset.v, ps = [...ASEL].map(P).filter(p => p && p.acad && p.club === c.id); if (!ps.length) return;
     const y = staffOf("youth"), over = y && ["release", "promote", "keep"].includes(v) ? youthOverrides(v, ps) : [];
     const warn = over.length ? ` ${y.name} ${v === "release" ? `rates ${over.length === ps.length && over.length > 1 ? "all of them" : over.map(p => p.name).join(", ")} and won't like it` : v === "promote" ? `doesn't think ${over.map(p => p.name).join(", ")} ${over.length > 1 ? "are" : "is"} ready` : `would let ${over.map(p => p.name).join(", ")} go`}.` : "";
