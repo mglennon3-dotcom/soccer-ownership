@@ -733,8 +733,8 @@ function aiSquadCheck(c, light) {
   if (!light) { const room = !c.abroad && !c.cut && (aiBill(c) < aiBudget(c) * .9 || tbOf(c) > aiIncome(c) * .15), maxUp = ownStyle(c).spend >= 3 ? 3 : 2; let ups = 0;
     for (const pos of shuffle(POS.slice())) {
       const ps = sq().filter(p => p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2), up = room && ups < maxUp;
-      const bar = up ? c.lvl + (c.chase || c.push ? 2 : 0) : c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5;
-      const weak = ps[need - 1]; if (weak && weak.ovr < bar && (up || R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9)) && aiBill(c) < aiBudget(c)) { const n0 = c.squad.length; aiSign(c, pos); if (c.squad.length > n0) ups++; }
+      const bar = up ? c.lvl + (c.chase || c.push ? 2 : 0) + (c.tier <= 2 && aiBill(c) < aiBudget(c) * .8 ? 1 : 0) : c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5;  // a top-two club with plenty unspent aims higher
+      const weak = ps[need - 1]; if (weak && weak.ovr < bar && (up || R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9)) && aiBill(c) < aiBudget(c) * .95) { const n0 = c.squad.length; aiSign(c, pos, true); if (c.squad.length > n0) { ups++; if (!weak.keep && weak.ovr < c.lvl - 2) weak.list = true; } }  // an upgrade: the man he replaces is made available
     } }
 }
 // An AI club short of a player promotes its best academy prospect at that position, if he's anywhere near ready.
@@ -778,7 +778,7 @@ function recPref(c, q, fee) {
   }
   return 0;
 }
-function aiSign(c, pos) {
+function aiSign(c, pos, upgrade) {
   // c.lvl already carries the owner's spending; a big spender also aims a little higher and buys more readily.
   // At the salary cap (and not cooking the books) he can only add cheaper players.
   const sp = ownStyle(c).spend, target = Math.round(c.lvl + sp * .3 + normal() * 4.5 - (!c.cook && !c.abroad && aiBill(c) > salaryCap(c.tier) * .95 ? 5 : 0) - (c.emb ? 5 : 0));  // under an embargo: whoever will come for nothing
@@ -788,7 +788,8 @@ function aiSign(c, pos) {
   const wont = q => { if (!c.abroad && wageCap(c) < wageAt(q.ovr, naturalTier(q)) * .6) return true;  // can't pay him near his worth
     const a = aiAppeal(q, c); return a <= -1 || a < 0 && R() < clamp(-a * 5, 0, .8); };
   // The rules (squad cost, UEFA, a non-league owner's limit): his wage plus a year's share of the fee must fit.
-  const estW = q => offerWage(q, c), fits = (q, fee) => fitsRules(c, estW(q), fee, 3);
+  // An upgrade (not filling a gap) has to fit the wage budget, with room to spare: no buying past it and selling to make up.
+  const estW = q => offerWage(q, c), fits = (q, fee) => fitsRules(c, estW(q), fee, 3) && (!upgrade || c.abroad || aiBill(c) + estW(q) <= aiBudget(c) * .95);
   const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33 && !wont(q) && fits(q, 0));
   const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
   // The best free agent and the best player he could buy: he takes the free agent unless the other is clearly better.
@@ -803,7 +804,7 @@ function aiSign(c, pos) {
     // at least 20 players.
     // A big-spending owner (benefactor, gambler, celebrity) reaches two divisions up, first-choice players included.
     const big = sp >= 3, lower = G.clubs.filter(x => !isMine(x) && x !== c && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier >= c.tier - (big ? 2 : 1) && x.tier <= c.tier + 2 && x.squad.length >= 20));
-    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && (x.abroad || x.tier >= c.tier || big || !xiSet(x).has(q.id) && q.ovr <= (c.lvl || 0) + 2) && q.ovr >= feeFloor(c) && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
+    const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && (x.abroad || x.tier > c.tier || (x.tier === c.tier && q.ovr >= (c.lvl || 0) + 2) || big || !xiSet(x).has(q.id) && q.ovr <= (c.lvl || 0) + 2) && q.ovr >= feeFloor(c) && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
     const willing = pool.filter(q => !wont(q) && fits(q, aiFee(q, c))), scored = willing.map(q => [q, q.ovr + tf(q) + pref(q, aiFee(q, c)) + normal() * 2]).sort((a, b) => b[1] - a[1]);
     const best = scored.find(([q]) => canAfford(c, aiFee(q, c)));
     // The one he really wants is beyond the budget: the owner may find the money.

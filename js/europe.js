@@ -182,7 +182,9 @@ function foreignUpgrade(c) {
 function foreignSign(c, pos) {
   const target = Math.round(c.lvl + normal() * 4);
   // Mostly they shop at home and elsewhere abroad: English clubs are in the frame only about one time in four.
-  const eng = R() < .1, sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : eng && !x.gone && x.tier <= 4 && (x.rep || 0) <= c.rep + 3));
+  // (1.2.47) In England they look at the top two divisions; the Second and Third only now and then (a foreign club rarely
+  // shops in League One or Two).
+  const eng = R() < .1, low = R() < .2, sellers = G.clubs.filter(x => x !== c && !isMine(x) && (x.abroad ? x.rep <= c.rep + 3 : eng && !x.gone && (x.tier <= 2 || (low && x.tier <= 4)) && (x.rep || 0) <= c.rep + 3));
   const pool = []; for (const x of sellers) for (const id of x.squad) { const q = P(id); if (q && q.pos === pos && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30 && canAfford(c, aiFee(q)) && !homeBound(q) && acceptsMove(q, c)) pool.push(q); }
   if (!pool.length) return false;
   const p = pick(pool), from = CL(p.club); aiTransfer(p, c); p.wage = aiWage(p, c); p.yrs = aiYears(p, c);
@@ -198,7 +200,7 @@ function foreignBuys() {
     const std = TIER_XI[c.tier];  // measured against the division's real level (its average starter), so the biggest clubs lose stars too
     for (const p of c.squad.map(P)) { if (!p || p.acad || p.loan || p.toMe || p.age > 31 || homeBound(p)) continue; const gap = p.ovr - std - 4;
       if (gap <= 0 || R() > Math.min(.06, .01 + gap * .005)) continue;
-      const fee = Math.round(aiFee(p) * .7 / 1e4) * 1e4, to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6 && x.rep >= (c.rep || 0) - 3 && canAfford(x, fee) && acceptsMove(p, x)); if (!to.length) continue; const b = pick(to);
+      const fee = Math.round(aiFee(p) / 1e4) * 1e4, to = buyers.filter(x => Math.abs(x.lvl - p.ovr) < 6 && x.rep >= (c.rep || 0) - 3 && canAfford(x, fee) && acceptsMove(p, x)); if (!to.length) continue; const b = pick(to);
       aiTransfer(p, b, fee); p.wage = aiWage(p, b); p.yrs = aiYears(p, b); aiSquadCheck(c, true); G.exports = (G.exports || 0) + 1;
       if (c.lg === (my() || {}).lg || p.ovr >= 85) news(`${p.name} leaves ${c.name} for ${b.name} in ${COUNTRY[b.country].name}.`); } } }
 // During a window foreign clubs plug gaps from the free agents only (new players are made only in the summer).

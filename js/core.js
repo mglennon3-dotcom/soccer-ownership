@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.2.44.1";
+const VERSION = "1.2.47";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -238,11 +238,13 @@ function renewsAI(p) {
   if (!ok && p.age <= 24 && p.ovr >= ref - 1 && h < clamp(ch, .1, .95) + .45) { ok = true; giveClause(p, c); }
   p.renew = { y: G.year, ok }; return ok;
 }
-/* The going rate for players around the Premier/First Division line (rated about 8 to 12) is well above what the curve
-   alone gives: up to four and a half times for a 9-10, easing off either side (nothing extra at 7 and below; little at 13 and up). */
+/* The going rate for players around the First Division (rated about 8 to 12) sits a little above what the curve alone
+   gives: up to half as much again for a 9-10, easing off either side (nothing extra at 7 and below or 12 and up).
+   (1.2.45: was up to four and a half times, which made a Second or Third Division club's better players worth millions
+   and their sales income several times what real clubs there take; and rated an 11 above a 12.) */
 function bandBump(t) {
-  if (t <= 7.2) return 1; if (t <= 8.8) return 1 + 3.5 * (t - 7.2) / 1.6; if (t <= 10.3) return 4.5;
-  if (t <= 12) return 4.5 - 3.3 * (t - 10.3) / 1.7; if (t <= 14) return 1.2 - .2 * (t - 12) / 2; return 1;
+  if (t <= 7.2) return 1; if (t <= 8.8) return 1 + .5 * (t - 7.2) / 1.6; if (t <= 10.3) return 1.5;
+  if (t <= 12) return 1.5 - .5 * (t - 10.3) / 1.7; return 1;
 }
 /* A release clause, as a multiple of his value: the most he'll accept depends on him. An ambitious player (one who
    cares about the club's standing or the project) wants a low one, about his value; others will take up to about 1.3. */
