@@ -667,7 +667,7 @@ function wageClauses(c, up, down) {
    pays a third to a half of it; his club the rest. */
 function forcedLoan(p, c) {
   const share = Math.round(rf(.35, .5) * 20) / 20;
-  const offers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && Math.abs((x.lvl || 0) - p.ovr) <= 6 && !derbyLevel(c, x) && fitsRules(x, p.wage * share, 0, 1))
+  const offers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && Math.abs((x.lvl || 0) - p.ovr) <= 6 && !derbyLevel(c, x) && !loanFull(x) && fitsRules(x, p.wage * share, 0, 1))
     .map(x => [x, aiAppeal(p, x, p.wage) + normal() * .03]).filter(([, a]) => a > -1).sort((a, b) => b[1] - a[1]);
   if (!offers.length) return false; const d = offers[0][0];
   aiLoanMove(p, c, d, share);
