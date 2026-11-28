@@ -550,7 +550,7 @@ const typeKey = () => `<div style="margin-top:10px"><p class="small"><b>Type cod
 // Short names for the types, to fit under a player on the tactics pitch.
 const ARCH_SHORT = { SS: "Shot-stop", BPK: "Sweeper GK", CMD: "Command", STP: "Stopper", AER: "Aerial", BPD: "Ball-player", COV: "Covering", OFB: "Overlapping", DFB: "Defensive", IFB: "Inverted",
   BW: "Ball-winner", DLP: "Deep PM", ANC: "Anchor", B2B: "Box-to-box", PM: "Playmaker", BC: "Ball carrier", DES: "Destroyer", CRE: "Creator", SHS: "Shadow", DRB: "Dribbler",
-  DW: "Direct", IF: "Inside fwd", WPM: "Wide PM", WW: "Workhorse", POA: "Poacher", TM: "Target man", RIB: "Runner", DLF: "Deep fwd" };
+  DW: "Direct", IF: "Inside fwd", WPM: "Wide PM", TW: "Tricky", WW: "Workhorse", POA: "Poacher", TM: "Target man", RIB: "Runner", DLF: "Deep fwd" };
 function tacticsShape() {
   const c = my(), M = mgr(), hired = !!staffOf("manager"), form = M.form || "4-4-2", xi = pickXI(c), st = STYLES[M.phil], fit = styleFit(xi, M.phil);
   const pos = FORM_XY[form] || FORM_XY["4-4-2"];

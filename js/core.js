@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.2.69";
+const VERSION = "1.2.70";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -630,7 +630,8 @@ const ARCHETYPES = {
   AM: [["Creator", ["vis", "pas"], "Unlocks defences with the final ball.", "CRE"], ["Shadow striker", ["fin", "cmp"], "Arrives in the box to score.", "SHS"],
     ["Dribbler", ["dri", "tec"], "Beats players in tight spaces.", "DRB"]],
   W: [["Direct winger", ["pac", "dri"], "Takes on the full-back with speed.", "DW"], ["Inside forward", ["fin", "cmp", "dri"], "Cuts inside to shoot.", "IF"],
-    ["Wide playmaker", ["pas", "vis", "tec"], "Creates from the flank.", "WPM"], ["Workhorse winger", ["sta", "tac"], "Tracks back and presses all game.", "WW"]],
+    ["Wide playmaker", ["pas", "vis", "tec"], "Creates from the flank.", "WPM"], ["Workhorse winger", ["sta", "tac"], "Tracks back and presses all game.", "WW"],
+    ["Tricky winger", ["dri", "tec", "vis"], "Beats his man with skill, then picks out the chance.", "TW"]],
   ST: [["Poacher", ["fin", "cmp"], "Lives in the box and finishes chances.", "POA"], ["Target man", ["hea", "str"], "Holds the ball up and wins it in the air.", "TM"],
     ["Runner in behind", ["pac", "fin"], "Stretches the defence with his pace.", "RIB"], ["Deep-lying forward", ["pas", "vis", "tec"], "Drops in to link the play.", "DLF"]],
 };

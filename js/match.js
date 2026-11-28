@@ -136,6 +136,7 @@ const CHEM_T = {
   DW: ["+counter +wing +press -possession", "TM POA RIB CRE SHS PM", "DLF DRB"],
   IF: ["+possession +counter -wing", "DLF CRE BC PM", "TM SHS POA"],
   WPM: ["+possession +wing -press -direct", "POA RIB SHS B2B BW DES", "CRE DRB"],
+  TW: ["+possession +wing -press -direct", "POA TM SHS RIB B2B BW DES", "DRB WPM TW"],
   WW: ["+press +defensive -wing", "DRB CRE PM DLP B2B", "POA RIB"],
   B2B: ["+press +direct -possession -defensive", "TM DLF CRE DRB WPM WW PM DLP ANC COV", "SHS BC B2B"],
   PM: ["+possession +counter -direct -defensive", "POA RIB SHS DW IF WW B2B BW ANC BPD IFB DES", "TM CRE PM"],
@@ -161,7 +162,7 @@ for (const [k, [st, w, x]] of Object.entries(CHEM_T)) {
   for (const [list, v] of [[w, 1], [x, -1]]) for (const o of list.split(" ").filter(Boolean)) { CHEM_PAIR[k + "|" + o] = v; CHEM_PAIR[o + "|" + k] = v; }
 }
 const ARCH_NAME = Object.fromEntries(Object.values(ARCHETYPES).flat().map(a => [a[3], a[0]]));
-const CREATORS = ["PM", "DLP", "CRE", "WPM", "DLF", "IFB"], WINNERS = ["BW", "ANC", "B2B", "DES"], SCORERS = ["POA", "RIB", "SHS", "IF", "TM"];
+const CREATORS = ["PM", "DLP", "CRE", "WPM", "TW", "DLF", "IFB"], WINNERS = ["BW", "ANC", "B2B", "DES"], SCORERS = ["POA", "RIB", "SHS", "IF", "TM"];
 const SLOT_LINE = { GK: 0, CB: 1, FB: 1, DM: 2, CM: 2, AM: 3, W: 3, ST: 3 }, ATK_SHARE = [0, 0, .5, 1];
 const ringLine = slot => SLOT_LINE[slot] === 3 ? "att" : SLOT_LINE[slot] === 2 ? "mid" : "def";
 // how close two players are: the same position counts most, the same line next, then the line next to it
