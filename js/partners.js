@@ -275,6 +275,28 @@ DECIDE.loanOffer = (m, i) => { const p = G.players[m.data.pid], x = CL(m.data.cl
 /* Recalling a player you've lent out: he comes straight back. The borrowing club is owed a month of his wages for the
    trouble (and a feeder or partner minds a little). If your 25-man list is full he can't play until you register him. */
 const recallFee = p => Math.round(p.wage * 4 / 52 / 100) * 100;
+/* A loan ended early (1.2.38): you send him back, or his club recalls him in January. He goes home at once, and the
+   place he took up in the borrowing club's loan limit is free again. */
+function returnLoan(p, why) {
+  if (!p || !p.loan) return; const at = CL(p.club), home = CL(p.loan.from);
+  if (at) p.loanedAt = { y: G.year, short: at.short, name: at.name, tier: at.abroad ? null : at.tier, country: at.abroad ? at.country : null };
+  if (at && isMine(at)) logMove("loanend", p, { club: home ? home.name : "" });
+  if (at) at.squad = at.squad.filter(id => id !== p.id); G.loanList = (G.loanList || []).filter(id => id !== p.id);
+  if (home && (!home.gone || home.abroad)) { home.squad.push(p.id); p.club = home.id; capSquad(home, p); } else toFreeAgent(p);
+  p.loan = null;
+  if (at && isMine(at)) { syncReg(at); news(why === "you" ? `You send ${p.name} back to ${home ? home.name : "his club"}: his loan is over, and the loan place is free.` : `${home ? home.name : "His club"} recall ${p.name} from his loan${why ? ` (${why})` : ""}. The loan place is free again.`, true); }
+}
+// January: a club may recall a player it lent out who isn't getting games, or one it now needs (short in his position
+// through injuries). Not a forced loan (that club had to shed his wages), and not yours (you recall your own).
+function janRecalls() {
+  for (const id of (G.loanList || []).slice()) { const p = G.players[id]; if (!p || !p.loan || p.loan.forced) continue;
+    const home = CL(p.loan.from), at = CL(p.club); if (!home || !at || isMine(home) || (home.gone && !home.abroad)) continue;
+    const row = at.abroad || !G.leagues[at.lg] ? null : G.leagues[at.lg].tab[at.id], games = row ? row.p : 0;
+    const idle = games >= 8 && (p.s.app || 0) < games * .3;
+    const short = home.squad.map(P).filter(q => q && q.pos === p.pos && !q.acad && !q.inj).length < (p.pos === "GK" ? 2 : 3);
+    if ((idle || short) && R() < (short ? .6 : .45)) returnLoan(p, short ? "they're short at " + POS_NAME[p.pos].toLowerCase() : "he isn't getting games");
+  }
+}
 function recallLoan(p) {
   const c = my(), at = CL(p.club); if (!p.loan || p.loan.from !== c.id) return;
   const fee = recallFee(p); if (fee) spend("wages", fee);

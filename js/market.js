@@ -827,6 +827,7 @@ function marketWeek() {
   headWeek(c); bidsWeek(c); clauseWeek(c); loanOffersWeek(c); faDrain();
   if ((G.phase === "summer" && G.week === SUMMER_WEEKS - 2) || (G.phase === "season" && G.week === JAN[JAN.length - 2])) aiLoans();  // late in each window
   if ((G.phase === "summer" && G.week === 2) || (G.phase === "season" && G.week === JAN[0])) aiSellExpiring();
+  if (G.phase === "season" && G.week === JAN[0]) janRecalls();
   if (G.phase === "season" && G.week === 1) { for (const x of G.clubs) if (!x.gone && !x.abroad && x.tier === 1) plAgree(x);
     // Who's expected to finish where (by strength), for the season's shocks.
     G.expRank = {}; for (const k of LG_KEYS) G.leagues[k].clubs.map(CL).sort((a, b) => (b.lvl || 0) - (a.lvl || 0)).forEach((c, i) => G.expRank[c.id] = i + 1); }

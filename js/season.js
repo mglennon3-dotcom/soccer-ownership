@@ -670,7 +670,7 @@ function forcedLoan(p, c) {
   const offers = G.clubs.filter(x => !x.gone && !x.abroad && !isMine(x) && x !== c && x.tier <= c.tier && Math.abs((x.lvl || 0) - p.ovr) <= 6 && !derbyLevel(c, x) && !loanFull(x) && fitsRules(x, p.wage * share, 0, 1))
     .map(x => [x, aiAppeal(p, x, p.wage) + normal() * .03]).filter(([, a]) => a > -1).sort((a, b) => b[1] - a[1]);
   if (!offers.length) return false; const d = offers[0][0];
-  aiLoanMove(p, c, d, share);
+  aiLoanMove(p, c, d, share); p.loan.forced = true;
   if (storyWorthy(c) || storyWorthy(d)) story(`Relegated ${c.name} must loan out ${p.name}: he chooses ${d.name}.`, "clause", 1);
   return true;
 }
