@@ -664,7 +664,7 @@ const RETRAIN = { CB: ["FB", "DM"], FB: ["CB", "W", "DM"], DM: ["CB", "CM", "FB"
 const NATURAL = {
   STP: [["DM", "ANC"]], AER: [["ST", "TM"]], BPD: [["DM", "DLP"]], COV: [["FB", "DFB"]],
   OFB: [["W", "WW"]], DFB: [["CB", "COV"]], IFB: [["DM", "DLP"], ["CM", "PM"]],
-  BW: [["CM", "B2B"]], DLP: [["CM", "PM"]], ANC: [["CB", "STP"]],
+  BW: [["CM", "DES"]], DLP: [["CM", "PM"]], ANC: [["CB", "STP"]],
   B2B: [["DM", "BW"], ["AM", "SHS"]], PM: [["AM", "CRE"], ["DM", "DLP"]], BC: [["W", "DW"], ["AM", "DRB"]], DES: [["DM", "BW"]],
   CRE: [["CM", "PM"]], SHS: [["ST", "POA"]], DRB: [["W", "IF"]],
   DW: [["FB", "OFB"], ["ST", "RIB"]], IF: [["AM", "SHS"], ["ST", "POA"]], WPM: [["AM", "CRE"], ["CM", "PM"]], WW: [["FB", "OFB"], ["CM", "B2B"]],
