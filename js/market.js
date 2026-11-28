@@ -718,6 +718,36 @@ function agreePre(p, wage, rec) { agreeIncoming(p, 0, wage, rec, true); p.toMe.p
 function agreedMsg(p, rec, pre) { const A = p.toMe;
   addMsg({ type: "info", title: `${rec.name} ${pre ? "signs a pre-contract with" : "agrees a deal for"} ${p.name}`,
     body: `${POS_NAME[p.pos]}, ${p.age}, rated ${est20(ovrEstimate(p))}, potential ${est20(potEstimate(p))}, from ${fromName(p)}. Signed this week. ${pre ? "No fee" : A.fee ? `${money(A.fee)}, paid when he arrives` : "No fee"}. ${pw(A.wage)}. ${pre ? "He joins on a free when his contract ends this summer (his wages start then, in next season's accounts)" : `He joins ${A.when === "jan" ? "when the January window opens (this season's accounts)" : "when the summer window opens (next season's accounts)"}`}. You can pull out from his player card.` }); }
+/* ---------- competing for a player (1.2.60) ----------
+   Bid for a player other clubs want too (a good one, coming off a big season, young with potential) and one or two AI
+   clubs may bid at the same time. The selling club looks at every bid close to the best fee; the player then picks the
+   club he prefers on his own priorities (playing time, wages, standing, the project, home), so the best fee doesn't
+   always win. You have a week to raise your fee or your wage offer, or pull out. */
+function raceRivals(p, fee, wage) {
+  const c = my(), from = p.club >= 0 ? CL(p.club) : null, d = from ? listDemand(p, from) : listDemand(p, c);
+  if (R() > .12 + d * .55) return [];
+  const ask = from ? askingFee(p) : 0, cands = bidders().filter(x => x !== from && !x.gone && x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9 && (!from || canAfford(x, ask)) && acceptsMove(p, x));
+  const out = []; for (let i = 0; i < 6 && out.length < (d > .6 && R() < .5 ? 2 : 1); i++) { const x = wpick(cands, y => bidWeight(y, p, from || c)); if (!x || out.some(o => o.club === x.id)) continue;
+    out.push({ club: x.id, fee: from ? feeRound(Math.max(ask, fee * rf(.92, 1.15))) : 0, wage: Math.min(wageCap(x), Math.round(aiWage(p, x) * rf(1, 1.2) / 100) * 100) }); }
+  return out;
+}
+function startRace(p, fee, wage) {
+  const rivals = raceRivals(p, fee, wage); if (!rivals.length) return false;
+  addMsg({ type: "race", pid: p.id, fee, wage, rivals, title: `${p.name}: ${rivals.length === 1 ? `${clubLabel(CL(rivals[0].club))} are` : `${rivals.length} clubs are`} in for him too` });
+  news(`Your bid for ${p.name} has competition: ${rivals.map(r => CL(r.club).name).join(" and ")} ${rivals.length > 1 ? "have" : "has"} bid too.`, true); return true;
+}
+// The decision: bids within 10% of the best fee stay in; the player chooses among them.
+function settleRace(m, now) {
+  const p = G.players[m.pid]; m.done = true; if (!p || p.club === G.club) { m.answer = "lapsed"; return; }
+  const from = p.club >= 0 ? CL(p.club) : null, best = Math.max(m.fee, ...m.rivals.map(r => r.fee));
+  const mine = playerAppeal(p, m.wage), opts = [{ me: true, fee: m.fee, score: mine.score - mine.pr.thr + normal() * .03 }].concat(m.rivals.map(r => ({ r, fee: r.fee, score: aiAppeal(p, CL(r.club), r.wage) + normal() * .03 })));
+  const live = opts.filter(o => !from || o.fee >= best * .9), win = live.sort((a, b) => b.score - a.score)[0];
+  if (win && win.me && win.score > -.02) { m.answer = "you won him"; if (!windowOpen() && from && !proSigning(p)) agreeIncoming(p, m.fee, m.wage); else ownerBuy(p, m.fee, m.wage); news(`${p.name} chooses ${my().name}${m.rivals.length ? ` over ${m.rivals.map(r => CL(r.club).name).join(" and ")}` : ""}.`, true); return; }
+  const w = win && !win.me ? win : live.filter(o => !o.me).sort((a, b) => b.score - a.score)[0];
+  if (!w) { m.answer = "he stayed put"; news(`${p.name} turns everyone down and stays where he is.`); return; }
+  const x = CL(w.r.club); m.answer = `he chose ${x.name}`; aiTransfer(p, x, w.r.fee); p.wage = w.r.wage; p.yrs = aiYears(p, x);
+  news(`${p.name} chooses ${x.name} over you${w.r.fee > m.fee ? ` (they bid ${money(w.r.fee)})` : w.r.wage > m.wage ? ` (they offered ${pw(w.r.wage)})` : ""}.`, true);
+}
 function agreeIncoming(p, fee, wage, rec, quiet) { p.toMe = { fee, wage, y: G.year, w: G.week, rec: !!rec, by: rec ? "recruit" : "you", when: G.phase === "season" && G.week < JAN[0] ? "jan" : "summer" }; news(`${rec ? `${rec.name} agrees a deal` : "Agreed"}: ${p.name} will join from ${fromName(p)} when the ${p.toMe.when === "jan" ? "January window opens (this season's accounts)" : "summer window opens (next season's accounts)"}${fee ? `, for ${money(fee)}` : ""}, on ${pw(wage)}.`, true);  if (rec && !quiet) agreedMsg(p, rec, false); }
 // What deals agreed by your head of recruitment have already promised from the budgets (all agreed players' wages count).
 const pendFees = () => sum(incoming().filter(p => p.toMe.rec && toMeWhen(p) === "jan"), p => p.toMe.fee);  // summer deals come out of next season's budget

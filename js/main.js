@@ -527,6 +527,12 @@ const ACT = {
   close: () => { if (ASKING) return ACT.askno(); closeModal(); }, closebg: (el, e) => { if (e.target === el) ACT.close(); },
   club: el => clubModal(+el.dataset.id), player: el => playerModal(+el.dataset.id),
   bidctr: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (!m) return; const t = counterBid(m, num($("#ctr" + m.id))); BID_SAY = t ? { id: m.id, t } : null; if (t) toast(t); render(); saveGame(); },
+  race: async el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (!m || m.done) return; const v = el.dataset.v, p = G.players[m.pid];
+    if (v === "out") { m.done = true; m.answer = "you pulled out"; news(`You pull out of the race for ${p.name}.`); }
+    else if (v === "raise") { const f = Math.round(num($("#rf" + m.id))), w = Math.round(num($("#rw" + m.id)) * 52); if (f < m.fee || w < m.wage) return toast("You can only improve your offer.");
+      if (f > m.fee && my().scrBan === G.year) return toast("No transfer fees this season (the squad cost rule)."); m.fee = f; m.wage = w; toast(`Offer improved: ${money(f)}, ${pw(w)}.`); }
+    else if (v === "now") settleRace(m, true);
+    render(); saveGame(); },
   war: el => { const w = G.inbox.find(x => x.id === +el.dataset.id); if (!w || w.done) return; const v = el.dataset.v; if (v === "sell") warSell(w, false); else if (v === "keep") warKeep(w); else { const T = warRaise(w); toast(`Best offer now: ${CL(T.id).name}, ${money(T.amt)}.`); } render(); saveGame(); },
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "2" ? 2 : el.dataset.v === "1", false); render(); saveGame(); },
   retrain: async el => { const p = P(+el.dataset.id), to = el.dataset.to, V = retrainView(p, to);
@@ -620,6 +626,7 @@ const ACT = {
     if (fee < ask * .95) return toast(`${p.club >= 0 ? CL(p.club).name : "His club"} turn the offer down. They want about ${money(ask)}.`);
     const a = playerAppeal(p, wage);
     if (a.score < a.pr.thr) return toast(`${p.name} turns you down. ${refusalReason(a, P_FACTORS)}`);
+    if (windowOpen() && startRace(p, fee, wage)) { closeModal(); toast(`Other clubs are in for ${p.name} too: see your inbox.`); render(); saveGame(); return; }  // competition (1.2.60)
     if (!windowOpen() && p.club >= 0 && !proSigning(p)) { agreeIncoming(p, fee, wage); toast(`${p.name} says yes: the deal is agreed and goes through when the window opens.`); } else { ownerBuy(p, fee, wage); toast(`${p.name} says yes: he signs on ${pw(wage)}${fee > 0 ? `, fee ${money(fee)}` : ""}.`); }  /* a professional contract for a part-timer: any time */ closeModal(); render(); saveGame();
   },
   unagree: el => { const p = P(+el.dataset.id); if (p && p.toMe) { delete p.toMe; news(`You pull out of the agreed deal for ${p.name}.`); } closeModal(); render(); saveGame(); },

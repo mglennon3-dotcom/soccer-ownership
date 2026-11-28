@@ -838,6 +838,7 @@ function settleInbox() {
       const deal = m.rec !== "accept" && m.keen && p && p.dealY !== G.year && wageBill(c) + newDealWage(p) - p.wage <= c.budget.wages;
       answerBid(m, m.rec === "accept" ? true : deal ? 2 : false, true); }
     if (m.type === "war" && m.age >= 2) warSell(m, true);
+    if (m.type === "race" && (m.age >= 2 || lastWindowWeek())) settleRace(m);  // a week to improve your offer (or the window shuts)
     if (m.type === "choice" && m.age >= 3) { m.auto = true; answerChoice(m, m.dflt); } }
 }
 

@@ -204,7 +204,7 @@ function pgHome() {
         : `<p class="lead">Out of the play-offs: beaten in the semi-final by ${clubLink(CL(m.opp))}.</p>`; })() : `<p class="lead">No more league games this season.</p>`;
   const xi = pickXI(c), fit = styleFit(xi, mgr().phil);
   // Anything waiting on your decision (a bid, a choice) puts the inbox first; otherwise it sits further down.
-  const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "choice") && (x.type === "choice" || G.players[x.pid]))
+  const act = G.inbox.some(x => !x.done && (x.type === "bid" || x.type === "war" || x.type === "race" || x.type === "choice") && (x.type === "choice" || G.players[x.pid]))
     || G.inbox.some(x => !x.done && !x.seen && x.age < 2);  // anything new in the inbox (a signing, a trophy, a record...) brings it to the top of the page too
   // Tabs keep the page short: today (what's next, the table, what needs you), the team, the club, and the news.
   // Anything waiting on your decision sits above the tabs whichever is open.
@@ -277,10 +277,11 @@ const fitText = f => f >= .35 ? `<span class="good">great</span>` : f >= .1 ? `<
 const posHead = p => p ? `<span class="pos">${p.pos}</span> ` : "";
 function inboxCard(urgent) {
   // Decisions first, then recent news items.
-  const m = G.inbox.filter(x => !x.done && !x.seen && (x.type === "bid" || x.type === "war" || x.type === "choice" || x.age < 4)).sort((a, b) => (b.type === "war" ? 2 : b.type === "bid" || b.type === "choice" ? 1 : 0) - (a.type === "war" ? 2 : a.type === "bid" || a.type === "choice" ? 1 : 0)).slice(0, 8);
+  const m = G.inbox.filter(x => !x.done && !x.seen && (x.type === "bid" || x.type === "war" || x.type === "race" || x.type === "choice" || x.age < 4)).sort((a, b) => (b.type === "war" ? 2 : b.type === "bid" || b.type === "choice" ? 1 : 0) - (a.type === "war" ? 2 : a.type === "bid" || a.type === "choice" ? 1 : 0)).slice(0, 8);
   if (!m.length) return "";
-  const n = m.filter(x => x.type === "bid" || x.type === "war" || x.type === "choice").length;
+  const n = m.filter(x => x.type === "bid" || x.type === "war" || x.type === "race" || x.type === "choice").length;
   return `<section class="card summary"><div class="card-h"><h2>Inbox</h2><span class="row" style="gap:6px;align-items:center">${m.length > n + 1 ? `<button class="lnk small" data-act="msgseen" data-id="all">Dismiss all</button>` : ""}${urgent ? n ? `<span class="chip req">${n} to decide</span>` : `<span class="chip xi">New</span>` : ""}</span></div><div class="stack">${m.map(x => {
+    if (x.type === "race") return raceHTML(x);
     if (x.type === "choice") return choiceHTML(x);
     if (x.type === "bid") { const p = G.players[x.pid]; if (!p) return ""; const s = staffOf("recruit");
       return `<div class="decision"><div><b>${posHead(p)}${esc(x.title)}</b></div>${myPlayerLine(p)}${x.pre ? `<p class="small warn">The window is shut: accept and he stays with you until it opens, then joins them.</p>` : ""}<p class="small">${POS_NAME[p.pos]}, ${p.age}. Valued at about ${money(valueOf(p))}. ${s ? esc(s.name) : "Your staff"} advise${s ? "s" : ""} you to <b>${x.rec}</b>. If you don't answer this week, ${s ? pr(s, "he") : "they"} will.${x.keen ? ` <b>${esc(p.name.split(" ")[0])} wants the move:</b> turn it down without a better contract and he'll be unsettled for a while.` : ` <span class="muted">${esc(p.name.split(" ")[0])} is happy where he is: turning it down won't bother him.</span>`}</p>
@@ -298,6 +299,17 @@ function inboxCard(urgent) {
     if (x.type === "objectives" && !x.rows) oldObjRows(x);  // a report written before reports were laid out
     return `<div class="decision"><div><b>${posHead(x.pid && G.players[x.pid])}${esc(x.title)}</b></div>${x.rows ? msgRows(x) : `<p class="small">${esc(x.body || "")}</p>`}<div class="row" style="margin-top:6px">${x.go ? `<button class="btn sm" data-act="page" data-p="${x.go}">${esc(x.goL || "Go")}</button>` : ""}${x.pid && G.players[x.pid] ? `<button class="btn sm" data-act="player" data-id="${x.pid}">View</button>` : ""}<button class="btn sm" data-act="msgseen" data-id="${x.id}">Dismiss</button></div></div>`;
   }).join("")}</div></section>`;
+}
+// Competing for a player (1.2.60): everyone's bid, what the player thinks of each, and a week to improve yours.
+function raceHTML(x) {
+  const p = G.players[x.pid]; if (!p) return ""; const from = p.club >= 0 ? CL(p.club) : null, mine = playerAppeal(p, x.wage), pr = prefsOf(p, P_FACTORS);
+  const lean = s => s > .08 ? ["keen", "good"] : s > 0 ? ["interested", ""] : ["unconvinced", "warn"];
+  const rows = [`<div class="row between small" style="padding:3px 0"><span><b>${esc(my().name)}</b> (you)</span><span class="num">${from ? money(x.fee) + " · " : ""}${pw(x.wage)} · ${word(lean(mine.score - mine.pr.thr))}</span></div>`]
+    .concat(x.rivals.map(r => { const cl = CL(r.club); return `<div class="row between small" style="padding:3px 0"><span>${crest(cl, 14)} ${esc(clubLabel(cl))}</span><span class="num">${from ? money(r.fee) + " · " : ""}${pw(r.wage)} · ${word(lean(aiAppeal(p, cl, r.wage)))}</span></div>`; }));
+  return `<div class="decision"><div><b>${posHead(p)}${esc(x.title)}</b></div>${theirPlayerLine ? theirPlayerLine(p) : ""}
+    <p class="small">${from ? `${esc(from.name)} will look at every bid close to the best fee; then ${esc(p.name.split(" ")[0])} chooses.` : `He's a free agent: he'll choose.`} He cares most about ${pr.top.map(k => (P_FACTORS.find(f => f[0] === k) || [k, k])[1].toLowerCase()).join(" and ")}. It's decided at the end of next week.</p>${rows.join("")}
+    <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">${from ? `<label class="small">Fee € <input type="text" inputmode="decimal" class="num-in" id="rf${x.id}" value="${fmtNum(x.fee)}" style="width:7em"></label>` : `<input type="hidden" id="rf${x.id}" value="0">`}<label class="small">Wage €/wk <input type="text" inputmode="decimal" class="num-in" id="rw${x.id}" value="${fmtNum(Math.round(x.wage / 52))}" style="width:5.5em"></label>
+      <button class="btn sm" data-act="race" data-id="${x.id}" data-v="raise">Improve offer</button><button class="btn sm" data-act="race" data-id="${x.id}" data-v="now">Let them decide now</button><button class="btn sm danger" data-act="race" data-id="${x.id}" data-v="out">Pull out</button><button class="btn sm" data-act="player" data-id="${p.id}">View player</button></div></div>`;
 }
 function resultsList(rs) {
   return `<ul class="results">${rs.map(r => { const o = CL(r.opp), mine = r.ev.filter(e => (e.side === 0) === (r.home || (r.comp === "PO" && !r.home && false)));
