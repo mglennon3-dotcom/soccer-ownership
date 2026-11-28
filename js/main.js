@@ -535,6 +535,9 @@ const ACT = {
     render(); saveGame(); },
   war: el => { const w = G.inbox.find(x => x.id === +el.dataset.id); if (!w || w.done) return; const v = el.dataset.v; if (v === "sell") warSell(w, false); else if (v === "keep") warKeep(w); else { const T = warRaise(w); toast(`Best offer now: ${CL(T.id).name}, ${money(T.amt)}.`); } render(); saveGame(); },
   bid: el => { const m = G.inbox.find(x => x.id === +el.dataset.id); if (m) answerBid(m, el.dataset.v === "2" ? 2 : el.dataset.v === "1", false); render(); saveGame(); },
+  restyle: async el => { const p = P(+el.dataset.id), code = el.dataset.to, O = restyleOutcome(p, code); if (!O) return;
+    if (!await ask(`Retrain ${p.name} as a ${O.name.toLowerCase()}? He'll be rated ${r20(O.ovr)} afterwards. This can only be done once.`)) return;
+    restyle(p, code); playerModal(p.id); render(); saveGame(); },
   retrain: async el => { const p = P(+el.dataset.id), to = el.dataset.to, V = retrainView(p, to);
     if (!await ask(`Retrain ${p.name} as a ${POS_NAME[to].toLowerCase()}? ${mgr() && mgr().name ? mgr().name : "The manager"} thinks it's ${V.verdict === "neutral" ? "neutral" : `a ${V.verdict} move`}: about ${V.ovr[0]}${V.ovr[1] !== V.ovr[0] ? "–" + V.ovr[1] : ""} now. He can only retrain once.`, "Retrain him")) return playerModal(p.id);
     retrain(p, to); playerModal(p.id); render(); saveGame(); },

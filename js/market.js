@@ -679,6 +679,22 @@ function retrainView(p, to) {
   const [pa, pb] = potEstimate(p), dP = E.pot - p.pot, pot = [Math.max(1, Math.round(to20(pa + dP - spread))), Math.min(20, Math.round(to20(pb + dP + spread)))];
   return { verdict, ovr: r(E.ovr), pot, sure: acc >= .7 ? "confident" : acc >= .45 ? "fairly sure" : "guessing" };
 }
+/* Retraining his type (1.2.64), once: he works on the new type's key attributes and lets his old type's ones slip by the
+   same total, just far enough that he becomes the new type. His rating moves a little either way (positions value some
+   attributes more than others). Within his position; academy players and loanees can't. */
+const restyleOK = p => p.club === G.club && !p.restyled && !p.acad && !(p.loan && p.loan.to === G.club) && (ARCHETYPES[p.pos] || []).length > 1;
+function restyleOutcome(p, code) {
+  const list = ARCHETYPES[p.pos] || [], to = list.find(a => a[3] === code), cur = archetypeOf(p); if (!to || !cur || cur[3] === code) return null;
+  const at = { ...p.at }, up = to[1].filter(k => !cur[1].includes(k)), down = cur[1].filter(k => !to[1].includes(k)), q = { ...p, at };
+  for (let step = 0; step < 40 && archetypeOf(q)[3] !== code; step++) { for (const k of up) at[k] = Math.min(100, at[k] + 1); const per = up.length / Math.max(1, down.length); for (const k of down) at[k] = Math.max(1, at[k] - per); }
+  if (archetypeOf(q)[3] !== code) return null; for (const k in at) at[k] = Math.round(at[k]);
+  return { at, ovr: clamp(rh(rawRole(q, p.pos)), 1, 100), name: to[0], d: to[2] };
+}
+function restyle(p, code) {
+  if (!restyleOK(p)) return; const O = restyleOutcome(p, code); if (!O) return; const was = p.ovr, from = archetypeOf(p)[0];
+  p.at = O.at; setOvr(p); p.pot = Math.max(p.ovr, p.pot + (p.ovr - was)); p.restyled = { from, y: G.year };
+  news(`${p.name} retrains as a ${O.name.toLowerCase()} (was a ${from.toLowerCase()}): now rated ${r20(p.ovr)}${r20(p.ovr) !== r20(was) ? ` (was ${r20(was)})` : ""}.`, true);
+}
 function retrain(p, to) {
   if (!retrainOK(p) || !RETRAIN[p.pos].includes(to)) return;
   const from = p.pos, was = p.ovr, wasPot = p.pot, apt = aptOf(p, to), O = retrainOutcome(p, to, apt);

@@ -526,7 +526,7 @@ function playerModal(id) {
     ${p.club >= 0 && p.age <= 27 && p.pot > p.ovr && challengeF(p) < 1 ? `<p class="small warn">Playing below his level (${CL(p.club).abroad ? `${esc(COUNTRY[CL(p.club).country].name)}'s league` : `the ${esc(LEAGUES[CL(p.club).lg].name)}`}, where the average starter is about ${Math.round(divLevel20(CL(p.club)))}): he's growing about ${Math.round((1 - challengeF(p)) * 100)}% slower than he would somewhere that tests him.</p>` : ""}
     ${p.clause && p.club >= 0 && !mine ? `<p class="small">Release clause: ${money(p.clause.fee)}, open to a bigger club (${my().rep >= p.clause.rep ? "you qualify: that's his price to you" : "you're not big enough to trigger it yet"}).</p>` : ""}
     ${formWord(seasonForm(p)) ? `<p class="small good">Coming off ${formWord(seasonForm(p))}: clubs are taking notice.</p>` : ""}
-    ${mine ? retrainBox(p) : ""}`;
+    ${mine ? retrainBox(p) + restyleBox(p) : ""}`;
   const HONOURS = (honoursHTML(p) || `<p class="small muted">No honours yet.</p>`) + `
     ${(() => { const L = Object.entries(p.love || {}).filter(([, l]) => l >= FAV).map(([cid, l]) => `${l >= LEGEND ? "a legend" : "a fan favourite"} at ${esc(G.clubs[+cid] ? G.clubs[+cid].name : "a former club")}`); return L.length ? `<p class="small"><b>Supporters' view:</b> ${L.join("; ")}.</p>` : ""; })()}
   `;
@@ -1087,6 +1087,15 @@ function pgMarket() {
 }
 // Under a "can't afford him" verdict: an offer to raise the budgets just enough.
 function fitBtn(p, loan) { const f = budgetFit(p, loan); return f ? `<div class="row" style="margin:4px 0 6px"><button class="btn sm" style="white-space:nowrap" data-act="fitbudget" data-id="${p.id}"${loan ? ' data-loan="1"' : ""}>Raise the budget to fit him</button><span class="small muted">${budgetFitText(f).replace(/^t/, "T")}</span></div>` : ""; }
+// On your own player's card: retrain his type within his position, once (1.2.64).
+function restyleBox(p) {
+  if (p.restyled) return `<p class="small muted">Retrained from a ${esc(p.restyled.from.toLowerCase())} in ${seasonLabel(p.restyled.y)}: his type can't be changed again.</p>`;
+  if (!restyleOK(p)) return ""; const cur = archetypeOf(p); if (!cur) return "";
+  return `<details class="sugg"><summary class="small"><b>Retrain his type</b> <span class="muted">(once only)</span></summary>
+    <p class="small muted" style="margin:6px 0">Now a ${esc(cur[0].toLowerCase())}, rated ${r20(p.ovr)}. He works on the new type's key attributes and lets his current type's ones slip, just far enough to change.</p>
+    ${(ARCHETYPES[p.pos] || []).filter(a => a[3] !== cur[3]).map(a => { const O = restyleOutcome(p, a[3]); return O ? `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(a[0])}</b> <span class="muted">(${a[3]})</span>: ${esc(a[2])}<br><span class="${r20(O.ovr) > r20(p.ovr) ? "good" : r20(O.ovr) < r20(p.ovr) ? "warn" : "muted"}">Rated ${r20(O.ovr)} afterwards</span></span><button class="btn sm" data-act="restyle" data-id="${p.id}" data-to="${a[3]}">Retrain</button></div>` : ""; }).join("")}
+    <p class="small muted">It takes effect now.</p></details>`;
+}
 // On your own player's card: retrain him to a neighbouring position, once, with the manager's estimate.
 function retrainBox(p) {
   if (p.retrained) return `<p class="small muted">Retrained from ${esc(POS_NAME[p.retrained.from].toLowerCase())} in ${seasonLabel(p.retrained.y)}: he can't retrain again.</p>`;
