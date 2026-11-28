@@ -56,7 +56,7 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
    A player in his last year who won't re-sign is already cheaper through his value, and his club gives up the premiums.
    xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once. buyer: who's buying
    (you unless said otherwise; null for no one in particular). */
-const SELL_DIV = [0, 1, 1, .9, .8, .02, .005, 0];
+// (SELL_DIV, the old discount by selling division, removed in 1.2.43: a player's price is his price.)
 const XI_SET = new Map();
 function xiSet(c, xi) {
   if (xi) return xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id));
@@ -75,8 +75,8 @@ function askingFee(p, xi, buyer = my()) {
   if (p.club >= 0) {
     const c = CL(p.club), mine = isMine(c);
     const leaving = !mine && p.yrs <= 1 && !renewsAI(p);  // he won't re-sign: better a fee now than nothing in the summer
-    if (!c.abroad && !mine) f *= SELL_DIV[c.tier] ?? 1;
-    if (c.abroad) f *= fStr(c);  // a league abroad prices players at its own level
+    // (1.2.43) A player's price is his price: no discount for a smaller division or a smaller league abroad (his value
+    // already reflects his rating, potential, age and contract).
     if (!leaving && xiSet(c, xi).has(p.id)) { f *= 1.3; if (bestOf(c) === p) f *= 1.2; }
     if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
