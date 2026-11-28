@@ -82,9 +82,12 @@ function askingFee(p, xi, buyer = my()) {
     if (p.list) f *= .8;
     f *= [1, 1.25, 1.5][derbyLevel(buyer, c)];  // selling to a rival: only at a premium (more for a fierce one)
     // Part-time football (National North/South and the Regional League): a player under contract at a part-time club
-    // costs another part-time club a fee (about half a year's wage: €1k to €10k); a club offering him a professional
-    // contract (the National Division and up) can take him at any time, paying his club compensation (a year's wage: €2k to €50k).
-    if (!c.abroad && partTimeClub(c) && buyer && !buyer.abroad) f = Math.max(f, partTimeClub(buyer) ? clamp(p.wage * .5, 1000, 10000) : clamp(p.wage, 2000, 50000));
+    // costs another part-time club a fee; a club offering him a professional contract (the National Division and up)
+    // can take him at any time, paying his club compensation.
+    // (1.2.36) The fee or compensation follows what he's worth: his rating, potential, age and contract (his value). A
+    // professional club pays 40% of it, another part-time club 20%; at least €2,000 / €1,000. A raw 19-year-old with real
+    // potential costs far more than a journeyman of the same rating.
+    if (!c.abroad && partTimeClub(c) && buyer && !buyer.abroad) f = Math.max(f, partTimeClub(buyer) ? Math.max(1000, feeRound(valueOf(p) * .2)) : Math.max(2000, feeRound(valueOf(p) * .4)));
     // A release clause: a bigger club (standing well above his club's) can take him for the set fee.
     if (p.clause && !mine && buyer && (buyer.rep || 0) >= p.clause.rep) f = Math.min(f, p.clause.fee);
   }
