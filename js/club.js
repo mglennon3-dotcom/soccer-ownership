@@ -91,13 +91,13 @@ function buildWeek(c) {
   if (S.build && S.build.type === "reground" && !S.rebuilding && S.build.total - S.build.left >= (S.build.plan || 0)) { S.rebuilding = true; S.away = S.build.host ?? tempHost(c); c.cap = capacity(c); news(`Planning is approved and ${S.name} closes for rebuilding. Home games move to ${HOSTS[S.away].name}.`, true); }
   if (S.build && --S.build.left <= 0) {
     const b = S.build; S.build = null;
-    if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = 2; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = b.suites || 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
+    if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = clamp(b.amen || 2, 1, 5); if (b.heat) S.heat = true; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = b.suites || 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
     if (b.type === "new" || b.type === "move" || b.type === "reground") { setHoney(c); moodHit(c, 5); news("The new ground is open: supporters are queuing for tickets, and the excitement should last a couple of seasons.", true); }
     if (b.type === "new") { openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = Math.max(S.site, S.cap + usedSpace(S)); if (has(c, "fanzone")) S.popup = false; }
     else if (b.type === "expand") { const st = standsOf(S), side = b.side || Object.keys(st).sort((x, y) => st[x].cap - st[y].cap)[0]; st[side].cap += b.add; st[side].ext = G.year; syncCap(S); news(`The ${SIDES[side]} extension is open (+${b.add.toLocaleString("en-GB")}). Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "rebuild") { const st = standsOf(S), old = st[b.side]; st[b.side] = { cap: b.cap, type: b.to, roof: b.roof, yr: G.year, family: old.family || false, ...(b.side === "W" && old.corp ? { corp: Math.min(old.corp, Math.floor(b.cap * .15)) } : {}) }; syncCap(S); news(`The new ${SIDES[b.side]} is open: ${b.cap.toLocaleString("en-GB")} ${b.to === "terrace" ? "on a terrace" : "seats"}${b.roof ? ", covered" : ", open to the sky"}. Capacity is now ${S.cap.toLocaleString("en-GB")}.`, true); }
     else if (b.type === "move") moveIn(c, b);
-    else if (b.type === "reground") { closeGround(S); S.stands = JSON.parse(JSON.stringify(b.stands)); openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
+    else if (b.type === "reground") { closeGround(S); S.stands = JSON.parse(JSON.stringify(b.stands)); openGround(S); if (b.amen) S.amen = clamp(b.amen, 1, 5); if (b.heat) S.heat = true; S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); S.amen = Math.max(S.amen || 1, 2); S.pitch = 100; if (b.name) S.name = b.name; S.away = null; S.rebuilding = false; news(`${S.name} reopens, rebuilt from the ground up: ${S.cap.toLocaleString("en-GB")} capacity. The club moves back home.`, true); }
     else if (b.type === "roof") { standsOf(S)[b.side].roof = true; news(`The ${SIDES[b.side]} has a roof: supporters there stay dry.`, true); }
     else if (b.type === "convert") { standsOf(S)[b.side].type = b.to; news(`The ${SIDES[b.side]} is now ${b.to === "seat" ? "all-seated" : "a terrace"}.`, true); }
     else if (b.type === "corp") { const W = standsOf(S).W; W.corp = (W.corp || 0) + b.add; news(`${b.add} corporate seats are ready in the Main stand (${W.corp} in all).`, true); }
@@ -792,10 +792,17 @@ const corpCost = c => Math.round(500 + REF_CORP[c.tier] * 4);
 const corpUpkeep = c => Math.round(REF_CORP[c.tier] / 10);
 const corpLet = c => Math.min(corpSeats(c), Math.floor(suiteDemand(c) * 15));
 // Quotes.
+/* (1.2.48) A new ground's facilities level (1-5) and undersoil heating are chosen in the designer and built with it, for
+   15% less than adding them later: each level above 2 costs what that upgrade would at a ground this size. */
+// Rebuilding your own ground in place starts from the facilities it has; a brand-new ground (first one, or a move) from level 2.
+const rebuildDraft = d => typeof G !== "undefined" && !!G && !!d && d === G.stDraft && G.club != null && my().fac.stadium.own;
+const amenBase = d => rebuildDraft(d) ? my().fac.stadium.amen : 2;
+const designAmenCost = (tot, lvl, base = 2) => { let t = 0; for (let l = base; l < (lvl || base); l++) t += tot * 90 * l * Math.pow(1.6, l) + 50000; return Math.round(t * .85 / 1e4) * 1e4; };
+const designHeatCost = tot => Math.round((150000 + tot * 18) * .85 / 1e4) * 1e4;
 function groundQuote(d) {
   const st = Object.values(d.stands), tot = sum(st, x => x.cap || 0);
-  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * corpCost(my()) * .85 + (d.suites || 0) * boxCost(my(), tot) * .85 + (d.family ? 25000 : 0);
-  return { cap: tot, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, weeks: groundWeeks(tot) + planWeeks(tot), plan: planWeeks(tot), space: tot + designSpace(d, tot), vent: (d.vent || []).slice() };
+  const cost = 1.5e6 + sum(st, x => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type] * roofF(x.roof)) + (d.corp || 0) * corpCost(my()) * .85 + (d.suites || 0) * boxCost(my(), tot) * .85 + (d.family ? 25000 : 0) + designAmenCost(tot, d.amen, amenBase(d)) + (d.heat && !(rebuildDraft(d) && my().fac.stadium.heat) ? designHeatCost(tot) : 0);
+  return { cap: tot, cost: Math.round((cost + designVentCost(d, tot)) / 1e4) * 1e4, amen: clamp(d.amen || amenBase(d), 1, 5), heat: !!d.heat, weeks: groundWeeks(tot) + planWeeks(tot), plan: planWeeks(tot), space: tot + designSpace(d, tot), vent: (d.vent || []).slice() };
 }
 function standQuote(c, side, add) {
   const x = standsOf(c.fac.stadium)[side], to = c.fac.stadium.cap + add;
@@ -1010,7 +1017,7 @@ function moveIn(c, b) {
   const S = c.fac.stadium, old = S.name, sell = b.sold ? b.sell : oldGroundValue(c); closeGround(S);
   if (b.kind) { const was = LOC(c).l; c.loc = locForMove(c, b.kind); if (LOC(c).l !== was) news(`The new ground's setting: ${LOC(c).l.toLowerCase()}. ${LOC(c).d}`, true); }
   S.name = b.name; S.stands = JSON.parse(JSON.stringify(b.stands)); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15));
-  syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = b.site; S.rebuilding = false; S.soldOld = false; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
+  syncCap(S); if (b.suites != null) S.suites = Math.min(b.suites, Math.floor(S.cap / 250)); if (b.amen) S.amen = clamp(b.amen, 1, 5); S.heat = !!b.heat; openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = b.site; S.rebuilding = false; S.soldOld = false; S.amen = Math.max(S.amen || 1, 3); S.heat = false; S.pitch = 100; S.away = null; S.km = (S.km || 0) + b.km; S.lease = 0;
   const pf = b.kind ? sitePref(c, { k: b.kind, km: b.km, site: b.site }) : { mood: moveMood(c, b.km) };
   if (!b.sold) earn("oldground", sell); moodHit(c, pf.mood);
   const lost = siteLoss(c, { km: b.km }, pf.mood);

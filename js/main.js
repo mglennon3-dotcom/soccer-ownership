@@ -746,6 +746,7 @@ const CHANGE = {
   sd: el => { const d = (G.stDraft ||= standPlan(my().fac.stadium.own ? my().fac.stadium.cap : 1500)), k = el.dataset.k; if (my().fac.stadium.own) G.rgOpen = true;
     if (k === "family") d.family = el.value; else if (k === "corp") d.corp = Math.max(0, Math.min(Math.round(num(el)), Math.floor((d.stands.W.cap || 0) * .15)));
     else if (k === "suites") d.suites = Math.max(0, Math.min(Math.round(num(el)), Math.floor(sum(Object.values(d.stands), x => x.cap || 0) / 250)));
+    else if (k === "amen") d.amen = clamp(+el.value || 2, 1, 5); else if (k === "heat") d.heat = el.checked;
     else if (k.startsWith("vent.")) { const v = k.slice(5); d.vent = (d.vent || []).filter(x => x !== v); if (el.checked) d.vent.push(v); if (!el.checked && v === "shop") d.vent = d.vent.filter(x => x !== "mega"); }
     else { const [s, f] = k.split("."); d.stands[s][f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; }
     render(); },
@@ -758,6 +759,7 @@ const CHANGE = {
   mvsd: el => { const d = G.mvDraft, k = el.dataset.k; G.mvOpen = true; if (!d) return;
     if (k === "family") d.family = el.value; else if (k === "corp") d.corp = Math.max(0, Math.min(Math.round(num(el)), Math.floor((d.stands.W.cap || 0) * .15)));
     else if (k === "suites") d.suites = Math.max(0, Math.min(Math.round(num(el)), Math.floor(sum(Object.values(d.stands), x => x.cap || 0) / 250)));
+    else if (k === "amen") d.amen = clamp(+el.value || 2, 1, 5); else if (k === "heat") d.heat = el.checked;
     else if (k.startsWith("vent.")) { const v = k.slice(5); d.vent = (d.vent || []).filter(x => x !== v); if (el.checked) d.vent.push(v); if (!el.checked && v === "shop") d.vent = d.vent.filter(x => x !== "mega"); }
     else { const [s, f] = k.split("."); d.stands[s][f] = f === "cap" ? Math.max(0, Math.round(num(el) / 50) * 50) : f === "roof" ? el.checked : el.value; }
     render(); },
