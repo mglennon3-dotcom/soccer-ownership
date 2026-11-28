@@ -463,8 +463,8 @@ function youthMinutes() {
   const forced = c.squad.filter(id => P(id).force).length, rng = ([a, b]) => r20(a) === r20(b) ? `${r20(a)}` : `${r20(a)}–${r20(b)}`;
   const row = p => `<div class="row between" style="gap:8px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
       <span class="small"><span class="pos">${p.pos}</span> <button class="lnk" data-act="player" data-id="${p.id}">${esc(p.name)}</button>, ${p.age}${p.acad ? ` <span class="chip">Academy</span>` : ""} · rated ${r20(p.ovr)} · potential <b>${rng(potEstimate(p))}</b> · ${seasonBit(p)}</span>
-      ${p.acad ? `<span class="small muted">Promote him to the first team (Academy page) to play him</span>` : `<button class="btn sm" data-act="forcey" data-id="${p.id}" ${!p.force && forced >= MAX_FORCED ? "disabled" : ""}>${p.force ? "Let the manager decide" : "Insist he plays"}</button>`}
-      ${p.acad ? "" : `<div style="flex-basis:100%">${minTargetRow(p, true)}</div>`}</div>`;
+      ${p.acad ? `<span class="small muted">${p.age >= 16 ? "Stays in the academy: a minutes target gets him games" : "Too young to play yet (16 and over)"}</span>` : `<button class="btn sm" data-act="forcey" data-id="${p.id}" ${!p.force && forced >= MAX_FORCED ? "disabled" : ""}>${p.force ? "Let the manager decide" : "Insist he plays"}</button>`}
+      ${p.acad && p.age < 16 ? "" : `<div style="flex-basis:100%">${minTargetRow(p, true)}</div>`}</div>`;
   return `<section class="card"><div class="card-h"><h2>Youth to give minutes</h2><span class="small muted">under 20 · not in the side · potential at or above your squad's average (${r20(avg)})</span></div>
     ${ps.length ? ps.map(row).join("") : `<p class="muted small">No one fits right now: no player under 20 outside the side has a potential at or above your squad's average.</p>`}
     <p class="small muted" style="margin-top:8px">Young players develop faster when they play. You can insist on up to ${MAX_FORCED} players starting${forced ? ` (${forced} now)` : ""}, or set a minutes target, and the manager starts him whenever he falls behind the pace. A loan is the other way to get them games.</p></section>`;
