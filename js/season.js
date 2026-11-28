@@ -733,7 +733,7 @@ function aiSquadCheck(c, light) {
   if (!light) { const room = !c.abroad && !c.cut && (aiBill(c) < aiBudget(c) * .9 || tbOf(c) > aiIncome(c) * .15), maxUp = ownStyle(c).spend >= 3 ? 3 : 2; let ups = 0;
     for (const pos of shuffle(POS.slice())) {
       const ps = sq().filter(p => p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2), up = room && ups < maxUp;
-      const bar = up ? c.lvl + (c.chase || c.push ? 2 : 0) : c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5;
+      const bar = up ? c.lvl + (c.chase || c.push ? 2 : 0) + (c.tier <= 2 && aiBill(c) < aiBudget(c) * .8 ? 1 : 0) : c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5;  // a top-two club with plenty unspent aims higher
       const weak = ps[need - 1]; if (weak && weak.ovr < bar && (up || R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9)) && aiBill(c) < aiBudget(c) * .95) { const n0 = c.squad.length; aiSign(c, pos, true); if (c.squad.length > n0) { ups++; if (!weak.keep && weak.ovr < c.lvl - 2) weak.list = true; } }  // an upgrade: the man he replaces is made available
     } }
 }

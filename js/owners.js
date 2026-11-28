@@ -206,7 +206,7 @@ const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.min(Ma
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
    plan a surplus; big spenders lose far more. (His tolerance is separate: how far beyond the plan he'll stand before
    ordering cuts.) */
-const TIER_LOSS = [0, .12, .52, .42, .37, .42, .32, .27];
+const TIER_LOSS = [0, .2, .52, .42, .37, .42, .32, .27];  // (1.2.47: Premier .12 to .2: its clubs were banking money they could spend)
 const spendTarget = c => { const l = lossTol(c), st = (c.own || {}).style; if (l < 0) return l;
   const t = TIER_LOSS[c.tier] * (["fanowned", "moneyball", "academy"].includes(st) ? .4 : 1) + (l >= .5 ? l * .3 : 0);
   // In the four professional divisions the spending rule caps losses; reckless owners plan past it anyway.
