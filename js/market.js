@@ -56,7 +56,7 @@ function hugeWage(p, c) { const nt = naturalTier(p), drop = Math.max(0, c.tier -
    A player in his last year who won't re-sign is already cheaper through his value, and his club gives up the premiums.
    xi: optional cache (club id -> Set of first-choice player ids) for pricing many players at once. buyer: who's buying
    (you unless said otherwise; null for no one in particular). */
-const SELL_DIV = [0, 1, 1, .9, .8, .02, .005, 0];
+// (SELL_DIV, the old discount by selling division, removed in 1.2.43: a player's price is his price.)
 const XI_SET = new Map();
 function xiSet(c, xi) {
   if (xi) return xi[c.id] ||= new Set(pickXI(c).map(o => o.p.id));
@@ -75,8 +75,8 @@ function askingFee(p, xi, buyer = my()) {
   if (p.club >= 0) {
     const c = CL(p.club), mine = isMine(c);
     const leaving = !mine && p.yrs <= 1 && !renewsAI(p);  // he won't re-sign: better a fee now than nothing in the summer
-    if (!c.abroad && !mine) f *= SELL_DIV[c.tier] ?? 1;
-    if (c.abroad) f *= fStr(c);  // a league abroad prices players at its own level
+    // (1.2.43) A player's price is his price: no discount for a smaller division or a smaller league abroad (his value
+    // already reflects his rating, potential, age and contract).
     if (!leaving && xiSet(c, xi).has(p.id)) { f *= 1.3; if (bestOf(c) === p) f *= 1.2; }
     if (!leaving && p.yrs >= 4) f *= 1.1;
     if (p.list) f *= .8;
@@ -244,6 +244,7 @@ function sellToAI(p, byOwner, fee) {
   if (!buyer) return release(p, byOwner);
   fee = fee ?? Math.round(valueOf(p) * rf(.75, 1.05) / 1000) * 1000;
   logMove("out", p, { club: buyer.name, fee, wage: p.wage, by: byOwner ? "you" : "administrators" });
+  favSoldFans(p, c, buyer);
   payFee(buyer, null, fee); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", fee);
   news(`${p.name} is sold to ${buyer.name} for ${money(fee)}${byOwner ? " (your decision)" : ""}.`, true);
   return buyer;
@@ -251,6 +252,7 @@ function sellToAI(p, byOwner, fee) {
 const releaseCost = p => Math.round(p.wage * Math.max(1, p.yrs) * .5);
 function release(p, byOwner) {
   if (p.club === G.club) logMove("release", p, { fee: releaseCost(p), wage: p.wage, by: byOwner ? "you" : "recruit" });
+  if (p.club === G.club) favSoldFans(p, my(), null, true);
   spend("wages", releaseCost(p)); leaveClub(p); toFreeAgent(p);
   news(`${p.name} is released${releaseCost(p) ? `, with ${money(releaseCost(p))} paid up` : ""}${byOwner ? " (your decision)" : ""}.`);
 }
@@ -400,6 +402,7 @@ function answerBid(m, accept, auto) {
 function completeSale(p, buyer, amt, auto) {
   if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`, "Selling first-choice players");
   logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto && auto !== "ask" ? "recruit" : "you" });
+  favSoldFans(p, my(), buyer);
   leaveClub(p); payFee(buyer, null, amt); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", amt);
   news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto === "ask" ? ", meeting your asking price" : auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
 }
@@ -512,7 +515,7 @@ function suggView(p, c = my(), loan = false) {
     const T = playerLoanTerms(p), share = Math.max(0, Math.round((T.min - (s.at.neg >= 65 ? .1 : 0)) * 10) / 10);
     if (!p.ng || p.ng.w !== windowId()) p.ng = { w: windowId(), n: normal(), m: normal() };
     T.min = clamp(Math.round(negGuess(T.min, p.ng.m, .25) * 10) / 10, 0, 1);  // what he reckons they want (his read)
-    if (p.wage * share > room) return { ok: false, money: true, need: { wages: p.wage * share - room }, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
+    if (share > 0 && p.wage * share > room) return { ok: false, money: true, need: { wages: p.wage * share - room }, w: `They want us to pay ${Math.round(T.min * 100)}% of his wages (${pw(p.wage * T.min)}), and the wage budget only has ${pw(Math.max(0, room))} to spare.` };
     return { ok: true, loan: true, share, w: `${what} on loan. ${share < T.min ? `They want us to pay ${Math.round(T.min * 100)}% of his wages; I can talk them down to ${Math.round(share * 100)}%` : `They want us to pay ${Math.round(share * 100)}% of his wages`} (${pw(p.wage * share)}). I'll borrow him this week.` };
   }
   const N = negotiate(p, c);

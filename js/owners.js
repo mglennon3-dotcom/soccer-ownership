@@ -174,7 +174,9 @@ function aiEstimate(x) {
 }
 // A season's income: TV, the gate (plus bar and shop), sponsors.
 // (plus a little for cup runs, merit money and selling players).
-function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * 1.35 + e.comm + e.merch) * 1.08; }
+// (1.2.41) The gate counts children's cheaper tickets at semi-professional clubs (ticketYield); the bar and food are what's left after stock and
+// staff, about a quarter of ticket money (was 35% before costs).
+function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * (ticketYield(c) + .25) + e.comm + e.merch) * 1.08; }
 // The wage bill: a loanee in costs his share; a player loaned out still costs the rest (loanOutW).
 const aiBill = c => sum(c.squad, id => { const p = G.players[id]; return p && !p.acad ? p.wage * (p.loan && p.loan.ai && p.loan.to === c.id ? p.loan.share : 1) : 0; }) + (c.loanOutW || 0);
 const aiOps = c => aiEstimate(c).att * REF_TICKET[c.tier] * 23 * MD_OPS;  // match-day operations
@@ -195,7 +197,10 @@ const lossTol = c => { const o = c.own || {}; if (o.tol == null) o.tol = Math.ro
    chasing promotion, less while cutting back. A big following, a good ground or a strong commercial pull all show up
    as income, so they show up here. */
 // Transfer profit helps, but only so far: wages are a commitment for years, and a big sale isn't repeated every season.
-const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.min(Math.max(0, c.feeAvg || 0), aiIncome(c) * .12) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
+/* (1.2.39) Selling clubs live on it: money from player sales goes back into the squad (up to 60% of income below the
+   Premier Division, 25% in it), and the spending rules count it as income, as the real ones count profit on player sales. */
+const feeReinvest = c => c.abroad ? .12 : c.tier === 1 ? .25 : .6;
+const aiAfford = c => Math.max(tierWages(c.tier) * .5, aiIncome(c) + Math.min(Math.max(0, c.feeAvg || 0), aiIncome(c) * feeReinvest(c)) - aiEstimate(c).staff - tierWages(c.tier) * .12 - aiOps(c) - aiExtra(c) - aiDebtService(c) - aiAmort(c));
 /* What he aims for. Like real football, most clubs spend beyond their means and the owner covers the gap: the planned
    loss (a share of income) is deepest in the First Division, where everyone gambles on promotion, and smallest at the
    top. Careful owners (supporters' trusts, data-driven investors, youth evangelists) plan a small loss; profit-seekers
@@ -322,8 +327,9 @@ function ownersSummer() {
     if (R() < S.build) c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0));
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
     if (S.build < .05 && R() < .3) c.train = Math.max(0, c.train - 1);
-    // Supporters follow the owner's pricing.
-    c.fans = Math.round(c.fans * (1 + (1 - S.prices) * .05 + S.media * .003));
+    // Supporters follow the owner's pricing: cheap tickets keep a few more coming, dear ones lose a few (1.2.42: no longer
+    // compounding growth every year; the owner's own following arrives once, with him: ownerFans).
+    if (S.prices < .9 && c.fans < natFans(c)) c.fans = Math.round(c.fans * 1.005); else if (S.prices > 1.2) c.fans = Math.round(c.fans * .995);
     // Administration: overstretched clubs with reckless owners collapse.
     c.ded = 0;
     const over = c.lvl > TIER_LVL[c.tier] + 3 || c.own.style === "stripper";
@@ -332,9 +338,8 @@ function ownersSummer() {
     if (c.own.style === "dynasty" && G.year - c.own.since >= 12 && R() < .1) succession(c);
     else if (c.own.style === "crypto" && R() < .15 && failGate("adm")) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
-    if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
     { const was = c.crisis && c.crisis.y < G.year, cr = clubSeasonForm(c); aiStyleCheck(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
-    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); } }
+    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); aiPayReviews(c); } }
     c.lvl = clubStandard(c);
   }
   cookSummer();
@@ -556,7 +561,7 @@ const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
 const europeBound = c => inEurope(c) || !!(G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id));
 const aiSquadCost = c => aiBill(c) + aiAmort(c);
 const ownerMoney = c => aiIncome(c) * clamp(spendTarget(c), 0, 1.5);  // what the owner plans to put in a year
-const scrRevenue = c => aiIncome(c) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c) : 0);
+const scrRevenue = c => aiIncome(c) + Math.max(0, c.feeAvg || 0) + (c.tier >= 3 && c.tier <= 4 ? ownerMoney(c) : 0);
 // Non-league: the wage bill an owner will carry, his nature times the club's size (a benefactor about two and a half times income).
 const nlWageCap = c => aiIncome(c) * (.75 + clamp(lossTol(c), 0, 1.5));
 /* Room left for a new player's wage plus a year's share of his fee. Reckless owners (gamblers, book-cookers) ignore it
@@ -724,6 +729,25 @@ const ruleRoom = c => c.abroad || c.tier > 4 || reckless(c) || aiBill(c) <= aiBu
 // administration, or running out of money and having to sell the club.
 const reckless = c => !!c.cook || ["gambler", "crypto", "hostile"].includes((c.own || {}).style) || !!c.splash;
 
+/* Pay reviews at AI clubs (1.2.39), as at yours, each summer: a player coming off a big season wants paying like it (up
+   to about a quarter over the going rate at his club), and one paid well under the going rate for his rating asks to be
+   brought up to it. The club agrees if its wage budget has room (or meets him halfway); if not, a breakout player who
+   was refused may hand in a transfer request, and the rest are unsettled. At most three a club. */
+function aiPayReviews(c) {
+  if (c.abroad || c.gone || isMine(c)) return; let n = 0;
+  for (const p of c.squad.map(P)) { if (n >= 3) break;
+    if (!p || p.acad || p.loan || p.age > 35 || p.payY === G.year || (p.dealY || 0) >= G.year - 1 || (p.tx || []).some(t => t[3] === c.id && t[0] >= G.year - 1)) continue;
+    const std = aiWage(p, c), form = Math.max(0, seasonForm(p)), star = form >= .9 && (p.last || p.s || {}).app >= 10;
+    const ask = Math.round(Math.min(wageCap(c), star ? Math.min(Math.max(p.wage * 1.15, std * (1.1 + form * .1)), Math.max(p.wage * 1.15, std * 1.25)) : std) / 100) * 100;
+    if (star ? !(p.wage < ask / 1.15 && R() < .5) : !(p.wage < std * .8 && R() < .35)) continue;
+    p.payY = G.year; n++;
+    const room = aiBudget(c) - aiBill(c), half = Math.round((p.wage + ask) / 2 / 100) * 100;
+    if (room >= ask - p.wage) { p.wage = ask; p.dealY = G.year; p.yrs = Math.max(p.yrs, star ? 4 : 3); }
+    else if (room >= half - p.wage && !(star && R() < .4)) { p.wage = half; p.dealY = G.year; p.yrs = Math.max(p.yrs, 3); }
+    else if (star && R() < .5) { p.req = G.year; p.list = true; p.unsettled = Math.max(p.unsettled || 0, 10); }
+    else p.unsettled = Math.max(p.unsettled || 0, 6);
+  }
+}
 /* A player's yearly chance of a sudden breakout or slump (see diversitySummer). */
 function breakSlump(p) {
   if (p.club === -2) return;
@@ -769,6 +793,7 @@ function payFee(buyer, seller, fee) {
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
 function aiTransfer(p, to, fee = aiFee(p, to)) { const from = p.club >= 0 ? CL(p.club) : null;
+  if (from && !isMine(from)) favSoldFans(p, from, to); signingFans(p, to);  // (1.2.42) the supporters notice
   if (!to.abroad && fee > (G.recFee || 0) && fee > 50e6) { G.recFee = fee; story(`A record fee: ${to.name} pay ${money(fee)} for ${p.name}${from ? ` (${from.name})` : ""}.`, "record", 3); }
   if (from && !from.abroad && p.clause && fee <= p.clause.fee && storyWorthy(from)) story(`${to.name} trigger ${p.name}'s ${money(p.clause.fee)} release clause at ${from.name}.`, "clause", 2); payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
 

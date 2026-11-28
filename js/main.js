@@ -252,6 +252,12 @@ function upgradeSave() {
       }
     } catch (e) { console.warn("fansFix1216", e); }
   }
+  /* Supporters (1.2.42): one-off. Under the old rules AI clubs' support crept up season after season; any club now above
+     one and a half times its natural size (division, following, catchment, standing) has the excess halved. Fallen
+     giants keep a big following. From now on support has to be earned (seasonFans). */
+  if (!G.fansFix1242) { G.fansFix1242 = true;
+    try { let n = 0; for (const c of G.clubs) { if (c.gone || c.abroad || isMine(c) || !(c.fans > 0)) continue; const cap = natFans(c) * 1.5; if (c.fans > cap) { c.fans = Math.round(cap + (c.fans - cap) * .5); n++; } }
+      if (n && G.club != null) news(`Across the game, ${n} clubs' support settles back toward what their size can hold. From now on supporters are won by promotions, titles, cups and star signings, and lost by relegation, bad seasons and selling the fans' favourites.`); } catch (e) { console.warn("fansFix1242", e); } }
   /* Contract lengths (1.0.17-18): this summer's renewals by your head of recruitment and last season's and this
      summer's signings had a random length; give them what the new rules would have (never shorter than they have). */
   if (G.club != null && !G.yrs3) { G.yrs3 = true; const c = my(), fixed = [];

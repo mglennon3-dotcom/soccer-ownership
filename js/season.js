@@ -295,6 +295,7 @@ function endSeason() {
     }
   }
   for (const [id, to] of moves) { const c = CL(id); if (c.lastF && to !== "OUT") c.lastF[to ? "up" : "down"] = true; }
+  try { seasonFans(mine); } catch (e) { console.error("supporters", e); }  // (1.2.42) your support moves with the season, like everyone's
   try { relegationExodus(moves.filter(([, to]) => to === null).map(([id]) => id)); } catch (e) { console.error("relegation sales", e); }
   // Full-time or part-time: a club promoted out of National North/South goes full-time, one relegated into it part-time.
   for (const [id, to] of moves) { if (to === "OUT") continue; const c = CL(id); if (!c || c.gone) continue; const was = to ? c.tier + 1 : c.tier - 1;
@@ -725,11 +726,16 @@ function aiSquadCheck(c, light) {
     let have = sq().filter(p => p.pos === pos && (!p.retiring)).length, guard = 0;
     while (have < n - (light ? 1 : 0) && guard++ < 4) { aiSign(c, pos); have++; }
   }
-  // Too weak: replace the weakest regular if he's well below the standard
-  if (!light) for (const pos of POS) {
-    const ps = sq().filter(p => p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2);
-    const weak = ps[need - 1]; if (weak && weak.ovr < c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5 && R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9) && aiBill(c) < aiBudget(c)) aiSign(c, pos);
-  }
+  // Too weak: replace the weakest regular if he's well below the standard. A club with money to spend (wages under its
+  // budget, or a healthy transfer kitty, often from selling) buys to get better, not just to fill a gap: any regular below
+  // the club's own standard (two above it while chasing promotion), up to two a window, three under a big spender
+  // (1.2.39). Money in the bank doesn't win matches.
+  if (!light) { const room = !c.abroad && !c.cut && (aiBill(c) < aiBudget(c) * .9 || tbOf(c) > aiIncome(c) * .15), maxUp = ownStyle(c).spend >= 3 ? 3 : 2; let ups = 0;
+    for (const pos of shuffle(POS.slice())) {
+      const ps = sq().filter(p => p.pos === pos).sort((a, b) => b.ovr - a.ovr), need = Math.ceil(SQUAD_MIX[pos] / 2), up = room && ups < maxUp;
+      const bar = up ? c.lvl + (c.chase || c.push ? 2 : 0) : c.lvl - 6 + Math.max(0, ownStyle(c).spend) * .5;
+      const weak = ps[need - 1]; if (weak && weak.ovr < bar && (up || R() < clamp(.6 + ownStyle(c).spend * .05, .35, .9)) && aiBill(c) < aiBudget(c)) { const n0 = c.squad.length; aiSign(c, pos); if (c.squad.length > n0) ups++; }
+    } }
 }
 // An AI club short of a player promotes its best academy prospect at that position, if he's anywhere near ready.
 function promoteAcad(c, pos, target) {
@@ -748,6 +754,30 @@ function ownerTopUp(c, fee) {
   if (c.topY.amt + short > aiIncome(c) * lw * (c.tier >= 5 ? .3 : .5) || short > c.own.wealth * .04 || R() > clamp(.05 + lw * .45, 0, .8)) return false;
   c.tb = tbOf(c) + short; c.topY.amt += short; c.topUp = (c.topUp || 0) + short; return true;
 }
+/* AI clubs' heads of recruitment (1.2.40): like yours, each has a philosophy (value, potential, proven, fit), and it shapes
+   who the club signs. The owner hires one who shares his vision more often than not (a youth evangelist a potential man,
+   a data-driven investor a value one, a big spender a proven one, a lifelong fan a fit one); the post changes hands now
+   and then, and with a new owner. */
+const REC_LEAN = { academy: "potential", multiclub: "potential", moneyball: "value", stripper: "value", sugar: "proven", gambler: "proven", crypto: "proven", celebrity: "proven", dynasty: "proven", local: "fit", fanowned: "fit", explayer: "fit" };
+function recPhilOf(c) {
+  if (!c.recPhil || (c.recY !== G.year && R() < .06) || (c.own && c.recOwn !== c.own.name)) {
+    const lean = REC_LEAN[(c.own || {}).style]; c.recPhil = lean && R() < .65 ? lean : pick(["value", "potential", "proven", "fit"]); c.recOwn = c.own ? c.own.name : null; }
+  c.recY = G.year; return c.recPhil;
+}
+// What his philosophy adds to a player's rating when choosing (in shown 1-20 points), as your head of recruitment's
+// shortlist does: the potential man wants young players with room to grow (rarely anyone over 23), the proven man
+// players in their prime who are good now, the value man a player cheap for what he is, the fit man the right type for
+// the manager's style.
+function recPref(c, q, fee) {
+  const room = Math.max(0, to20(q.pot) - to20(q.ovr)), tf = typeFit(c, q, baseStyle(c)), v = Math.max(1, valueOf(q)), form = Math.max(0, seasonForm(q));
+  switch (recPhilOf(c)) {
+    case "potential": return q.age <= 23 ? 1.5 + room * .4 : -3;
+    case "proven": return (q.age >= 25 && q.age <= 31 ? 1.5 : -1.5) + (q.age <= 21 ? -1 : 0) + tf * .5;
+    case "value": return (fee ? -clamp(fee / v - .7, 0, 2) * 2 : 1) + form * 1.5 - (q.age >= 31 ? 1 : 0);
+    case "fit": return tf * 1.5;
+  }
+  return 0;
+}
 function aiSign(c, pos) {
   // c.lvl already carries the owner's spending; a big spender also aims a little higher and buys more readily.
   // At the salary cap (and not cooking the books) he can only add cheaper players.
@@ -762,7 +792,8 @@ function aiSign(c, pos) {
   const fas = G.fa.map(P).filter(q => !faFresh(q) && q.pos === pos && q.ovr >= target - 5 && q.ovr <= target + 4 && q.age <= 33 && !wont(q) && fits(q, 0));
   const tf = q => typeFit(c, q, baseStyle(c)) * 2;  // how he'd fit the side and the style
   // The best free agent and the best player he could buy: he takes the free agent unless the other is clearly better.
-  let fa = fas.length ? fas.sort((a, b) => b.ovr + tf(b) - a.ovr - tf(a))[0] : null;
+  const lv = to20(c.lvl || 50), slope = from20(Math.min(20, lv + 1)) - from20(lv) || 3, pref = (q, fee) => recPref(c, q, fee) * slope;  // his head of recruitment's philosophy, in underlying points at the club's level
+  let fa = fas.length ? fas.sort((a, b) => b.ovr + tf(b) + pref(b, 0) - a.ovr - tf(a) - pref(a, 0))[0] : null;
   // Part-time clubs (National North/South, Regional League) live on free agents: buying a part-timer from another club
   // costs a fee, so they only shop now and then (a spender more often), and only for a player clearly better (1.2.26).
   const pt = partTimeClub(c);
@@ -773,12 +804,12 @@ function aiSign(c, pos) {
     // A big-spending owner (benefactor, gambler, celebrity) reaches two divisions up, first-choice players included.
     const big = sp >= 3, lower = G.clubs.filter(x => !isMine(x) && x !== c && (x.abroad ? c.tier <= 4 && x.rep <= c.rep + 3 : !x.gone && x.tier >= c.tier - (big ? 2 : 1) && x.tier <= c.tier + 2 && x.squad.length >= 20));
     const pool = []; for (const x of lower) for (const id of x.squad) { const q = P(id); if (q.pos === pos && (x.abroad || x.tier >= c.tier || big || !xiSet(x).has(q.id) && q.ovr <= (c.lvl || 0) + 2) && q.ovr >= feeFloor(c) && !q.acad && !q.loan && q.inW !== windowId() && !q.toMe && q.ovr >= target - 2 && q.ovr <= target + 5 && q.age <= 30) pool.push(q); }
-    const willing = pool.filter(q => !wont(q) && fits(q, aiFee(q, c))), scored = willing.map(q => [q, q.ovr + tf(q) + normal() * 2]).sort((a, b) => b[1] - a[1]);
+    const willing = pool.filter(q => !wont(q) && fits(q, aiFee(q, c))), scored = willing.map(q => [q, q.ovr + tf(q) + pref(q, aiFee(q, c)) + normal() * 2]).sort((a, b) => b[1] - a[1]);
     const best = scored.find(([q]) => canAfford(c, aiFee(q, c)));
     // The one he really wants is beyond the budget: the owner may find the money.
     const dream = scored[0] && !canAfford(c, aiFee(scored[0][0], c)) && (!best || scored[0][1] > best[1] + 2) && ownerTopUp(c, aiFee(scored[0][0], c)) ? scored[0] : null;
     const pickd = dream || best;
-    if (pickd && (!fa || pickd[1] > fa.ovr + tf(fa) + (pt ? 4 : 1))) p = pickd[0];
+    if (pickd && (!fa || pickd[1] > fa.ovr + tf(fa) + pref(fa, 0) + (pt ? 4 : 1))) p = pickd[0];
   }
   if (!p && fa) p = fa;
   if (!p && promoteAcad(c, pos, target)) return;  // an academy player gets his chance
