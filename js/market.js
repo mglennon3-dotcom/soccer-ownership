@@ -668,11 +668,14 @@ const NATURAL = {
   B2B: [["DM", "BW"], ["AM", "SHS"]], PM: [["AM", "CRE"], ["DM", "DLP"]], BC: [["W", "DW"], ["AM", "DRB"]], DES: [["DM", "BW"]],
   CRE: [["CM", "PM"]], SHS: [["ST", "POA"]], DRB: [["W", "IF"]],
   DW: [["FB", "OFB"], ["ST", "RIB"]], IF: [["AM", "SHS"], ["ST", "POA"]], WPM: [["AM", "CRE"], ["CM", "PM"]], WW: [["FB", "OFB"], ["CM", "B2B"]],
-  POA: [["AM", "SHS"]], TM: [["CB", "AER"]], RIB: [["W", "DW"]], DLF: [["AM", "CRE"]],
+  POA: [["AM", "SHS"]], RIB: [["W", "DW"]], DLF: [["AM", "CRE"]],
 };
-const naturalTo = (p, to) => { const a = archetypeOf(p); return a ? (NATURAL[a[3]] || []).find(x => x[0] === to) : null; };
+// Natural only if his attributes already carry him there: his rating in the new position, as he is, within two points
+// of his rating now (a striker's tackling and marking won't make him a centre-back, whatever his type).
+const natFits = (p, to) => r20(rawRole({ ...p, pos: to }, to)) >= r20(p.ovr) - 2;
+const naturalTo = (p, to) => { const a = archetypeOf(p), n = a ? (NATURAL[a[3]] || []).find(x => x[0] === to) : null; return n && natFits(p, to) ? n : null; };
 // Where he can retrain: the neighbouring positions, and his type's natural moves.
-const retrainTargets = p => { const a = archetypeOf(p), nat = a ? (NATURAL[a[3]] || []).map(x => x[0]) : []; return [...new Set([...nat, ...(RETRAIN[p.pos] || [])])].filter(t => t !== p.pos && t !== "GK"); };
+const retrainTargets = p => { const a = archetypeOf(p), nat = a ? (NATURAL[a[3]] || []).map(x => x[0]).filter(t => natFits(p, t)) : []; return [...new Set([...nat, ...(RETRAIN[p.pos] || [])])].filter(t => t !== p.pos && t !== "GK"); };
 const retrainOK = p => p.club === G.club && p.pos !== "GK" && !p.retrained && !p.restyled && !(p.loan && p.loan.to === G.club);  // one or the other: a new position or a new type (1.2.65)
 const aptOf = (p, to) => ((p.apt ||= {})[to] ??= Math.round(clamp(normal(), -2.5, 2.5) * 4 * 10) / 10);
 // What retraining would do: his new rating and potential (raw), from his attributes and his aptitude.
