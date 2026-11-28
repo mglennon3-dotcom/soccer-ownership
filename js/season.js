@@ -295,6 +295,7 @@ function endSeason() {
     }
   }
   for (const [id, to] of moves) { const c = CL(id); if (c.lastF && to !== "OUT") c.lastF[to ? "up" : "down"] = true; }
+  try { seasonFans(mine); } catch (e) { console.error("supporters", e); }  // (1.2.42) your support moves with the season, like everyone's
   try { relegationExodus(moves.filter(([, to]) => to === null).map(([id]) => id)); } catch (e) { console.error("relegation sales", e); }
   // Full-time or part-time: a club promoted out of National North/South goes full-time, one relegated into it part-time.
   for (const [id, to] of moves) { if (to === "OUT") continue; const c = CL(id); if (!c || c.gone) continue; const was = to ? c.tier + 1 : c.tier - 1;

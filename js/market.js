@@ -244,6 +244,7 @@ function sellToAI(p, byOwner, fee) {
   if (!buyer) return release(p, byOwner);
   fee = fee ?? Math.round(valueOf(p) * rf(.75, 1.05) / 1000) * 1000;
   logMove("out", p, { club: buyer.name, fee, wage: p.wage, by: byOwner ? "you" : "administrators" });
+  favSoldFans(p, c, buyer);
   payFee(buyer, null, fee); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", fee);
   news(`${p.name} is sold to ${buyer.name} for ${money(fee)}${byOwner ? " (your decision)" : ""}.`, true);
   return buyer;
@@ -251,6 +252,7 @@ function sellToAI(p, byOwner, fee) {
 const releaseCost = p => Math.round(p.wage * Math.max(1, p.yrs) * .5);
 function release(p, byOwner) {
   if (p.club === G.club) logMove("release", p, { fee: releaseCost(p), wage: p.wage, by: byOwner ? "you" : "recruit" });
+  if (p.club === G.club) favSoldFans(p, my(), null, true);
   spend("wages", releaseCost(p)); leaveClub(p); toFreeAgent(p);
   news(`${p.name} is released${releaseCost(p) ? `, with ${money(releaseCost(p))} paid up` : ""}${byOwner ? " (your decision)" : ""}.`);
 }
@@ -400,6 +402,7 @@ function answerBid(m, accept, auto) {
 function completeSale(p, buyer, amt, auto) {
   if (!auto && pickXI(my()).some(o => o.p === p)) meddled("manager", -6, `didn't want to lose ${p.name}.`, "Selling first-choice players");
   logMove("out", p, { club: clubLabel(buyer), fee: amt, wage: p.wage, by: auto && auto !== "ask" ? "recruit" : "you" });
+  favSoldFans(p, my(), buyer);
   leaveClub(p); payFee(buyer, null, amt); moveTo(p, buyer); p.wage = aiWage(p, buyer); earn("sales", amt);
   news(`${p.name} joins ${clubLabel(buyer)} for ${money(amt)}${auto === "ask" ? ", meeting your asking price" : auto ? ` (${staffOf("recruit") ? staffOf("recruit").name : "the club"} accepted)` : ""}.`, true);
 }

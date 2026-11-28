@@ -327,8 +327,9 @@ function ownersSummer() {
     if (R() < S.build) c.train = Math.min(10, c.train + (R() < .5 ? 1 : 0));
     if (c.own.style === "academy" && R() < .5) c.acadLvl = Math.min(10, c.acadLvl + 1);
     if (S.build < .05 && R() < .3) c.train = Math.max(0, c.train - 1);
-    // Supporters follow the owner's pricing.
-    c.fans = Math.round(c.fans * (1 + (1 - S.prices) * .05 + S.media * .003));
+    // Supporters follow the owner's pricing: cheap tickets keep a few more coming, dear ones lose a few (1.2.42: no longer
+    // compounding growth every year; the owner's own following arrives once, with him: ownerFans).
+    if (S.prices < .9 && c.fans < natFans(c)) c.fans = Math.round(c.fans * 1.005); else if (S.prices > 1.2) c.fans = Math.round(c.fans * .995);
     // Administration: overstretched clubs with reckless owners collapse.
     c.ded = 0;
     const over = c.lvl > TIER_LVL[c.tier] + 3 || c.own.style === "stripper";
@@ -337,7 +338,6 @@ function ownersSummer() {
     if (c.own.style === "dynasty" && G.year - c.own.since >= 12 && R() < .1) succession(c);
     else if (c.own.style === "crypto" && R() < .15 && failGate("adm")) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
-    if (c.own.style === "explayer") c.fans = Math.round(c.fans * 1.03);
     { const was = c.crisis && c.crisis.y < G.year, cr = clubSeasonForm(c); aiStyleCheck(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
     if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); aiPayReviews(c); } }
     c.lvl = clubStandard(c);
@@ -793,6 +793,7 @@ function payFee(buyer, seller, fee) {
 }
 // An AI-to-AI move with its fee (the seller is wherever he plays now).
 function aiTransfer(p, to, fee = aiFee(p, to)) { const from = p.club >= 0 ? CL(p.club) : null;
+  if (from && !isMine(from)) favSoldFans(p, from, to); signingFans(p, to);  // (1.2.42) the supporters notice
   if (!to.abroad && fee > (G.recFee || 0) && fee > 50e6) { G.recFee = fee; story(`A record fee: ${to.name} pay ${money(fee)} for ${p.name}${from ? ` (${from.name})` : ""}.`, "record", 3); }
   if (from && !from.abroad && p.clause && fee <= p.clause.fee && storyWorthy(from)) story(`${to.name} trigger ${p.name}'s ${money(p.clause.fee)} release clause at ${from.name}.`, "clause", 2); payFee(to, from, fee); moveTo(p, to); if (!to.abroad && !isMine(to) && p.ovr >= (to.lvl || 0) + 8) addHoney(to, "star", clamp((p.ovr - to.lvl) / 25, .2, .6)); }
 

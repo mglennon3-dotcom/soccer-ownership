@@ -124,6 +124,11 @@ function fansWeek(c) {
   const t = fanTarget(c);
   const fam = familyOn(c) ? 1.3 : 1;  // a family stand brings the next generation in
   const up = (1 + fanShare(c, "fair")) * fam, dn = (1 - fanShare(c, "loyal") * .7) * (1 + fanShare(c, "fair") * .8);  // fair-weather swing, loyal stay
+  // (1.2.42) Supporters aren't gained just by being in a division: the weekly pull upward only comes from what you do
+  // for them (a family stand, a community foundation, cheap tickets, a honeymoon after a big moment). Promotions, titles
+  // and cups bring their jump each summer (seasonFans). Above the target, support drifts down as before.
+  const earn = fam > 1 || commK(c) > 0 || c.prices.ticket < ticketRef(c) * .9 || honey(c) > 0;
+  if (t > c.fans && !earn) return;
   c.fans = Math.max(50, Math.round(c.fans + (t * (fam > 1 ? 1.04 : 1) - c.fans) * (t > c.fans ? .012 * up * Math.sqrt(catchment(c)) : .004 * dn)));  // a small catchment grows more slowly too
 }
 /* ---------- supporter culture ----------
@@ -159,18 +164,47 @@ function clubPop(c) {
   return clamp(1 + (c.rep - TIER_REP[c.tier]) / 80, .7, 1.5) * (1 + media);
 }
 const topFan = c => { const m = fanMix(c); return Object.keys(m).sort((a, b) => m[b] - m[a])[0]; };
-/* Each summer an AI club's support moves like yours: promotion brings fair-weather fans and a bigger crowd, relegation
-   sends them away and leaves the loyal, steady seasons build loyalty, and the owner's prices move the families. The
-   fanbase also drifts toward its division's size: fast for fair-weather support on the way up, slowly for loyal
-   support on the way down. */
+/* Supporters (1.2.42): a club gains supporters by earning them, not by sitting in a division. Each summer, for every
+   club (yours too): promotion brings a real jump (more with fair-weather fans and a big catchment), a title or a cup
+   a smaller one, a strong season a little; relegation sends fair-weather fans away, and a poor season loses a few
+   (loyal support holds on). A steady season leaves the support where it is. Support far beyond what the club's size,
+   history and town could hold slowly fades back. Star signings, new owners who bring a following, and selling the
+   fans' favourites move it too (signingFans, ownerFans, favSoldFans). */
+const natFans = c => FAN_T[c.tier] * drawOf(c) * catchment(c) * clamp(1 + (c.rep - TIER_REP[c.tier]) / 80, .7, 1.5);
+function seasonFans(c) {
+  const L = c.lastF; if (!L || L.done === G.year) return; L.done = G.year;
+  const m = fanMix(c), f = m.fair / 100, l = m.loyal / 100, ck = Math.sqrt(catchment(c)), y = L.y;
+  const lgNames = new Set(Object.values(LEAGUES).map(x => x.name)), wonLg = L.pos === 1, cups = (c.trophies || []).filter(t => t[0] === y && !lgNames.has(t[1])).length;
+  let g = 0, why = [];
+  if (L.up) { g += (.1 + f * .3) * ck; why.push("promotion"); }
+  if (L.down) { g -= (.06 + f * .25) * (1 - l * .5); why.push("relegation"); }
+  if (wonLg) { g += .04 * ck; why.push("the title"); }
+  if (cups > 0) { g += .03 * cups * ck; why.push(cups > 1 ? "the cups" : "a cup"); }
+  if (!L.up && !L.down && !wonLg) { const q = L.pos / L.n; if (q <= .25) { g += .01 * (1 + f); } else if (q > .75) { g -= .02 * (1 - l * .7) * (1 + f * .5); why.push("a poor season"); } }
+  const nat = natFans(c); if (c.fans > nat * 1.6) g -= .03 * (1 - l * .5);  // support far beyond the club's natural size fades
+  if (!g) return; const was = c.fans; c.fans = Math.max(50, Math.round(c.fans * (1 + g)));
+  if (isMine(c) && Math.abs(c.fans - was) >= Math.max(10, was * .01)) news(`Supporters: ${c.fans > was ? `${(c.fans - was).toLocaleString("en-GB")} more after ${why.join(" and ") || "a strong season"}` : `${(was - c.fans).toLocaleString("en-GB")} fewer after ${why.join(" and ") || "years of support beyond the club's size"}`} (${c.fans.toLocaleString("en-GB")} now).`, true);
+}
+// A star signing: a player clearly above the club's level brings people through the gates (AI clubs; yours has the signing buzz).
+function signingFans(p, c) { if (!c || c.abroad || isMine(c)) return; const d = r20(p.ovr) - r20(c.lvl || p.ovr); if (d >= 3) c.fans = Math.round(c.fans * (1 + Math.min(.04, .01 * (d - 2)))); }
+// A new owner who brings a following: once, when he arrives (a celebrity most, then a former player, a benefactor, big money).
+const OWNER_FANS = { celebrity: .06, explayer: .04, sugar: .03, crypto: .02, fanowned: .02 };
+function ownerFans(c) { if (!c.own || c.ownFans === c.own.name) return; c.ownFans = c.own.name; const k = OWNER_FANS[c.own.style] || 0; if (k) c.fans = Math.round(c.fans * (1 + k)); }
+/* Selling (or releasing) a fan favourite costs some support, a legend more, and to a rival more again; less if the
+   player asked to go (the fans blame him, not the club). Yours also dents the mood. */
+function favSoldFans(p, c, to, released) {
+  if (!c || c.abroad) return; const lv = favLevel(p, c.id); if (!lv) return;
+  let k = lv === 2 ? .03 : .01; if (to && !to.abroad && derbyLevel(c, to)) k *= lv === 2 ? 1.7 : 1.5; if (p.req) k *= .5; if (released) k *= .7;
+  const was = c.fans; c.fans = Math.round(c.fans * (1 - k));
+  if (isMine(c)) { moodHit(c, -(lv === 2 ? 10 : 4) * (p.req ? .5 : 1)); news(`The supporters don't take ${released ? "releasing" : "selling"} ${lv === 2 ? "a club legend" : "a fan favourite"} well: ${(was - c.fans).toLocaleString("en-GB")} fewer supporters${p.req ? " (he did ask to go)" : ""}.`, true); }
+}
 function aiFansSummer(c) {
   const m = fanMix(c), last = c.lastTier ?? c.tier, up = c.tier < last, down = c.tier > last; c.upNow = up; const pr = (OWNER_STYLES[(c.own || {}).style] || {}).prices || 1;
   if (up) m.fair += 4; if (down) { m.fair -= 4; m.loyal += 2; } if (!up && !down) m.loyal += 1;
   if (pr < .9) m.comm += 2; else if (pr > 1.2) { m.comm -= 2; m.fair += 1; }
   if (c.push) m.fair += 1;
   normMix(m);
-  const f = m.fair / 100, l = m.loyal / 100, t = FAN_T[c.tier] * clamp(1 + (c.rep - TIER_REP[c.tier]) / 60, .6, 1.8) * drawOf(c) * catchment(c);
-  c.fans = Math.max(50, Math.round(c.fans + (t - c.fans) * (t > c.fans ? .15 * (1 + f) * Math.sqrt(catchment(c)) : .08 * (1 - l * .7) * (1 + f * .8))));
+  seasonFans(c); ownerFans(c);
   c.lastTier = c.tier;
 }
 function moodHit(c, d) {
