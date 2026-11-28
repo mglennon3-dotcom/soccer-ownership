@@ -949,15 +949,18 @@ const VACANT = [["an empty field", .6, 0], ["an abandoned warehouse", .9, .15], 
 function vacantNow(c) {
   const S = c.fac.stadium; if (!S.own || siteCap(S) >= SITE_MAX) return null;
   if (S.vacY !== G.year) { S.vacY = G.year; if (!S.vac && R() < LOC(c).vac) { const kinds = VACANT.filter(v => LOC(c).kinds.includes(v[0])), [l, k, clear] = pick(kinds.length ? kinds : VACANT); S.vac = { l, k, clear, size: clamp(Math.round(siteCap(S) * rf(.15, .6) / 500) * 500, 500, SITE_MAX - siteCap(S)) }; } }
+  // (1.2.55) On the market for four weeks from when you hear about it (landWatch); then someone else buys it.
+  if (S.vac && S.vac.until && absWeek() > S.vac.until) { if (isMine(c)) news(`The ${S.vac.l.replace(/^(an?|the) /, "")} next to ${S.name} has been sold to someone else.`); delete S.vac; }
   return S.vac || null;
 }
+const vacWeeks = v => v && v.until ? Math.max(1, v.until - absWeek() + 1) : 4;
 /* (1.2.54) Land coming up beside your ground: you hear about it (an inbox card), with what it would save on buying the
    homes next door. Checked each week; a new chance comes each season. */
 function landWatch(c) {
   const S = c.fac.stadium; if (!S.own || S.rebuilding) return; const v = vacantNow(c); if (!v) return;
-  const key = v.l + ":" + v.size; if (S.vacTold === key) return; S.vacTold = key;  // each piece of land is announced once
+  const key = v.l + ":" + v.size; if (S.vacTold === key) { if (!v.until) v.until = absWeek() + 3; return; } S.vacTold = key; v.until = absWeek() + 3;  // each piece of land is announced once, and is yours to buy for four weeks
   const cost = vacantCost(c, v), homes = adjCost(c, v.size), save = homes > cost ? Math.round((1 - cost / homes) * 100) : 0;
-  addMsg({ type: "info", title: `Land for sale next to ${S.name}`, body: `${v.l[0].toUpperCase() + v.l.slice(1)} beside the ground is for sale: room for ${v.size.toLocaleString("en-GB")} more places, for ${money(cost)}${v.clear ? " (clearing it included)" : ""}.${save ? ` That's about ${save}% less than buying the homes next door, and nobody has to move.` : " Nobody has to move."} It stays on the market until you buy it.`, go: "fac", goL: "Facilities" });
+  addMsg({ type: "info", title: `Land for sale next to ${S.name}`, body: `${v.l[0].toUpperCase() + v.l.slice(1)} beside the ground is for sale: room for ${v.size.toLocaleString("en-GB")} more places, for ${money(cost)}${v.clear ? " (clearing it included)" : ""}.${save ? ` That's about ${save}% less than buying the homes next door, and nobody has to move.` : " Nobody has to move."} It's on the market for four weeks.`, go: "fac", goL: "Facilities" });
 }
 const vacantCost = (c, v) => Math.round(v.size * SITE_KINDS.near.land * landK(c) * LOC(c).land * v.k * (1 + v.clear) / 1e4) * 1e4;
 function buyVacant(c) {
