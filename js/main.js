@@ -653,6 +653,10 @@ const ACT = {
     const lf = stStyle(standsOf(my().fac.stadium)[k]).land; if (n * lf > siteRoom(my().fac.stadium)) return toast(`Only room for ${Math.floor(siteRoom(my().fac.stadium) / lf).toLocaleString()} more places on this site.`);
     const q = standQuote(my(), k, n); if (!await ask(`Extend the ${SIDES[k]} by ${n.toLocaleString()} for ${money(q.cost)} (about ${q.weeks} weeks)? The stand's ${standsOf(my().fac.stadium)[k].cap.toLocaleString()} places close until it's done.`)) return;
     built(startBuild("stadium", { type: "expand", ...q, label: `extending the ${SIDES[k]} (+${n.toLocaleString()})` })); render(); saveGame(); },
+  archfxgo: async () => { const c = my(), S = c.fac.stadium, D = G.archDraft; if (!D || !archFixOK(c)) return;
+    if (!await ask(`Set ${S.name}'s design? This is a one-off and can't be changed afterwards except by rebuilding.`)) return;
+    for (const [k, x] of Object.entries(standsOf(S))) x.style = D.styles[k] || "std"; S.shape = D.shape; S.feat = { ...D.feat }; S.archSet = true; syncCap(S); c.cap = capacity(c); G.archDraft = null;
+    news(`${S.name}'s design is set: ${Object.values(standsOf(S)).map(x => stStyle(x).l.toLowerCase()).join(", ")}; ${shapeOf(S).l.toLowerCase()}${Object.keys(S.feat).filter(k => S.feat[k]).length ? `; ${Object.keys(S.feat).filter(k => S.feat[k]).map(k => FEATURES[k].l.toLowerCase()).join(", ")}` : ""}.`, true); render(); saveGame(); },
   feat: async el => { const c = my(), k = el.dataset.k, q = featQuote(c, k); if (c.fac.stadium.build) return toast("Finish the current building work first.");
     if (!await ask(`Add ${FEATURES[k].l.toLowerCase()} to ${c.fac.stadium.name} for ${money(q.cost)}? About ${q.weeks} weeks.`)) return; built(startBuild("stadium", { type: "feat", k, cost: q.cost, weeks: q.weeks, label: `adding ${FEATURES[k].l.toLowerCase()}` })); render(); saveGame(); },
   rebuild: async el => { const k = el.dataset.k, c = my(), r = (G.rb || {})[k] || standsOf(c.fac.stadium)[k], q = rebuildQuote(c, k, r.cap, r.type, r.roof, r.style), S0 = c.fac.stadium;
@@ -756,6 +760,7 @@ const CHANGE = {
   vset: el => { if (el.closest("#f-vision")) { START_V[el.dataset.k] = el.value; return; } vision()[el.dataset.k] = el.value; render(); },
   buyf: el => { BUYF[el.dataset.k] = el.type === "checkbox" ? el.checked : +el.value; render(); },
   lgsel: el => { SUB.league = el.value; render(); },
+  archfx: el => { const D = G.archDraft, k = el.dataset.k; if (!D) return; if (k === "shape") D.shape = el.value; else if (k.startsWith("style.")) D.styles[k.slice(6)] = el.value; else if (k.startsWith("feat.")) D.feat[k.slice(5)] = el.checked; render(); },
   sd: el => { const d = (G.stDraft ||= standPlan(my().fac.stadium.own ? my().fac.stadium.cap : 1500)), k = el.dataset.k; if (my().fac.stadium.own) G.rgOpen = true;
     if (k === "family") d.family = el.value; else if (k === "corp") d.corp = Math.max(0, Math.min(Math.round(num(el)), Math.floor((d.stands.W.cap || 0) * .15)));
     else if (k === "suites") d.suites = Math.max(0, Math.min(Math.round(num(el)), Math.floor(sum(Object.values(d.stands), x => x.cap || 0) / 250)));

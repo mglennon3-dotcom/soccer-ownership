@@ -792,6 +792,9 @@ const FEATURES = {
   landmark: { l: "Landmark design", d: "An instantly recognisable ground: more shirt sales, tour visitors and supporters' pride.", cost: cap => 1.5e6 + cap * 60 },
   safe:     { l: "Safe standing", d: "Rail seats in a quarter of the ground: terrace noise, even in the all-seater divisions.", cost: cap => 50000 + cap * .25 * 180 },
 };
+// (1.2.58) A ground built before you could choose its architecture: set it once, free (within three seasons of opening).
+const archFixOK = c => { const S = c.fac.stadium; return S.own && !S.archSet && !S.build && !S.rebuilding && (S.opened || 0) >= G.year - 3; };
+const archAtmosOf = (D, caps) => { const t = sum(Object.values(caps), n => n) || 1; return sum(Object.entries(caps), ([k, n]) => n * (STAND_STYLES[D.styles[k]] || STAND_STYLES.std).atmos) / t + (GROUND_SHAPES[D.shape] || GROUND_SHAPES.classic).atmos + (D.feat.safe ? .3 : 0); };
 // The site space after rebuilding one stand to a new size and style.
 const rebuildFoot = (S, side, r) => footprint({ ...standsOf(S), [side]: { cap: r.cap, style: r.style || standsOf(S)[side].style } }, S.shape) + usedSpace(S);
 const hasFeat = (c, k) => !!(c && c.fac && c.fac.stadium.own && atHome(c) && (c.fac.stadium.feat || {})[k]);
