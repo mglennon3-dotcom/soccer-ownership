@@ -218,7 +218,24 @@ function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) 
   // The squad cost rule (and UEFA's, in Europe): a sensible owner keeps wages plus fees inside it, with a little room.
   if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (europeBound(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); w = Math.min(w, Math.max(tierWages(c.tier) * .5, lim * .88 - aiAmort(c))); }
   else if (c.tier >= 5 && !c.abroad) w = Math.min(w, nlWageCap(c) * .85);  // leaving the owner room for the odd statement signing
-  return w; }
+  return c.abroad ? w : Math.max(w, wageFloor(c)); }
+/* The wage floor (1.2.48): every English AI club spends at least 60% of its income on player wages, counting a rolling
+   average of its player sales as income, so money from selling goes to the players rather than the bank. It stays
+   inside the spending rule (the squad cost limit, with a little room) for owners who keep to it. */
+const WAGE_FLOOR = .6;
+function wageFloor(c) {
+  if (c.abroad || isMine(c)) return 0;
+  const f = WAGE_FLOOR * (aiIncome(c) + Math.max(0, c.feeAvg || 0));
+  if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (europeBound(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); return Math.min(f, lim * .95 - aiAmort(c)); }
+  return f;
+}
+// Each summer a club under its floor brings its players' pay up to it (up to half as much again in a year, within the
+// division's top wage): the better players' new deals, bonuses, a club that pays its way.
+function aiWageFloor(c) {
+  const target = wageFloor(c), bill = aiBill(c); if (!(target > bill) || bill <= 0) return;
+  const k = Math.min(1.5, target / bill), cap = wageCap(c);
+  for (const p of c.squad.map(P)) if (p && !p.acad && !(p.loan && p.loan.to === c.id) && p.wage) p.wage = Math.min(cap, Math.round(p.wage * k / 100) * 100);
+}
 /* The salary cap, in the Premier Division only: no AI club's wage bill there may go past twice the division's average (set again each summer
    as wages move). Up to it, how much they spend is the owner's call; only an owner cooking the books goes beyond it. */
 const CAP_MULT = 2;
@@ -342,7 +359,7 @@ function ownersSummer() {
     else if (c.own.style === "crypto" && R() < .15 && failGate("adm")) cryptoCrash(c);
     else if (c.own.style !== "fanowned" && c.own.style !== "hostile" && R() < .035) takeover(c);
     { const was = c.crisis && c.crisis.y < G.year, cr = clubSeasonForm(c); aiStyleCheck(c); if (cr && cr.y === G.year && (c.lg === my().lg || c.tier === 1)) news(`${c.name} head into the season in crisis: ${cr.why}.`); }
-    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); aiPayReviews(c); aiOutgrown(c); } }
+    if (!c.abroad && !c.gone) { aiFansSummer(c); aiAccounts(c); if (!c.gone) { c.pay = Math.round(payLevel(c) * 100) / 100; c.tb = aiTransferBudget(c); aiPayReviews(c); aiWageFloor(c); aiOutgrown(c); } }
     c.lvl = clubStandard(c);
   }
   cookSummer();
