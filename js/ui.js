@@ -93,7 +93,16 @@ function startMore() {
       <label>Room on the site<select id="f-groom">${opt(START_ROOM, "some")}</select></label>
       <label>Pitch size<select id="f-psize">${opt(Object.fromEntries(Object.entries(PSIZE).map(([k, P]) => [k, `${P.l} (${P.dim})`])), "std")}</select></label>
       <label>Surface<select id="f-ptype">${opt({ grass: "Natural grass", hybrid: "Hybrid grass" }, "grass")}</select></label></div>
-    <p class="small muted" style="margin-top:4px">Only used if you own a ground. Terraces are closed in the top two divisions. An old ground has character but costs more to keep up and wants rebuilding sooner.</p></details>`;
+    <p class="small muted" style="margin-top:4px">Only used if you own a ground. Terraces are closed in the top two divisions. An old ground has character but costs more to keep up and wants rebuilding sooner.</p>
+    <h3 style="margin:14px 0 8px">Facilities</h3>
+    <div class="form-grid"><label>Training ground<select id="f-ftrain">${TRAIN_DESC.map((d, i) => `<option value="${i}" ${i === 0 ? "selected" : ""}>Level ${i}: ${esc(d)}</option>`).join("")}</select></label>
+      <label>Academy<select id="f-facad">${ACAD_DESC.map((d, i) => `<option value="${i}" ${i === 0 ? "selected" : ""}>Level ${i}: ${esc(d)}</option>`).join("")}</select></label>
+      <label>Ground facilities<select id="f-famen"><option value="">As the ground's age suggests</option>${[1, 2, 3, 4, 5].map(i => `<option value="${i}">Level ${i} of 5</option>`).join("")}</select></label>
+      <label>Executive suites<input id="f-fsuites" inputmode="numeric" maxlength="4" placeholder="0"></label>
+      <label>Undersoil heating<select id="f-fheat"><option value="">No</option><option value="1">Yes</option></select></label></div>
+    <p class="small" style="margin:8px 0 4px">Beyond match days</p>
+    <div class="row" style="flex-wrap:wrap;gap:4px 14px">${Object.entries(VENTURES).map(([k, V]) => `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="f-fvent" value="${k}">${esc(V.l)}</label>`).join("")}</div>
+    <p class="small muted" style="margin-top:4px">The training ground and academy apply either way. Ground facilities, suites (one per 250 places), heating and the extras need a ground of your own, and each extra its usual requirements (a megastore needs the club shop and 10,000 places, a hotel 15,000, tours 5,000, a conference centre ground facilities of level 2 or more). Better facilities cost more to run.</p></details>`;
 }
 /* ---------- start screen ---------- */
 function renderStart(saves) {

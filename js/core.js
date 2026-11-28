@@ -2,7 +2,7 @@
    Everything here is plain data and logic (no DOM), so tools/sim.js can run whole careers in Node. */
 "use strict";
 
-const VERSION = "1.2.34";
+const VERSION = "1.2.35";
 let G = null;  // the saved game
 
 const P = id => G.players[id];
@@ -597,6 +597,15 @@ function foundClub(o) {
     setGround(c, 0);
     news(`${c.name} are founded${c.founded < G.year ? ` (est. ${c.founded})` : ""}. ${tier === 7 ? `${c.squad.length} players from an open trial day make up the first squad, and the club` : "The club"} will play at ${HOSTS[0].name} while it has no ground of its own.`, true);
   }
+  // Facilities chosen at the start (1.2.35): training ground and academy levels, and for your own ground its facilities,
+  // executive suites, undersoil heating and the extras (each with its usual requirement).
+  c.fac.train.lvl = clamp(Math.round(o.ftrain || 0), 0, TRAIN_DESC.length - 1); c.fac.acad.lvl = clamp(Math.round(o.facad || 0), 0, ACAD_DESC.length - 1);
+  if (o.own) { const S = c.fac.stadium;
+    if (o.famen) S.amen = clamp(Math.round(o.famen), 1, 5);
+    if (o.fsuites) S.suites = clamp(Math.round(o.fsuites), 0, suiteMax(c));
+    if (o.fheat) S.heat = true;
+    S.vent ||= {}; const want = new Set(o.fvent || []);
+    for (const k of ["shop", "park", "tenant", "fanzone", "conf", "tours", "mega", "hotel"]) if (want.has(k) && VENTURES[k] && (!VENTURES[k].need || VENTURES[k].need(c))) S.vent[k] = { y: G.year }; }
   return c;
 }
 function newLedger() { return { para: 0, equity: 0, borrow: 0, repay: 0, dividend: 0, feeders: 0, network: 0, breaks: 0, stix: 0, directors: 0, events: 0, suites: 0, gate: 0, conc: 0, merch: 0, spons: 0, tv: 0, prize: 0, sales: 0, wages: 0, staff: 0, fac: 0, rent: 0, mdops: 0, travel: 0, refunds: 0, medical: 0, insure: 0, insclaim: 0, oldground: 0, util: 0, grading: 0, comm: 0, tax: 0, acad: 0, scout: 0, buys: 0, amort: 0, writeoff: 0, build: 0, interest: 0, invest: 0 }; }

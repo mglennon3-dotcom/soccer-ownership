@@ -699,7 +699,8 @@ const ACT = {
     const sel = id => ($(`#${id} [aria-pressed="true"]`) || {}).dataset?.v;
     $("#busy").hidden = false; await new Promise(r => setTimeout(r, 30));
     const v = id => ($("#" + id) || {}).value, more = { tier: +v("f-tier") || 7, founded: +v("f-founded") || null, nick: (v("f-nick") || "").trim(), color2: sel("f-color2"), rep: v("f-rep") || "unknown", fans: v("f-fans") || "normal", mix: v("f-mix") || "bal",
-      own: v("f-own") === "own", gname: (v("f-gname") || "").trim(), gcap: num($("#f-gcap") || { value: "" }) || 0, gage: +v("f-gage") || 0, glay: v("f-glay") || "mix", groom: v("f-groom") || "some", psize: v("f-psize") || "std", ptype: v("f-ptype") || "grass", loc: v("f-loc") || "sub" };
+      own: v("f-own") === "own", gname: (v("f-gname") || "").trim(), gcap: num($("#f-gcap") || { value: "" }) || 0, gage: +v("f-gage") || 0, glay: v("f-glay") || "mix", groom: v("f-groom") || "some", psize: v("f-psize") || "std", ptype: v("f-ptype") || "grass", loc: v("f-loc") || "sub",
+      ftrain: +v("f-ftrain") || 0, facad: +v("f-facad") || 0, famen: +v("f-famen") || 0, fsuites: num($("#f-fsuites") || { value: "" }) || 0, fheat: !!v("f-fheat"), fvent: [...document.querySelectorAll(".f-fvent:checked")].map(x => x.value) };
     newWorld({ ...more, shortSet: !!$("#f-short").value.trim(), name, town: $("#f-town").value.trim() || name.split(" ")[0], short: ($("#f-short").value.trim() || name).toUpperCase(), owner: $("#f-owner").value.trim(), vision: JSON.parse(JSON.stringify(START_V)), half: (COUNTRY.ENG.regions.find(r => r[0] === $("#f-region").value) || [0, 0, 0, "S"])[3], region: $("#f-region").value, color: sel("f-color"), wealth: sel("f-wealth") || "wealthy" });
     startSeason(); refreshOffers(my());
     $("#busy").hidden = true; PAGE = "home"; render(); saveGame();
