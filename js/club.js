@@ -86,11 +86,13 @@ function startBuild(kind, q) {
   spend("build", q.cost); if (kind === "stadium") stadiumLoan(q.cost, q.label || "the work");
   news(`Work starts: ${q.label}. ${money(q.cost)}, about ${q.weeks} weeks.`, true);
 }
+/* (1.2.53) When building work of yours finishes, a card in the inbox says what's ready (the news lines it wrote). */
+function buildCard(title, top) { const lines = []; for (const n of G.news) { if (n === top) break; lines.push(n.t); } addMsg({ type: "info", title, body: lines.reverse().join(" ") || title + "." }); }
 function buildWeek(c) {
   const S = c.fac.stadium;
   if (S.build && S.build.type === "reground" && !S.rebuilding && S.build.total - S.build.left >= (S.build.plan || 0)) { S.rebuilding = true; S.away = S.build.host ?? tempHost(c); c.cap = capacity(c); news(`Planning is approved and ${S.name} closes for rebuilding. Home games move to ${HOSTS[S.away].name}.`, true); }
   if (S.build && --S.build.left <= 0) {
-    const b = S.build; S.build = null;
+    const b = S.build, top = G.news[0]; S.build = null;
     if (b.type === "new") { S.own = true; S.cap = b.cap; S.site = newSite(b.cap); S.stands = b.stands ? JSON.parse(JSON.stringify(b.stands)) : null; standsOf(S); if (b.family) S.stands[b.family].family = true; if (b.corp) S.stands.W.corp = Math.min(b.corp, Math.floor(S.stands.W.cap * .15)); syncCap(S); S.amen = clamp(b.amen || 2, 1, 5); if (b.heat) S.heat = true; S.name = b.name; S.pitch = 100; S.ptype = "grass"; S.suites = b.suites || 0; news(`${S.name} is open: ${b.cap.toLocaleString("en-GB")} capacity. ${c.name} have a home of their own.`, true); }
     if (b.type === "new" || b.type === "move" || b.type === "reground") { setHoney(c); moodHit(c, 5); news("The new ground is open: supporters are queuing for tickets, and the excitement should last a couple of seasons.", true); }
     if (b.type === "new") { openGround(S); S.vent = Object.fromEntries((b.vent || []).map(k => [k, { y: G.year }])); S.site = Math.max(S.site, S.cap + usedSpace(S)); if (has(c, "fanzone")) S.popup = false; }
@@ -105,8 +107,9 @@ function buildWeek(c) {
     else if (b.type === "suites") { S.suites = (S.suites || 0) + b.add; news(`${b.add} new executive suites are ready (${S.suites} in all).`, true); }
     else if (b.type === "amen") { S.amen = b.lvl; news(`Stadium facilities upgraded to level ${b.lvl}.`, true); }
     c.cap = capacity(c);
+    if (isMine(c)) buildCard(b.type === "new" || b.type === "move" || b.type === "reground" ? "Your new ground is open" : "Building work finished", top);
   }
-  for (const k of ["train", "acad"]) { const F = c.fac[k]; if (F.build && --F.build.left <= 0) { F.lvl = F.build.lvl; F.build = null; news(`${FAC_NAME[k]} upgraded to level ${F.lvl}: ${(k === "train" ? TRAIN_DESC : ACAD_DESC)[F.lvl].toLowerCase()}.`, true); } }
+  for (const k of ["train", "acad"]) { const F = c.fac[k]; if (F.build && --F.build.left <= 0) { const top = G.news[0]; F.lvl = F.build.lvl; F.build = null; news(`${FAC_NAME[k]} upgraded to level ${F.lvl}: ${(k === "train" ? TRAIN_DESC : ACAD_DESC)[F.lvl].toLowerCase()}.`, true); if (isMine(c)) buildCard(`${FAC_NAME[k]} upgrade finished`, top); } }
 }
 
 /* ---------- supporters ---------- */
