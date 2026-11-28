@@ -794,6 +794,15 @@ const FEATURES = {
 };
 // (1.2.58) A ground built before you could choose its architecture: set it once, free (within three seasons of opening).
 const archFixOK = c => { const S = c.fac.stadium; return S.own && !S.archSet && !S.build && !S.rebuilding && (S.opened || 0) >= G.year - 3; };
+// What the one-off would have cost in the designer: each stand's style against what it is now, the shape's premium on the
+// stands, and new signature features at the build-time price. Cheaper choices come back as a refund.
+function archFixCost(c, D) {
+  const S = c.fac.stadium, st = standsOf(S), tot = sum(Object.values(st), x => x.cap || 0), sh0 = shapeOf(S), sh1 = GROUND_SHAPES[D.shape] || GROUND_SHAPES.classic;
+  const standCost = (x, style) => (x.cap || 0) * perSeat(tot) * TYPE_F[x.type || "seat"] * roofF(x.roof) * (STAND_STYLES[style] || STAND_STYLES.std).cost;
+  const before = sum(Object.values(st), x => standCost(x, x.style || "std")) * sh0.cost, after = sum(Object.entries(st), ([k, x]) => standCost(x, D.styles[k] || "std")) * sh1.cost;
+  const feats = sum(Object.keys(D.feat).filter(k => D.feat[k] && !(S.feat || {})[k] && FEATURES[k]), k => FEATURES[k].cost(Math.round(tot * sh1.cap)) * .85);
+  return Math.round((after - before + feats) / 1e4) * 1e4;
+}
 const archAtmosOf = (D, caps) => { const t = sum(Object.values(caps), n => n) || 1; return sum(Object.entries(caps), ([k, n]) => n * (STAND_STYLES[D.styles[k]] || STAND_STYLES.std).atmos) / t + (GROUND_SHAPES[D.shape] || GROUND_SHAPES.classic).atmos + (D.feat.safe ? .3 : 0); };
 // The site space after rebuilding one stand to a new size and style.
 const rebuildFoot = (S, side, r) => footprint({ ...standsOf(S), [side]: { cap: r.cap, style: r.style || standsOf(S)[side].style } }, S.shape) + usedSpace(S);

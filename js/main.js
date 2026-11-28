@@ -654,7 +654,9 @@ const ACT = {
     const q = standQuote(my(), k, n); if (!await ask(`Extend the ${SIDES[k]} by ${n.toLocaleString()} for ${money(q.cost)} (about ${q.weeks} weeks)? The stand's ${standsOf(my().fac.stadium)[k].cap.toLocaleString()} places close until it's done.`)) return;
     built(startBuild("stadium", { type: "expand", ...q, label: `extending the ${SIDES[k]} (+${n.toLocaleString()})` })); render(); saveGame(); },
   archfxgo: async () => { const c = my(), S = c.fac.stadium, D = G.archDraft; if (!D || !archFixOK(c)) return;
-    if (!await ask(`Set ${S.name}'s design? This is a one-off and can't be changed afterwards except by rebuilding.`)) return;
+    const f = archFixCost(c, D);
+    if (!await ask(`Set ${S.name}'s design${f > 0 ? ` for ${money(f)}` : f < 0 ? ` (${money(-f)} back)` : ""}? It takes effect at once. This is a one-off and can't be changed afterwards except by rebuilding.`)) return;
+    if (f) spend("build", f);
     for (const [k, x] of Object.entries(standsOf(S))) x.style = D.styles[k] || "std"; S.shape = D.shape; S.feat = { ...D.feat }; S.archSet = true; syncCap(S); c.cap = capacity(c); G.archDraft = null;
     news(`${S.name}'s design is set: ${Object.values(standsOf(S)).map(x => stStyle(x).l.toLowerCase()).join(", ")}; ${shapeOf(S).l.toLowerCase()}${Object.keys(S.feat).filter(k => S.feat[k]).length ? `; ${Object.keys(S.feat).filter(k => S.feat[k]).map(k => FEATURES[k].l.toLowerCase()).join(", ")}` : ""}.`, true); render(); saveGame(); },
   feat: async el => { const c = my(), k = el.dataset.k, q = featQuote(c, k); if (c.fac.stadium.build) return toast("Finish the current building work first.");
