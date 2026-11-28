@@ -951,6 +951,14 @@ function vacantNow(c) {
   if (S.vacY !== G.year) { S.vacY = G.year; if (!S.vac && R() < LOC(c).vac) { const kinds = VACANT.filter(v => LOC(c).kinds.includes(v[0])), [l, k, clear] = pick(kinds.length ? kinds : VACANT); S.vac = { l, k, clear, size: clamp(Math.round(siteCap(S) * rf(.15, .6) / 500) * 500, 500, SITE_MAX - siteCap(S)) }; } }
   return S.vac || null;
 }
+/* (1.2.54) Land coming up beside your ground: you hear about it (an inbox card), with what it would save on buying the
+   homes next door. Checked each week; a new chance comes each season. */
+function landWatch(c) {
+  const S = c.fac.stadium; if (!S.own || S.rebuilding) return; const v = vacantNow(c); if (!v) return;
+  const key = v.l + ":" + v.size; if (S.vacTold === key) return; S.vacTold = key;  // each piece of land is announced once
+  const cost = vacantCost(c, v), homes = adjCost(c, v.size), save = homes > cost ? Math.round((1 - cost / homes) * 100) : 0;
+  addMsg({ type: "info", title: `Land for sale next to ${S.name}`, body: `${v.l[0].toUpperCase() + v.l.slice(1)} beside the ground is for sale: room for ${v.size.toLocaleString("en-GB")} more places, for ${money(cost)}${v.clear ? " (clearing it included)" : ""}.${save ? ` That's about ${save}% less than buying the homes next door, and nobody has to move.` : " Nobody has to move."} It stays on the market until you buy it.`, go: "fac", goL: "Facilities" });
+}
 const vacantCost = (c, v) => Math.round(v.size * SITE_KINDS.near.land * landK(c) * LOC(c).land * v.k * (1 + v.clear) / 1e4) * 1e4;
 function buyVacant(c) {
   const S = c.fac.stadium, v = S.vac; if (!v) return; const cost = vacantCost(c, v);
