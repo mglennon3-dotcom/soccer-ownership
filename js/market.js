@@ -265,6 +265,22 @@ const clubLabel = x => x.abroad ? `${x.name} (${COUNTRY[x.country].name})` : x.n
 /* ---------- offers for your players ----------
    Real offers only, and only in a window. Clubs bid for players you've transfer-listed (usually below their value:
    everyone knows you want to sell), and the bigger clubs come in for your stars whether they're listed or not. */
+/* Does he want the move? (1.2.49) He weighs the bidding club against yours on what he cares about, as he does when
+   choosing a club: playing time, wages (what they'd pay him against what he earns), standing and the project, the
+   system, home. Loyalty, being a fan favourite or a legend, and a new deal signed in the last year keep him; being
+   unsettled, having asked to go, or being on the list push him. The answer holds for that club all window. */
+function wantsMove(p, buyer, c = my()) {
+  if (!p || !buyer) return false; const k = `${buyer.id}:${windowId()}`; if (p.wm && p.wm.k === k) return p.wm.v;
+  const there = aiAppeal(p, buyer, buyer.abroad || isMine(buyer) ? null : aiWage(p, buyer)), here = aiAppeal(p, c, p.wage);
+  if (there <= -1) return (p.wm = { k, v: false }).v;
+  const love = Math.min(1, loveOf(p, c.id) / LEGEND), recent = (p.dealY || 0) >= G.year - 1 || (p.payLog || []).some(x => x.y >= G.year - 1 && ["new deal", "pay rise", "contract renewal"].includes(x.why));
+  const push = (p.req ? .15 : 0) + (p.unsettled > 0 ? .08 : 0) + (p.list ? .08 : 0) + (p.goPromise && G.year <= p.goPromise ? .1 : 0);
+  const pull = (loyaltyOf(p) - .5) * .2 + love * .15 + (recent ? .08 : 0);
+  // The pull of a higher level: each division up is a step most players want to take (less so a loyal one); abroad counts as a step up from below the top two.
+  const up = buyer.abroad ? (c.tier >= 3 ? 1 : 0) : Math.max(0, c.tier - buyer.tier), lure = Math.min(3, up) * .07 * (1 - loyaltyOf(p) * .5);
+  const v = there - here + lure + push - pull + normal() * .03 > .04;
+  return (p.wm = { k, v }).v;
+}
 const NFS_MIN = 3;  // a bid for a not-for-sale player at or below this multiple of his value is rejected automatically
 function bidsWeek(c) {
   for (const p of c.squad.map(P)) {
@@ -281,7 +297,7 @@ function bidsWeek(c) {
       if (!want.length) continue;
       buyer = wpick(want, x => bidWeight(x, p, c)); amt = feeRound(valueOf(p) * rf(2, 5) * (1 + form * .1));
       if (!canAfford(buyer, amt)) continue;  // they can't raise it
-      const m = addMsg({ type: "bid", keen: buyer.tier < c.tier || buyer.rep > c.rep + 8 || buyer.abroad, nfs: true, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}, though he's not for sale` });
+      const m = addMsg({ type: "bid", keen: wantsMove(p, buyer, c), nfs: true, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}, though he's not for sale` });
       // Not for sale means it (1.2.29): anything up to three times his value is turned down at once. Only a bid
       // above that reaches you to decide.
       if (amt <= valueOf(p) * NFS_MIN) { answerBid(m, false, true); m.answer = `turned down: he's not for sale (${NFS_MIN}x his value or less)`; }
@@ -318,7 +334,7 @@ function bidsWeek(c) {
     }
     if (amt < 1000) amt = 1000;
     if (!canAfford(buyer, amt)) continue;  // they haven't the budget for it
-    const fw = formWord(seasonForm(p)), keen = buyer.tier < c.tier || buyer.rep > c.rep + 8 || (p.list && R() < .7);
+    const fw = formWord(seasonForm(p)), keen = wantsMove(p, buyer, c);
     addMsg({ type: "bid", keen, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name}${p.list ? " (listed)" : fw ? ` after ${fw}` : ""}` });
   }
 }
@@ -780,7 +796,7 @@ function offWindowBids(c = my()) {
     const want = bidders().filter(x => x.lvl >= p.ovr - 4 && x.lvl <= p.ovr + 9); if (!want.length) continue;
     const d = listDemand(p, c), buyer = wpick(want, x => bidWeight(x, p, c)), amt = Math.max(1000, feeRound(valueOf(p) * rf(.6 + d * .4, 1.1 + d * .35)));
     if (!canAfford(buyer, amt) || askMet(p, buyer, amt, true)) continue;
-    addMsg({ type: "bid", pre: true, keen: R() < .7, pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name} (listed): he'd join when the window opens` });
+    addMsg({ type: "bid", pre: true, keen: wantsMove(p, buyer, c), pid: p.id, club: buyer.id, amt, rec: headAdvice(p, amt), title: `${clubLabel(buyer)} bid ${money(amt)} for ${p.name} (listed): he'd join when the window opens` });
   }
 }
 // When a window opens, sales agreed while it was shut go through.
