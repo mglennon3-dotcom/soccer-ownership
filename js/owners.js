@@ -219,10 +219,10 @@ function aiBudget(c) { const b = aiAfford(c) * squeeze(c) * (c.chase ? 1.2 : 1) 
   if (c.tier <= 4 && !reckless(c)) { let lim = SCR_LIMIT[c.tier] * scrRevenue(c); if (europeBound(c)) lim = Math.min(lim, UEFA_SCR * aiIncome(c)); w = Math.min(w, Math.max(tierWages(c.tier) * .5, lim * .88 - aiAmort(c))); }
   else if (c.tier >= 5 && !c.abroad) w = Math.min(w, nlWageCap(c) * .85);  // leaving the owner room for the odd statement signing
   return c.abroad ? w : Math.max(w, wageFloor(c)); }
-/* The wage floor (1.2.48): every English AI club spends at least 60% of its income on player wages, counting a rolling
+/* The wage floor (1.2.48): every English AI club spends at least 55% of its income on player wages, counting a rolling
    average of its player sales as income, so money from selling goes to the players rather than the bank. It stays
    inside the spending rule (the squad cost limit, with a little room) for owners who keep to it. */
-const WAGE_FLOOR = .6;
+const WAGE_FLOOR = .55;
 function wageFloor(c) {
   if (c.abroad || isMine(c)) return 0;
   const f = WAGE_FLOOR * (aiIncome(c) + Math.max(0, c.feeAvg || 0));
@@ -576,7 +576,7 @@ function spendRule(c, net, inc) { const r = spendRolling(c, net, inc), pen = (c.
    the club may not pay a fee next season; break it by more than 8 points and it's docked points too (3, or 6 past 20). Clubs in Europe answer to UEFA as
    well: 70% of revenue, no owner money; a breach is a fine; a second big one (more than 15 points over) within three years a settlement (a much bigger fine); a third a ban.
    Non-league has no such rule: there it's down to the owner, who'll put in only so much a year, by his nature. */
-const SCR_LIMIT = [0, .85, 1, .6, .55, 0, 0, 0], UEFA_SCR = .7;
+const SCR_LIMIT = [0, .85, 1, .6, .65, 0, 0, 0], UEFA_SCR = .7;  // (1.2.48: Third Division .55 to .65, so its clubs can spend their money on the squad)
 // In Europe now, or qualified for next season.
 const europeBound = c => inEurope(c) || !!(G.qual && [...(G.qual.CC || []), ...(G.qual.CS || [])].includes(c.id));
 const aiSquadCost = c => aiBill(c) + aiAmort(c);
