@@ -171,7 +171,7 @@ const pairW = (a, b) => a === b ? .5 : SLOT_LINE[a] === SLOT_LINE[b] ? .35 : Mat
    defender's (or the keeper's) the other defenders, top right the midfielders; a midfielder's top left the attackers, top
    right the midfielders, bottom right the defence; st the style. */
 function archChem(xi, style) {
-  const n = {}, A = xi.map(o => ({ ...o, a: archetypeOf(o.p) })), seg = {}; for (const o of A) if (o.a) n[o.a[3]] = (n[o.a[3]] || 0) + 1;
+  const n = {}, A = xi.map(o => ({ ...o, a: archetypeAt(o.p, o.slot) })), seg = {}; for (const o of A) if (o.a) n[o.a[3]] = (n[o.a[3]] || 0) + 1;
   const has = (...k) => k.reduce((s, x) => s + (n[x] || 0), 0), lab = o => `${o.p.name.split(" ").slice(-1)[0]} (${o.a[0].toLowerCase()})`;
   let atk = 0, def = 0; const good = [], bad = [], seen = new Set();
   for (const o of A) seg[o.p.id] = { tl: 0, tr: 0, br: 0, st: 0, mid: ringLine(o.slot) === "mid", why: [] };
