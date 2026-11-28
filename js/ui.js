@@ -1088,6 +1088,8 @@ function pgMarket() {
 // Under a "can't afford him" verdict: an offer to raise the budgets just enough.
 function fitBtn(p, loan) { const f = budgetFit(p, loan); return f ? `<div class="row" style="margin:4px 0 6px"><button class="btn sm" style="white-space:nowrap" data-act="fitbudget" data-id="${p.id}"${loan ? ' data-loan="1"' : ""}>Raise the budget to fit him</button><span class="small muted">${budgetFitText(f).replace(/^t/, "T")}</span></div>` : ""; }
 // On your own player's card: retrain his type within his position, once (1.2.64).
+// His rating after a type change, against now.
+const ovrLine = (p, o) => { const a = r20(o), b = r20(p.ovr); return `<span class="${a > b ? "good" : a < b ? "warn" : "muted"}">Rated ${a} afterwards${a > b ? ` (up from ${b})` : a < b ? ` (down from ${b})` : " (no change)"}</span>`; };
 function restyleBox(p) {
   if (p.restyled) return `<p class="small muted">Retrained from a ${esc(p.restyled.from.toLowerCase())} in ${seasonLabel(p.restyled.y)}: his type can't be changed again, and he can't retrain to a new position.</p>`;
   if (p.retrained) return "";  // he's retrained to a new position: no type change as well
@@ -1095,7 +1097,7 @@ function restyleBox(p) {
   const opts = (ARCHETYPES[p.pos] || []).filter(a => a[3] !== cur[3] && restyleOutcome(p, a[3]));
   return `<details class="sugg"><summary class="small"><b>Retrain his type</b> <span class="muted">(once only, and then no position change)</span></summary>
     <p class="small muted" style="margin:6px 0">Now ${/^[AEIOU]/.test(cur[0]) ? "an" : "a"} ${esc(cur[0].toLowerCase())}. A new type changes how he's asked to play, not his attributes or his rating, so only the types his attributes are already close to are open to him.</p>
-    ${opts.length ? opts.map(a => `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(a[0])}</b> <span class="muted">(${a[3]})</span>: ${esc(a[2])}</span><button class="btn sm" data-act="restyle" data-id="${p.id}" data-to="${a[3]}">Retrain</button></div>`).join("") : `<p class="small muted">None: his attributes don't come close to any other type.</p>`}
+    ${opts.length ? opts.map(a => `<div class="row between" style="gap:8px;padding:4px 0"><span class="small"><b>${esc(a[0])}</b> <span class="muted">(${a[3]})</span>: ${esc(a[2])}<br>${ovrLine(p, restyleOutcome(p, a[3]).ovr)}</span><button class="btn sm" data-act="restyle" data-id="${p.id}" data-to="${a[3]}">Retrain</button></div>`).join("") : `<p class="small muted">None: his attributes don't come close to any other type.</p>`}
     <p class="small muted">It takes effect now.</p></details>`;
 }
 // On your own player's card: retrain him to a neighbouring position, once, with the manager's estimate.
