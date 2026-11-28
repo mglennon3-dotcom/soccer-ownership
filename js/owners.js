@@ -174,7 +174,7 @@ function aiEstimate(x) {
 }
 // A season's income: TV, the gate (plus bar and shop), sponsors.
 // (plus a little for cup runs, merit money and selling players).
-// (1.2.41) The gate counts children's cheaper tickets (ticketYield); the bar and food are what's left after stock and
+// (1.2.41) The gate counts children's cheaper tickets at semi-professional clubs (ticketYield); the bar and food are what's left after stock and
 // staff, about a quarter of ticket money (was 35% before costs).
 function aiIncome(c) { const e = aiEstimate(c); return (TV[c.tier] + paraOf(c) / 1.08 + e.att * e.ticket * 23 * (ticketYield(c) + .25) + e.comm + e.merch) * 1.08; }
 // The wage bill: a loanee in costs his share; a player loaned out still costs the rest (loanOutW).
