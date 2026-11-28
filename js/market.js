@@ -667,13 +667,15 @@ const NATURAL = {
   BW: [["CM", "DES"]], DLP: [["CM", "PM"]], ANC: [["CB", "STP"]],
   B2B: [["DM", "BW"], ["AM", "SHS"]], PM: [["AM", "CRE"], ["DM", "DLP"]], BC: [["W", "DW"], ["AM", "DRB"]], DES: [["DM", "BW"]],
   CRE: [["CM", "PM"]], SHS: [["ST", "POA"]], DRB: [["W", "IF"]],
-  DW: [["FB", "OFB"], ["ST", "RIB"]], IF: [["AM", "SHS"], ["ST", "POA"]], WPM: [["AM", "CRE"], ["CM", "PM"]], WW: [["FB", "OFB"], ["CM", "B2B"]],
+  DW: [["FB", "OFB"], ["ST", "RIB"]], IF: [["AM", "SHS"], ["ST", "POA"]], WPM: [["AM", "CRE"], ["CM", "PM"], ["CM", "DLP"], ["DM", "DLP"]], WW: [["FB", "OFB"], ["CM", "B2B"]],
   POA: [["AM", "SHS"]], RIB: [["W", "DW"]], DLF: [["AM", "CRE"]],
 };
 // Natural only if his attributes already carry him there: his rating in the new position, as he is, within two points
 // of his rating now (a striker's tackling and marking won't make him a centre-back, whatever his type).
 const natFits = (p, to) => r20(rawRole({ ...p, pos: to }, to)) >= r20(p.ovr) - 2;
-const naturalTo = (p, to) => { const a = archetypeOf(p), n = a ? (NATURAL[a[3]] || []).find(x => x[0] === to) : null; return n && natFits(p, to) ? n : null; };
+/* Where a type has more than one natural fit at the same position, he takes the one his attributes suit best */
+const natSuit = (p, to, code) => { const t = (ARCHETYPES[to] || []).find(a => a[3] === code); return t ? t[1].reduce((s, k) => s + (p.at[k] || 0), 0) / t[1].length : 0; };
+const naturalTo = (p, to) => { const a = archetypeOf(p); if (!a || !natFits(p, to)) return null; const ns = (NATURAL[a[3]] || []).filter(x => x[0] === to); return ns.length ? ns.reduce((b, x) => natSuit(p, to, x[1]) > natSuit(p, to, b[1]) ? x : b) : null; };
 // Where he can retrain: the neighbouring positions, and his type's natural moves.
 const retrainTargets = p => { const a = archetypeOf(p), nat = a ? (NATURAL[a[3]] || []).map(x => x[0]).filter(t => natFits(p, t)) : []; return [...new Set([...nat, ...(RETRAIN[p.pos] || [])])].filter(t => t !== p.pos && t !== "GK"); };
 const retrainOK = p => p.club === G.club && p.pos !== "GK" && !p.retrained && !p.restyled && !(p.loan && p.loan.to === G.club);  // one or the other: a new position or a new type (1.2.65)
