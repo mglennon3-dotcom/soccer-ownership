@@ -44,9 +44,14 @@ function playerLoanTerms(p, from = CL(p.club)) {
 }
 // What his club wants you to pay in wages to borrow him this window, or null if he isn't available to you.
 const loanPay = p => { if (p.club < 0 || !lendsTo(p)) return null; const T = playerLoanTerms(p); return T.no ? null : Math.round(p.wage * T.min / 100) * 100; };
+/* At most five players on loan at any club at once (1.2.37): every way in counts (your requests, partner clubs, your head
+   of recruitment, AI loans, AI borrowing, relegated clubs' forced loans). */
+const LOAN_MAX = 5, loansIn = c => c.squad.reduce((n, id) => { const q = G.players[id]; return n + (q && q.loan && q.loan.to === c.id ? 1 : 0); }, 0);
+const loanFull = c => loansIn(c) >= LOAN_MAX;
 function askLoan(p, share) {
   const from = CL(p.club), T = playerLoanTerms(p);
   if (embargoed(my())) return { ok: false, t: "You can't take players on loan: the club is under a transfer embargo." };
+  if (loanFull(my())) return { ok: false, t: `You already have ${LOAN_MAX} players on loan, the most a club can have: send one back or wait for the summer.` };
   if (!lendsTo(p)) return { ok: false, t: `${from.name} won't send ${p.name} that far down: he's a ${TIER_NAME[naturalTier(p)]} player and they want him playing at that level.` };
   if (T.no) return { ok: false, t: `${from.name} want to keep ${p.name}: he isn't available on loan.` };
   if (share >= T.min) { loanIn(p, from, share); return { ok: true, t: `${from.name} agree: ${p.name} joins on loan until the end of the season. You pay ${Math.round(share * 100)}% of his wages (${pw(p.wage * share)}).` }; }
@@ -63,6 +68,7 @@ function redoLoan(p, share) {
 }
 function loanIn(p, from, share = .5, how) {
   if (embargoed(my())) { news(`${p.name}'s loan is blocked: the club is under a transfer embargo.`, true); return false; }
+  if (loanFull(my())) { news(`${p.name}'s loan falls through: you already have ${LOAN_MAX} players on loan, the most allowed.`, true); return false; }
   const c = my(); logMove("loanin", p, { club: clubLabel(from), share, wage: p.wage, by: how || "you" }); p.loan = { from: from.id, to: c.id, share, neg: true };
   from.squad = from.squad.filter(id => id !== p.id); c.squad.push(p.id); p.club = c.id; registerNew(p, c);
   (G.loanList ||= []).push(p.id);
@@ -102,14 +108,14 @@ function aiLoans() {
     const cands = c.squad.map(P).filter(q => q && !q.loan && !xi.has(q.id) && q.inW !== windowId() && (q.acad ? q.age >= 18 && q.pot >= c.lvl - 4 : q.age <= 23 || (q.age <= 28 && ranked.indexOf(q) >= 20)));
     let n = 0;
     for (const p of cands.sort((a, b) => (b.pot - b.ovr) - (a.pot - a.ovr))) { if (n >= 3 || R() > (p.age <= 23 && p.pot >= p.ovr + 3 ? .6 : .3)) continue;
-      const to = dests.filter(x => x.tier > c.tier && x.tier <= c.tier + 2 && Math.abs((x.lvl || 0) - p.ovr) <= 4 && seniors(x) < AI_MAX && !derbyLevel(c, x));
+      const to = dests.filter(x => x.tier > c.tier && x.tier <= c.tier + 2 && Math.abs((x.lvl || 0) - p.ovr) <= 4 && seniors(x) < AI_MAX && !derbyLevel(c, x) && !loanFull(x));
       if (!to.length) continue; const cnt = x => x.squad.reduce((k, id) => { const q = P(id); return k + (q && !q.acad && q.pos === p.pos ? 1 : 0); }, 0);
       const d = to.sort((a, b) => cnt(a) - cnt(b)).slice(0, 4); p.acad = false; aiLoanMove(p, c, pick(d)); n++; }
   }
 }
 // Short of a player and of money: borrow one from a club a division or two up who isn't playing there.
 function aiBorrow(c, pos, target) {
-  if (c.abroad || c.emb) return false;
+  if (c.abroad || c.emb || loanFull(c)) return false;
   const pool = []; for (const x of G.clubs) { if (x.gone || x.abroad || isMine(x) || x === c || x.tier >= c.tier || x.tier < c.tier - 2 || derbyLevel(c, x)) continue; const xi = xiSet(x);
     for (const id of x.squad) { const q = P(id); if (q && !q.loan && !q.acad && q.pos === pos && !xi.has(q.id) && q.age <= 27 && q.ovr >= target - 4 && q.ovr <= target + 4 && q.inW !== windowId()) pool.push([q, x]); } }
   if (!pool.length) return false; const [q, x] = pool.sort((a, b) => b[0].ovr - a[0].ovr)[0]; aiLoanMove(q, x, c); return true;
